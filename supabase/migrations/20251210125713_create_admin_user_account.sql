@@ -3,7 +3,9 @@
 
   1. Compte Administrateur
     - Email: admin@dariholding.gn
-    - Mot de passe: S@liou170213
+    - Mot de passe: temporaire, à révoquer immédiatement après le premier
+      démarrage via le dashboard Supabase (Authentication > Users).
+      Aucun mot de passe réel ne doit figurer dans une migration.
     - Nom: Abdoulaye Diallo
     - Rôle: Administrateur Système
 
@@ -49,7 +51,7 @@ BEGIN
       'authenticated',
       'authenticated',
       'admin@dariholding.gn',
-      crypt('S@liou170213', gen_salt('bf')),
+      crypt('A-Changer-Des-Le-Premier-Demarrage!', gen_salt('bf')),
       now(),
       now(),
       now(),

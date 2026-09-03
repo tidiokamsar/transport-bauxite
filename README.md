@@ -72,11 +72,23 @@ L'index complet est dans [docs/README.md](docs/README.md). Points d'entree :
 ## Etat du projet
 
 Le projet a ete developpe sous Bolt puis repris en developpement classique.
-`npm run typecheck` passe sans erreur sur la base importee.
+Etat au 3 septembre 2026 :
+
+- `npm run typecheck` : en echec (270 erreurs, dont environ 50 erreurs de
+  type substantielles, le reste etant des imports inutilises).
+- `npm run lint` : en echec (446 erreurs).
+- La Tranche 0 du plan de revue (securite critique : credentials retires,
+  auto-promotion bloquee, route IoT fermee, politiques RLS ouvertes
+  restreintes) est en cours d'application ; voir
+  [docs/PLAN_REVUE_MODULES.md](docs/PLAN_REVUE_MODULES.md).
+- Les mots de passe ne sont plus stockes dans le depot. Les comptes dont
+  les mots de passe ont ete exposes doivent etre revoques dans le
+  dashboard Supabase : voir [docs/SECURITY.md](docs/SECURITY.md).
 
 Point d'attention connu : les vues `src/components/AI/` (maintenance
 predictive, scoring conducteur) generent leurs donnees avec `Math.random()`
 et les ecrivent dans Supabase. Ce sont des maquettes, pas des modeles. Les
 valeurs produites ne sont pas distinguables de vraies predictions dans
 l'interface. Voir `PredictiveMaintenanceView.tsx` et
-`DriverBehaviorAnalyticsView.tsx`.
+`DriverBehaviorAnalyticsView.tsx`. L'usage de `Math.random()` s'etend a
+17 fichiers ; son retrait est planifie vague par vague.

@@ -19,42 +19,36 @@ Les utilisateurs de démonstration doivent être créés manuellement dans Supab
 
 Pour chaque utilisateur ci-dessous, cliquez sur **Add user** > **Create new user** et:
 - ✅ **Cochez "Auto Confirm User"** (IMPORTANT!)
-- ✅ Copiez-collez l'email et le mot de passe
+- ✅ Choisissez un **mot de passe fort et unique** (généré et conservé
+  dans votre gestionnaire de secrets ; jamais écrit dans ce dépôt)
 - ✅ Cliquez sur "Create user"
 
 #### 👤 Utilisateur 1: Administrateur
 - **Email**: `admin@sigtb.gn`
-- **Password**: `admin123`
 - **Auto Confirm User**: ✅ OUI (important!)
 
 #### 👤 Utilisateur 2: Manager
 - **Email**: `manager@sigtb.gn`
-- **Password**: `manager123`
 - **Auto Confirm User**: ✅ OUI
 
 #### 👤 Utilisateur 3: Responsable de Flotte
 - **Email**: `fleet@sigtb.gn`
-- **Password**: `fleet123`
 - **Auto Confirm User**: ✅ OUI
 
 #### 👤 Utilisateur 4: Dispatcher
 - **Email**: `dispatcher@sigtb.gn`
-- **Password**: `dispatch123`
 - **Auto Confirm User**: ✅ OUI
 
 #### 👤 Utilisateur 5: Mécanicien
 - **Email**: `mechanic@sigtb.gn`
-- **Password**: `mechanic123`
 - **Auto Confirm User**: ✅ OUI
 
 #### 👤 Utilisateur 6: Comptable
 - **Email**: `accountant@sigtb.gn`
-- **Password**: `account123`
 - **Auto Confirm User**: ✅ OUI
 
 #### 👤 Utilisateur 7: Responsable RH
 - **Email**: `hr@sigtb.gn`
-- **Password**: `hr123`
 - **Auto Confirm User**: ✅ OUI
 
 ### 3. Créer les profils correspondants
@@ -203,15 +197,18 @@ Dans **Table Editor** > **profiles**, vous devriez voir 7 lignes avec les rôles
 
 ## 🔐 Rôles et Accès
 
-| Rôle | Identifiants | Modules Accessibles |
-|------|-------------|-------------------|
-| **Admin** | admin@sigtb.gn / admin123 | Tous les modules |
-| **Manager** | manager@sigtb.gn / manager123 | Véhicules, Chauffeurs, Voyages, Carburant, Maintenance, Rapports |
-| **Fleet Manager** | fleet@sigtb.gn / fleet123 | Véhicules, Chauffeurs, Maintenance, GPS |
-| **Dispatcher** | dispatcher@sigtb.gn / dispatch123 | Voyages, Carburant, Dashboard |
-| **Mechanic** | mechanic@sigtb.gn / mechanic123 | Maintenance, Stock, Véhicules (lecture) |
-| **Accountant** | accountant@sigtb.gn / account123 | Facturation, Coûts, Rapports |
-| **HR Manager** | hr@sigtb.gn / hr123 | Employés, Présences, Paie |
+Les mots de passe sont définis à la création des comptes (voir étape 2)
+et ne figurent jamais dans ce document.
+
+| Rôle | Email | Modules Accessibles |
+|------|-------|-------------------|
+| **Admin** | admin@sigtb.gn | Tous les modules |
+| **Manager** | manager@sigtb.gn | Véhicules, Chauffeurs, Voyages, Carburant, Maintenance, Rapports |
+| **Fleet Manager** | fleet@sigtb.gn | Véhicules, Chauffeurs, Maintenance, GPS |
+| **Dispatcher** | dispatcher@sigtb.gn | Voyages, Carburant, Dashboard |
+| **Mechanic** | mechanic@sigtb.gn | Maintenance, Stock, Véhicules (lecture) |
+| **Accountant** | accountant@sigtb.gn | Facturation, Coûts, Rapports |
+| **HR Manager** | hr@sigtb.gn | Employés, Présences, Paie |
 
 ## 🗄️ Données de Démonstration
 

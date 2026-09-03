@@ -143,7 +143,7 @@
 ### Authentification
 ✅ **Compte Admin créé** - admin@dariholding.gn
 ✅ **Email confirmé** - Prêt à l'emploi
-✅ **Mot de passe sécurisé** - S@liou170213
+✅ **Mot de passe** - Défini dans le dashboard Supabase, jamais versionné
 
 ### Index de Performance
 ✅ **87 Index créés** - Optimisation des requêtes
@@ -362,7 +362,7 @@
 
 ### Compte Administrateur
 - **Email**: admin@dariholding.gn
-- **Mot de passe**: S@liou170213
+- **Mot de passe**: Communiqué par l'administrateur (dashboard Supabase)
 - **Rôle**: Administrateur Système
 - **Accès**: Tous modules
 

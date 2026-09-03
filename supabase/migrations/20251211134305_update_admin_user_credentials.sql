@@ -2,7 +2,10 @@
   # Mise à jour des informations de l'administrateur
   
   1. Changement du nom: Abdoulaye BAH
-  2. Changement du mot de passe: Seilou170213
+  2. Changement du mot de passe: temporaire, à révoquer immédiatement
+     après le premier démarrage via le dashboard Supabase
+     (Authentication > Users). Aucun mot de passe réel ne doit figurer
+     dans une migration.
 */
 
 DO $$
@@ -16,7 +19,7 @@ BEGIN
     -- Mettre à jour le mot de passe dans auth.users
     UPDATE auth.users
     SET 
-      encrypted_password = crypt('Seilou170213', gen_salt('bf')),
+      encrypted_password = crypt('A-Changer-Des-Le-Premier-Demarrage!', gen_salt('bf')),
       raw_user_meta_data = jsonb_build_object(
         'full_name', 'Abdoulaye BAH',
         'role', 'admin'
@@ -31,7 +34,7 @@ BEGIN
       updated_at = now()
     WHERE id = admin_user_id;
     
-    RAISE NOTICE 'Informations admin mises à jour: Abdoulaye BAH / Seilou170213';
+    RAISE NOTICE 'Informations admin mises à jour: Abdoulaye BAH (mot de passe temporaire, à changer)';
   ELSE
     RAISE EXCEPTION 'Utilisateur admin non trouvé';
   END IF;
