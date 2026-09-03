@@ -20,6 +20,7 @@ consultables dans le commit initial.
 | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Tables, relations, donnees de demonstration, migrations |
 | [SECURITY.md](SECURITY.md) | Index de cles etrangeres, optimisation des politiques RLS, `search_path` des fonctions |
 | [MODULES_AUDIT.md](MODULES_AUDIT.md) | Inventaire exhaustif des modules et de leurs fonctionnalites |
+| [PLAN_REVUE_MODULES.md](PLAN_REVUE_MODULES.md) | Plan de revue module par module : amenagement, re-revision, suivi |
 
 ## Deploiement
 
