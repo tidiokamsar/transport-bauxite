@@ -5,6 +5,31 @@
 
 ---
 
+## 🔑 ROTATION DES SECRETS (Tranche 0 - septembre 2026)
+
+Le dépôt a contenu en clair le mot de passe du compte administrateur
+(page de connexion, documentation, migrations) ainsi que des mots de
+passe de comptes de démonstration. Ces valeurs ont été retirées du code,
+mais elles restent dans l'historique git.
+
+Actions obligatoires :
+
+1. **Révoquer le mot de passe `admin@dariholding.gn`** : Dashboard
+   Supabase > Authentication > Users > admin > Send password reset (ou
+   définir un nouveau mot de passe fort).
+2. **Révoquer les mots de passe des comptes de démonstration** créés à
+   partir de valeurs publiées (`admin123`, `bah123`, etc.), et tout
+   autre compte dont le mot de passe figure dans l'historique du dépôt.
+3. Ne plus jamais écrire de mot de passe dans le code, la documentation
+   ou une migration. Les migrations de création de compte utilisent une
+   valeur temporaire explicite à révoquer au premier démarrage.
+4. Si le dépôt doit être partagé au-delà de l'équipe de reprise,
+   envisager `git filter-repo` pour purger l'historique après rotation
+   de tous les secrets.
+
+---
+
+
 ## 📊 RÉSUMÉ DES CORRECTIONS
 
 | Catégorie | Problèmes Détectés | Corrigés | Status |

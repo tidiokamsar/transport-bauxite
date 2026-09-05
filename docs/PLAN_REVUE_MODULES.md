@@ -233,7 +233,7 @@ A maintenir a chaque PR mergee.
 
 | Unite | Vague | Actions | Statut | PR | Date |
 |---|---|---|---|---|---|
-| Tranche 0 | 0 | 0.1 a 0.5 | a faire | - | - |
+| Tranche 0 | 0 | 0.1 a 0.5 | en cours (revue requise ; rotation des mots de passe et application des migrations apres merge) | [#2](https://github.com/tidiokamsar/transport-bauxite/pull/2) | 2026-09-03 |
 | Tranche 1 | 1 | 1.1 a 1.4 | a faire | - | - |
 | Tracking | A | C5, timers, types | a faire | - | - |
 | Fuel | A | C7, aleatoire, types | a faire | - | - |

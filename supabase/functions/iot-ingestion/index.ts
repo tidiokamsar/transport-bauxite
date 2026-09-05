@@ -146,11 +146,27 @@ Deno.serve(async (req: Request) => {
     if (path.includes('/telemetry')) {
       const payload = await req.json();
       const deviceId = req.headers.get('X-Device-Id');
+      const apiKey = req.headers.get('X-Api-Key');
 
-      if (!deviceId) {
+      if (!deviceId || !apiKey) {
         return new Response(
-          JSON.stringify({ error: 'Device ID required' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'Device ID and API key required' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Valider le couple device / clé API, comme les routes /gps et /fuel
+      const { data: device } = await supabase
+        .from('iot_devices')
+        .select('id')
+        .eq('device_id', deviceId)
+        .eq('api_key', apiKey)
+        .single();
+
+      if (!device) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid device or API key' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 

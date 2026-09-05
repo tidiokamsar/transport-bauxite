@@ -3,7 +3,9 @@
   
   Création d'un utilisateur admin avec:
   - Email: admin@dariholding.gn
-  - Mot de passe: admin123
+  - Mot de passe: temporaire, à révoquer immédiatement après le premier
+    démarrage via le dashboard Supabase (Authentication > Users).
+    Aucun mot de passe réel ne doit figurer dans une migration.
   - Rôle: admin
   - Profil complet
 */
@@ -54,7 +56,7 @@ BEGIN
     'authenticated',
     'authenticated',
     'admin@dariholding.gn',
-    crypt('admin123', gen_salt('bf')),
+    crypt('A-Changer-Des-Le-Premier-Demarrage!', gen_salt('bf')),
     now(),
     NULL,
     '',
@@ -94,5 +96,5 @@ BEGIN
     '+224 620000000'
   );
 
-  RAISE NOTICE 'Compte admin créé avec succès: admin@dariholding.gn / admin123';
+  RAISE NOTICE 'Compte admin créé avec succès: admin@dariholding.gn (mot de passe temporaire, à changer)';
 END $$;
