@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, CheckCircle, Info, X, Star, Filter, Plus, Edit } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Bell, AlertTriangle, CheckCircle, Info, X, Star, Filter, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import NotificationModal from './NotificationModal';
 

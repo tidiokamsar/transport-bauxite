@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Plus, Search, Droplet, TrendingUp, TrendingDown, AlertTriangle, Activity,
+  Plus, Search, Droplet, TrendingUp, AlertTriangle, Activity,
   Truck, MapPin, DollarSign, BarChart3, Target, Award, FileText, Download,
-  Edit, Trash2, RefreshCw, Leaf, Shield, Eye
+  Edit, Trash2, RefreshCw, Leaf, Shield
 } from 'lucide-react';
 import { FuelTransactionModal } from './FuelTransactionModal';
 import { FuelStockModal } from './FuelStockModal';

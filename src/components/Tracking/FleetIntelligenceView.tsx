@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  MapPinned, Navigation, Zap, AlertCircle, Clock, Gauge, RefreshCw,
-  Activity, Filter, Download, TrendingUp, Shield, Cpu, Layers,
-  Radio, Wifi, Target, MapPin, Route, BarChart3, Bell, Eye,
-  PlayCircle, PauseCircle, Maximize2, ChevronRight, AlertTriangle,
-  CheckCircle, Info, XCircle, Map as MapIcon
+  MapPinned, Navigation, AlertCircle, RefreshCw,
+  Activity, Cpu, Wifi, Target, BarChart3, Bell, Eye, PauseCircle, AlertTriangle,
+  CheckCircle, Info, Map as MapIcon
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, Circle as LeafletCircle, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle as LeafletCircle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { VehicleDetailModal } from './VehicleDetailModal';

@@ -1,6 +1,5 @@
 import { Languages } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { Language } from '../../i18n/translations';
 
 export const LanguageSelector = () => {
   const { language, setLanguage, t } = useLanguage();

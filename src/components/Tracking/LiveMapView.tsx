@@ -5,8 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
 import {
   MapPin, Gauge, Fuel, User, Clock, Navigation, Map as MapIcon,
-  TrendingUp, Package, AlertTriangle, CheckCircle, Truck, X, Maximize2,
-  Activity, Droplet, Thermometer, Battery, Radio, Calendar
+  TrendingUp, Package, Truck, X, Maximize2,
+  Activity, Droplet, Radio, Calendar
 } from 'lucide-react';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;

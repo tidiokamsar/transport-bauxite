@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, CheckSquare, Send, Trash2, Edit } from 'lucide-react';
+import { X, CheckSquare, Trash2 } from 'lucide-react';
 
 interface BulkActionsModalProps {
   selectedInvoiceIds: string[];

@@ -16,7 +16,6 @@ import {
   MapPin,
   Fuel,
   DollarSign,
-  Download,
   RefreshCw,
   Plus,
   Edit,

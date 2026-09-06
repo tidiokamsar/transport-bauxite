@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, X, Loader2, Truck, User, Fuel, Wrench, FileText, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { Search, X, Loader2, Truck, User, Fuel, Wrench, FileText, MapPin, ArrowRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface SearchResult {
@@ -47,9 +47,8 @@ export const GlobalSearchModal = ({ isOpen, onClose }: GlobalSearchModalProps) =
     const allResults: SearchResult[] = [];
 
     try {
-      const lowerQuery = searchQuery.toLowerCase();
 
-      const [vehicles, drivers, trips, fuel, maintenance, invoices, sites] = await Promise.all([
+      const [vehicles, drivers, trips, maintenance, invoices, sites] = await Promise.all([
         supabase
           .from('vehicles')
           .select('id, vehicle_number, make, model, vehicle_type, status')

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  BarChart3, TrendingUp, Download, DollarSign, Truck, Users, Fuel,
+  BarChart3, TrendingUp, Download, DollarSign, Truck, Fuel,
   Calendar, FileText, Filter, RefreshCw
 } from 'lucide-react';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, Play, CheckCircle, XCircle, Clock, MapPin, Truck, User, Calendar, Package, Trash2, Fuel, Gauge, Zap, MapPinned, Award } from 'lucide-react';
+import { X, Save, Play, CheckCircle, XCircle, Clock, MapPin, Truck, Calendar, Package, Trash2, Fuel, Gauge, Zap, MapPinned, Award } from 'lucide-react';
 
 interface TripModalProps {
   trip: any;

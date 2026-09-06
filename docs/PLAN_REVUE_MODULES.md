@@ -234,7 +234,7 @@ A maintenir a chaque PR mergee.
 | Unite | Vague | Actions | Statut | PR | Date |
 |---|---|---|---|---|---|
 | Tranche 0 | 0 | 0.1 a 0.5 | termine cote code (merge PR #2). Manuel et en attente : rotation des mots de passe, `supabase db push`, `supabase functions deploy iot-ingestion`, rejeu des scenarios | [#2](https://github.com/tidiokamsar/transport-bauxite/pull/2) | 2026-09-03 |
-| Tranche 1 | 1 | 1.1 a 1.4 | a faire | - | - |
+| Tranche 1 | 1 | 1.1 a 1.4 | en cours (purge mecanique, cliquet CI, baselines 61 tsc / 268 lint) | - | 2026-09-03 |
 | Tracking | A | C5, timers, types | a faire | - | - |
 | Fuel | A | C7, aleatoire, types | a faire | - | - |
 | Dashboard | A | KPI, aleatoire | a faire | - | - |

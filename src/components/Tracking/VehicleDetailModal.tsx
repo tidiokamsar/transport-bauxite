@@ -598,7 +598,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
                             opacity={0.8}
                             dashArray="10, 10"
                           />
-                          {vehicle.trip_waypoints.map((waypoint, idx) => (
+                          {vehicle.trip_waypoints.map((waypoint, _idx) => (
                             <Marker
                               key={waypoint.id}
                               position={[waypoint.latitude, waypoint.longitude]}

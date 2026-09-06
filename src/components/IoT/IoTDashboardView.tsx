@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Radio, Gauge, Droplet, MapPin, Activity, AlertTriangle,
+  Radio, Droplet, MapPin, Activity, AlertTriangle,
   Battery, Signal, RefreshCw, Clock, TrendingUp
 } from 'lucide-react';
 

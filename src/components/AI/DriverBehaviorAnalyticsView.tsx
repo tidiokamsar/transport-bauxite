@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Award, Target, Users, BarChart3, Shield, Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import DriverBehaviorModal from './DriverBehaviorModal';

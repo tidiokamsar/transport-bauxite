@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Plus, Search, Users, Star, Phone, Mail, MapPin, RefreshCw, Edit, Eye
+  Plus, Search, Users, Star, Phone, Mail, RefreshCw, Edit, Eye
 } from 'lucide-react';
 import { SupplierModal } from './SupplierModal';
 

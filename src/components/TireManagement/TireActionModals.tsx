@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, Save, Wrench, Activity, Repeat, CheckCircle, Camera, QrCode,
-  AlertTriangle, Gauge, Calendar, MapPin, User, FileText, RefreshCw
+  X, Save, Wrench, Activity, QrCode, RefreshCw
 } from 'lucide-react';
 
 // Modal de Montage

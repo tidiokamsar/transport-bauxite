@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertTriangle, TrendingUp, Wrench, DollarSign, Calendar, Award, Brain, Target, Plus, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import PredictiveMaintenanceModal from './PredictiveMaintenanceModal';

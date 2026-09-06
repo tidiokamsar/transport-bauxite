@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, FileText, AlertTriangle, CheckCircle, Clock,
-  RefreshCw, Edit, Eye, Download, Upload, Filter, Calendar, DollarSign
+  RefreshCw, Edit, Eye, Calendar, DollarSign
 } from 'lucide-react';
 import { VehicleDocumentModal } from './VehicleDocumentModal';
 
@@ -31,7 +31,7 @@ export const VehicleDocumentsView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [vehicleFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<VehicleDocument | undefined>();
 
@@ -133,7 +133,6 @@ export const VehicleDocumentsView = () => {
   const pendingRenewal = documents.filter(d => d.status === 'pending_renewal').length;
   const totalCost = documents.reduce((sum, d) => sum + (d.cost || 0), 0);
 
-  const vehicles = [...new Set(documents.map(d => d.vehicle))].filter(Boolean);
   const documentTypes = [...new Set(documents.map(d => d.document_type))];
 
   if (loading) {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, Save, Repeat, CheckCircle, Camera, AlertTriangle, Gauge, RefreshCw
+  X, Save, Repeat, CheckCircle, Camera, Gauge, RefreshCw
 } from 'lucide-react';
 
 // Modal de Rotation/Permutation

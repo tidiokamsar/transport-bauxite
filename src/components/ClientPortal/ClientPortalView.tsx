@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Package, Truck, FileText, DollarSign, MessageSquare, BarChart3,
-  Clock, MapPin, CheckCircle, AlertCircle, Download, Eye
+  Clock, MapPin, CheckCircle, Download
 } from 'lucide-react';
 
 export const ClientPortalView = () => {

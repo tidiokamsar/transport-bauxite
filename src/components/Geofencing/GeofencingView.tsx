@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet';
 import { supabase } from '../../lib/supabase';
 import {
   Shield, AlertTriangle, MapPin, Plus, Edit2, Trash2, Eye,
-  Download, Settings, CheckCircle, XCircle, AlertCircle, Navigation,
-  Activity, Clock
+  Download, Settings, CheckCircle, XCircle, AlertCircle, Navigation
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -79,7 +78,7 @@ export default function GeofencingView() {
   const [alerts, setAlerts] = useState<GeofenceAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'map' | 'zones' | 'violations' | 'alerts'>('map');
-  const [selectedZone, setSelectedZone] = useState<GeofenceZone | null>(null);
+  const [, setSelectedZone] = useState<GeofenceZone | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
   const [mapCenter, setMapCenter] = useState<[number, number]>([11.0967, -13.7761]);
   const [showZoneModal, setShowZoneModal] = useState(false);

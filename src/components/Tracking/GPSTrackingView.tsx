@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  MapPinned, Navigation, Zap, AlertCircle, Clock, Gauge, RefreshCw,
-  Circle, Activity, Filter, Download, Maximize2, Navigation2
+  MapPinned, Navigation, AlertCircle, Clock, Gauge, RefreshCw, Activity, Filter, Download, Maximize2
 } from 'lucide-react';
 import { LiveMapView } from './LiveMapView';
 
@@ -24,9 +23,7 @@ interface VehiclePosition {
 export const GPSTrackingView = () => {
   const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedVehicle, setSelectedVehicle] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
   const [mapCenter] = useState({ lat: 10.6822, lng: -14.7644 }); // Conakry, Guinée
 
   useEffect(() => {
@@ -113,39 +110,6 @@ export const GPSTrackingView = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-500';
-      case 'maintenance':
-        return 'bg-orange-500';
-      case 'inactive':
-        return 'bg-gray-500';
-      default:
-        return 'bg-blue-500';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'En service';
-      case 'maintenance':
-        return 'Maintenance';
-      case 'inactive':
-        return 'Inactif';
-      default:
-        return status;
-    }
-  };
-
-  const filteredVehicles = vehicles.filter(v => {
-    if (filterStatus === 'all') return true;
-    if (filterStatus === 'moving') return v.speed_kmh > 5;
-    if (filterStatus === 'stopped') return v.speed_kmh <= 5;
-    if (filterStatus === 'active') return v.status === 'active';
-    return true;
-  });
 
   const movingVehicles = vehicles.filter(v => v.speed_kmh > 5).length;
   const stoppedVehicles = vehicles.filter(v => v.speed_kmh <= 5).length;

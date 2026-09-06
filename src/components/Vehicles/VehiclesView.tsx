@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Edit2, Eye, Download, FileText, Table } from 'lucide-react';
+import { Plus, Search, Edit2, Eye, FileText, Table } from 'lucide-react';
 import { VehicleModal } from './VehicleModal';
-import { exportToCSV, exportToPDF, formatDataForExport } from '../../lib/exports';
+import { exportToCSV, exportToPDF } from '../../lib/exports';
 
 interface Vehicle {
   id: string;

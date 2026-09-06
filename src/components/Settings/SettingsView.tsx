@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Save, RefreshCw, Building2, DollarSign, Bell, AlertTriangle, Calculator, Settings as SettingsIcon, TestTube } from 'lucide-react';
-import { WorkflowTestView } from './WorkflowTestView';
 
 interface Setting {
   id: string;
