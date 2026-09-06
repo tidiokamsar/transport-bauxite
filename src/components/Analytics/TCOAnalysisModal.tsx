@@ -56,7 +56,7 @@ export default function TCOAnalysisModal({ analysis, onClose, onSave }: TCOAnaly
     );
   };
 
-  const getEfficiencyRating = (totalCost: number) => {
+  const getEfficiencyRating = (_totalCost: number) => {
     const costPerKm = parseFloat(formData.cost_per_km.toString() || '0');
     if (costPerKm < 0.5) return 'excellent';
     if (costPerKm < 0.7) return 'good';

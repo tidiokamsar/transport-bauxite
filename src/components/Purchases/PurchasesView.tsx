@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Plus, Search, ShoppingCart, Clock, CheckCircle, XCircle, RefreshCw,
-  Edit, Eye, Package, TrendingUp, Trash2
+  Plus, Search, ShoppingCart, Clock, CheckCircle, RefreshCw,
+  Edit, TrendingUp, Trash2
 } from 'lucide-react';
 import { CompletePurchaseModal } from './CompletePurchaseModal';
 

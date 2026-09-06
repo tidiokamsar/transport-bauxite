@@ -4,7 +4,7 @@ import {
   Bell, BellRing, AlertTriangle, Info, CheckCircle, Clock,
   Settings, Filter, Search, Trash2, Eye, EyeOff
 } from 'lucide-react';
-import { buttonStyles, cardStyles, statusColors } from '../../styles/theme';
+import { buttonStyles, cardStyles } from '../../styles/theme';
 
 interface Alert {
   id: string;

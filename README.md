@@ -74,12 +74,13 @@ L'index complet est dans [docs/README.md](docs/README.md). Points d'entree :
 Le projet a ete developpe sous Bolt puis repris en developpement classique.
 Etat au 3 septembre 2026 :
 
-- `npm run typecheck` : en echec (270 erreurs, dont environ 50 erreurs de
-  type substantielles, le reste etant des imports inutilises).
-- `npm run lint` : en echec (446 erreurs).
-- La Tranche 0 du plan de revue (securite critique : credentials retires,
-  auto-promotion bloquee, route IoT fermee, politiques RLS ouvertes
-  restreintes) est en cours d'application ; voir
+- `npm run typecheck` : 61 erreurs residuelles (dette de type substantive,
+  traitee vague par vague ; voir le plan de revue).
+- `npm run lint` : 0 erreur, 268 avertissements (majorite de `any`
+  explicites, objectif zero a terme).
+- CI en place (`.github/workflows/ci.yml`) : build systematique et cliquet
+  de baseline interdisant toute regression typecheck/lint.
+- La Tranche 0 (securite critique) est livree ; voir
   [docs/PLAN_REVUE_MODULES.md](docs/PLAN_REVUE_MODULES.md).
 - Les mots de passe ne sont plus stockes dans le depot. Les comptes dont
   les mots de passe ont ete exposes doivent etre revoques dans le

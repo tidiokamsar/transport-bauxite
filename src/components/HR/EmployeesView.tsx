@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { EmployeeDetailsModal } from './EmployeeDetailsModal';
 import {
-  Plus, Search, Users, UserCheck, UserX, Briefcase, RefreshCw,
-  Edit, Eye, Phone, Mail, Calendar, DollarSign, X, MapPin,
-  FileText, TrendingUp, Clock, Award, AlertCircle, Download
+  Plus, Search, Users, UserCheck, Briefcase, RefreshCw,
+  Edit, Eye, Phone, Mail, Calendar, DollarSign, X,
+  FileText, TrendingUp, Award, Download
 } from 'lucide-react';
 
 interface Employee {
@@ -36,7 +36,7 @@ export const EmployeesView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeDetails | null>(null);
+  const [selectedEmployee] = useState<EmployeeDetails | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
@@ -366,6 +366,7 @@ export const EmployeesView = () => {
       />
 
       {/* OLD MODAL COMMENTED - TO REMOVE */}
+      {/* eslint-disable-next-line no-constant-binary-expression -- bloc desactive, a supprimer en Vague B (HR) */}
       {false && showDetailModal && selectedEmployee && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">

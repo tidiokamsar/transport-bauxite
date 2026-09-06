@@ -78,7 +78,7 @@ export const RouteHistoryView = () => {
   const fetchTrips = async () => {
     try {
       setLoading(true);
-      let query = supabase
+      const query = supabase
         .from('trips')
         .select(`
           *,
@@ -193,7 +193,6 @@ export const RouteHistoryView = () => {
 
   const stats = calculateTripStats();
 
-  const completedTrips = trips.filter(t => t.status === 'completed');
   const totalDistance = trips.reduce((sum, t) => sum + (t.estimated_distance_km || 0), 0);
 
   const totalDuration = trips.reduce((sum, t) => {

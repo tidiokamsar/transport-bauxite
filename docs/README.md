@@ -22,6 +22,15 @@ consultables dans le commit initial.
 | [MODULES_AUDIT.md](MODULES_AUDIT.md) | Inventaire exhaustif des modules et de leurs fonctionnalites |
 | [PLAN_REVUE_MODULES.md](PLAN_REVUE_MODULES.md) | Plan de revue module par module : amenagement, re-revision, suivi |
 
+## Reprise en main et re-revision
+
+Toute contribution suit le processus decrit dans
+[PLAN_REVUE_MODULES.md](PLAN_REVUE_MODULES.md) : branche dediee, pull
+request, puis checklist de re-revision (section 7 du plan) avant merge.
+Le cliquet qualite (CI) impose : zero erreur ESLint, pas de regression du
+nombre d'erreurs typecheck ni d'avertissements lint par rapport aux
+baselines de `.github/ci-baseline.env`.
+
 ## Deploiement
 
 | Document | Contenu |

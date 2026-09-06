@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Truck, Users, MapPin, DollarSign, AlertTriangle, TrendingUp,
-  Fuel, Wrench, FileText, Package, Clock, Calendar, Activity,
-  CheckCircle, XCircle, AlertCircle, TrendingDown, BarChart3, PieChart,
-  Navigation, Zap, Shield, Target
+  Fuel, Wrench, FileText, Package, Clock, Activity,
+  CheckCircle
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -222,7 +221,6 @@ export const DashboardView = () => {
       const recentMaintenance = recentMaintenanceRes.data || [];
       const recentTrips = recentTripsRes.data || [];
 
-      const totalTonnageToday = todayTrips.reduce((sum, trip) => sum + (trip.load_weight || 0), 0);
       const totalTonnageMonth = monthTrips.reduce((sum, trip) => sum + (trip.load_weight || 0), 0);
       const avgTonnage = monthTrips.length > 0 ? totalTonnageMonth / monthTrips.length : 0;
       const totalFuelConsumed = fuelTransactions.reduce((sum, tx) => sum + (tx.quantity || 0), 0);
@@ -388,8 +386,6 @@ export const DashboardView = () => {
     });
   }
 
-  const profitMargin = stats.totalRevenue - stats.totalCosts;
-  const profitPercentage = stats.totalRevenue > 0 ? ((profitMargin / stats.totalRevenue) * 100).toFixed(1) : 0;
 
   return (
     <div className="space-y-8 animate-fadeIn">

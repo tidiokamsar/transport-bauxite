@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Loader2, Upload } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface VehicleDocumentModalProps {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, Package, AlertTriangle, TrendingDown, RefreshCw,
-  Edit, Eye, ArrowUpCircle, ArrowDownCircle, History
+  Edit, ArrowUpCircle, ArrowDownCircle, History
 } from 'lucide-react';
 import { StockItemModal } from './StockItemModal';
 import { StockEntryModal } from './StockEntryModal';

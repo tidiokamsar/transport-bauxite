@@ -9,7 +9,7 @@ export const PayrollView = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
-  const [selectedPayroll, setSelectedPayroll] = useState<any>(null);
+  const [selectedPayroll] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPayrollId, setSelectedPayrollId] = useState<string>('');
   const [filters, setFilters] = useState({ status: 'all', month: new Date().toISOString().slice(0, 7) });
@@ -292,6 +292,7 @@ export const PayrollView = () => {
       />
 
       {/* OLD MODAL - TO REMOVE */}
+      {/* eslint-disable-next-line no-constant-binary-expression -- bloc desactive, a supprimer en Vague B (HR) */}
       {false && showDetailModal && selectedPayroll && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">

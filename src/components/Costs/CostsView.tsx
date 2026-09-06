@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Plus, Search, DollarSign, TrendingUp, TrendingDown, RefreshCw,
-  Fuel, Wrench, Users, FileText, BarChart3, Calendar
+  Plus, Search, DollarSign, TrendingUp, TrendingDown, RefreshCw, FileText, BarChart3, Calendar
 } from 'lucide-react';
 
 interface Cost {

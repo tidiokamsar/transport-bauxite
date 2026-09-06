@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Wrench, Plus, Edit2, Trash2, Eye, Search, Filter,
-  Download, Upload, RefreshCw, Activity, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle, XCircle, Calendar, MapPin,
-  Gauge, DollarSign, Award, Target, BarChart3, Package,
-  Settings, Camera, QrCode, Navigation, ChevronDown, ChevronRight,
-  X, Save, Zap, ShoppingCart, FileText, Users, Repeat
+  Wrench, Plus, Edit2, Trash2, Search, RefreshCw, Activity, TrendingUp, TrendingDown,
+  AlertTriangle, CheckCircle, Calendar, DollarSign, Award, Target, BarChart3, Package,
+  X, Save, Zap, FileText
 } from 'lucide-react';
 import { MountingModal, DismountingModal } from './TireActionModals';
 import { RotationModal, QualityControlModal } from './TireActionModalsExtra';
@@ -50,7 +47,7 @@ export default function CompleteTireManagement() {
   // États principaux
   const [tires, setTires] = useState<Tire[]>([]);
   const [mountings, setMountings] = useState<MountingOperation[]>([]);
-  const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
+  const [, setMetrics] = useState<PerformanceMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -62,9 +59,6 @@ export default function CompleteTireManagement() {
   const [showDismountingModal, setShowDismountingModal] = useState(false);
   const [showRotationModal, setShowRotationModal] = useState(false);
   const [showQualityControlModal, setShowQualityControlModal] = useState(false);
-  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
-  const [showSupplierScoreModal, setShowSupplierScoreModal] = useState(false);
-  const [showRecommendationModal, setShowRecommendationModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
 
   // Tire sélectionné

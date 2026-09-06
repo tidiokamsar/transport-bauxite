@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, DollarSign, Calendar, User, TrendingUp, TrendingDown, Calculator, CheckCircle, Clock, Users, Truck, AlertCircle } from 'lucide-react';
+import { X, DollarSign, Calendar, User, TrendingUp, TrendingDown, Calculator, CheckCircle, Truck, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface PayrollModalProps {
@@ -202,7 +202,6 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
                   required
                   value={formData.employee_id}
                   onChange={(e) => {
-                    const emp = employees.find(employee => employee.id === e.target.value);
                     setFormData({ ...formData, employee_id: e.target.value });
                     setAutoCalculation(null);
                   }}

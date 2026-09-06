@@ -159,14 +159,15 @@ class OfflineManager {
     const { table, operation, data } = transaction;
 
     switch (operation) {
-      case 'insert':
+      case 'insert': {
         const { error: insertError } = await supabase
           .from(table)
           .insert(data);
         if (insertError) throw insertError;
         break;
+      }
 
-      case 'update':
+      case 'update': {
         const { id, ...updateData } = data;
         const { error: updateError } = await supabase
           .from(table)
@@ -174,14 +175,16 @@ class OfflineManager {
           .eq('id', id);
         if (updateError) throw updateError;
         break;
+      }
 
-      case 'delete':
+      case 'delete': {
         const { error: deleteError } = await supabase
           .from(table)
           .delete()
           .eq('id', data.id);
         if (deleteError) throw deleteError;
         break;
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, Droplet, Truck, MapPin, Calendar, DollarSign, Gauge, FileText } from 'lucide-react';
+import { X, Save, Droplet, Truck, Calendar, DollarSign, Gauge, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface FuelTransactionModalProps {
@@ -33,7 +33,7 @@ export const FuelTransactionModal = ({ transaction, onClose }: FuelTransactionMo
   });
 
   const [fuelTypes, setFuelTypes] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
+  const [, setSites] = useState<any[]>([]);
   const [stations, setStations] = useState<any[]>([]);
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [drivers, setDrivers] = useState<any[]>([]);

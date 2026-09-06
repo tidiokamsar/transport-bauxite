@@ -24,9 +24,9 @@ export default function DriverBehaviorModal({ score, onClose, onSave }: DriverBe
     idle_time_minutes: score?.idle_time_minutes || 0,
     night_driving_hours: score?.night_driving_hours || 0,
     fatigue_risk_level: score?.fatigue_risk_level || 'low',
-    improvement_areas: score?.improvement_areas || [],
-    strengths: score?.strengths || [],
-    training_recommendations: score?.training_recommendations || []
+    improvement_areas: (score?.improvement_areas || []) as string[],
+    strengths: (score?.strengths || []) as string[],
+    training_recommendations: (score?.training_recommendations || []) as string[]
   });
   const [drivers, setDrivers] = useState<any[]>([]);
   const [newImprovement, setNewImprovement] = useState('');

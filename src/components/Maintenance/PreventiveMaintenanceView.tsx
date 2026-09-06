@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { MaintenanceScheduleModal } from './MaintenanceScheduleModal';
 import {
-  Calendar, Clock, AlertCircle, CheckCircle, Wrench, TrendingUp,
-  Settings, Bell, BarChart3, Filter, Download, Plus, RefreshCw, Edit, Trash2
+  Calendar, Clock, AlertCircle, CheckCircle, TrendingUp, Bell, Filter, Download, Plus, RefreshCw, Edit, Trash2
 } from 'lucide-react';
 
 interface MaintenanceSchedule {
@@ -34,7 +33,7 @@ interface Vehicle {
 
 export const PreventiveMaintenanceView = () => {
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterPriority, setFilterPriority] = useState<string>('all');

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Droplet, TrendingUp, TrendingDown, AlertTriangle, Activity, Truck,
-  DollarSign, BarChart3, Target, Award, Brain, Zap, PieChart, Gauge,
-  AlertCircle, CheckCircle, MapPin, Calendar, Leaf, RefreshCw
+  Droplet, TrendingUp, AlertTriangle,
+  DollarSign, Target, Award, Brain, Zap, Gauge,
+  AlertCircle, CheckCircle, Calendar, Leaf, RefreshCw
 } from 'lucide-react';
 
 interface DashboardStats {

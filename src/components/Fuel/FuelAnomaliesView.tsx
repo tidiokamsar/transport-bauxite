@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { AlertTriangle, MapPin, TrendingUp, Eye, CheckCircle, Clock, X } from 'lucide-react';
+import { MapPin, TrendingUp, Eye, CheckCircle, Clock } from 'lucide-react';
 
 interface Anomaly {
   id: string;

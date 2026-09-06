@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Users, Plus, Search, AlertCircle, Phone, Mail, Calendar, FileText, Ban, CheckCircle, Download, Table } from 'lucide-react';
+import { Users, Plus, Search, AlertCircle, Phone, Mail, Calendar, FileText, Ban, CheckCircle, Table } from 'lucide-react';
 import { DriverModal } from './DriverModal';
 import { exportToCSV, exportToPDF } from '../../lib/exports';
 

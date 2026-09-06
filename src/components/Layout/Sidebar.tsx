@@ -31,9 +31,6 @@ import {
   Calculator,
   Activity,
   Zap,
-  Award,
-  GitBranch,
-  DollarSign,
   AlertTriangle,
   Search
 } from 'lucide-react';

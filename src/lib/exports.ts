@@ -36,10 +36,10 @@ export const exportToExcel = (data: any[], filename: string) => {
   exportToCSV(data, filename);
 };
 
-export const exportToPDF = (title: string, data: any[], filename: string) => {
+export const exportToPDF = (title: string, data: any[], _filename: string) => {
   const headers = data.length > 0 ? Object.keys(data[0]) : [];
 
-  let htmlContent = `
+  const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>

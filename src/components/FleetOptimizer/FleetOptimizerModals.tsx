@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Loader2, Calendar, Clock, MapPin, Target, Truck, Users, AlertTriangle } from 'lucide-react';
+import { X, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface FleetTask {

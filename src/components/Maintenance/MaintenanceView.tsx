@@ -59,7 +59,7 @@ interface MaintenanceSchedule {
 
 export const MaintenanceView = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
-  const [parts, setParts] = useState<SparePart[]>([]);
+  const [, setParts] = useState<SparePart[]>([]);
   const [inventory, setInventory] = useState<PartInventory[]>([]);
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,18 +172,12 @@ export const MaintenanceView = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const filteredParts = parts.filter((p) =>
-    p.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const filteredInventory = inventory.filter((i) =>
     i.part_reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     i.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalWorkOrders = workOrders.length;
   const openOrders = workOrders.filter(wo => wo.status === 'open').length;
   const inProgressOrders = workOrders.filter(wo => wo.status === 'in_progress').length;
   const completedOrders = workOrders.filter(wo => wo.status === 'completed').length;
@@ -293,7 +287,7 @@ export const MaintenanceView = () => {
 
     const csvContent = [
       headers.join(','),
-      ...data.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...data.map(row => row.map((cell: string | number) => `"${cell}"`).join(','))
     ].join('\n');
 
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });

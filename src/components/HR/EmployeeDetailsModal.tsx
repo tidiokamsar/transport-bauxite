@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, User, Phone, Mail, MapPin, Calendar, Briefcase, DollarSign, TrendingUp,
-  Truck, Clock, Award, FileText, Activity, BarChart3, CheckCircle, AlertCircle
+  X, User, Phone, DollarSign,
+  Truck, Clock, Award, FileText, Activity, BarChart3, CheckCircle
 } from 'lucide-react';
 
 interface EmployeeDetailsModalProps {

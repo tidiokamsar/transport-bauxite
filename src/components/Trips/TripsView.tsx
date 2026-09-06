@@ -49,7 +49,7 @@ interface ShiftStats {
 export const TripsView = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [shifts, setShifts] = useState<WorkShift[]>([]);
-  const [shiftStats, setShiftStats] = useState<ShiftStats[]>([]);
+  const [, setShiftStats] = useState<ShiftStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -394,7 +394,6 @@ export const TripsView = () => {
             const shiftTrips = filteredTrips
               .filter(t => t.shift?.id === shift.id)
               .sort((a, b) => (a.shift_sequence || 0) - (b.shift_sequence || 0));
-            const stats = shiftStats.find(s => s.shift_id === shift.id);
 
             return (
               <div key={shift.id} className="bg-white rounded-xl shadow-sm border-2 border-slate-200 overflow-hidden" style={{ borderTopColor: shift.color }}>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, PieChart, BarChart3, Calculator, Award, Plus, Edit, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, TrendingUp, TrendingDown, PieChart, BarChart3, Calculator, Award, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import TCOAnalysisModal from './TCOAnalysisModal';
 
@@ -208,20 +208,6 @@ export default function TCOAnalysisView() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette analyse TCO ?')) return;
-    try {
-      await supabase.from('tco_analysis').delete().eq('id', id);
-      loadAnalyses();
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-    }
-  };
-
-  const handleEdit = (analysis: TCOAnalysis) => {
-    setSelectedAnalysis(analysis);
-    setShowModal(true);
-  };
 
   const handleCreate = () => {
     setSelectedAnalysis(null);

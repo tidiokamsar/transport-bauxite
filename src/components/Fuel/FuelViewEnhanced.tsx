@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Plus, Search, Droplet, TrendingUp, TrendingDown, AlertTriangle, Activity,
-  Truck, MapPin, DollarSign, BarChart3, Target, Award, FileText, Download,
-  Edit, Trash2, RefreshCw, Leaf, Shield, Eye, Calendar, Zap, PieChart,
+  Plus, Droplet, TrendingUp, TrendingDown, AlertTriangle, Activity,
+  Truck, MapPin, DollarSign, BarChart3, Target, Award, Download,
+  Edit, RefreshCw, Leaf, Calendar,
   Gauge, Brain, AlertCircle, CheckCircle
 } from 'lucide-react';
 import { FuelTransactionModal } from './FuelTransactionModal';
@@ -406,7 +406,7 @@ export const FuelViewEnhanced = () => {
 
     const csvContent = [
       headers.join(','),
-      ...data.map(row => row.map(cell => `"${cell}"`).join(','))
+      ...data.map(row => row.map((cell: string | number) => `"${cell}"`).join(','))
     ].join('\n');
 
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });

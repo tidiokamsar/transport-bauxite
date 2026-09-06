@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, Download, Mail, Edit, Trash2, CheckCircle, DollarSign, Calendar,
-  User, Briefcase, TrendingUp, TrendingDown, FileText, Printer
+  X, Download, Mail, Trash2, CheckCircle, Calendar,
+  User, Briefcase
 } from 'lucide-react';
 
 interface PayrollDetailsModalProps {
@@ -521,7 +521,6 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
   }
 
   const baseSalary = parseFloat(payroll?.base_salary || 0);
-  const bonuses = parseFloat(payroll?.bonuses || 0);
   const overtimePay = parseFloat(payroll?.overtime_pay || 0);
   const socialSecurity = parseFloat(payroll?.social_security || 0);
   const taxAmount = parseFloat(payroll?.tax_amount || 0);

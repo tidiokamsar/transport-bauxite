@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, MapPin, Droplet } from 'lucide-react';
+import { X, Save, MapPin } from 'lucide-react';
 
 interface FuelStationModalProps {
   station: any;

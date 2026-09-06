@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { UserModal } from './UserModal';
 import {
-  Users, Save, RefreshCw, Building2, Truck, Wrench, DollarSign, Bell,
-  AlertTriangle, Calculator, Settings as SettingsIcon, Shield, Database,
-  MapPin, Fuel, Package, FileText, Calendar, TrendingUp, Zap, Lock,
-  Eye, EyeOff, Edit, Trash2, Plus, CheckCircle, XCircle, Search, Clock
+  Users, Save, Building2, Truck, Wrench, Bell, Shield,
+  MapPin, Fuel, Package, FileText, Zap, Edit, Trash2, Plus, Search
 } from 'lucide-react';
 
 interface Profile {
