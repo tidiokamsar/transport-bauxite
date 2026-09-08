@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Search, Eye, Edit2, MapPin, Calendar, TrendingUp, Package, CheckCircle, Clock, Sunrise, Sun, Moon, BarChart3, Table, FileText } from 'lucide-react';
 import { TripModal } from './TripModal';
@@ -60,13 +60,8 @@ export const TripsView = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('view');
 
-  useEffect(() => {
-    fetchShifts();
-    fetchTrips();
-    fetchShiftStats();
-  }, [dateFilter]);
 
-  const fetchShifts = async () => {
+  const fetchShifts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('work_shifts')
@@ -79,9 +74,9 @@ export const TripsView = () => {
     } catch (error) {
       console.error('Error fetching shifts:', error);
     }
-  };
+  }, []);
 
-  const fetchTrips = async () => {
+  const fetchTrips = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('trips')
@@ -105,9 +100,9 @@ export const TripsView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFilter]);
 
-  const fetchShiftStats = async () => {
+  const fetchShiftStats = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('shift_performance_stats')
@@ -119,7 +114,13 @@ export const TripsView = () => {
     } catch (error) {
       console.error('Error fetching shift stats:', error);
     }
-  };
+  }, [dateFilter]);
+
+  useEffect(() => {
+    fetchShifts();
+    fetchTrips();
+    fetchShiftStats();
+  }, [fetchShifts, fetchTrips, fetchShiftStats]);
 
   const filteredTrips = trips.filter((trip) => {
     const matchesSearch =
