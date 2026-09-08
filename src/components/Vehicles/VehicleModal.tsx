@@ -1,22 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X } from 'lucide-react';
-
-interface Vehicle {
-  id?: string;
-  registration: string;
-  brand_model: string;
-  year?: number;
-  capacity_tonnes: number;
-  vehicle_type: string;
-  chassis_number?: string;
-  current_km: number;
-  status: string;
-  purchase_cost?: number;
-  current_value?: number;
-  insurance_expiry?: string;
-  technical_inspection_expiry?: string;
-}
+import { Vehicle } from '../../types/vehicle';
 
 interface VehicleModalProps {
   vehicle: Vehicle | null;
