@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   BarChart3, TrendingUp, Download, DollarSign, Truck, Fuel,
@@ -12,18 +12,31 @@ export const ReportsView = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  useEffect(() => {
-    fetchStats();
-  }, [period]);
-
-  useEffect(() => {
+  const getDateFilter = useCallback(() => {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(now.toISOString().split('T')[0]);
-  }, []);
+    let start = new Date();
 
-  const fetchStats = async () => {
+    if (period === 'month') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (period === 'quarter') {
+      const quarter = Math.floor(now.getMonth() / 3);
+      start = new Date(now.getFullYear(), quarter * 3, 1);
+    } else if (period === 'year') {
+      start = new Date(now.getFullYear(), 0, 1);
+    } else if (period === 'custom') {
+      return {
+        start: startDate,
+        end: endDate,
+      };
+    }
+
+    return {
+      start: start.toISOString().split('T')[0],
+      end: now.toISOString().split('T')[0],
+    };
+  }, [period, startDate, endDate]);
+
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -97,31 +110,18 @@ export const ReportsView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getDateFilter]);
 
-  const getDateFilter = () => {
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  useEffect(() => {
     const now = new Date();
-    let start = new Date();
-
-    if (period === 'month') {
-      start = new Date(now.getFullYear(), now.getMonth(), 1);
-    } else if (period === 'quarter') {
-      const quarter = Math.floor(now.getMonth() / 3);
-      start = new Date(now.getFullYear(), quarter * 3, 1);
-    } else if (period === 'year') {
-      start = new Date(now.getFullYear(), 0, 1);
-    } else if (period === 'custom') {
-      return {
-        start: startDate,
-        end: endDate,
-      };
-    }
-
-    return {
-      start: start.toISOString().split('T')[0],
-      end: now.toISOString().split('T')[0],
-    };
-  };
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(now.toISOString().split('T')[0]);
+  }, []);
 
   const formatCurrency = (amount: number) => {
     return `${(amount / 1000000).toFixed(2)}M GNF`;
