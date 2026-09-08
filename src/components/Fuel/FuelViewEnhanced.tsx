@@ -82,10 +82,9 @@ export const FuelViewEnhanced = () => {
   // fetchAllData orchestre fetchStats/fetchTrends/fetchStations/fetchVehicles/fetchAlerts ;
   // fetchAlerts lit l'etat `stations` : lister les fonctions en dependances creerait une
   // boucle de refetch. Refactor prevu : deriver les alertes de stock via useMemo.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAllData();
-  }, [dateRange]);
+  }, [dateRange]); // eslint-disable-line react-hooks/exhaustive-deps -- motif boucle, voir ci-dessus
 
   const fetchAllData = async () => {
     setLoading(true);

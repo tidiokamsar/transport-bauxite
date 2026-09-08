@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Bell, BellRing, AlertTriangle, Info, CheckCircle, Clock,
@@ -34,16 +34,8 @@ export const AlertsView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
 
-  useEffect(() => {
-    fetchAlerts();
 
-    if (autoRefresh) {
-      const interval = setInterval(fetchAlerts, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, filterStatus]);
-
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -91,7 +83,16 @@ export const AlertsView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus]);
+
+  useEffect(() => {
+    fetchAlerts();
+
+    if (autoRefresh) {
+      const interval = setInterval(fetchAlerts, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, fetchAlerts]);
 
   const handleAcknowledge = async (alertId: string) => {
     try {
