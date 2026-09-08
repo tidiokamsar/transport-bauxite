@@ -103,14 +103,14 @@ export const TripModal = ({ trip, mode, onClose }: TripModalProps) => {
         setFormData(prev => ({ ...prev, fuel_consumed_liters: parseFloat(estimatedFuel.toFixed(2)) }));
       }
     }
-  }, [formData.km_end, formData.km_start]);
+  }, [formData.km_end, formData.km_start, formData.fuel_consumed_liters]);
 
   useEffect(() => {
     // Calcul automatique de la prime chauffeur (exemple: 50,000 GNF par voyage)
     if (formData.status === 'completed' && formData.driver_bonus_gnf === 0) {
       setFormData(prev => ({ ...prev, driver_bonus_gnf: 50000 }));
     }
-  }, [formData.status]);
+  }, [formData.status, formData.driver_bonus_gnf]);
 
   useEffect(() => {
     // Calcul automatique du coût carburant (prix moyen: 12,500 GNF/litre)
@@ -118,7 +118,7 @@ export const TripModal = ({ trip, mode, onClose }: TripModalProps) => {
       const cost = formData.fuel_consumed_liters * 12500;
       setFormData(prev => ({ ...prev, fuel_cost_gnf: parseFloat(cost.toFixed(0)) }));
     }
-  }, [formData.fuel_consumed_liters]);
+  }, [formData.fuel_consumed_liters, formData.fuel_cost_gnf]);
 
   useEffect(() => {
     // Remplissage automatique des coordonnées GPS depuis les sites
