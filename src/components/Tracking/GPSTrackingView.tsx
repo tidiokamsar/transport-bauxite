@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   MapPinned, Navigation, AlertCircle, Clock, Gauge, RefreshCw, Activity, Filter, Download, Maximize2
@@ -24,18 +24,9 @@ export const GPSTrackingView = () => {
   const [vehicles, setVehicles] = useState<VehiclePosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [mapCenter] = useState({ lat: 10.6822, lng: -14.7644 }); // Conakry, Guinée
+  const [noGpsCount, setNoGpsCount] = useState(0);
 
-  useEffect(() => {
-    fetchLivePositions();
-
-    if (autoRefresh) {
-      const interval = setInterval(fetchLivePositions, 15000); // Refresh every 15 seconds
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh]);
-
-  const fetchLivePositions = async () => {
+  const fetchLivePositions = useCallback(async () => {
     try {
       // Récupérer les dernières positions GPS de chaque véhicule
       const { data: vehiclesData, error: vehiclesError } = await supabase
@@ -51,9 +42,11 @@ export const GPSTrackingView = () => {
       if (vehiclesError) throw vehiclesError;
 
       if (vehiclesData && vehiclesData.length > 0) {
-        // Pour chaque véhicule, récupérer la dernière position GPS
+        // Pour chaque véhicule, récupérer la dernière position GPS.
+        // Un véhicule sans relevé GPS n'est PAS affiché : aucune position
+        // n'est fabriquée, il est compté « sans signal ».
         const positions = await Promise.all(
-          vehiclesData.map(async (vehicle) => {
+          vehiclesData.map(async (vehicle): Promise<VehiclePosition | null> => {
             const { data: gpsData } = await supabase
               .from('iot_gps_readings')
               .select('*')
@@ -61,6 +54,10 @@ export const GPSTrackingView = () => {
               .order('reading_timestamp', { ascending: false })
               .limit(1)
               .maybeSingle();
+
+            if (!gpsData?.latitude || !gpsData?.longitude) {
+              return null;
+            }
 
             // Récupérer le chauffeur actuel si en mission
             const { data: tripData } = await supabase
@@ -88,12 +85,12 @@ export const GPSTrackingView = () => {
               id: vehicle.id,
               vehicle_id: vehicle.id,
               registration: vehicle.registration,
-              latitude: gpsData?.latitude || mapCenter.lat + (Math.random() - 0.5) * 0.5,
-              longitude: gpsData?.longitude || mapCenter.lng + (Math.random() - 0.5) * 0.5,
-              speed_kmh: gpsData?.speed_kmh || 0,
+              latitude: parseFloat(gpsData.latitude),
+              longitude: parseFloat(gpsData.longitude),
+              speed_kmh: parseFloat(gpsData.speed_kmh || 0),
               heading: 0,
-              timestamp: gpsData?.reading_timestamp || new Date().toISOString(),
-              driver_name: tripData?.drivers?.name,
+              timestamp: gpsData.reading_timestamp || new Date().toISOString(),
+              driver_name: (tripData?.drivers as unknown as { name?: string } | null)?.name,
               status: vehicle.status,
               fuel_level: fuelData?.fuel_level_percentage,
               engine_on: gpsData?.ignition_status ?? false
@@ -101,15 +98,24 @@ export const GPSTrackingView = () => {
           })
         );
 
-        setVehicles(positions);
+        setNoGpsCount(positions.filter(p => p === null).length);
+        setVehicles(positions.filter((p): p is VehiclePosition => p !== null));
       }
     } catch (error) {
       console.error('Error fetching GPS positions:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  useEffect(() => {
+    fetchLivePositions();
+
+    if (autoRefresh) {
+      const interval = setInterval(fetchLivePositions, 15000); // Refresh every 15 seconds
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, fetchLivePositions]);
 
   const movingVehicles = vehicles.filter(v => v.speed_kmh > 5).length;
   const stoppedVehicles = vehicles.filter(v => v.speed_kmh <= 5).length;
@@ -132,6 +138,11 @@ export const GPSTrackingView = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Suivi GPS en Temps Réel</h1>
           <p className="text-gray-600">Géolocalisation et télématique de la flotte</p>
+          {noGpsCount > 0 && (
+            <p className="mt-1 text-sm font-medium text-amber-600">
+              {noGpsCount} véhicule{noGpsCount > 1 ? 's' : ''} équipé{noGpsCount > 1 ? 's' : ''} sans signal GPS — non affiché{noGpsCount > 1 ? 's' : ''} sur la carte
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <button

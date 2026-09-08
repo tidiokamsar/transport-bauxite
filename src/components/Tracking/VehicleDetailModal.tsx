@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -99,13 +99,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'info' | 'map' | 'sensors'>('info');
 
-  useEffect(() => {
-    if (isOpen && vehicleId) {
-      fetchVehicleDetails();
-    }
-  }, [isOpen, vehicleId]);
-
-  const fetchVehicleDetails = async () => {
+  const fetchVehicleDetails = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -182,7 +176,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
       // Fetch recent route (last 50 points)
       const { data: routeData } = await supabase
         .from('iot_gps_readings')
-        .select('latitude, longitude, speed_kmh, reading_timestamp as timestamp')
+        .select('latitude, longitude, speed_kmh, timestamp:reading_timestamp')
         .eq('vehicle_id', vehicleId)
         .order('reading_timestamp', { ascending: false })
         .limit(50);
@@ -261,7 +255,13 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
     } finally {
       setLoading(false);
     }
-  };
+  }, [vehicleId]);
+
+  useEffect(() => {
+    if (isOpen && vehicleId) {
+      fetchVehicleDetails();
+    }
+  }, [isOpen, vehicleId, fetchVehicleDetails]);
 
   if (!isOpen) return null;
 
@@ -581,7 +581,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
                       {/* Tracé du trajet récent */}
                       {vehicle.recent_route && vehicle.recent_route.length > 1 && (
                         <Polyline
-                          positions={vehicle.recent_route.map(p => [p.latitude, p.longitude]).reverse()}
+                          positions={vehicle.recent_route.map((p): [number, number] => [p.latitude, p.longitude]).reverse()}
                           color="#60a5fa"
                           weight={3}
                           opacity={0.5}

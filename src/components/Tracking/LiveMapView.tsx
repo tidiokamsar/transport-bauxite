@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
 import {
-  MapPin, Gauge, Fuel, User, Clock, Navigation, Map as MapIcon,
+  MapPin, Gauge, Fuel, User, Clock, Navigation, Navigation2, Map as MapIcon,
   TrendingUp, Package, Truck, X, Maximize2,
   Activity, Droplet, Radio, Calendar
 } from 'lucide-react';
@@ -122,7 +122,7 @@ export const LiveMapView = () => {
         .limit(50);
 
       if (tripsData && tripsData.length > 0) {
-        const trips = await Promise.all(
+        const trips: (ActiveTrip | null)[] = await Promise.all(
           tripsData.map(async (trip) => {
             const { data: gpsData } = await supabase
               .from('iot_gps_readings')
