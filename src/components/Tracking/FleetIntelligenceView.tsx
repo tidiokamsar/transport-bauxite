@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   MapPinned, Navigation, AlertCircle, RefreshCw,
@@ -70,15 +70,7 @@ export const FleetIntelligenceView = () => {
   const [mapCenter, setMapCenter] = useState<[number, number]>([11.1325, -14.3267]); // Sangaredi [lat, lon]
   const [mapZoom, setMapZoom] = useState(10);
 
-  useEffect(() => {
-    fetchFleetData();
-    if (autoRefresh) {
-      const interval = setInterval(fetchFleetData, 10000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh]);
-
-  const fetchFleetData = async () => {
+  const fetchFleetData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -177,7 +169,15 @@ export const FleetIntelligenceView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchFleetData();
+    if (autoRefresh) {
+      const interval = setInterval(fetchFleetData, 10000);
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh, fetchFleetData]);
 
   const getZoneColor = (type: string) => {
     const colors: Record<string, string> = {
