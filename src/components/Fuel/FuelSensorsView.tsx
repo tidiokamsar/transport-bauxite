@@ -358,14 +358,14 @@ export const FuelSensorsView = () => {
                     </div>
                   )}
 
-                  {sensor.consumption_rate > 0 && (
+                  {(sensor.consumption_rate ?? 0) > 0 && (
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <TrendingDown className="w-4 h-4" />
                         <span>Consommation 24h</span>
                       </div>
                       <span className="font-medium text-gray-900">
-                        {sensor.consumption_rate.toFixed(1)} L/h
+                        {(sensor.consumption_rate ?? 0).toFixed(1)} L/h
                       </span>
                     </div>
                   )}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { MapPin, TrendingUp, Eye, CheckCircle, Clock } from 'lucide-react';
 
@@ -27,11 +27,7 @@ export const FuelAnomaliesView = () => {
   const [filter, setFilter] = useState<'all' | 'open' | 'investigating' | 'resolved'>('all');
   const [severityFilter, setSeverityFilter] = useState<'all' | 'critical' | 'high' | 'medium' | 'low'>('all');
 
-  useEffect(() => {
-    fetchAnomalies();
-  }, [filter, severityFilter]);
-
-  const fetchAnomalies = async () => {
+  const fetchAnomalies = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from('fuel_anomalies')
@@ -74,7 +70,11 @@ export const FuelAnomaliesView = () => {
     }
 
     setLoading(false);
-  };
+  }, [filter, severityFilter]);
+
+  useEffect(() => {
+    fetchAnomalies();
+  }, [fetchAnomalies]);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

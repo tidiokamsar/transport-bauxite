@@ -79,6 +79,10 @@ export const FuelViewEnhanced = () => {
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [selectedStation, setSelectedStation] = useState<any>(null);
 
+  // fetchAllData orchestre fetchStats/fetchTrends/fetchStations/fetchVehicles/fetchAlerts ;
+  // fetchAlerts lit l'etat `stations` : lister les fonctions en dependances creerait une
+  // boucle de refetch. Refactor prevu : deriver les alertes de stock via useMemo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchAllData();
   }, [dateRange]);
@@ -261,7 +265,8 @@ export const FuelViewEnhanced = () => {
           ...v,
           avg_consumption: Math.round(avgConsumption * 10) / 10,
           efficiency_score: Math.round(efficiencyScore),
-          trend: (Math.random() - 0.5) * 10,
+          // Tendance inconnue en l'absence de donnees historiques : neutre.
+          trend: 0,
           rating,
           anomalies: 0
         };
@@ -362,12 +367,12 @@ export const FuelViewEnhanced = () => {
 
     if (activeTab === 'overview' || activeTab === 'analytics') {
       filename = `consommation_carburant_${new Date().toISOString().split('T')[0]}.csv`;
-      headers = ['Période', 'Consommation (L)', 'Coût (GNF)', 'Tendance'];
+      headers = ['Période', 'Consommation (L)', 'Coût (GNF)', 'Efficacité'];
       data = trends.map(trend => [
-        trend.period,
+        trend.date,
         trend.consumption.toFixed(2),
         trend.cost.toFixed(0),
-        trend.trend
+        trend.efficiency
       ]);
     } else if (activeTab === 'stations') {
       filename = `stations_carburant_${new Date().toISOString().split('T')[0]}.csv`;
@@ -389,18 +394,18 @@ export const FuelViewEnhanced = () => {
         vehicle.avg_consumption.toFixed(2),
         vehicle.total_fuel.toFixed(2),
         vehicle.total_cost.toFixed(0),
-        vehicle.mission_count,
+        vehicle.missions_count,
         vehicle.efficiency_score.toFixed(1)
       ]);
     } else if (activeTab === 'alerts') {
       filename = `alertes_carburant_${new Date().toISOString().split('T')[0]}.csv`;
       headers = ['Type', 'Véhicule', 'Description', 'Sévérité', 'Date'];
       data = alerts.map(alert => [
-        alert.alert_type,
-        alert.vehicle || 'N/A',
-        alert.description,
+        alert.type,
+        alert.vehicle || alert.station || 'N/A',
+        alert.message,
         alert.severity,
-        new Date(alert.created_at).toLocaleDateString('fr-FR')
+        new Date(alert.timestamp).toLocaleDateString('fr-FR')
       ]);
     }
 
