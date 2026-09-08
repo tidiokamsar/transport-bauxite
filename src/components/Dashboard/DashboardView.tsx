@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Truck, Users, MapPin, DollarSign, AlertTriangle, TrendingUp,
@@ -126,11 +126,8 @@ export const DashboardView = () => {
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -169,7 +166,7 @@ export const DashboardView = () => {
           .gte('start_date', monthStart),
         supabase
           .from('fuel_stocks')
-          .select('current_stock'),
+          .select('current_stock, minimum_stock'),
         supabase
           .from('fuel_transactions')
           .select('quantity, transaction_date')
@@ -196,7 +193,7 @@ export const DashboardView = () => {
           .select('total_amount, amount_paid, status, due_date'),
         supabase
           .from('payments')
-          .select('amount, payment_date')
+          .select('id, amount, payment_date')
           .gte('payment_date', monthStart)
           .order('payment_date', { ascending: false })
           .limit(5),
@@ -311,9 +308,9 @@ export const DashboardView = () => {
 
       // Ajouter les paiements récents
       const recentPayments = paymentsRes.data || [];
-      recentPayments.forEach(payment => {
+      recentPayments.forEach((payment, index) => {
         activities.push({
-          id: `payment-${Math.random()}`,
+          id: `payment-${payment.id || index}`,
           type: 'payment',
           description: `Paiement reçu: ${((payment.amount || 0) / 1000000).toFixed(2)}M GNF`,
           timestamp: payment.payment_date,
@@ -342,7 +339,11 @@ export const DashboardView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
