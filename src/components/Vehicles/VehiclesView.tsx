@@ -3,18 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, Search, Edit2, Eye, FileText, Table } from 'lucide-react';
 import { VehicleModal } from './VehicleModal';
 import { exportToCSV, exportToPDF } from '../../lib/exports';
-
-interface Vehicle {
-  id: string;
-  registration: string;
-  brand_model: string;
-  capacity_tonnes: number;
-  vehicle_type: string;
-  status: string;
-  current_km: number;
-  insurance_expiry: string | null;
-  technical_inspection_expiry: string | null;
-}
+import { Vehicle } from '../../types/vehicle';
 
 export const VehiclesView = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
