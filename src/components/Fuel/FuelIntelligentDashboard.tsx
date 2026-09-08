@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Droplet, TrendingUp, AlertTriangle,
@@ -51,22 +51,8 @@ export const FuelIntelligentDashboard = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchStats(),
-      fetchTopPerformers(),
-      fetchAnomalies(),
-      fetchPredictions()
-    ]);
-    setLoading(false);
-  };
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     const { data: consumption } = await supabase
       .from('fuel_consumption')
       .select('fuel_used_liters, fuel_cost, distance_km, co2_emissions_kg')
@@ -86,6 +72,9 @@ export const FuelIntelligentDashboard = () => {
     const totalDistance = consumption?.reduce((sum, r) => sum + (r.distance_km || 0), 0) || 0;
     const totalCO2 = consumption?.reduce((sum, r) => sum + (r.co2_emissions_kg || 0), 0) || 0;
     const avgConsumption = totalDistance > 0 ? (totalFuel / totalDistance) * 100 : 0;
+    // Indice d'efficacite calcule (reference flotte : 30 L/100 km),
+    // meme formule que la vue efficacite par vehicule.
+    const efficiency = Math.max(0, Math.min(100, 100 - (avgConsumption - 30) * 2));
 
     setStats({
       totalFuelConsumed: totalFuel,
@@ -95,13 +84,13 @@ export const FuelIntelligentDashboard = () => {
       totalVehicles: vehicleStats?.length || 0,
       activeAnomalies: anomaliesData?.length || 0,
       co2Emissions: totalCO2,
-      efficiency: 85 + Math.random() * 10,
+      efficiency,
       trend: 'stable',
       savingsPotential: totalCost * 0.08
     });
-  };
+  }, []);
 
-  const fetchTopPerformers = async () => {
+  const fetchTopPerformers = useCallback(async () => {
     const { data } = await supabase
       .from('fuel_vehicle_stats')
       .select(`
@@ -129,7 +118,7 @@ export const FuelIntelligentDashboard = () => {
     if (data) {
       setTopVehicles(data.map(v => ({
         id: v.vehicle_id,
-        registration: v.vehicles?.registration || 'N/A',
+        registration: (v.vehicles as unknown as { registration?: string } | null)?.registration || 'N/A',
         avgConsumption: v.avg_consumption_per_100km,
         efficiencyScore: v.efficiency_score,
         trend: v.consumption_trend
@@ -139,15 +128,15 @@ export const FuelIntelligentDashboard = () => {
     if (worst) {
       setWorstVehicles(worst.map(v => ({
         id: v.vehicle_id,
-        registration: v.vehicles?.registration || 'N/A',
+        registration: (v.vehicles as unknown as { registration?: string } | null)?.registration || 'N/A',
         avgConsumption: v.avg_consumption_per_100km,
         efficiencyScore: v.efficiency_score,
         trend: v.consumption_trend
       })));
     }
-  };
+  }, []);
 
-  const fetchAnomalies = async () => {
+  const fetchAnomalies = useCallback(async () => {
     const { data } = await supabase
       .from('fuel_anomalies')
       .select(`
@@ -166,7 +155,7 @@ export const FuelIntelligentDashboard = () => {
     if (data) {
       setAnomalies(data.map(a => ({
         id: a.id,
-        vehicleReg: a.vehicles?.registration || 'N/A',
+        vehicleReg: (a.vehicles as unknown as { registration?: string } | null)?.registration || 'N/A',
         type: a.anomaly_type,
         severity: a.severity,
         detectionDate: a.detection_date,
@@ -174,9 +163,9 @@ export const FuelIntelligentDashboard = () => {
         status: a.status
       })));
     }
-  };
+  }, []);
 
-  const fetchPredictions = async () => {
+  const fetchPredictions = useCallback(async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -194,7 +183,22 @@ export const FuelIntelligentDashboard = () => {
         confidence: (p.confidence_level || 0.85) * 100
       })));
     }
-  };
+  }, []);
+
+  const fetchDashboardData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      fetchStats(),
+      fetchTopPerformers(),
+      fetchAnomalies(),
+      fetchPredictions()
+    ]);
+    setLoading(false);
+  }, [fetchStats, fetchTopPerformers, fetchAnomalies, fetchPredictions]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return (
