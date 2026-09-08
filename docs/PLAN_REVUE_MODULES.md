@@ -235,13 +235,13 @@ A maintenir a chaque PR mergee.
 |---|---|---|---|---|---|
 | Tranche 0 | 0 | 0.1 a 0.5 | termine cote code (merge PR #2). Manuel et en attente : rotation des mots de passe, `supabase db push`, `supabase functions deploy iot-ingestion`, rejeu des scenarios | [#2](https://github.com/tidiokamsar/transport-bauxite/pull/2) | 2026-09-03 |
 | Tranche 1 | 1 | 1.1 a 1.4 | termine (merge PR #4) : tsc 270->61, lint 446 erreurs->0, build OK, cliquet en place. Reste a debloquer : les runs CI echouent en startup_failure cote compte GitHub (minutes Actions sur depot prive), voir Settings > Billing | [#4](https://github.com/tidiokamsar/transport-bauxite/pull/4) | 2026-09-06 |
-| Tracking | A | C5, timers, types | a faire | - | - |
-| Fuel | A | C7, aleatoire, types | a faire | - | - |
-| Dashboard | A | KPI, aleatoire | a faire | - | - |
-| Vehicles | A | type `Vehicle` unifie | a faire | - | - |
-| Trips | A | corrections | a faire | - | - |
-| Drivers | A | corrections | a faire | - | - |
-| Alerts | A | timer, alert_rules | a faire | - | - |
+| Tracking | A | C5, timers, types | termine (PR #7 : positions reelles, requete PostgREST corrigee, types, useCallback) | [#7](https://github.com/tidiokamsar/transport-bauxite/pull/7) | 2026-09-08 |
+| Fuel | A | C7, aleatoire, types | termine (PR #8 : FuelView mort supprime, exports CSV corriges, indicateurs calcules) | [#8](https://github.com/tidiokamsar/transport-bauxite/pull/8) | 2026-09-08 |
+| Dashboard | A | KPI, aleatoire | termine (PR #9 : minimum_stock reel, cles stables) | [#9](https://github.com/tidiokamsar/transport-bauxite/pull/9) | 2026-09-08 |
+| Vehicles | A | type `Vehicle` unifie | termine (PR #10 : src/types/vehicle.ts) | [#10](https://github.com/tidiokamsar/transport-bauxite/pull/10) | 2026-09-08 |
+| Trips | A | corrections | termine (PR #6 gardes TripModal + PR #11 useCallback) | [#11](https://github.com/tidiokamsar/transport-bauxite/pull/11) | 2026-09-08 |
+| Drivers | A | corrections | termine (rien a faire apres la purge Tranche 1, 0 erreur residuelle) | - | 2026-09-08 |
+| Alerts | A | timer, alert_rules | termine cote code (PR #11 : useCallback ; le timer avait deja son cleanup ; connexion fine aux alert_rules reportee a la re-revision transversale) | [#11](https://github.com/tidiokamsar/transport-bauxite/pull/11) | 2026-09-08 |
 | HR | B | null-safety, confidentialite | a faire | - | - |
 | Invoices | B | aleatoire, types | a faire | - | - |
 | Costs | B | corrections | a faire | - | - |
