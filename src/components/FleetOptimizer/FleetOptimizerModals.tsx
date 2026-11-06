@@ -137,7 +137,7 @@ export const FleetTaskModal = ({ isOpen, onClose, onSave, task, shiftId }: Fleet
           .update(formData)
           .eq('id', task.id);
       } else {
-        const taskNumber = `TASK-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+        const taskNumber = `TASK-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
         await supabase
           .from('fleet_tasks')
           .insert([{ ...formData, task_number: taskNumber }]);
@@ -450,8 +450,8 @@ export const TaskAssignmentModal = ({ isOpen, onClose, onSave, assignment, taskI
     try {
       const dataToSave = {
         ...formData,
-        allocation_score: Math.random() * 15 + 85,
-        allocation_reason: 'Manual assignment - optimal based on availability and proximity'
+        allocation_score: null,
+        allocation_reason: 'Affectation manuelle'
       };
 
       if (assignment?.id) {

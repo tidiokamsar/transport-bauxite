@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Award, Target, Users, BarChart3, Shield, Plus, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import DriverBehaviorModal from './DriverBehaviorModal';
+import { DemoBanner } from '../Placeholder/DemoBanner';
 
 interface DriverBehaviorScore {
   id: string;
@@ -67,80 +68,6 @@ export default function DriverBehaviorAnalyticsView() {
     }
   };
 
-  const generateScores = async () => {
-    const { data: drivers } = await supabase
-      .from('drivers')
-      .select('*')
-      .eq('status', 'active');
-
-    if (!drivers) return;
-
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 30);
-
-    for (const driver of drivers) {
-      const overallScore = Math.floor(Math.random() * 40) + 60;
-      const harshBraking = Math.floor(Math.random() * 20);
-      const harshAcceleration = Math.floor(Math.random() * 15);
-      const speeding = Math.floor(Math.random() * 10);
-      const idleTime = Math.floor(Math.random() * 500);
-      const nightHours = Math.random() * 80;
-
-      let fatigueRisk = 'low';
-      if (nightHours > 60) fatigueRisk = 'critical';
-      else if (nightHours > 40) fatigueRisk = 'high';
-      else if (nightHours > 20) fatigueRisk = 'medium';
-
-      const improvementAreas = [];
-      const strengths = [];
-      const trainingRecommendations = [];
-
-      if (harshBraking > 10) {
-        improvementAreas.push('Excessive harsh braking');
-        trainingRecommendations.push('Defensive driving course');
-      } else {
-        strengths.push('Smooth braking technique');
-      }
-
-      if (speeding > 5) {
-        improvementAreas.push('Speed limit violations');
-        trainingRecommendations.push('Speed awareness training');
-      } else {
-        strengths.push('Excellent speed compliance');
-      }
-
-      if (idleTime > 300) {
-        improvementAreas.push('High idle time');
-        trainingRecommendations.push('Fuel efficiency workshop');
-      }
-
-      await supabase.from('driver_behavior_scores').insert({
-        driver_id: driver.id,
-        period_start: startDate.toISOString().split('T')[0],
-        period_end: endDate.toISOString().split('T')[0],
-        overall_score: overallScore,
-        safety_score: Math.max(0, overallScore - (harshBraking + harshAcceleration + speeding)),
-        efficiency_score: Math.max(0, 100 - (idleTime / 5)),
-        compliance_score: Math.max(0, 100 - (speeding * 10)),
-        eco_driving_score: Math.max(0, 100 - (harshAcceleration + harshBraking) * 2),
-        harsh_braking_count: harshBraking,
-        harsh_acceleration_count: harshAcceleration,
-        speeding_incidents: speeding,
-        idle_time_minutes: idleTime,
-        night_driving_hours: nightHours,
-        fatigue_risk_level: fatigueRisk,
-        accident_risk_score: (harshBraking + harshAcceleration + speeding) * 3,
-        improvement_areas: improvementAreas,
-        strengths: strengths,
-        training_recommendations: trainingRecommendations,
-        peer_comparison_percentile: Math.floor(Math.random() * 100)
-      });
-    }
-
-    loadScores();
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this driver score?')) return;
     try {
@@ -199,6 +126,7 @@ export default function DriverBehaviorAnalyticsView() {
 
   return (
     <div className="space-y-6">
+      <DemoBanner lot="LOT 16" />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -214,13 +142,6 @@ export default function DriverBehaviorAnalyticsView() {
           >
             <Plus className="h-5 w-5" />
             New Score
-          </button>
-          <button
-            onClick={generateScores}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Target className="h-5 w-5" />
-            Generate Analytics
           </button>
         </div>
       </div>

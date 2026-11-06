@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, PieChart, BarChart3, Calculator, Award, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import TCOAnalysisModal from './TCOAnalysisModal';
+import { DemoBanner } from '../Placeholder/DemoBanner';
 
 interface TCOAnalysis {
   id: string;
@@ -22,8 +23,8 @@ interface TCOAnalysis {
   cost_per_day: number;
   cost_per_trip: number;
   utilization_rate: number;
-  efficiency_rating: string;
-  benchmark_comparison: number;
+  efficiency_rating: string | null;
+  benchmark_comparison: number | null;
   recommendations: any[];
   period_start: string;
   period_end: string;
@@ -113,11 +114,12 @@ export default function TCOAnalysisView() {
 
         // Calcul des distances
         const totalKm = (tripsData || []).reduce((sum, t) =>
-          sum + (t.distance_km || 0), 0) || 50000;
-        const totalTrips = (tripsData || []).length || 250;
+          sum + (t.distance_km || 0), 0);
+        const totalTrips = (tripsData || []).length;
 
-        // Coûts fixes estimés
-        const acquisitionCost = vehicle.acquisition_cost || (80000 + Math.random() * 120000);
+        // Coûts fixes estimés : sans coût d'acquisition renseigné, les postes
+        // qui en dépendent restent à zéro (aucune valeur inventée, D-004).
+        const acquisitionCost = vehicle.acquisition_cost || 0;
         const depreciation = acquisitionCost * 0.15; // 15% par an
         const insuranceCost = acquisitionCost * 0.03; // 3% du coût d'acquisition
         const registrationCost = 1000;
@@ -127,8 +129,9 @@ export default function TCOAnalysisView() {
         const maintenanceDays = (maintenanceData || []).length * 3; // 3 jours par maintenance
         const downtimeCost = maintenanceDays * 500; // 500 USD par jour d'immobilisation
 
-        const accidentCost = Math.random() * 2000;
-        const otherCosts = 1500 + Math.random() * 1500;
+        // Aucune source de données pour les sinistres et frais divers.
+        const accidentCost = 0;
+        const otherCosts = 0;
 
         const totalCost = depreciation + fuelCost + maintenanceCost + insuranceCost +
           registrationCost + financingCost + downtimeCost + accidentCost + otherCosts;
@@ -138,14 +141,22 @@ export default function TCOAnalysisView() {
         const costPerTrip = totalTrips > 0 ? totalCost / totalTrips : 0;
 
         // Calcul du rating d'efficacité
-        let efficiencyRating = 'average';
-        if (costPerKm < 0.5) efficiencyRating = 'excellent';
+        // Sans kilometrage, ni rating ni benchmark ne sont calculables.
+        let efficiencyRating: string | null = 'average';
+        if (totalKm === 0) efficiencyRating = null;
+        else if (costPerKm < 0.5) efficiencyRating = 'excellent';
         else if (costPerKm < 0.7) efficiencyRating = 'good';
         else if (costPerKm > 1.0) efficiencyRating = 'below_average';
         else if (costPerKm > 1.5) efficiencyRating = 'poor';
 
         // Recommandations basées sur les données réelles
         const recommendations = [];
+        if (!vehicle.acquisition_cost) {
+          recommendations.push("Coût d'acquisition non renseigné : amortissement, assurance et financement non calculés");
+        }
+        if (totalKm === 0) {
+          recommendations.push('Aucun kilométrage de voyage sur la période : coût par km non calculé');
+        }
         if (maintenanceCost > 8000) {
           recommendations.push('Coûts de maintenance élevés - envisager le remplacement du véhicule');
         }
@@ -165,7 +176,9 @@ export default function TCOAnalysisView() {
 
         // Comparaison au benchmark (moyenne de la flotte)
         const fleetAvgCostPerKm = 0.75; // Benchmark de référence
-        const benchmarkComparison = ((costPerKm - fleetAvgCostPerKm) / fleetAvgCostPerKm) * 100;
+        const benchmarkComparison = totalKm > 0
+          ? ((costPerKm - fleetAvgCostPerKm) / fleetAvgCostPerKm) * 100
+          : null;
 
         // Supprimer l'ancienne analyse si elle existe
         await supabase
@@ -193,7 +206,7 @@ export default function TCOAnalysisView() {
           cost_per_trip: Math.round(costPerTrip),
           utilization_rate: Math.round(utilizationRate),
           efficiency_rating: efficiencyRating,
-          benchmark_comparison: Number(benchmarkComparison.toFixed(1)),
+          benchmark_comparison: benchmarkComparison === null ? null : Number(benchmarkComparison.toFixed(1)),
           recommendations: recommendations,
           period_start: startDate.toISOString().split('T')[0],
           period_end: endDate.toISOString().split('T')[0]
@@ -214,7 +227,7 @@ export default function TCOAnalysisView() {
     setShowModal(true);
   };
 
-  const getRatingColor = (rating: string) => {
+  const getRatingColor = (rating: string | null) => {
     switch (rating) {
       case 'excellent': return 'text-green-600 bg-green-100';
       case 'good': return 'text-blue-600 bg-blue-100';
@@ -225,14 +238,14 @@ export default function TCOAnalysisView() {
     }
   };
 
-  const getRatingLabel = (rating: string) => {
+  const getRatingLabel = (rating: string | null) => {
     switch (rating) {
       case 'excellent': return 'Excellent';
       case 'good': return 'Bon';
       case 'average': return 'Moyen';
       case 'below_average': return 'Sous la moyenne';
       case 'poor': return 'Faible';
-      default: return rating;
+      default: return rating ?? 'Non calculé';
     }
   };
 
@@ -258,6 +271,7 @@ export default function TCOAnalysisView() {
 
   return (
     <div className="space-y-6">
+      <DemoBanner lot="LOT 12" detail="Les coûts sans donnée source (acquisition, sinistres, divers) ne sont plus estimés." />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -386,6 +400,9 @@ export default function TCOAnalysisView() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
+                        {analysis.benchmark_comparison === null ? (
+                          <span className="text-gray-400">Non calculé</span>
+                        ) : (
                         <span className={`flex items-center justify-center gap-1 ${analysis.benchmark_comparison > 0 ? 'text-red-600' : 'text-green-600'}`}>
                           {analysis.benchmark_comparison > 0 ? (
                             <TrendingUp className="h-4 w-4" />
@@ -394,6 +411,7 @@ export default function TCOAnalysisView() {
                           )}
                           {Math.abs(analysis.benchmark_comparison).toFixed(1)}%
                         </span>
+                        )}
                       </td>
                     </tr>
                   ))

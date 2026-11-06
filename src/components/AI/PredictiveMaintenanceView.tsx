@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, TrendingUp, Wrench, DollarSign, Calendar, Award, Brain, Target, Plus, Edit, Trash2, CheckCircle } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Wrench, DollarSign, Calendar, Award, Brain, Plus, Edit, Trash2, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import PredictiveMaintenanceModal from './PredictiveMaintenanceModal';
+import { DemoBanner } from '../Placeholder/DemoBanner';
 
 interface PredictiveModel {
   id: string;
@@ -90,66 +91,6 @@ export default function PredictiveMaintenanceView() {
     }
   };
 
-  const generatePredictions = async () => {
-    const { data: vehicles } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('status', 'active');
-
-    if (!vehicles) return;
-
-    for (const vehicle of vehicles) {
-      const failureProbability = Math.random() * 100;
-      const components = ['Engine', 'Transmission', 'Brakes', 'Suspension', 'Electrical', 'Tires', 'Cooling System'];
-      const component = components[Math.floor(Math.random() * components.length)];
-
-      let urgencyLevel = 'low';
-      if (failureProbability > 75) urgencyLevel = 'critical';
-      else if (failureProbability > 50) urgencyLevel = 'high';
-      else if (failureProbability > 25) urgencyLevel = 'medium';
-
-      const predictionDate = new Date();
-      predictionDate.setDate(predictionDate.getDate() + Math.floor(Math.random() * 90));
-
-      await supabase.from('predictive_maintenance_models').insert({
-        vehicle_id: vehicle.id,
-        model_type: 'ML_RandomForest',
-        prediction_date: predictionDate.toISOString(),
-        failure_probability: failureProbability,
-        predicted_component: component,
-        recommended_action: `Inspect and service ${component}`,
-        estimated_cost: Math.random() * 5000 + 500,
-        urgency_level: urgencyLevel,
-        confidence_score: 70 + Math.random() * 30,
-        historical_data_points: Math.floor(Math.random() * 1000) + 100,
-        last_trained_at: new Date().toISOString(),
-        status: 'active'
-      });
-
-      const overallScore = Math.floor(Math.random() * 40) + 60;
-      await supabase.from('fleet_health_scores').insert({
-        vehicle_id: vehicle.id,
-        overall_score: overallScore,
-        mechanical_score: Math.floor(Math.random() * 40) + 60,
-        performance_score: Math.floor(Math.random() * 40) + 60,
-        safety_score: Math.floor(Math.random() * 40) + 60,
-        efficiency_score: Math.floor(Math.random() * 40) + 60,
-        risk_level: overallScore > 80 ? 'low' : overallScore > 60 ? 'medium' : overallScore > 40 ? 'high' : 'critical',
-        predicted_issues: [
-          { component, probability: failureProbability }
-        ],
-        recommendations: [
-          `Schedule preventive maintenance for ${component}`,
-          'Monitor performance metrics closely'
-        ],
-        confidence_level: 70 + Math.random() * 30,
-        next_maintenance_prediction: predictionDate.toISOString()
-      });
-    }
-
-    loadData();
-  };
-
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this prediction?')) return;
 
@@ -235,6 +176,7 @@ export default function PredictiveMaintenanceView() {
 
   return (
     <div className="space-y-6">
+      <DemoBanner lot="LOT 11 et LOT 16" />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -250,13 +192,6 @@ export default function PredictiveMaintenanceView() {
           >
             <Plus className="h-5 w-5" />
             New Prediction
-          </button>
-          <button
-            onClick={generatePredictions}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Target className="h-5 w-5" />
-            Generate AI Predictions
           </button>
         </div>
       </div>
