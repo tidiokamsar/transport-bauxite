@@ -327,8 +327,8 @@ n'est deployee tant que P2 n'est pas leve.
 
 ### 10.3 Portee des vagues restantes
 
-Propositions D-004 et D-005 du registre
-[SIGTB_2.0_DECISIONS.md](SIGTB_2.0_DECISIONS.md), en attente d'arbitrage :
+Decisions D-004 et D-005 du registre
+[SIGTB_2.0_DECISIONS.md](SIGTB_2.0_DECISIONS.md), acceptees le 2026-11-06 :
 
 - Vague D : reduite a la suppression des ecritures `Math.random` en base et
   au signalement ou retrait des maquettes (AI, Analytics, FleetOptimizer
