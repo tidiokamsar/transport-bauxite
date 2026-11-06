@@ -3,6 +3,13 @@
 Date d'etablissement : 2026-09-03
 Depot : https://github.com/tidiokamsar/transport-bauxite (prive)
 Origine : revue d'ensemble de la base importee de Bolt (resume en section 2)
+Mise a jour : 2026-11-06 (remesure section 2.1, prerequis et rattachement au
+CDC 2.0 section 10)
+
+Ce plan constitue le LOT 01 « Securite et qualite du socle » du
+[CDC 2.0](SIGTB_2.0_CAHIER_DES_CHARGES.md) (decision D-003). L'etat de
+reference global et le suivi par lot sont dans
+[SIGTB_2.0_PROGRESS.md](SIGTB_2.0_PROGRESS.md).
 
 ## 1. Objectif
 
@@ -48,6 +55,20 @@ Constats majeurs (detail dans le rapport de revue) :
 | C9 | P2 | Polling sans cleanup dans 7 vues | voir section 6 |
 | C10 | P3 | `signUp` mort et INSERT `profiles` impossible sous RLS | `src/contexts/AuthContext.tsx:188` |
 | C11 | P3 | Mode hors-ligne : identifiant fictif retourne aux appelants | `src/lib/offline.ts:253` |
+
+### 2.1 Remesure du 2026-11-06
+
+Les chiffres de la section 2 et la colonne « Dette constatee » de la
+section 6 datent du 2026-09-03. Etat actuel :
+
+| Indicateur | 2026-09-03 | 2026-11-06 |
+|---|---|---|
+| Erreurs typecheck | 270 | 37 (baseline cliquet) |
+| Erreurs lint | 446 | 0 (250 avertissements, baseline) |
+| `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences, tous en Vagues B et D (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) |
+| `setInterval` sans `clearInterval` dans les composants | 7 vues | 0 ; reste `src/lib/offline.ts` (Vague E) |
+| Tests automatises | 0 | 0 |
+| Runs CI reussis | - | 0 (tous en `startup_failure`) |
 
 ## 3. Organisation du travail
 
@@ -233,8 +254,8 @@ A maintenir a chaque PR mergee.
 
 | Unite | Vague | Actions | Statut | PR | Date |
 |---|---|---|---|---|---|
-| Tranche 0 | 0 | 0.1 a 0.5 | termine cote code (merge PR #2). Manuel et en attente : rotation des mots de passe, `supabase db push`, `supabase functions deploy iot-ingestion`, rejeu des scenarios | [#2](https://github.com/tidiokamsar/transport-bauxite/pull/2) | 2026-09-03 |
-| Tranche 1 | 1 | 1.1 a 1.4 | termine (merge PR #4) : tsc 270->61, lint 446 erreurs->0, build OK, cliquet en place. Reste a debloquer : les runs CI echouent en startup_failure cote compte GitHub (minutes Actions sur depot prive), voir Settings > Billing | [#4](https://github.com/tidiokamsar/transport-bauxite/pull/4) | 2026-09-06 |
+| Tranche 0 | 0 | 0.1 a 0.5 | merge (PR #2), **non deploye, non verifie**. En attente : acces au projet Supabase `bprfctzqplahvrepxgrw`, rotation du mot de passe admin, `supabase db push`, `supabase functions deploy iot-ingestion`, rejeu des scenarios. C1 a C4 sont a considerer comme toujours exploitables en production | [#2](https://github.com/tidiokamsar/transport-bauxite/pull/2) | 2026-09-03 |
+| Tranche 1 | 1 | 1.1 a 1.4 | merge (PR #4) : tsc 270->61, lint 446 erreurs->0, build OK, cliquet en place. **CI jamais executee** : tous les runs en `startup_failure` (facturation Actions, depot prive), voir Settings > Billing | [#4](https://github.com/tidiokamsar/transport-bauxite/pull/4) | 2026-09-06 |
 | Tracking | A | C5, timers, types | termine (PR #7 : positions reelles, requete PostgREST corrigee, types, useCallback) | [#7](https://github.com/tidiokamsar/transport-bauxite/pull/7) | 2026-09-08 |
 | Fuel | A | C7, aleatoire, types | termine (PR #8 : FuelView mort supprime, exports CSV corriges, indicateurs calcules) | [#8](https://github.com/tidiokamsar/transport-bauxite/pull/8) | 2026-09-08 |
 | Dashboard | A | KPI, aleatoire | termine (PR #9 : minimum_stock reel, cles stables) | [#9](https://github.com/tidiokamsar/transport-bauxite/pull/9) | 2026-09-08 |
@@ -285,3 +306,33 @@ Le plan est termine quand toutes ces conditions sont reunies :
    bloquants.
 6. CI GitHub Actions verte sur `main` et imposee sur les PR.
 7. README et `docs/` a jour (etat du projet, perimetre reel des modules).
+
+## 10. Articulation avec le CDC 2.0 (2026-11-06)
+
+### 10.1 Prerequis bloquants avant toute nouvelle vague
+
+| # | Prerequis | Responsable | Etat |
+|---|---|---|---|
+| P1 | Debloquer GitHub Actions (facturation du compte, ou depot public) pour que le cliquet s'execute reellement | Proprietaire du compte GitHub | A faire |
+| P2 | Recuperer l'acces au projet Supabase `bprfctzqplahvrepxgrw`, ou creer un projet maitrise et y migrer | DARI HOLDING / proprietaire du projet | A faire |
+| P3 | Deployer et verifier la Tranche 0 (rotation mot de passe, `db push`, `functions deploy iot-ingestion`, rejeu des 3 scenarios) | Equipe projet, apres P2 | A faire |
+| P4 | Installer l'outillage de test (D-007) et ecrire les tests RLS des scenarios Tranche 0 | Equipe projet | A faire |
+
+### 10.2 Statuts
+
+Le tableau de la section 8 distingue desormais : **merge** (code dans
+`main`), **deploye** (applique sur Supabase), **verifie** (scenarios
+rejoues). Les lignes « termine » de la Vague A signifient « merge » : aucune
+n'est deployee tant que P2 n'est pas leve.
+
+### 10.3 Portee des vagues restantes
+
+Propositions D-004 et D-005 du registre
+[SIGTB_2.0_DECISIONS.md](SIGTB_2.0_DECISIONS.md), en attente d'arbitrage :
+
+- Vague D : reduite a la suppression des ecritures `Math.random` en base et
+  au signalement ou retrait des maquettes (AI, Analytics, FleetOptimizer
+  seront reconstruits aux LOT 09 et 16).
+- Vagues B, C, E : correctifs de securite, de donnees fabriquees et de
+  types uniquement ; les evolutions fonctionnelles sont portees par les
+  LOT du CDC 2.0.

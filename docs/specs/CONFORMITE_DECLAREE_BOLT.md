@@ -1,3 +1,13 @@
+> **ARCHIVE - NE PAS UTILISER COMME REFERENCE.**
+> Auto-evaluation generee par Bolt le 2025-11-01, conservee pour trace.
+> Ce n'est pas un cahier des charges : les cahiers des charges qu'elle cite
+> n'etaient pas dans le depot. Plusieurs affirmations sont fausses au
+> 2026-11-06, verifiees contre le code : 76 tables (142 noms crees dans les
+> migrations), Google Maps (Leaflet), 8 tests (aucun), « securite 100 % /
+> RLS complet » (environ 113 politiques `FOR ALL USING (true)` avant la
+> Tranche 0), mode hors ligne fonctionnel (C11), « production ready ».
+> La reference est desormais [SIGTB_2.0_CAHIER_DES_CHARGES.md](../SIGTB_2.0_CAHIER_DES_CHARGES.md).
+
 # ✅ CONFORMITÉ AUX CAHIERS DES CHARGES - SIGTB DARI HOLDING
 
 ## Document de Validation Finale

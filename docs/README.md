@@ -5,6 +5,17 @@ mise sous git. Les rapports d'etape et resumes de livraison redondants ont ete
 supprimes : leur role est desormais tenu par l'historique git. Ils restent
 consultables dans le commit initial.
 
+## SIGTB 2.0 (reference)
+
+| Document | Contenu |
+|---|---|
+| [SIGTB_2.0_CAHIER_DES_CHARGES.md](SIGTB_2.0_CAHIER_DES_CHARGES.md) | Cahier des charges general, fonctionnel et technique, version 2.0 |
+| [SIGTB_2.0_PROGRESS.md](SIGTB_2.0_PROGRESS.md) | Etat de reference (LOT 00), matrice exigences -> existant, suivi par lot |
+| [SIGTB_2.0_DECISIONS.md](SIGTB_2.0_DECISIONS.md) | Registre des decisions |
+
+Les autres documents du CDC section 43 (architecture, modele de donnees,
+API, etc.) seront crees au fil des lots.
+
 ## Demarrage
 
 | Document | Contenu |
@@ -58,5 +69,5 @@ baselines de `.github/ci-baseline.env`.
 
 | Document | Contenu |
 |---|---|
-| [specs/CAHIER_DES_CHARGES.md](specs/CAHIER_DES_CHARGES.md) | Exigences fonctionnelles et non fonctionnelles, analyse des ecarts |
+| [specs/CONFORMITE_DECLAREE_BOLT.md](specs/CONFORMITE_DECLAREE_BOLT.md) | Archive : auto-evaluation Bolt, affirmations non fiables (remplacee par le CDC 2.0) |
 | [specs/APPLICATION_MOBILE.md](specs/APPLICATION_MOBILE.md) | Specification de l'application mobile chauffeur (non developpee) |
