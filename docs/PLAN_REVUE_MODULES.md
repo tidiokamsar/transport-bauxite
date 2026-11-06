@@ -65,7 +65,7 @@ section 6 datent du 2026-09-03. Etat actuel :
 |---|---|---|
 | Erreurs typecheck | 270 | 37 (baseline cliquet) |
 | Erreurs lint | 446 | 0 (250 avertissements, baseline) |
-| `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences, tous en Vagues B et D (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) |
+| `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) ; apres PR #14 : 5 fichiers, 5 occurrences (Invoices, Purchases, Notifications, QuickActions) |
 | `setInterval` sans `clearInterval` dans les composants | 7 vues | 0 ; reste `src/lib/offline.ts` (Vague E) |
 | Tests automatises | 0 | 0 |
 | Runs CI reussis | - | 0 (tous en `startup_failure`) |
@@ -275,9 +275,9 @@ A maintenir a chaque PR mergee.
 | Documents | C | expirations | a faire | - | - |
 | Incidents | C | relecture | a faire | - | - |
 | Geofencing | C | timer, edge function | a faire | - | - |
-| AI | D | arbitrage maquette/retrait | a faire | - | - |
-| Analytics | D | arbitrage, handlers morts | a faire | - | - |
-| FleetOptimizer | D | arbitrage, timer | a faire | - | - |
+| AI | D | D-004 | merge (PR #14) : generateurs aleatoires supprimes, bandeau demonstration | [#14](https://github.com/tidiokamsar/transport-bauxite/pull/14) | 2026-11-06 |
+| Analytics | D | D-004 | merge (PR #14) : TCO sans valeurs inventees, bandeau demonstration | [#14](https://github.com/tidiokamsar/transport-bauxite/pull/14) | 2026-11-06 |
+| FleetOptimizer | D | D-004 | merge (PR #14) : execution simulee retiree, bandeau demonstration | [#14](https://github.com/tidiokamsar/transport-bauxite/pull/14) | 2026-11-06 |
 | IoT | D | timer, telemetry | a faire | - | - |
 | Reports | D | exports | a faire | - | - |
 | ESG | D | relecture | a faire | - | - |

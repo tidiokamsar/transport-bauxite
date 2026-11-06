@@ -121,7 +121,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 13 | Mobile et Offline-First | Absent | 06, 07 | Nouveau projet Expo | - |
 | 14 | Digital Twin et Simulation | Absent | 06, 08, 09 | - | - |
 | 15 | Road Intelligence et Safety Intelligence | Absent | 08 | - | - |
-| 16 | AI Operations Copilot et Analytics | Maquette (non conforme) | 04, 06 | Retirer ou signaler les maquettes avant | - |
+| 16 | AI Operations Copilot et Analytics | Maquette signalee, plus d'ecriture aleatoire (D-004) | 04, 06 | Donnees fictives deja en base a purger (acces Supabase) | #14 |
 | 17 | Portails partenaires | A corriger | 02, 05, 12 | Isolation RLS a tester | - |
 | 18 | Tests integres et pilote | Absent | tous | Aucun outillage de test | - |
 | 19 | Preparation et validation de production | Absent | 18 | - | - |
