@@ -72,15 +72,14 @@ export default function TCOAnalysisModal({ analysis, onClose, onSave }: TCOAnaly
     try {
       const totalCost = calculateTotalCost();
       const days = Math.max(1, Math.ceil((new Date(formData.period_end).getTime() - new Date(formData.period_start).getTime()) / (1000 * 60 * 60 * 24)));
-      const trips = Math.max(1, Math.floor(Math.random() * 300) + 100);
 
       const dataToSave = {
         ...formData,
         total_cost: totalCost,
         cost_per_day: totalCost / days,
-        cost_per_trip: totalCost / trips,
+        cost_per_trip: null,
         efficiency_rating: getEfficiencyRating(totalCost),
-        benchmark_comparison: -10 + Math.random() * 20,
+        benchmark_comparison: null,
         recommendations: []
       };
 

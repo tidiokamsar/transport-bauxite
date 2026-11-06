@@ -47,7 +47,6 @@ export default function PredictiveMaintenanceModal({ prediction, onClose, onSave
         failure_probability: parseFloat(formData.failure_probability.toString()),
         estimated_cost: parseFloat(formData.estimated_cost.toString()),
         confidence_score: parseFloat(formData.confidence_score.toString()),
-        historical_data_points: Math.floor(Math.random() * 1000) + 100,
         last_trained_at: new Date().toISOString()
       };
 

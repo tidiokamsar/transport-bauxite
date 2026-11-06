@@ -54,8 +54,7 @@ export default function DriverBehaviorModal({ score, onClose, onSave }: DriverBe
     try {
       const dataToSave = {
         ...formData,
-        accident_risk_score: (formData.harsh_braking_count + formData.harsh_acceleration_count + formData.speeding_incidents) * 3,
-        peer_comparison_percentile: Math.floor(Math.random() * 100)
+        accident_risk_score: (formData.harsh_braking_count + formData.harsh_acceleration_count + formData.speeding_incidents) * 3
       };
 
       if (score?.id) {

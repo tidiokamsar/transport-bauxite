@@ -29,6 +29,7 @@ import {
   ShiftPlanModal,
   OptimizationScenarioModal
 } from './FleetOptimizerModals';
+import { DemoBanner } from '../Placeholder/DemoBanner';
 
 interface ShiftPlan {
   id: string;
@@ -98,7 +99,6 @@ export const FleetOptimizerView = () => {
   const [kpis, setKPIs] = useState<PerformanceKPI | null>(null);
   const [scenarios, setScenarios] = useState<OptimizationScenario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [optimizing, setOptimizing] = useState(false);
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
@@ -158,14 +158,6 @@ export const FleetOptimizerView = () => {
     }
   };
 
-  const runOptimization = async () => {
-    setOptimizing(true);
-    setTimeout(() => {
-      setOptimizing(false);
-      fetchData();
-    }, 3000);
-  };
-
   const handleEditTask = (task: FleetTask) => {
     setSelectedTask(task);
     setShowTaskModal(true);
@@ -181,40 +173,6 @@ export const FleetOptimizerView = () => {
   const handleAssignTask = (taskId: string) => {
     setSelectedTaskForAssignment(taskId);
     setShowAssignmentModal(true);
-  };
-
-  const handleRunScenario = async (scenarioId: string) => {
-    await supabase
-      .from('optimization_scenarios')
-      .update({
-        status: 'running',
-        run_at: new Date().toISOString()
-      })
-      .eq('id', scenarioId);
-
-    setTimeout(async () => {
-      const estimatedProduction = 4200 + Math.random() * 800;
-      const baseProduction = 4500;
-      const productionVariance = ((estimatedProduction - baseProduction) / baseProduction) * 100;
-
-      await supabase
-        .from('optimization_scenarios')
-        .update({
-          status: 'completed',
-          completion_time: new Date().toISOString(),
-          estimated_production_tonnes: estimatedProduction,
-          estimated_total_cycles: Math.floor(estimatedProduction / 35),
-          estimated_fuel_consumption_liters: estimatedProduction * 0.75,
-          estimated_total_cost: estimatedProduction * 5500,
-          utilization_rate: 85 + Math.random() * 10,
-          production_variance_percent: productionVariance,
-          cost_variance_percent: productionVariance * 1.2,
-          efficiency_score: 80 + Math.random() * 15
-        })
-        .eq('id', scenarioId);
-
-      fetchData();
-    }, 2000);
   };
 
   if (loading) {
@@ -252,6 +210,7 @@ export const FleetOptimizerView = () => {
 
   return (
     <div className="space-y-6">
+      <DemoBanner lot="LOT 09" detail="L'exécution des scénarios et l'optimisation automatique sont désactivées." />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -274,23 +233,6 @@ export const FleetOptimizerView = () => {
           >
             <RefreshCw className="w-4 h-4" />
             Actualiser
-          </button>
-          <button
-            onClick={runOptimization}
-            disabled={optimizing}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
-          >
-            {optimizing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Optimisation...
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4" />
-                Optimiser maintenant
-              </>
-            )}
           </button>
         </div>
       </div>
@@ -544,15 +486,6 @@ export const FleetOptimizerView = () => {
                         <div className="text-2xl font-bold text-blue-600">{scenario.efficiency_score?.toFixed(1)}%</div>
                         <div className="text-xs text-gray-500">Score efficacité</div>
                       </div>
-                      {scenario.status === 'pending' && (
-                        <button
-                          onClick={() => handleRunScenario(scenario.id)}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                        >
-                          <Activity className="w-4 h-4" />
-                          Lancer
-                        </button>
-                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-4 gap-4">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, TrendingUp, AlertCircle, CheckCircle, Zap, Shield, Gauge } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { DemoBanner } from '../Placeholder/DemoBanner';
 
 interface FleetHealthMetrics {
   totalVehicles: number;
@@ -113,6 +114,7 @@ export default function FleetHealthDashboard() {
 
   return (
     <div className="space-y-6">
+      <DemoBanner lot="LOT 11 et LOT 16" />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
