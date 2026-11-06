@@ -1,0 +1,127 @@
+# SIGTB 2.0 - Suivi de progression et etat de reference
+
+Reference : [SIGTB_2.0_CAHIER_DES_CHARGES.md](SIGTB_2.0_CAHIER_DES_CHARGES.md) (CDC 2.0).
+Etablissement : 2026-11-06, commit de base `aa67ccc` (branche `main`).
+Ce document est le livrable du LOT 00 (audit et etat de reference) et le
+tableau de suivi exige par le CDC section 44.
+
+## 1. Statuts utilises (CDC section 44)
+
+Un statut n'est jamais promu sans preuve. On ne confond pas developpe,
+teste, valide et deploye.
+
+| Statut | Signification | Preuve exigee |
+|---|---|---|
+| Absent | Rien dans le code ni le schema | - |
+| Maquette | Ecran present mais donnees inventees (`Math.random`) ou calcul fictif | - |
+| Existant | Code et schema reels, non confrontes au CDC 2.0 | - |
+| A corriger | Existant mais ecart identifie au CDC 2.0 | Ligne d'ecart dans ce document |
+| En developpement | Branche ouverte | Branche, PR en cours |
+| Teste | Tests automatises verts | Fichiers de test, run CI |
+| Valide | Scenarios AT-xxx rejoues avec le metier | PV de recette |
+| Deploye | Migrations et fonctions appliquees sur l'environnement cible | Sortie `supabase db push` / `functions deploy`, date |
+
+## 2. Etat du socle au 2026-11-06
+
+| Indicateur | Valeur mesuree | Exigence CDC 41 |
+|---|---|---|
+| `npm run typecheck` | 37 erreurs (baseline cliquet 37) | 0 erreur |
+| `npm run lint` | 0 erreur, 250 avertissements (baseline 250) | 0 erreur bloquante : OK |
+| `npm run build` | OK | OK |
+| Tests automatises | 0 fichier, aucun runner installe | Unitaires, integration, RLS, E2E, charge, offline, restauration |
+| CI GitHub Actions | Jamais executee : tous les runs en `startup_failure` (facturation Actions, depot prive) | GitHub Actions operationnelle |
+| Migrations | 131 fichiers, 142 noms de tables crees | - |
+| PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |
+| Projet Supabase de l'app | `bprfctzqplahvrepxgrw`, absent du compte Supabase connecte | Acces requis pour deployer |
+| Tranche 0 securite | Mergee (PR #2), **non deployee, non verifiee** | RLS restrictive, anti-escalade |
+| `Math.random` dans `src/` | 36 occurrences dans 13 fichiers (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) | CDC 27 et 32 : aucune donnee inventee |
+| Application mobile | Absente | React Native / Expo + SQLite (CDC 24) |
+| Hors ligne web | `src/lib/offline.ts` : file en `localStorage`, identifiant fictif renvoye (C11) | SQLite, idempotence, PENDING_SYNC |
+
+Incidents de poste traites le 2026-11-06 (non lies au code) :
+`src/components/Trips/TripsView.tsx` vide dans l'arbre de travail (restaure
+depuis git) et `node_modules` partiellement corrompu (12 fichiers JS a
+0 octet, dont le plugin ESLint `unused-imports`, reinstalle par `npm ci`).
+
+## 3. Matrice exigences CDC 2.0 -> existant
+
+Evaluation sur le schema (migrations) et le code, sans base distante.
+Colonne « LOT » : lot du CDC section 39 qui portera le travail.
+
+| CDC | Exigence | Existant verifie | Statut | LOT |
+|---|---|---|---|---|
+| 3, 4.1 | Multi-societes, filiales, BU, centres de couts | Tables `sites`, `departments` ; pas de `organizations` ni `business_units` ; aucune donnee rattachee a une organisation | Absent | 02 |
+| 4.2 | Utilisateurs : MFA, historique connexions, sessions | `profiles`, `user_activity_logs` ; aucun MFA | A corriger | 01, 02 |
+| 4.3 | Droits role x organisation x site x perimetre | `role_permissions` + `has_module_write(module)` : role x module seulement ; pas de `user_site_scopes` | A corriger | 02 |
+| 5 | Referentiel sites (code, coordonnees, fronts, pistes, ponts-bascules...) | `sites` : nom, type, `location` texte libre, actif. Geofences polygone/cercle sans PostGIS | A corriger | 02, 08 |
+| 6 | Production Planning (objectifs, ressources, rattrapage) | `shift_plans.target_production_tonnes` dans FleetOptimizer, alimente par `Math.random` ; pas de `production_plans` / `production_targets` | Maquette | 03 |
+| 7 | Shift Management (responsable, equipe, passation, rapport de cloture) | `work_shifts` = definitions horaires (nom, debut, fin) ; `trips.shift_id` ; pas d'instance de shift ni de cloture | A corriger | 03 |
+| 8 | Command Center (source, fiabilite, fraicheur par indicateur) | `Dashboard` nettoye en Vague A (KPI reels) ; aucune metadonnee source / fiabilite / heure | A corriger | 04 |
+| 9.1 | Referentiel vehicules complet | `vehicles` existant ; pas de proprietaire / exploitant / transporteur / contrat | A corriger | 05 |
+| 9.2 | 11 statuts vehicule | enum `vehicle_status` : `active`, `maintenance`, `immobilized`, `sold` (4) | A corriger | 05 |
+| 9.3, 10 | Flotte sous-traitants, gestion transporteurs | Aucune table `transporters`, aucune colonne de propriete | Absent | 05 |
+| 11 | Smart Dispatch (deterministe puis OR-Tools, decision humaine historisee) | `dispatch_assignments` et FleetOptimizer alimentes par `Math.random` | Maquette | 09 |
+| 12 | Cycle voyage 14 etats + 4 exceptionnels, evenements detectes / declares / valides | enum `trip_status` : `planned`, `in_progress`, `completed`, `cancelled` (4) ; pas de `trip_events` | A corriger (ecart majeur) | 06 |
+| 13 | Ponts-bascules, tickets, controles de doublon, tonnes chargees / livrees / acceptees | `weighings` (trip, ticket, brut, tare, net, photo) ; `ticket_number` sans contrainte d'unicite ; pas de referentiel pont-bascule ni de calibration ; une seule notion de poids net | A corriger | 07 |
+| 14 | Tracabilite matiere (lots, stockpiles) | Aucune table | Absent | 07 |
+| 15 | GPS : precision, source, qualite, fraicheur ; pas de position ancienne affichee en direct | Positions reelles depuis PR #7 (« sans donnees » sinon) ; Edge Function `iot-ingestion` ; champs precision / qualite / fraicheur non verifies | A corriger | 08 |
+| 16 | Road Intelligence | Aucune table de troncons | Absent | 15 |
+| 17 | Fuel 360 (cuves, stations, reconciliation, anomalies) | `fuel_transactions`, Fuel nettoye en Vague A ; pas de `fuel_tanks`, `fuel_stations`, reconciliation | A corriger | 10 |
+| 18 | Maintenance, immobilisations, blocage dispatch | `maintenance_orders`, `maintenance_parts` ; pas de `vehicle_downtime` ; aucun lien dispatch | A corriger | 11 |
+| 19 | Pneus individuels | 14 tables `tire_*`, module TireManagement (33 erreurs tsc au 2026-09-03) | Existant | 11 |
+| 20 | Stocks et achats | `stock_items`, `stock_movements`, `purchase_orders`, `suppliers` ; `Math.random` dans Purchases | A corriger | 11 |
+| 21 | Engins (chargeuses, pelles) | Aucune table `equipment` | Absent | 03, 11 |
+| 22 | Chauffeurs, RH, securite | `drivers`, `employees`, `incidents`, paie ; pas de qualifications ni inspections avant depart | A corriger | 05, 15 |
+| 23 | Contrats, decomptes, rentabilite | `invoices`, `payments`, module Costs ; pas de `contracts`, `settlements`, `cost_entries` ; `Math.random` dans Invoices | A corriger | 12 |
+| 24 | Mobile Offline-First (Expo, SQLite) | Aucune application ; `offline.ts` web non conforme (C11) | Absent | 13 |
+| 25 | Portails sous-traitants et clients isoles | `ClientPortal` (1 fichier, filtrage par client non verifie) ; pas de portail sous-traitant | A corriger | 17 |
+| 26 | Digital Twin, replay, what-if | Aucun | Absent | 14 |
+| 27 | AI Copilot sans donnees inventees | Module `AI` : maquettes `Math.random` ecrivant en base, contraire au CDC 27 | Maquette (non conforme) | 16 |
+| 28, 37 | KPI centralises dans des vues de reference | KPI recalcules ecran par ecran ; Analytics en maquette | A corriger | 04 |
+| 31 | Event Engine, outbox, idempotence | `tracking_events`, `user_activity_logs` seulement | Absent | 06 |
+| 32 | Statuts de qualite de donnee | Aucun | Absent | 04, 06 |
+| 34 | API versionnee `/api/v1/...` | Acces PostgREST direct ; 2 Edge Functions (`iot-ingestion`, `geofence-monitor`) | Absent | 06+ |
+| 35 | Securite (RLS restrictive, multi-sites, MFA, rate limit, sauvegardes) | Tranche 0 mergee non deployee ; pas de MFA, pas de cloisonnement site | A corriger | 01, 02 |
+| 41 | Tests et CI | 0 test ; CI jamais executee | Absent | 01, 18 |
+
+## 4. Lecture
+
+1. Le code Bolt couvre surtout la gestion administrative de flotte (CDC 9,
+   17, 18, 19, 20, 22, 23 partiels). Le coeur du CDC 2.0 (planification,
+   cycle voyage, pesee et acceptation, dispatch, evenements, qualite de
+   donnee, multi-organisation) est absent ou en maquette.
+2. Trois ecarts structurants touchent le schema existant et doivent etre
+   traites avant toute nouvelle fonctionnalite : dimension organisation /
+   site sur les donnees et les droits (LOT 02), cycle voyage et journal
+   d'evenements (LOT 06), PostGIS (LOT 02 / 08).
+3. Les modules en maquette (AI, FleetOptimizer, Analytics, une partie de
+   Dashboard historique) sont contraires aux CDC 27 et 32. Ils seront
+   reconstruits par les LOT 09 et 16 : les polir en l'etat (Vague D du plan
+   de revue) n'a pas de valeur.
+4. Le LOT 01 n'est pas termine tant que la Tranche 0 n'est pas deployee et
+   verifiee et que la CI ne s'execute pas : c'est le premier bloqueur.
+
+## 5. Tableau de suivi par lot
+
+| LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
+|---|---|---|---|---|---|
+| 00 | Audit et etat de reference | En developpement (ce document) | - | Base distante non inspectee (acces Supabase) | - |
+| 01 | Securite et qualite du socle | A corriger : code merge, non deploye | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 0 test | #2, #4, #7 a #11 |
+| 02 | Organisation Enterprise et referentiels | Absent | 01 | Migration des donnees existantes vers une organisation par defaut | - |
+| 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |
+| 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
+| 05 | Flotte mixte et sous-traitants | Absent | 02 | Enum `vehicle_status` a etendre sans casser l'existant | - |
+| 06 | Cycle de transport et Event Engine | A corriger (ecart majeur) | 02, 05 | Migration `trip_status` 4 -> 18 etats | - |
+| 07 | Pesee, livraison et tracabilite | A corriger | 06 | Unicite des tickets sur donnees existantes | - |
+| 08 | GPS, IoT et cartographie | A corriger | 02, 06 | PostGIS ; protocoles traceurs reels inconnus | - |
+| 09 | Smart Dispatch et Optimization Engine | Maquette | 05, 06, 08 | Service Python OR-Tools a cadrer | - |
+| 10 | Fuel Intelligence 360 | A corriger | 02, 06 | Methode de mesure de consommation | - |
+| 11 | Maintenance, pneus et stocks | Existant / A corriger | 05 | - | - |
+| 12 | Finance, contrats et rentabilite | A corriger | 05, 07 | Grilles tarifaires reelles a obtenir | - |
+| 13 | Mobile et Offline-First | Absent | 06, 07 | Nouveau projet Expo | - |
+| 14 | Digital Twin et Simulation | Absent | 06, 08, 09 | - | - |
+| 15 | Road Intelligence et Safety Intelligence | Absent | 08 | - | - |
+| 16 | AI Operations Copilot et Analytics | Maquette (non conforme) | 04, 06 | Retirer ou signaler les maquettes avant | - |
+| 17 | Portails partenaires | A corriger | 02, 05, 12 | Isolation RLS a tester | - |
+| 18 | Tests integres et pilote | Absent | tous | Aucun outillage de test | - |
+| 19 | Preparation et validation de production | Absent | 18 | - | - |
