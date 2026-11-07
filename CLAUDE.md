@@ -26,6 +26,9 @@ npm run typecheck
 npm run lint
 npm run build
 bash scripts/ci-qualite.sh   # cliquet : 0 erreur lint, pas de regression
+npm test                     # vitest (src/**/*.test.ts)
+npm run test:e2e             # playwright (e2e/), installe chromium une fois
+npm run test:rls             # pgTAP (supabase/tests), base locale requise
 ```
 
 Baselines du cliquet : `.github/ci-baseline.env`. Les baisser dans la meme
@@ -69,7 +72,10 @@ PR quand la dette diminue ; ne jamais les remonter.
 
 ## Etat connu (2026-11-06)
 
-- 37 erreurs typecheck, 0 erreur lint, build OK, 0 test.
+- 37 erreurs typecheck, 0 erreur lint, build OK.
+- Tests (D-007) : 19 unitaires, 2 E2E, 13 assertions RLS. Les tests RLS
+  ne tournent pas via `supabase start` : 42 migrations sur 131 ne rejouent
+  pas sur base vierge, dont la Tranche 0 (D-008, D-009 proposees).
 - CI jamais executee (`startup_failure`, facturation GitHub Actions).
 - Tranche 0 securite mergee mais non deployee : projet Supabase
   `bprfctzqplahvrepxgrw` inaccessible depuis le compte connecte.
