@@ -33,3 +33,9 @@ supabase/.temp/
 # Variables d'environnement locales
 .env.local
 .env.*.local
+
+# Tests (D-007)
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/

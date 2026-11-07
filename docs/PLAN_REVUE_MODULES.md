@@ -67,7 +67,7 @@ section 6 datent du 2026-09-03. Etat actuel :
 | Erreurs lint | 446 | 0 (250 avertissements, baseline) |
 | `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) ; apres PR #14 : 5 fichiers, 5 occurrences (Invoices, Purchases, Notifications, QuickActions) |
 | `setInterval` sans `clearInterval` dans les composants | 7 vues | 0 ; reste `src/lib/offline.ts` (Vague E) |
-| Tests automatises | 0 | 0 |
+| Tests automatises | 0 | 0 ; au 2026-11-07, branche `lot-01/outillage-tests` : 19 unitaires, 2 E2E, 13 assertions RLS |
 | Runs CI reussis | - | 0 (tous en `startup_failure`) |
 
 ## 3. Organisation du travail
@@ -315,8 +315,8 @@ Le plan est termine quand toutes ces conditions sont reunies :
 |---|---|---|---|
 | P1 | Debloquer GitHub Actions (facturation du compte, ou depot public) pour que le cliquet s'execute reellement | Proprietaire du compte GitHub | A faire |
 | P2 | Recuperer l'acces au projet Supabase `bprfctzqplahvrepxgrw`, ou creer un projet maitrise et y migrer | DARI HOLDING / proprietaire du projet | A faire |
-| P3 | Deployer et verifier la Tranche 0 (rotation mot de passe, `db push`, `functions deploy iot-ingestion`, rejeu des 3 scenarios) | Equipe projet, apres P2 | A faire |
-| P4 | Installer l'outillage de test (D-007) et ecrire les tests RLS des scenarios Tranche 0 | Equipe projet | A faire |
+| P3 | Deployer et verifier la Tranche 0 (rotation mot de passe, `db push`, `functions deploy iot-ingestion`, rejeu des 3 scenarios). Prerequis : corriger `20260903090100`, qui echoue en l'etat (D-008) | Equipe projet, apres P2 | Bloque (D-008) |
+| P4 | Installer l'outillage de test (D-007) et ecrire les tests RLS des scenarios Tranche 0 | Equipe projet | En developpement : outillage et tests ecrits ; tests RLS a brancher sur une base rejouable (D-009) |
 
 ### 10.2 Statuts
 
