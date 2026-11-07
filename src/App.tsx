@@ -158,7 +158,7 @@ const MainApp = () => {
       case 'notifications':
         return <SmartNotificationCenter />;
       case 'quick-actions':
-        return <QuickActionsPanel onActionComplete={() => setCurrentView('dashboard')} />;
+        return <QuickActionsPanel onNavigate={setCurrentView} />;
       case 'settings':
         return <AdminSettingsView />;
       default:
