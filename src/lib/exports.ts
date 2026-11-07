@@ -1,11 +1,13 @@
-export const exportToCSV = (data: any[], filename: string) => {
-  if (!data || data.length === 0) {
-    alert('Aucune donnée à exporter');
-    return;
-  }
+/**
+ * Construit le contenu CSV (sans BOM) a partir de lignes homogenes.
+ * Les en-tetes sont les cles de la premiere ligne. Fonction pure, testee
+ * dans exports.test.ts.
+ */
+export const buildCSV = (data: Record<string, unknown>[]): string => {
+  if (data.length === 0) return '';
 
   const headers = Object.keys(data[0]);
-  const csvContent = [
+  return [
     headers.join(','),
     ...data.map(row =>
       headers.map(header => {
@@ -19,6 +21,15 @@ export const exportToCSV = (data: any[], filename: string) => {
       }).join(',')
     )
   ].join('\n');
+};
+
+export const exportToCSV = (data: any[], filename: string) => {
+  if (!data || data.length === 0) {
+    alert('Aucune donnée à exporter');
+    return;
+  }
+
+  const csvContent = buildCSV(data);
 
   const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
