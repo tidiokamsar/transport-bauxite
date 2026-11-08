@@ -24,11 +24,13 @@ distant non verifie : la CLI n'a jamais ete liee au projet.
 |---|---|
 | Garde du role et du statut | `supabase/migrations/20260903090000_protect_profiles_role_escalation.sql` |
 | Ecritures par module | `supabase/migrations/20260903090100_restrict_open_rls_policies.sql`, dans sa version corrigee par D-008 (PR #16) |
+| Durcissement `is_admin()` (N4) | `supabase/migrations/20261108090000_durcir_is_admin.sql` |
+| Alignement de la matrice des roles (N2, D-012) | `supabase/migrations/20261108100000_aligner_role_permissions.sql` |
 | Fermeture de `/telemetry` | `supabase/functions/iot-ingestion/index.ts` |
 | Rotation du mot de passe admin et des comptes de demonstration | Dashboard Supabase |
 
 Hors perimetre : `geofence-monitor`, front-end (hebergement non verifie),
-corrections N1 a N4 de `SIGTB_2.0_SECURITY.md`.
+corrections N1 et N3 de `SIGTB_2.0_SECURITY.md`.
 
 ## 2. Prerequis
 
@@ -72,7 +74,11 @@ Arret si un role porte par des profils actifs n'a aucune ligne dans
 `role_permissions` (N2) : apres `db push`, ces utilisateurs perdent toute
 ecriture metier. Completer la matrice est une modification de donnees de
 production : decision dans `SIGTB_2.0_DECISIONS.md` et autorisation
-distincte, avant le push.
+distincte, avant le push. La migration `20261108100000_aligner_role_permissions`
+(D-012) copie les droits des roles historiques ; elle n'ajoute rien si les
+lignes `manager`, `dispatcher` ou `mechanic` sont absentes en production et
+emet alors un `WARNING` listant les roles sans ligne : le `db push --dry-run`
+doit la lister, et sa sortie doit etre relue.
 
 ## 4. Sauvegarde prealable (CDC 42.1)
 
@@ -107,8 +113,8 @@ est public.
 
 ## 6. Verification des migrations et `db push` (CDC 42.2)
 
-`npx supabase db push --dry-run` doit lister exactement `20260903090000`
-et `20260903090100`. Si des migrations Bolt apparaissent : arret, pas de
+`npx supabase db push --dry-run` doit lister exactement `20260903090000`,
+`20260903090100`, `20261108090000` (N4) et `20261108100000` (D-012). Si des migrations Bolt apparaissent : arret, pas de
 `--include-all`, passer par la section 10 (D-009). Jamais
 `--include-seed` ni `--include-roles`. Apres autorisation :
 `npx supabase db push`.
