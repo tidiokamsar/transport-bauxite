@@ -71,13 +71,19 @@ PR quand la dette diminue ; ne jamais les remonter.
   (typecheck, lint, build, tests), impact RLS et mise a jour de
   `docs/SIGTB_2.0_PROGRESS.md`.
 
-## Etat connu (2026-11-07)
+## Etat connu (2026-11-08)
 
+- Contexte d'exploitation (D-011) : site de Nimba, camions semi-remorques
+  loues a l'heure, 2 chargeuses Caterpillar et 1 pelle. Location et
+  decompte entierement parametrables (D-013,
+  `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 19 unitaires, 2 E2E, 13 assertions RLS (via
+- Tests (D-007) : 19 unitaires, 2 E2E, 30 assertions RLS (via
   `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
   rejouent pas sur base vierge (D-009 : base depuis un dump de production,
   apres acces au projet). Migration Tranche 0 corrigee (D-008).
+- Matrice des roles alignee sur l'enum (D-010, D-012, migration
+  `20261108100000`), mergee, non deployee.
 - CI jamais executee (`startup_failure`, facturation GitHub Actions).
 - Tranche 0 securite mergee mais non deployee : projet Supabase
   `bprfctzqplahvrepxgrw` inaccessible depuis le compte connecte.

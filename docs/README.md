@@ -18,6 +18,7 @@ consultables dans le commit initial.
 | [SIGTB_2.0_SECURITY.md](SIGTB_2.0_SECURITY.md) | Modele d'autorisation, constats, ecarts CDC 4.3 et 35 |
 | [SIGTB_2.0_DEPLOYMENT.md](SIGTB_2.0_DEPLOYMENT.md) | Procedure de deploiement de la Tranche 0 (P3) et de la base de reference (D-009) |
 | [SIGTB_2.0_TEST_PLAN.md](SIGTB_2.0_TEST_PLAN.md) | Strategie de test, matrice des scenarios AT-001 a AT-035 |
+| [SIGTB_2.0_LOCATION_MODEL.md](SIGTB_2.0_LOCATION_MODEL.md) | Modele parametrable de location et de decompte horaire (D-013) |
 
 Les autres documents du CDC section 43 (API, Event Engine, Dispatch,
 Fuel, Mobile, Digital Twin, IA) seront crees dans leur lot.
