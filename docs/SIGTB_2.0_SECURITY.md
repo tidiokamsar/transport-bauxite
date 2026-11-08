@@ -104,7 +104,7 @@ suivi) :
 | N1 | P1 | `iot_devices.api_key` en clair, lisible par tout authentifie (politique `SELECT ... USING (true)`, `20251101072253`) ; des cles sont inserees par des migrations seed versionnees. Cles a considerer comme publiques |
 | N2 | P1 | Matrice `role_permissions` desalignee de l'enum (section 1.3) : apres P3, quatre roles perdent toute ecriture metier |
 | N3 | P2 | `geofence-monitor` declenchable par tout porteur d'un JWT valide (y compris la cle anon si la verification JWT l'accepte, non verifie) |
-| N4 | P2 | `is_admin()` sans `SET search_path` ; garde du trigger sans controle de `status` |
+| N4 | P2 | `is_admin()` sans `SET search_path` ; garde du trigger sans controle de `status`. Corrige par `20261108090000_durcir_is_admin` (PR #20, non deploye) |
 
 ## 3. Ecarts avec les sections 4.3 et 35 du CDC
 
