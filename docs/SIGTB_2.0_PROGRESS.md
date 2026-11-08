@@ -28,7 +28,7 @@ teste, valide et deploye.
 | `npm run typecheck` | 37 erreurs (baseline cliquet 37) | 0 erreur |
 | `npm run lint` | 0 erreur, 250 avertissements (baseline 250) | 0 erreur bloquante : OK |
 | `npm run build` | OK | OK |
-| Tests automatises | Outillage installe (D-007, branche `lot-01/outillage-tests`) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 13 assertions RLS. Les tests RLS ne tournent pas encore via `supabase test db` (D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
+| Tests automatises | Outillage installe (D-007, branche `lot-01/outillage-tests`) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 13 assertions RLS. Tests RLS executes par `npm run test:rls:rejeu` sur une base rejouee (pas encore via `supabase test db`, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
 | CI GitHub Actions | Jamais executee : tous les runs en `startup_failure` (facturation Actions, depot prive) | GitHub Actions operationnelle |
 | Migrations | 131 fichiers, 142 noms de tables crees. Rejeu sur base vierge (2026-11-07) : 89 passent, 42 echouent ; apres correctif D-008 : 90 passent, 41 echouent (toutes issues de Bolt, a traiter par D-009) | Rejouables (CDC 33) |
 | PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |

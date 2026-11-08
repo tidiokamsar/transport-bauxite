@@ -28,7 +28,8 @@ npm run build
 bash scripts/ci-qualite.sh   # cliquet : 0 erreur lint, pas de regression
 npm test                     # vitest (src/**/*.test.ts)
 npm run test:e2e             # playwright (e2e/), installe chromium une fois
-npm run test:rls             # pgTAP (supabase/tests), base locale requise
+npm run test:rls             # pgTAP via supabase test db (apres D-009)
+npm run test:rls:rejeu       # rejeu des migrations + pgTAP, conteneur jetable
 ```
 
 Baselines du cliquet : `.github/ci-baseline.env`. Les baisser dans la meme
@@ -73,8 +74,8 @@ PR quand la dette diminue ; ne jamais les remonter.
 ## Etat connu (2026-11-07)
 
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 19 unitaires, 2 E2E, 13 assertions RLS. Les tests RLS
-  ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
+- Tests (D-007) : 19 unitaires, 2 E2E, 13 assertions RLS (via
+  `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
   rejouent pas sur base vierge (D-009 : base depuis un dump de production,
   apres acces au projet). Migration Tranche 0 corrigee (D-008).
 - CI jamais executee (`startup_failure`, facturation GitHub Actions).
