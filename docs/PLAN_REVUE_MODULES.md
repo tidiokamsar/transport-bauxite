@@ -316,7 +316,7 @@ Le plan est termine quand toutes ces conditions sont reunies :
 | P1 | Debloquer GitHub Actions (facturation du compte, ou depot public) pour que le cliquet s'execute reellement | Proprietaire du compte GitHub | A faire |
 | P2 | Recuperer l'acces au projet Supabase `bprfctzqplahvrepxgrw`, ou creer un projet maitrise et y migrer | DARI HOLDING / proprietaire du projet | A faire |
 | P3 | Deployer et verifier la Tranche 0 (rotation mot de passe, `db push`, `functions deploy iot-ingestion`, rejeu des 3 scenarios). La migration `20260903090100` echouait en l'etat ; corrigee par D-008 | Equipe projet, apres P2 | A faire (attend P2) |
-| P4 | Installer l'outillage de test (D-007) et ecrire les tests RLS des scenarios Tranche 0 | Equipe projet | Outillage merge (PR #15) ; tests RLS verts sur base de diagnostic, a brancher sur `supabase test db` apres D-009 |
+| P4 | Installer l'outillage de test (D-007) et ecrire les tests RLS des scenarios Tranche 0 | Equipe projet | Outillage merge (PR #15) ; tests RLS executables par `npm run test:rls:rejeu` (rejeu dans un conteneur jetable, cliquet sur `supabase/tests/echecs-connus.txt`, job CI `rls`) ; bascule sur `supabase test db` apres D-009 |
 
 ### 10.2 Statuts
 

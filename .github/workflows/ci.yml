@@ -29,8 +29,23 @@ jobs:
       - name: Build de production
         run: npm run build
 
-      # Tests RLS (npm run test:rls) non branches : les migrations ne
-      # rejouent pas encore sur une base vierge (voir D-008).
+  rls:
+    name: Rejeu des migrations et tests RLS (pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Base jetable issue du rejeu (D-009 en attente) ; cliquet sur la
+      # liste des echecs connus, supabase/tests/echecs-connus.txt.
+      - name: Rejeu et tests RLS
+        run: bash scripts/rejeu-migrations.sh --tests
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rapport-rejeu-migrations
+          path: test-results/rejeu-migrations.txt
+          retention-days: 7
 
   e2e:
     name: Tests E2E (Playwright)
