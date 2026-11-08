@@ -117,7 +117,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 09 | Smart Dispatch et Optimization Engine | Maquette | 05, 06, 08 | Service Python OR-Tools a cadrer | - |
 | 10 | Fuel Intelligence 360 | A corriger | 02, 06 | Methode de mesure de consommation | - |
 | 11 | Maintenance, pneus et stocks | Existant / A corriger | 05 | - | - |
-| 12 | Finance, contrats et rentabilite | En developpement | 05, 07 | Moteur de decompte v1 developpe et teste, non branche (D-013, LOCATION_MODEL section 7) ; valeurs des contrats a saisir par DARI | - |
+| 12 | Finance, contrats et rentabilite | En developpement | 05, 07 | Moteur de decompte v1 developpe et teste, non branche (D-013, LOCATION_MODEL section 7) ; valeurs des contrats a saisir par DARI | #23 |
 | 13 | Mobile et Offline-First | Absent | 06, 07 | Nouveau projet Expo | - |
 | 14 | Digital Twin et Simulation | Absent | 06, 08, 09 | - | - |
 | 15 | Road Intelligence et Safety Intelligence | Absent | 08 | - | - |
