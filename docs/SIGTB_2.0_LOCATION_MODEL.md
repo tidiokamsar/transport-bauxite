@@ -1,7 +1,8 @@
 # SIGTB 2.0 - Modele de location et de decompte horaire
 
-Specification de conception (D-011, D-013). Etat au 2026-11-08 : rien
-n'est developpe ni deploye. Concerne les LOT 05 (flotte, partenaires,
+Specification de conception (D-011, D-013). Etat au 2026-11-08 : moteur de
+calcul v1 developpe et teste (section 7), rien d'autre n'est developpe ni
+deploye. Concerne les LOT 05 (flotte, partenaires,
 contrats), 06 (evenements), 08 (sources GPS), 12 (decomptes), 13 (pointage
 mobile) et 17 (portail partenaire).
 
@@ -186,3 +187,26 @@ indicatifs.
 Avant toute creation, verifier dans le schema de production qu'aucune
 table equivalente n'existe (CDC 33). `vehicles` et `trailers` existent :
 leur reprise dans `equipment` est a trancher au LOT 05.
+
+## 7. Moteur de calcul v1
+
+`src/domain/location/decompte.ts`, fonction `calculerDecompte(parametres,
+segments, periode)`. Fonction pure, sans dependance, destinee a etre
+partagee avec une fonction serveur. Elle n'est branchee a aucun ecran ni a
+aucune table : les segments viendront des LOT 05, 06, 08 et 13.
+
+Couvert et teste (`decompte.test.ts`, 27 tests) : L-01 a L-06, L-08, L-10,
+L-11, L-12 ; validation des parametres, chevauchements, sources et
+categories inconnues, jour sans tarif, fuseau du site, decoupage par
+periode, decimales de la devise.
+
+Limites de la v1, a lever dans les LOT concernes :
+
+| Limite | LOT |
+|---|---|
+| Un taux horaire par version ; les ecarts par categorie de temps et par plage passent par les pourcentages | 12 |
+| Minimum, plafond et franchise au jour seulement (pas par shift, semaine ou mois) | 12 |
+| Ajustements (franchise, arrondi, plafond, minimum) valorises au taux de base, sans majoration (choix valide, D-014) | 12 |
+| Regle d'ecart « retenir la valeur la plus basse » non prise en charge | 12 |
+| Majorations par plage horaire seulement : pas de dimanche ni de jour ferie | 02, 12 |
+| Carburant (L-07), attelage (L-09), conversion de devise (L-13), tonnage estime (L-14), retenues, penalites, mobilisation : non traites | 05, 07, 12 |
