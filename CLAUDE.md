@@ -28,8 +28,9 @@ npm run build
 bash scripts/ci-qualite.sh   # cliquet : 0 erreur lint, pas de regression
 npm test                     # vitest (src/**/*.test.ts)
 npm run test:e2e             # playwright (e2e/), installe chromium une fois
-npm run test:rls             # pgTAP via supabase test db (apres D-009)
+npm run test:rls             # pgTAP via supabase test db (base de reference, D-017)
 npm run test:rls:rejeu       # rejeu des migrations + pgTAP, conteneur jetable
+npm run ci:locale            # CI complete en local (D-015), rapport test-results/
 ```
 
 Baselines du cliquet : `.github/ci-baseline.env`. Les baisser dans la meme
@@ -80,12 +81,15 @@ PR quand la dette diminue ; ne jamais les remonter.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
 - Tests (D-007) : 46 unitaires (dont 27 du moteur de decompte), 2 E2E, 30 assertions RLS (via
   `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
-  rejouent pas sur base vierge (D-009 : base depuis un dump de production,
-  apres acces au projet). Migration Tranche 0 corrigee (D-008).
+  rejouent pas sur base vierge (D-017 : base de reference construite
+  depuis le depot). Migration Tranche 0 corrigee (D-008).
 - Matrice des roles alignee sur l'enum (D-010, D-012, migration
   `20261108100000`), mergee, non deployee.
-- CI jamais executee (`startup_failure`, facturation GitHub Actions).
-- Tranche 0 securite mergee mais non deployee : projet Supabase
-  `bprfctzqplahvrepxgrw` inaccessible depuis le compte connecte.
+- CI GitHub Actions impossible (paiement refuse) : CI locale
+  `npm run ci:locale` (D-015), resultat dans chaque PR.
+- Hebergement cible : VPS du proprietaire, pile Supabase auto-hebergee
+  (D-016), base neuve sans donnees de demonstration (D-017). Projet
+  Supabase Bolt abandonne. Tranche 0 autorisee (P3), non deployee : attend
+  l'acces SSH au VPS.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.

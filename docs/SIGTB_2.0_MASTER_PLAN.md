@@ -28,9 +28,9 @@ leves par l'equipe de developpement.
 
 | # | Prerequis | Debloque | Qui |
 |---|---|---|---|
-| P1 | Deverrouiller GitHub Actions (facturation du compte) | Execution reelle de la CI : cliquet, tests unitaires, RLS, E2E | Proprietaire du compte GitHub |
-| P2 | Acces au projet Supabase `bprfctzqplahvrepxgrw` (ou nouveau projet maitrise) | Dump du schema (D-009), deploiement, purge des donnees fictives | DARI HOLDING |
-| P3 | Autoriser le deploiement de la Tranche 0 | Fermeture des failles C1 a C4 en production | DARI HOLDING, apres P2 |
+| P1 | CI : GitHub Actions impossible (paiement refuse) ; CI locale `scripts/ci-locale.sh` (D-015), puis CI sur le VPS | Execution de la CI : cliquet, tests unitaires, RLS, E2E | Equipe ; CI VPS apres P2 |
+| P2 | Acces SSH par cle au VPS du proprietaire (D-016) : utilisateur et cle autorisee | Installation de la pile Supabase auto-hebergee, deploiement | DARI HOLDING |
+| P3 | Deploiement de la Tranche 0 : autorise le 2026-11-08, sur le VPS (D-017) | Fermeture des failles C1 a C4 | Fait (autorisation) ; execution apres P2 |
 | P5 | Entrees metier : structure organisation et sites, valeurs des contrats de location (section 5.3), protocoles des traceurs GPS, regles de rapprochement des pesees, validation du cycle a 18 etats | LOT 02, 05, 06, 07, 08, 12 | DARI HOLDING (metier) |
 | P6 | Merges des PR ouvertes | Integration sur `main` | Proprietaire du depot |
 | P7 | Valider la correspondance role x module (D-012) | Fait le 2026-11-08 (PR #22 mergee) | DARI HOLDING |
@@ -58,19 +58,18 @@ Limites de la phase A :
   de production est inconnu (CDC 33, D-009).
 - Les tests ne s'executent qu'en local tant que P1 n'est pas leve.
 
-### Phase B - Apres P1 et P2 : finir le LOT 01
+### Phase B - Apres P2 : finir le LOT 01 sur le VPS
 
-1. `supabase db dump` du schema de production ; archivage des migrations
-   Bolt ; `supabase migration repair` ; `npm run test:rls` sur cette base
-   (D-009). Procedure : [SIGTB_2.0_DEPLOYMENT.md](SIGTB_2.0_DEPLOYMENT.md).
-2. Deploiement autorise de la Tranche 0 (P3) et rejeu des scenarios, apres
-   alignement de `role_permissions` (D-010, constat N2) ; rotation des cles
-   IoT versionnees dans les seeds (N1) ; controle de l'appelant de
-   `geofence-monitor` (N3).
+1. Base de reference construite depuis le depot (D-017) : migrations qui
+   rejouent, migration consolidee des tables manquantes, aucune donnee de
+   demonstration. Procedure : [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md).
+2. Installation de la pile Supabase auto-hebergee sur le VPS (D-016),
+   deploiement de la Tranche 0 (P3 autorise), de `is_admin` (N4) et de la
+   matrice des roles (D-012), rejeu des scenarios ; nouvelles cles IoT (N1) ;
+   controle de l'appelant de `geofence-monitor` (N3).
 3. Vagues B, C, E limitees a la securite, aux donnees fabriquees et aux
    types (D-005) ; typecheck a 0 ; baselines du cliquet a 0.
-4. Purge autorisee des donnees fictives en base (seeds Bolt, sorties des
-   generateurs supprimes par D-004).
+4. Sans objet : la base du VPS demarre vide (D-017).
 5. Critere de sortie du LOT 01 : CI verte, Tranche 0 deployee et verifiee,
    0 erreur typecheck, AT-030 couvert par un test RLS.
 

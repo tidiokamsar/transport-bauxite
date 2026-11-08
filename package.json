@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:rls": "supabase test db",
     "test:rls:rejeu": "bash scripts/rejeu-migrations.sh --tests",
+    "ci:locale": "bash scripts/ci-locale.sh",
     "test:e2e": "playwright test"
   },
   "dependencies": {
