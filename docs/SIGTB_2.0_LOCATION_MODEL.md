@@ -206,7 +206,7 @@ Limites de la v1, a lever dans les LOT concernes :
 |---|---|
 | Un taux horaire par version ; les ecarts par categorie de temps et par plage passent par les pourcentages | 12 |
 | Minimum, plafond et franchise au jour seulement (pas par shift, semaine ou mois) | 12 |
-| Ajustements (franchise, arrondi, plafond, minimum) valorises au taux de base, sans majoration | 12 |
+| Ajustements (franchise, arrondi, plafond, minimum) valorises au taux de base, sans majoration (choix valide, D-014) | 12 |
 | Regle d'ecart « retenir la valeur la plus basse » non prise en charge | 12 |
 | Majorations par plage horaire seulement : pas de dimanche ni de jour ferie | 02, 12 |
 | Carburant (L-07), attelage (L-09), conversion de devise (L-13), tonnage estime (L-14), retenues, penalites, mobilisation : non traites | 05, 07, 12 |
