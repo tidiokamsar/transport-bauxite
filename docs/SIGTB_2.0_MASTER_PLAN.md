@@ -12,8 +12,8 @@ Le mandat est le CDC 2.0 complet : 20 lots (CDC 39), 16 documents
 
 | Element | Fait | Reste |
 |---|---|---|
-| LOT 00 Audit | Etat de reference, matrice, decisions D-001 a D-012, cartographie des donnees, plan d'execution, architecture, securite, deploiement, plan de test (PR #19 mergee) | Re-cartographier sur le schema de production (D-009) |
-| LOT 01 Socle | Tranche 0 et Tranche 1 mergees ; Vague A ; Vague D (D-004, PR #17) ; outillage de test (D-007) ; correctif Tranche 0 (D-008, PR #16) ; rejeu des migrations (PR #18) ; durcissement `is_admin` (N4, PR #20) | Matrice des roles (D-010, D-012 a valider), deploiement Tranche 0 (P3), CI active (P1), Vagues B, C, E (D-005), typecheck a 0, base de reference (D-009) |
+| LOT 00 Audit | Etat de reference, matrice, decisions D-001 a D-013, cartographie des donnees, plan d'execution, architecture, securite, deploiement, plan de test (PR #19 mergee) | Re-cartographier sur le schema de production (D-009) |
+| LOT 01 Socle | Tranche 0 et Tranche 1 mergees ; Vague A ; Vague D (D-004, PR #17) ; outillage de test (D-007) ; correctif Tranche 0 (D-008, PR #16) ; rejeu des migrations (PR #18) ; durcissement `is_admin` (N4, PR #20) | Deploiement Tranche 0 (P3), CI active (P1), Vagues B, C, E (D-005), typecheck a 0, base de reference (D-009) |
 | LOT 02 a 19 | Rien de developpe pour le 2.0 | Tout |
 | Documents CDC 43 | 9 sur 16 | EVENT_ENGINE, DISPATCH_ENGINE, FUEL_INTELLIGENCE, MOBILE, DIGITAL_TWIN, AI, API (rediges dans leur LOT) |
 | Scenarios AT-001 a AT-035 | 0 couvert par un test de recette | 35 |
@@ -31,9 +31,9 @@ leves par l'equipe de developpement.
 | P1 | Deverrouiller GitHub Actions (facturation du compte) | Execution reelle de la CI : cliquet, tests unitaires, RLS, E2E | Proprietaire du compte GitHub |
 | P2 | Acces au projet Supabase `bprfctzqplahvrepxgrw` (ou nouveau projet maitrise) | Dump du schema (D-009), deploiement, purge des donnees fictives | DARI HOLDING |
 | P3 | Autoriser le deploiement de la Tranche 0 | Fermeture des failles C1 a C4 en production | DARI HOLDING, apres P2 |
-| P5 | Entrees metier : structure organisation et sites, conditions de location horaire (section 5), protocoles des traceurs GPS, regles de rapprochement des pesees, validation du cycle a 18 etats | LOT 02, 05, 06, 07, 08, 12 | DARI HOLDING (metier) |
+| P5 | Entrees metier : structure organisation et sites, valeurs des contrats de location (section 5.3), protocoles des traceurs GPS, regles de rapprochement des pesees, validation du cycle a 18 etats | LOT 02, 05, 06, 07, 08, 12 | DARI HOLDING (metier) |
 | P6 | Merges des PR ouvertes | Integration sur `main` | Proprietaire du depot |
-| P7 | Valider la correspondance role x module (D-012) | Deploiement de la Tranche 0 sans perte d'ecriture (N2) | DARI HOLDING |
+| P7 | Valider la correspondance role x module (D-012) | Fait le 2026-11-08 (PR #22 mergee) | DARI HOLDING |
 
 ## 3. Phases d'execution
 
@@ -47,8 +47,8 @@ leves par l'equipe de developpement.
 | Rejeu des migrations et tests RLS en conteneur (P4) | merge | #18 |
 | Livrables LOT 00 : plan directeur, modele de donnees, architecture, securite, deploiement, plan de test | merge | #19 |
 | Durcissement `is_admin()` et garde du role (constat N4) | merge | #20 |
-| Contexte Nimba (D-011), D-010 acceptee, correspondance des roles proposee (D-012) | PR ouverte | voir PROGRESS |
-| Migration d'alignement `role_permissions` (D-012) et test RLS | PR ouverte, a merger apres validation de D-012 (P7) | voir PROGRESS |
+| Contexte Nimba (D-011), D-010 et D-012 acceptees, modele de location parametrable (D-013) | PR ouverte | #21 |
+| Migration d'alignement `role_permissions` (D-012) et test RLS | merge | #22 |
 
 Limites de la phase A :
 - Les Vagues B, C, E (dont C8, injection HTML des exports, et les 37
@@ -146,17 +146,11 @@ semi-remorques loues a l'heure, 2 chargeuses Caterpillar et 1 pelle.
 - KPI propose a valider : taux d'utilisation des heures louees = heures
   productives / heures facturees.
 
-### 5.3 Points a trancher par DARI HOLDING (bloquent LOT 05 et 12)
+### 5.3 Parametrage (D-013)
 
-1. Sens de la location : DARI loue les camions a des proprietaires (cout)
-   ou loue ses camions a un client (revenu) ?
-2. Heure facturee : mise a disposition, heure moteur ou heure productive ?
-   Minimum journalier garanti ? Attente et panne facturees ou non ?
-3. Preuve des heures : feuille de pointage signee, horametre, GPS ?
-4. Location seche ou avec chauffeur ; carburant inclus ou non ?
-5. Nombre de tracteurs et de semi-remorques ; la remorque est-elle suivie
-   separement du tracteur ?
-6. Chargeuses et pelle : louees a l'heure aussi, ou propriete DARI ?
-7. Nimba remplace-t-il les autres sites ou s'y ajoute-t-il ? Points de
-   chargement et de destination, pont-bascule disponible ?
-8. Devise et taux horaires par categorie de materiel.
+Reponse de DARI HOLDING du 2026-11-08 : tout peut evoluer, donc tout est
+parametrable. Les 8 questions de D-011 deviennent des parametres de
+contrat, decrits dans [SIGTB_2.0_LOCATION_MODEL.md](SIGTB_2.0_LOCATION_MODEL.md)
+avec les scenarios de test L-01 a L-14. Les valeurs (taux, minimums,
+regles d'heures, devise) seront saisies par DARI comme donnees de contrat ;
+aucune n'est inventee.

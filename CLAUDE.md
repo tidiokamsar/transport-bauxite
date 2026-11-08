@@ -74,15 +74,16 @@ PR quand la dette diminue ; ne jamais les remonter.
 ## Etat connu (2026-11-08)
 
 - Contexte d'exploitation (D-011) : site de Nimba, camions semi-remorques
-  loues a l'heure, 2 chargeuses Caterpillar et 1 pelle. Points ouverts :
-  `docs/SIGTB_2.0_MASTER_PLAN.md` section 5.3.
+  loues a l'heure, 2 chargeuses Caterpillar et 1 pelle. Location et
+  decompte entierement parametrables (D-013,
+  `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 19 unitaires, 2 E2E, 19 assertions RLS (via
+- Tests (D-007) : 19 unitaires, 2 E2E, 30 assertions RLS (via
   `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
   rejouent pas sur base vierge (D-009 : base depuis un dump de production,
   apres acces au projet). Migration Tranche 0 corrigee (D-008).
-- Matrice des roles : D-010 acceptee, correspondance D-012 a valider avant
-  tout deploiement de la Tranche 0.
+- Matrice des roles alignee sur l'enum (D-010, D-012, migration
+  `20261108100000`), mergee, non deployee.
 - CI jamais executee (`startup_failure`, facturation GitHub Actions).
 - Tranche 0 securite mergee mais non deployee : projet Supabase
   `bprfctzqplahvrepxgrw` inaccessible depuis le compte connecte.

@@ -28,7 +28,7 @@ teste, valide et deploye.
 | `npm run typecheck` | 37 erreurs (baseline cliquet 37) | 0 erreur |
 | `npm run lint` | 0 erreur, 243 avertissements au 2026-11-08 (baseline 243) | 0 erreur bloquante : OK |
 | `npm run build` | OK | OK |
-| Tests automatises | Outillage installe (D-007, PR #15) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 19 assertions RLS au 2026-11-08. Tests RLS executes par `npm run test:rls:rejeu` sur une base rejouee (pas encore via `supabase test db`, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
+| Tests automatises | Outillage installe (D-007, PR #15) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 30 assertions RLS au 2026-11-08. Tests RLS executes par `npm run test:rls:rejeu` sur une base rejouee (pas encore via `supabase test db`, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
 | CI GitHub Actions | Jamais executee : tous les runs en `startup_failure` (facturation Actions, depot prive) | GitHub Actions operationnelle |
 | Migrations | 131 fichiers, 142 noms de tables crees. Rejeu sur base vierge (2026-11-07) : 89 passent, 42 echouent ; apres correctif D-008 : 90 passent, 41 echouent (toutes issues de Bolt, a traiter par D-009) | Rejouables (CDC 33) |
 | PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |
@@ -105,8 +105,8 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 
 | LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
 |---|---|---|---|---|---|
-| 00 | Audit et etat de reference | En developpement : livrables CDC 43 merges (MASTER_PLAN, ARCHITECTURE, DATABASE_MODEL, SECURITY, DEPLOYMENT, TEST_PLAN) ; contexte Nimba (D-011) | - | Base distante non inspectee (acces Supabase) ; cartographie a refaire sur le dump D-009 ; points ouverts de location horaire (MASTER_PLAN section 5.3) | #19 |
-| 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test (PR #15), correctif Tranche 0 (D-008, PR #16), rejeu des migrations (PR #18), durcissement `is_admin` (PR #20) merges ; alignement `role_permissions` (D-012) en PR | 00 | Validation de D-012 ; facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15, #16, #18, #20 |
+| 00 | Audit et etat de reference | En developpement : livrables CDC 43 merges (MASTER_PLAN, ARCHITECTURE, DATABASE_MODEL, SECURITY, DEPLOYMENT, TEST_PLAN) ; contexte Nimba (D-011) | - | Base distante non inspectee (acces Supabase) ; cartographie a refaire sur le dump D-009 ; modele de location parametrable (D-013) | #19 |
+| 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test (PR #15), correctif Tranche 0 (D-008, PR #16), rejeu des migrations (PR #18), durcissement `is_admin` (PR #20) merges ; alignement `role_permissions` (D-012, PR #22) merges | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15, #16, #18, #20, #22 |
 | 02 | Organisation Enterprise et referentiels | Absent | 01 | Migration des donnees existantes vers une organisation par defaut | - |
 | 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |
 | 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
@@ -117,7 +117,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 09 | Smart Dispatch et Optimization Engine | Maquette | 05, 06, 08 | Service Python OR-Tools a cadrer | - |
 | 10 | Fuel Intelligence 360 | A corriger | 02, 06 | Methode de mesure de consommation | - |
 | 11 | Maintenance, pneus et stocks | Existant / A corriger | 05 | - | - |
-| 12 | Finance, contrats et rentabilite | A corriger | 05, 07 | Taux horaires et regles d'heures facturables a obtenir (D-011) | - |
+| 12 | Finance, contrats et rentabilite | A corriger | 05, 07 | Moteur de decompte parametrable (D-013, LOCATION_MODEL) ; valeurs des contrats a saisir par DARI | - |
 | 13 | Mobile et Offline-First | Absent | 06, 07 | Nouveau projet Expo | - |
 | 14 | Digital Twin et Simulation | Absent | 06, 08, 09 | - | - |
 | 15 | Road Intelligence et Safety Intelligence | Absent | 08 | - | - |
