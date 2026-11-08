@@ -61,91 +61,6 @@ export default function SmartNotificationCenter() {
     }
   };
 
-  const generateNotifications = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const notificationTemplates = [
-      {
-        type: 'maintenance_due',
-        category: 'critical',
-        priority: 10,
-        title: 'Critical Maintenance Due',
-        message: 'Vehicle T-104 requires immediate maintenance - engine oil change overdue',
-        action_label: 'View Details'
-      },
-      {
-        type: 'fuel_alert',
-        category: 'warning',
-        priority: 7,
-        title: 'Unusual Fuel Consumption',
-        message: 'Vehicle T-204 showing 25% higher fuel consumption than average',
-        action_label: 'Investigate'
-      },
-      {
-        type: 'driver_performance',
-        category: 'info',
-        priority: 5,
-        title: 'Driver Performance Update',
-        message: 'Mamadou Diallo achieved 95/100 safety score this month',
-        action_label: 'View Report'
-      },
-      {
-        type: 'compliance',
-        category: 'critical',
-        priority: 9,
-        title: 'Insurance Expiring Soon',
-        message: 'Insurance for 3 vehicles expires in 7 days',
-        action_label: 'Renew Now'
-      },
-      {
-        type: 'cost_savings',
-        category: 'success',
-        priority: 4,
-        title: 'Cost Savings Identified',
-        message: 'AI identified $2,500 potential savings through route optimization',
-        action_label: 'View Details'
-      },
-      {
-        type: 'predictive_alert',
-        category: 'warning',
-        priority: 8,
-        title: 'Predicted Component Failure',
-        message: 'AI predicts 78% chance of transmission failure in Vehicle T-305 within 30 days',
-        action_label: 'Schedule Service'
-      },
-      {
-        type: 'achievement',
-        category: 'success',
-        priority: 3,
-        title: 'Fleet Milestone Achieved',
-        message: 'Your fleet has completed 1 million kilometers safely!',
-        action_label: 'Celebrate'
-      }
-    ];
-
-    for (const template of notificationTemplates) {
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-
-      await supabase.from('smart_notifications').insert({
-        user_id: user.id,
-        notification_type: template.type,
-        category: template.category,
-        priority: template.priority,
-        title: template.title,
-        message: template.message,
-        action_label: template.action_label,
-        action_url: '/dashboard',
-        is_read: Math.random() > 0.5,
-        expires_at: expiresAt.toISOString(),
-        metadata: { generated: true }
-      });
-    }
-
-    loadNotifications();
-  };
-
   const markAsRead = async (id: string) => {
     await supabase
       .from('smart_notifications')
@@ -244,13 +159,6 @@ export default function SmartNotificationCenter() {
               Mark All Read
             </button>
           )}
-          <button
-            onClick={generateNotifications}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-          >
-            <Bell className="h-5 w-5" />
-            Generate Notifications
-          </button>
         </div>
       </div>
 

@@ -65,7 +65,7 @@ section 6 datent du 2026-09-03. Etat actuel :
 |---|---|---|
 | Erreurs typecheck | 270 | 37 (baseline cliquet) |
 | Erreurs lint | 446 | 0 (250 avertissements, baseline) |
-| `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) ; apres PR #14 : 5 fichiers, 5 occurrences (Invoices, Purchases, Notifications, QuickActions) |
+| `Math.random` dans `src/` | 17 fichiers | 13 fichiers, 36 occurrences (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) ; apres PR #14 : 5 fichiers, 5 occurrences (Invoices, Purchases, Notifications, QuickActions) ; apres PR #17 : 3 fichiers, 3 occurrences, toutes des suffixes de numeros de pieces (Invoices, Purchases, Vague B) |
 | `setInterval` sans `clearInterval` dans les composants | 7 vues | 0 ; reste `src/lib/offline.ts` (Vague E) |
 | Tests automatises | 0 | 0 ; au 2026-11-07, branche `lot-01/outillage-tests` : 19 unitaires, 2 E2E, 13 assertions RLS |
 | Runs CI reussis | - | 0 (tous en `startup_failure`) |
@@ -281,8 +281,8 @@ A maintenir a chaque PR mergee.
 | IoT | D | timer, telemetry | a faire | - | - |
 | Reports | D | exports | a faire | - | - |
 | ESG | D | relecture | a faire | - | - |
-| Notifications | D | aleatoire | a faire | - | - |
-| QuickActions | D | aleatoire | a faire | - | - |
+| Notifications | D | D-004 | merge (PR #17) : generateur de 7 notifications fictives supprime | [#17](https://github.com/tidiokamsar/transport-bauxite/pull/17) | 2026-11-07 |
+| QuickActions | D | D-004 | merge (PR #17) : ecritures inventees (cout de 100, voyage et maintenance affectes d'office, rapport simule) remplacees par des raccourcis ; duree journalisee mesuree | [#17](https://github.com/tidiokamsar/transport-bauxite/pull/17) | 2026-11-07 |
 | Search | D | corrections | a faire | - | - |
 | lib/exports | E | C8 | a faire | - | - |
 | Offline | E | C11 | a faire | - | - |
