@@ -63,7 +63,9 @@ AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.profiles pr
-    JOIN public.role_permissions rp ON rp.role = pr.role
+    -- D-008 (2026-11-07) : role_permissions.role est text, profiles.role
+    -- est l'enum user_role ; le double cast vaut pour les deux types.
+    JOIN public.role_permissions rp ON rp.role::text = pr.role::text
     WHERE pr.id = auth.uid()
       AND rp.module = p_module
       AND (rp.can_create OR rp.can_edit)

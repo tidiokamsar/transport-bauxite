@@ -70,12 +70,13 @@ PR quand la dette diminue ; ne jamais les remonter.
   (typecheck, lint, build, tests), impact RLS et mise a jour de
   `docs/SIGTB_2.0_PROGRESS.md`.
 
-## Etat connu (2026-11-06)
+## Etat connu (2026-11-07)
 
 - 37 erreurs typecheck, 0 erreur lint, build OK.
 - Tests (D-007) : 19 unitaires, 2 E2E, 13 assertions RLS. Les tests RLS
-  ne tournent pas via `supabase start` : 42 migrations sur 131 ne rejouent
-  pas sur base vierge, dont la Tranche 0 (D-008, D-009 proposees).
+  ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
+  rejouent pas sur base vierge (D-009 : base depuis un dump de production,
+  apres acces au projet). Migration Tranche 0 corrigee (D-008).
 - CI jamais executee (`startup_failure`, facturation GitHub Actions).
 - Tranche 0 securite mergee mais non deployee : projet Supabase
   `bprfctzqplahvrepxgrw` inaccessible depuis le compte connecte.

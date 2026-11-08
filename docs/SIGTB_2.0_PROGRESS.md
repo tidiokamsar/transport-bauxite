@@ -28,9 +28,9 @@ teste, valide et deploye.
 | `npm run typecheck` | 37 erreurs (baseline cliquet 37) | 0 erreur |
 | `npm run lint` | 0 erreur, 250 avertissements (baseline 250) | 0 erreur bloquante : OK |
 | `npm run build` | OK | OK |
-| Tests automatises | Outillage installe (D-007, branche `lot-01/outillage-tests`) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 13 assertions RLS. Les tests RLS ne tournent pas encore via `supabase test db` (D-008, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
+| Tests automatises | Outillage installe (D-007, branche `lot-01/outillage-tests`) : Vitest 19 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 13 assertions RLS. Les tests RLS ne tournent pas encore via `supabase test db` (D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
 | CI GitHub Actions | Jamais executee : tous les runs en `startup_failure` (facturation Actions, depot prive) | GitHub Actions operationnelle |
-| Migrations | 131 fichiers, 142 noms de tables crees. Rejeu sur base vierge (2026-11-07) : 89 passent, 42 echouent, dont la migration Tranche 0 `20260903090100` (D-008, D-009) | Rejouables (CDC 33) |
+| Migrations | 131 fichiers, 142 noms de tables crees. Rejeu sur base vierge (2026-11-07) : 89 passent, 42 echouent ; apres correctif D-008 : 90 passent, 41 echouent (toutes issues de Bolt, a traiter par D-009) | Rejouables (CDC 33) |
 | PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |
 | Projet Supabase de l'app | `bprfctzqplahvrepxgrw`, absent du compte Supabase connecte | Acces requis pour deployer |
 | Tranche 0 securite | Mergee (PR #2), **non deployee, non verifiee** | RLS restrictive, anti-escalade |
@@ -106,7 +106,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
 |---|---|---|---|---|---|
 | 00 | Audit et etat de reference | En developpement (ce document) | - | Base distante non inspectee (acces Supabase) | - |
-| 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test en developpement | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; migration Tranche 0 non applicable en l'etat (D-008) ; migrations non rejouables (D-009) | #2, #4, #7 a #11 |
+| 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test merge (PR #15), correctif migration Tranche 0 (D-008) | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15 |
 | 02 | Organisation Enterprise et referentiels | Absent | 01 | Migration des donnees existantes vers une organisation par defaut | - |
 | 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |
 | 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
