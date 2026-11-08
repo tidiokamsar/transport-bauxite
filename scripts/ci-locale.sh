@@ -15,22 +15,23 @@ cd "$(dirname "$0")/.."
 RAPIDE=0
 [ "${1:-}" = "--rapide" ] && RAPIDE=1
 
-mkdir -p test-results
-RAPPORT=test-results/ci-locale.txt
-{
-  echo "CI locale du $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "Commit : $(git rev-parse --short HEAD) ($(git rev-parse --abbrev-ref HEAD))"
-  [ -n "$(git status --porcelain)" ] && echo "Attention : arbre de travail modifie, resultat non reproductible"
-} > "$RAPPORT"
+# Le rapport est garde en memoire et ecrit a la fin : Playwright vide
+# test-results/ au demarrage des tests E2E.
+RESULTATS="CI locale du $(date -u +%Y-%m-%dT%H:%M:%SZ)
+Commit : $(git rev-parse --short HEAD) ($(git rev-parse --abbrev-ref HEAD))"
+[ -n "$(git status --porcelain)" ] && RESULTATS="$RESULTATS
+Attention : arbre de travail modifie, resultat non reproductible"
 
 ECHECS=0
 etape() {
   local nom="$1"; shift
   echo "== $nom"
   if "$@"; then
-    echo "OK     $nom" >> "$RAPPORT"
+    RESULTATS="$RESULTATS
+OK     $nom"
   else
-    echo "ECHEC  $nom" >> "$RAPPORT"
+    RESULTATS="$RESULTATS
+ECHEC  $nom"
     ECHECS=$((ECHECS + 1))
   fi
 }
@@ -40,12 +41,17 @@ etape "Tests unitaires (vitest)" npm test --silent
 etape "Build de production" npm run build --silent
 
 if [ "$RAPIDE" -eq 0 ]; then
-  etape "Rejeu des migrations et tests RLS" bash scripts/rejeu-migrations.sh --tests
+  # E2E avant le rejeu, pour conserver test-results/rejeu-migrations.txt.
   etape "Tests E2E (Playwright)" npm run test:e2e --silent
+  etape "Rejeu des migrations et tests RLS" bash scripts/rejeu-migrations.sh --tests
 else
-  echo "NON EXECUTE  Rejeu RLS et E2E (--rapide)" >> "$RAPPORT"
+  RESULTATS="$RESULTATS
+NON EXECUTE  Tests E2E et rejeu RLS (--rapide)"
 fi
 
+mkdir -p test-results
+printf '%s
+' "$RESULTATS" > test-results/ci-locale.txt
 echo
-cat "$RAPPORT"
+cat test-results/ci-locale.txt
 [ "$ECHECS" -eq 0 ]
