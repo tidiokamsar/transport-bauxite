@@ -1,7 +1,8 @@
 # Migrations qui echouent au rejeu sur base vierge (scripts/rejeu-migrations.sh).
 # Etat du 2026-11-07 : 41 migrations, toutes issues de Bolt (2025).
-# Elles ne sont pas corrigees (regle 6) : D-009 prevoit de les archiver au
-# profit d'un schema de base issu d'un dump de production.
+# Elles ne sont pas corrigees (regle 6) : D-017 prevoit de construire la
+# base de reference depuis les migrations qui rejouent, completees par une
+# migration consolidee pour les tables manquantes (SIGTB_2.0_HEBERGEMENT_VPS.md).
 # Ne jamais ajouter une ligne a cette liste : une nouvelle migration doit
 # rejouer. Retirer une ligne quand la migration passe.
 20251023112347_20251023104448_create_tires_and_tracking_tables.sql

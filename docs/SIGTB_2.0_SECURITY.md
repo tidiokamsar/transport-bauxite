@@ -176,7 +176,7 @@ Sur `main`, 42 echecs : le 42e est `20260903090100`, corrigee par D-008
 
 Manquants :
 
-- Tests RLS sur base issue du schema de production (D-009).
+- Tests RLS sur la base de reference construite depuis le depot (D-017).
 - Lecture par perimetre (site, organisation, sous-traitant, auditeur) des
   qu'elle existe (LOT 02).
 - Chaque role de l'enum contre chaque module de la matrice (N2).

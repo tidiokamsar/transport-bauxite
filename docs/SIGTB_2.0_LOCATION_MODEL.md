@@ -165,7 +165,7 @@ cote serveur (CDC 35, operations sensibles).
 
 ## 6. Modele de donnees indicatif
 
-A creer apres D-009 (schema de production connu) et le LOT 02, par des
+A creer apres la base de reference (D-017) et le LOT 02, par des
 migrations nouvelles, avec RLS par organisation et site. Les noms sont
 indicatifs.
 

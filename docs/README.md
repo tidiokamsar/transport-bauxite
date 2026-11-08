@@ -16,8 +16,9 @@ consultables dans le commit initial.
 | [SIGTB_2.0_ARCHITECTURE.md](SIGTB_2.0_ARCHITECTURE.md) | Architecture actuelle, cible, ecarts par lot |
 | [SIGTB_2.0_DATABASE_MODEL.md](SIGTB_2.0_DATABASE_MODEL.md) | Cartographie des tables existantes contre le modele cible (CDC 33) |
 | [SIGTB_2.0_SECURITY.md](SIGTB_2.0_SECURITY.md) | Modele d'autorisation, constats, ecarts CDC 4.3 et 35 |
-| [SIGTB_2.0_DEPLOYMENT.md](SIGTB_2.0_DEPLOYMENT.md) | Procedure de deploiement de la Tranche 0 (P3) et de la base de reference (D-009) |
+| [SIGTB_2.0_DEPLOYMENT.md](SIGTB_2.0_DEPLOYMENT.md) | Procedure ecrite pour le projet Supabase heberge (P3, D-009) ; remplacee par SIGTB_2.0_HEBERGEMENT_VPS.md (D-016, D-017), conservee pour reference |
 | [SIGTB_2.0_TEST_PLAN.md](SIGTB_2.0_TEST_PLAN.md) | Strategie de test, matrice des scenarios AT-001 a AT-035 |
+| [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md) | Hebergement sur le VPS du proprietaire, pile Supabase auto-hebergee, CI locale (D-015 a D-017) |
 | [SIGTB_2.0_LOCATION_MODEL.md](SIGTB_2.0_LOCATION_MODEL.md) | Modele parametrable de location et de decompte horaire (D-013) |
 
 Les autres documents du CDC section 43 (API, Event Engine, Dispatch,

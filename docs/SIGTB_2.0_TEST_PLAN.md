@@ -13,8 +13,8 @@ References : [CDC 2.0](SIGTB_2.0_CAHIER_DES_CHARGES.md) sections 39 a 44,
 | Qualite statique | `tsc`, ESLint, Vite | `bash scripts/ci-qualite.sh`, `npm run build` | `.github/ci-baseline.env` | Operationnel. 37 erreurs typecheck (exigence : 0) | 01 |
 | Unitaire | Vitest 3.2.7, environnement `node` | `npm test` | `src/**/*.test.ts` | Operationnel en local | 01 |
 | Integration | A outiller (Edge Functions, vues KPI, regles serveur) | - | - | A outiller | 06 |
-| RLS | pgTAP via Supabase CLI 2.98.2 | `npm run test:rls` (`supabase test db`) | `supabase/tests/database/*.test.sql` | Tests ecrits ; `supabase start` echoue tant que 42 migrations ne rejouent pas (D-009). Script `test:rls:rejeu` absent de cette branche, en PR #18 | 01 |
-| End-to-end | Playwright 1.64.1, Chromium | `npm run test:e2e` | `e2e/`, `playwright.config.ts` | Operationnel en local (serveur Vite port 5174, Supabase local `127.0.0.1:54321`, cle factice) | 01 |
+| RLS | pgTAP via Supabase CLI 2.98.2 | `npm run test:rls` (`supabase test db`) | `supabase/tests/database/*.test.sql` | Tests ecrits ; `supabase start` echoue tant que 41 migrations ne rejouent pas (D-017). Script `test:rls:rejeu` absent de cette branche, en PR #18 | 01 |
+| End-to-end | Playwright 1.64.1, Chromium | `npm run test:e2e` | `e2e/`, `playwright.config.ts` | Operationnel en local (build `dist-e2e` servi par `vite preview` sur le port 5174, Supabase local `127.0.0.1:54321`, cle factice) | 01 |
 | Charge | A outiller | - | - | A outiller. Objectifs a fixer apres mesure de la flotte, de la frequence GPS, des utilisateurs et du volume d'evenements (CDC 36) | 18 |
 | Offline-First | A outiller | - | - | A outiller. Application mobile absente (CDC 24) | 13 |
 | Restauration | A outiller | - | - | A outiller. Projet Supabase inaccessible (P2) | 19 |
@@ -35,7 +35,7 @@ RLS, E2E, C charge, O offline, R restauration.
 |---|---|---|---|---|---|
 | AT-001 | Creation d'un vehicule DARI | 05 | E2E, RLS | A corriger | `vehicles` sans proprietaire ni exploitant (CDC 9.1) ; organisation absente (LOT 02) |
 | AT-002 | Enregistrement d'un sous-traitant | 05 | E2E, RLS | Absent | Table `transporters` absente ; LOT 02 |
-| AT-003 | Isolation de ses donnees | 05, 17 | RLS, E2E | Absent | Perimetre role x organisation x site absent (CDC 4.3, LOT 02) ; base RLS de reference (D-009) |
+| AT-003 | Isolation de ses donnees | 05, 17 | RLS, E2E | Absent | Perimetre role x organisation x site absent (CDC 4.3, LOT 02) ; base RLS de reference (D-017) |
 | AT-004 | Planification d'un shift | 03 | U, I, E2E | Maquette | `shift_plans` alimente par `Math.random` ; pas d'instance de shift ; LOT 02 |
 | AT-005 | Affectation d'un camion | 09 | U, I, E2E | Maquette | `dispatch_assignments` alimente par `Math.random` ; LOT 05, 06, 08 |
 | AT-006 | Depart d'un voyage | 06 | U, I, E2E | A corriger | `trip_status` a 4 etats (CDC 12 : 18) ; pas de `trip_events` |
@@ -62,7 +62,7 @@ RLS, E2E, C charge, O offline, R restauration.
 | AT-027 | Simulation de production | 14 | U, I | Absent | Resultats etiquetes `SIMULATED` ; LOT 06, 08, 09 |
 | AT-028 | Synchronisation hors ligne | 13 | O, I | Absent | Application Expo absente ; `src/lib/offline.ts` renvoie un identifiant fictif (C11) |
 | AT-029 | Rejeu sans doublon | 13, 06 | O, I | Absent | Idempotence et outbox absentes (CDC 31) |
-| AT-030 | Tentative d'acces non autorise | 01, 02 | RLS, E2E | A corriger | Couverture partielle (section 3) ; Tranche 0 non deployee (P3, D-008) ; base RLS (D-009) ; perimetre site absent (LOT 02) |
+| AT-030 | Tentative d'acces non autorise | 01, 02 | RLS, E2E | A corriger | Couverture partielle (section 3) ; Tranche 0 non deployee (P3, D-008) ; base RLS (D-017) ; perimetre site absent (LOT 02) |
 | AT-031 | Correction d'une pesee cloturee | 07, 06 | I, RLS | Absent | Event Engine absent : correction = nouvel evenement audite (CDC 31) |
 | AT-032 | Rejeu historique d'un shift | 14, 03 | I | Absent | Journal d'evenements (LOT 06) ; instances de shift (LOT 03) |
 | AT-033 | Perte de signal GPS | 08 | U, I, E2E | A corriger | Affichage « sans donnees » depuis PR #7 ; precision, qualite et fraicheur non verifiees (CDC 15) |
@@ -97,7 +97,7 @@ decision dans DECISIONS avant le debut du LOT 18.
 | P1 leve : CI executee, verte sur `main` et imposee sur les PR | Run CI |
 | Typecheck 0 erreur, lint 0 erreur, build OK (CDC 41) | Sortie `scripts/ci-qualite.sh` en CI |
 | Plus aucun niveau « a outiller » en section 1 | Ce document |
-| Tests RLS executes en CI sur la base de reference (D-009) | Run CI |
+| Tests RLS executes en CI sur la base de reference (D-017) | Run CI |
 | Chaque AT du perimetre pilote au statut Teste, avec son test cite dans la matrice | Section 2, run CI |
 | AT-003 et AT-030 verts sur role x organisation x site | Fichiers pgTAP, run CI |
 | Aucun `todo` ni `skip` sur un AT du perimetre pilote | Sortie Vitest, Playwright, pgTAP |
@@ -122,7 +122,7 @@ decision dans DECISIONS avant le debut du LOT 18.
 
 | Regle | Application |
 |---|---|
-| Aucune donnee de production dans les tests | Pas de donnees issues du projet `bprfctzqplahvrepxgrw` ; le dump D-009 est un dump de schema. Les E2E visent `127.0.0.1:54321`, jamais la production |
+| Aucune donnee de production dans les tests | Pas de donnees issues du projet `bprfctzqplahvrepxgrw` ; la base de reference (D-017) est construite depuis le depot, sans donnees. Les E2E visent `127.0.0.1:54321`, jamais la production |
 | Donnees de test identifiables | UUID `00000000-0000-4000-<segment par fichier>-...`, e-mails en `@exemple.invalid`, numeros prefixes `TEST-`, noms suffixes « test ». Tests SQL dans une transaction terminee par `ROLLBACK` |
 | Jamais de `Math.random` dans les fixtures | Valeurs fixes ecrites dans le test. `gen_random_uuid()` tolere seulement dans une ecriture dont le test attend le rejet |
 | Pas de secret | Cle factice (`cle-factice-e2e`) ; `.env` jamais lu ni commite par les tests |
