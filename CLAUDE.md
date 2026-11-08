@@ -78,7 +78,7 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 19 unitaires, 2 E2E, 30 assertions RLS (via
+- Tests (D-007) : 46 unitaires (dont 27 du moteur de decompte), 2 E2E, 30 assertions RLS (via
   `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
   rejouent pas sur base vierge (D-009 : base depuis un dump de production,
   apres acces au projet). Migration Tranche 0 corrigee (D-008).
