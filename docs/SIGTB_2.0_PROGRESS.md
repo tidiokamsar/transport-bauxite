@@ -105,7 +105,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 
 | LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
 |---|---|---|---|---|---|
-| 00 | Audit et etat de reference | En developpement (ce document) | - | Base distante non inspectee (acces Supabase) | - |
+| 00 | Audit et etat de reference | En developpement : livrables CDC 43 rediges (MASTER_PLAN, ARCHITECTURE, DATABASE_MODEL, SECURITY, DEPLOYMENT, TEST_PLAN) | - | Base distante non inspectee (acces Supabase) ; cartographie a refaire sur le dump D-009 | #19 |
 | 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test merge (PR #15), correctif migration Tranche 0 (D-008) | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15 |
 | 02 | Organisation Enterprise et referentiels | Absent | 01 | Migration des donnees existantes vers une organisation par defaut | - |
 | 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |

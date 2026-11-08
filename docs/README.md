@@ -12,9 +12,15 @@ consultables dans le commit initial.
 | [SIGTB_2.0_CAHIER_DES_CHARGES.md](SIGTB_2.0_CAHIER_DES_CHARGES.md) | Cahier des charges general, fonctionnel et technique, version 2.0 |
 | [SIGTB_2.0_PROGRESS.md](SIGTB_2.0_PROGRESS.md) | Etat de reference (LOT 00), matrice exigences -> existant, suivi par lot |
 | [SIGTB_2.0_DECISIONS.md](SIGTB_2.0_DECISIONS.md) | Registre des decisions |
+| [SIGTB_2.0_MASTER_PLAN.md](SIGTB_2.0_MASTER_PLAN.md) | Plan directeur d'execution : etat du mandat, prerequis, phases, lots |
+| [SIGTB_2.0_ARCHITECTURE.md](SIGTB_2.0_ARCHITECTURE.md) | Architecture actuelle, cible, ecarts par lot |
+| [SIGTB_2.0_DATABASE_MODEL.md](SIGTB_2.0_DATABASE_MODEL.md) | Cartographie des tables existantes contre le modele cible (CDC 33) |
+| [SIGTB_2.0_SECURITY.md](SIGTB_2.0_SECURITY.md) | Modele d'autorisation, constats, ecarts CDC 4.3 et 35 |
+| [SIGTB_2.0_DEPLOYMENT.md](SIGTB_2.0_DEPLOYMENT.md) | Procedure de deploiement de la Tranche 0 (P3) et de la base de reference (D-009) |
+| [SIGTB_2.0_TEST_PLAN.md](SIGTB_2.0_TEST_PLAN.md) | Strategie de test, matrice des scenarios AT-001 a AT-035 |
 
-Les autres documents du CDC section 43 (architecture, modele de donnees,
-API, etc.) seront crees au fil des lots.
+Les autres documents du CDC section 43 (API, Event Engine, Dispatch,
+Fuel, Mobile, Digital Twin, IA) seront crees dans leur lot.
 
 ## Demarrage
 
