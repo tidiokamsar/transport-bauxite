@@ -66,7 +66,14 @@ construite depuis le depot :
 2. Une migration consolidee pour les tables lues par l'interface mais
    creees par des migrations Bolt qui echouent (liste en section 5.1).
 3. Aucune donnee de demonstration Bolt (regle 1). Le premier
-   administrateur est cree sur le VPS avec un mot de passe neuf (C1).
+   administrateur est cree sur le VPS avec un mot de passe neuf (C1) : les
+   migrations `20251211134113_create_admin_user_account` et
+   `20251211134305_update_admin_user_credentials` sont exclues. Elles
+   ecrivent dans `auth.users`, dont le schema appartient au service Auth
+   et differe de celui de l'image Postgres seule (resultat de rejeu
+   variable d'une execution a l'autre le 2026-11-08 : colonne
+   `email_confirmed_at` tantot presente, tantot absente). Elles restent
+   dans `supabase/tests/echecs-connus.txt`.
 
 ### 5.1 Tables lues par l'interface, absentes de la base rejouee
 

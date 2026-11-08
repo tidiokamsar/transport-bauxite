@@ -108,8 +108,8 @@ a PostgREST.
   `20260903090100` (`has_module_write`, suppression des politiques
   `FOR ALL ... USING (true)`, environ 113 selon l'en-tete). Mergee, non
   deployee ; la seconde echoue sur base rejouee (D-008).
-- Rejouabilite : 42 migrations sur 131 echouent sur base vierge (PROGRESS,
-  D-009).
+- Rejouabilite : 41 migrations sur 133 echouent sur base vierge (PROGRESS,
+  D-017).
 
 ### 1.6 Qualite et CI
 
@@ -156,7 +156,7 @@ pgTAP (`supabase/tests/database/01_*.sql`, `02_*.sql`).
 |---|---|---|---|---|
 | E01 | RLS | Tranche 0 non deployee ; politiques ouvertes presumees en production | RLS restrictive (35) | 01 |
 | E02 | CI, typage | CI jamais executee ; 37 erreurs `tsc` ; client non type | GitHub Actions (29), CDC 41 | 01 |
-| E03 | Rejouabilite | 42 migrations non rejouables ; tests RLS bloques | Schema reproductible (33) | 01 (D-008, D-009) |
+| E03 | Rejouabilite | 42 migrations non rejouables ; tests RLS bloques | Schema reproductible (33) | 01 (D-008, D-017) |
 | E04 | Operations sensibles | Comptes et roles crees depuis le navigateur | Fonctions serveur autorisees (35) | 01, 02 |
 | E05 | MFA | Absent | MFA comptes sensibles (35) | 01, 02 |
 | E06 | Perimetre | Droits role x module ; pas d'organisation ni de portee site | Role x organisation x site (4.3, 35) | 02 |
@@ -193,8 +193,8 @@ pgTAP (`supabase/tests/database/01_*.sql`, `02_*.sql`).
    roles, validations) passent par des fonctions serveur (CDC 35).
 4. **Migrations** : nouveau fichier horodate, idempotent (`IF NOT EXISTS`),
    jamais de modification d'une migration existante. Seule exception
-   envisagee : D-008 (acceptee, PR #16). Reference de schema : dump de production
-   (D-009, acceptee). Cartographier avant de creer (CDC 33,
+   envisagee : D-008 (acceptee, PR #16). Reference de schema : base construite
+   depuis le depot (D-017). Cartographier avant de creer (CDC 33,
    DATABASE_MODEL).
 5. **Aucune donnee inventee** (CDC 26, 27, 32, D-004) : absence de donnee
    = « sans donnees » ; simulation etiquetee `SIMULATED`, jamais melangee
@@ -223,7 +223,7 @@ pgTAP (`supabase/tests/database/01_*.sql`, `02_*.sql`).
 
 | Point | Pourquoi non verifiable | Consequence | LOT |
 |---|---|---|---|
-| Schema reel de production | Projet `bprfctzqplahvrepxgrw` inaccessible (P2, D-009) | Inconnus : existence de `ingest_gps_data`, `ingest_fuel_data`, `fuel_anomalies` ; politiques RLS et extensions reellement installees. Ecart de comptage a lever : 42 migrations en echec selon PROGRESS, 41 selon DATABASE_MODEL | 01 |
+| Schema reel de production | Projet `bprfctzqplahvrepxgrw` inaccessible et abandonne (D-016) ; base de reference reconstruite depuis le depot (D-017) | Inconnus : existence de `ingest_gps_data`, `ingest_fuel_data`, `fuel_anomalies` ; politiques RLS et extensions reellement installees. Ecart de comptage a lever : 42 migrations en echec selon PROGRESS, 41 selon DATABASE_MODEL | 01 |
 | Configuration de deploiement des Edge Functions | Non visible dans le depot | `verify_jwt`, secrets et declencheur de `geofence-monitor` non verifies | 01, 08 |
 | Protocoles des traceurs GPS | Materiel et fournisseurs inconnus (P5) | Format, horodatage, envoi differe, authentification des equipements a definir avant l'adaptateur | 08 |
 | Service Python OR-Tools | Non cadre | Hebergement, contrat d'API, donnees d'entree, deploiement et supervision a decider ; il ne porte pas les regles metier | 09 |

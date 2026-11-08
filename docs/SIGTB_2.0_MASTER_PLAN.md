@@ -55,7 +55,7 @@ Limites de la phase A :
   erreurs typecheck d'HR et Search) attendent le deploiement de la
   Tranche 0 et une CI active (D-005).
 - Aucune migration du LOT 02 et suivants n'est ecrite tant que le schema
-  de production est inconnu (CDC 33, D-009).
+  de reference n'est pas construit (CDC 33, D-017).
 - Les tests ne s'executent qu'en local tant que P1 n'est pas leve.
 
 ### Phase B - Apres P2 : finir le LOT 01 sur le VPS

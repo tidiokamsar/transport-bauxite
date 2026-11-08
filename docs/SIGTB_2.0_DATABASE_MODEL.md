@@ -9,11 +9,11 @@ d'en creer de nouvelles »). Etat au 2026-11-08.
 |---|---|---|
 | `supabase/migrations` (131 fichiers) | 142 noms de tables crees (`CREATE TABLE`) | Historique Bolt, incoherent : 42 migrations ne rejouent pas sur `main`, 41 apres le correctif D-008 (PR #16) |
 | Base rejouee (`scripts/rejeu-migrations.sh`, image `supabase/postgres` 17.6.1.106) | 140 tables, 13 enums, 92 politiques RLS | Schema partiel : ce n'est **pas** la production |
-| Schema de production (projet `bprfctzqplahvrepxgrw`) | Inconnu | Inaccessible (P2) ; dump prevu par D-009 |
+| Schema de production (projet `bprfctzqplahvrepxgrw`) | Inconnu | Inaccessible et abandonne (D-016) ; base de reference construite depuis le depot (D-017) |
 
 Consequence : toute correspondance ci-dessous est etablie **par nom de
 table** sur l'historique et la base rejouee. Les colonnes, contraintes et
-politiques de production restent a confirmer par le dump D-009 avant toute
+politiques de production ne seront jamais confirmees (projet abandonne, D-016) ; la reference est la base D-017, a verifier avant toute
 migration du LOT 02.
 
 Ecarts constates entre historique et base rejouee :
@@ -142,7 +142,7 @@ recreer :
 
 ## 6. Points a traiter avant le LOT 02
 
-1. Dump du schema de production et alignement de l'historique (D-009, apres P2).
+1. Construction de la base de reference depuis le depot (D-017), migration consolidee des tables manquantes (SIGTB_2.0_HEBERGEMENT_VPS.md, section 5).
 2. Re-executer cette cartographie sur le dump : colonnes, contraintes,
    index, politiques reelles.
 3. Doublons a arbitrer : `clients` et `customers` ; `attendance` et

@@ -5,6 +5,14 @@ deploiement et verification de la Tranche 0, alignee sur CDC 42. Etat au
 2026-11-08 : **rien n'a ete execute**. La Tranche 0 est mergee, non
 deployee, non verifiee.
 
+> **Caduque pour la cible retenue.** Cette procedure visait le projet
+> Supabase heberge `bprfctzqplahvrepxgrw`, inaccessible et abandonne
+> (D-016). La section 10 (D-009) est remplacee par D-017. La procedure de
+> deploiement sur le VPS du proprietaire sera ecrite dans
+> [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md). Les
+> principes (autorisation par etape, sauvegarde prealable, rejeu des
+> scenarios, retour arriere, supervision) y seront repris.
+
 ## 0. Regle d'autorisation
 
 Chaque etape ci-dessous, y compris la sauvegarde et le `link`, exige
