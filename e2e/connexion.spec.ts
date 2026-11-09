@@ -7,6 +7,8 @@ test.describe('Page de connexion', () => {
   });
 
   test('affiche un formulaire vide', async ({ page }) => {
+    await page.setViewportSize({ width: 1672, height: 941 });
+    await page.screenshot({ path: 'test-results/connexion.png' });
     const email = page.locator('input[type="email"]');
     const motDePasse = page.locator('input[type="password"]');
     await expect(email).toBeVisible();

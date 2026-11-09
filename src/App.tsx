@@ -3,6 +3,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { LoginPage } from './components/Auth/LoginPage';
 import { Sidebar } from './components/Layout/Sidebar';
+import { libelleVue } from './components/Layout/menu';
+import { TopBar } from './components/Layout/TopBar';
+import { PageAttente } from './components/Layout/PageAttente';
+import { SiteProvider } from './contexts/SiteContext';
 import { DashboardView } from './components/Dashboard/DashboardView';
 import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
@@ -163,6 +167,22 @@ const MainApp = () => {
         return <QuickActionsPanel onNavigate={setCurrentView} />;
       case 'settings':
         return <AdminSettingsView />;
+      case 'planification':
+        return (
+          <PageAttente
+            titre="Planification de la production"
+            lot="LOT 03"
+            description="Objectifs de tonnage par site et par shift, ressources nécessaires et plan de rattrapage. Tant que ce module n'existe pas, le tableau de bord affiche « objectif non défini »."
+          />
+        );
+      case 'dispatch':
+        return (
+          <PageAttente
+            titre="Dispatch"
+            lot="LOT 09"
+            description="Affectation des camions et des chauffeurs : le système recommande, l'exploitant décide, chaque décision est historisée."
+          />
+        );
       default:
         return <DashboardView />;
     }
@@ -170,10 +190,15 @@ const MainApp = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen fond-topo">
+      <div className="flex h-screen bg-sable">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+        <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar
+          sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : libelleVue(currentView)}
+          onAllerA={setCurrentView}
+        />
         <main className="flex-1 overflow-y-auto">
-          <div className="p-8">
+          <div className="p-6 xl:p-8">
             <Suspense fallback={<LoadingFallback />}>
               <div className="animate-fade-in">
                 {renderView()}
@@ -181,6 +206,7 @@ const MainApp = () => {
             </Suspense>
           </div>
         </main>
+        </div>
         <OfflineIndicator />
       </div>
     </ErrorBoundary>
@@ -191,7 +217,9 @@ function App() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <MainApp />
+        <SiteProvider>
+          <MainApp />
+        </SiteProvider>
       </LanguageProvider>
     </AuthProvider>
   );
