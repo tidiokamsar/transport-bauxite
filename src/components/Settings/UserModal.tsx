@@ -20,16 +20,36 @@ interface UserForm {
   status: string;
 }
 
+// Roles de l'enum user_role (D-010, D-012) ; les droits de chacun sont
+// ceux de la matrice role_permissions, appliques par le serveur (D-021).
 const ROLES = [
-  { value: 'admin', label: 'Administrateur', color: 'red' },
-  { value: 'manager', label: 'Gestionnaire', color: 'blue' },
-  { value: 'dispatcher', label: 'Dispatcheur', color: 'green' },
-  { value: 'fleet_manager', label: 'Responsable Flotte', color: 'purple' },
-  { value: 'mechanic', label: 'Mécanicien', color: 'orange' },
-  { value: 'accountant', label: 'Comptable', color: 'teal' },
-  { value: 'hr_manager', label: 'RH Manager', color: 'pink' },
-  { value: 'driver', label: 'Chauffeur', color: 'slate' },
+  { value: 'admin', label: 'Administrateur' },
+  { value: 'director', label: 'Directeur' },
+  { value: 'operations_manager', label: 'Responsable des opérations' },
+  { value: 'fleet_manager', label: 'Responsable de flotte' },
+  { value: 'maintenance_chief', label: 'Chef de maintenance' },
+  { value: 'logistician', label: 'Logisticien' },
+  { value: 'accountant', label: 'Comptable' },
+  { value: 'driver', label: 'Chauffeur' },
 ];
+
+const LONGUEUR_MOT_DE_PASSE = 12;
+
+/** Appel de la fonction serveur de gestion des comptes (admin seulement). */
+const gererCompte = async (corps: Record<string, unknown>) => {
+  const { data, error } = await supabase.functions.invoke('admin-utilisateurs', { body: corps });
+  if (error) {
+    let message = 'Opération refusée par le serveur';
+    try {
+      const detail = await (error as { context?: Response }).context?.json();
+      if (detail?.erreur) message = detail.erreur;
+    } catch {
+      // Reponse sans corps JSON : message generique.
+    }
+    throw new Error(message);
+  }
+  return data as { id: string };
+};
 
 const DEPARTMENTS = [
   'Direction',
@@ -125,40 +145,36 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
 
         if (error) throw error;
 
+        if (formData.password) {
+          await gererCompte({ action: 'mot_de_passe', user_id: userId, password: formData.password });
+        }
+
+        const modifications = { ...formData, password: undefined };
         await supabase.rpc('log_user_activity', {
           p_action: 'user_updated',
-          p_details: { user_id: userId, changes: formData },
+          p_details: { user_id: userId, changes: modifications, mot_de_passe_change: !!formData.password },
         });
       } else {
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        const cree = await gererCompte({
+          action: 'creer',
           email: formData.email,
           password: formData.password,
-          options: {
-            data: {
-              full_name: formData.full_name,
-              phone: formData.phone,
-              role: formData.role,
-              department: formData.department,
-              photo_url: formData.photo_url,
-            },
-          },
+          full_name: formData.full_name,
+          phone: formData.phone,
+          role: formData.role,
+          department: formData.department,
         });
-
-        if (signUpError) throw signUpError;
-
-        if (authData.user) {
-          await supabase.rpc('log_user_activity', {
-            p_action: 'user_created',
-            p_details: { user_id: authData.user.id, email: formData.email },
-          });
-        }
+        await supabase.rpc('log_user_activity', {
+          p_action: 'user_created',
+          p_details: { user_id: cree.id, email: formData.email, role: formData.role },
+        });
       }
 
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving user:', error);
-      alert(error.message || 'Erreur lors de la sauvegarde');
+      alert(error instanceof Error ? error.message : 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }
@@ -215,8 +231,9 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-12"
-                    placeholder="••••••••"
-                    minLength={6}
+                    placeholder="12 caractères minimum"
+                    minLength={LONGUEUR_MOT_DE_PASSE}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -229,6 +246,23 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
                 <p className="text-xs text-slate-500 mt-1">Minimum 6 caractères</p>
               </div>
             </>
+          )}
+
+          {userId && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Nouveau mot de passe (facultatif)
+              </label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Laisser vide pour ne pas le changer"
+                minLength={LONGUEUR_MOT_DE_PASSE}
+                autoComplete="new-password"
+              />
+            </div>
           )}
 
           <div>

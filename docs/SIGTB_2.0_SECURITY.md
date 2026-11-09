@@ -106,6 +106,7 @@ suivi) :
 | N3 | P2 | `geofence-monitor` declenchable par tout porteur d'un JWT valide (y compris la cle anon si la verification JWT l'accepte, non verifie) |
 | N4 | P2 | `is_admin()` sans `SET search_path` ; garde du trigger sans controle de `status`. Corrige par `20261108090000_durcir_is_admin` (PR #20, non deploye) |
 | N5 | P0 | Fonctions SECURITY DEFINER heritees de Bolt executables par `anon` : `update_user_password` (reecrit le mot de passe de tout compte), `calculate_employee_payroll` et `generate_payroll_record` (paie de tout salarie) ; vue `shift_performance_stats` lisible par `anon`. Verifie en production le 2026-11-09. Correctif : `20261109120000_fermer_fonctions_definer`, test `06_fonctions_definer` |
+| N6 | P1 | Tables metier reservees a l'administrateur, `role_permissions` illisible, `has_module_write` sans controle du statut actif : aucun autre role ne pouvait travailler, et un compte desactive gardait ses ecritures. Correctif : `20261110090000_droits_par_role` (D-021), test `08_droits_par_role` |
 
 ## 3. Ecarts avec les sections 4.3 et 35 du CDC
 
