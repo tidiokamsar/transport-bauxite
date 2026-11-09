@@ -85,7 +85,7 @@ Rappel CDC 44 : merge n'est ni deploye ni verifie. Rien n'est deploye.
 | Id | Constat | Etat du code (`main`) | Reste a faire |
 |---|---|---|---|
 | C1 | Mot de passe admin affiche | `demoAccounts` retire (PR #2) ; test E2E de non-regression | Rotation du mot de passe (P3) ; valeur toujours dans l'historique git |
-| C2 | Auto-promotion via `profiles.role` | Trigger `20260903090000` ; test pgTAP 01 | Deployer (P3), rejouer |
+| C2 | Auto-promotion via `profiles.role` | Trigger `20260903090000` ; test pgTAP 01 | Deploye et verifie sur le VPS le 2026-11-09 |
 | C3 | ~113 politiques `FOR ALL USING (true)` | `20260903090100` : ecritures par module ; lecture large conservee | Merger PR #16 (D-008), deployer, rejouer ; lecture par perimetre (section 3) |
 | C4 | `/telemetry` sans authentification | Controle `device_id` + cle (PR #2) | Deployer `iot-ingestion` ; validation du payload non faite |
 | C5 | Positions GPS fabriquees | Corrige (PR #7) | Deploiement front non verifie |

@@ -1,15 +1,17 @@
 # SIGTB 2.0 - Hebergement sur le VPS du proprietaire
 
-Decisions D-015 a D-017 (acceptees le 2026-11-08). Etat au 2026-11-08 :
-rien n'est installe ni deploye.
+Decisions D-015 a D-017 (acceptees le 2026-11-08). Etat au 2026-11-09 :
+**deploye** sur le VPS, en service sous https://sigtb.infranetgn.com
+(journal en section 9). Base vide : aucun utilisateur tant que le
+proprietaire n'a pas cree l'administrateur.
 
 ## 1. Situation
 
 | Prerequis | Etat au 2026-11-08 |
 |---|---|
 | P1, GitHub Actions | Impossible : le moyen de paiement est refuse |
-| P2, projet Supabase `bprfctzqplahvrepxgrw` | Inaccessible ; l'application sera deployee sur le VPS du proprietaire (Hostinger, offre KVM 4), sous `sigtb.infranetgn.com` |
-| P3, deploiement de la Tranche 0 | Autorise le 2026-11-08 ; s'applique au premier deploiement sur le VPS, puisque le projet d'origine est inaccessible |
+| P2, projet Supabase `bprfctzqplahvrepxgrw` | Inaccessible et abandonne ; remplace par le VPS du proprietaire (Hostinger, offre KVM 4), deploye le 2026-11-09 sous `sigtb.infranetgn.com` |
+| P3, deploiement de la Tranche 0 | Autorise le 2026-11-08 ; deploye et verifie sur le VPS le 2026-11-09 (section 9) |
 
 ## 2. Ce que le code utilise de Supabase (mesure du 2026-11-08)
 
@@ -138,3 +140,37 @@ Reste a fournir :
 1. Serveur SMTP pour les courriels d'authentification (facultatif ; sans
    lui, pas de reinitialisation de mot de passe par courriel).
 2. Emplacement des sauvegardes hors du VPS.
+
+## 9. Journal du deploiement du 2026-11-09
+
+Autorisation : proprietaire, 2026-11-09 (« vas-y etape par etape »).
+Depot deploye : `main` 0ded569, depose dans `/opt/sigtb/depot/0ded569`.
+
+| Etape | Resultat verifie |
+|---|---|
+| Installation (`installer.sh`) | 5 conteneurs `sigtb-*` en bonne sante ; seul port publie `127.0.0.1:8200` ; aucune nouvelle ecoute publique (toujours 22, 80, 443) ; `.env` en 600, secrets generes (aucune valeur par defaut), inscription publique desactivee |
+| Migrations (`appliquer-migrations.sh --tests`) | 6 migrations appliquees et tracees ; 39 assertions RLS OK sur la base du serveur ; apres les tests : 0 utilisateur, 0 profil, 0 donnee metier, 209 lignes de droits, 0 politique `FOR ALL USING (true)` |
+| Interface | Build de 0ded569 avec l'URL du VPS et la cle publique (seul JWT du bundle : `role: anon`), release `/opt/sigtb/web/releases/0ded569` |
+| Caddy | Copie `Caddyfile.avant-sigtb-<horodatage>`, `import /etc/caddy/sigtb.caddy`, `caddy validate` puis `reload` ; certificat obtenu ; `app.`, `chantier360.`, `astra.` et `auth.infranetgn.com` toujours en ligne |
+| Routes | `/` 200 ; `/auth/v1/*` et `/rest/v1/*` 401 sans cle ; `/functions/v1/geofence-monitor` et `/pg/*` 404 ; `/functions/v1/iot-ingestion` repond 401 sans identifiant de boitier |
+| Ressources | Pile SIGTB environ 200 Mo de RAM ; fonctions limitees a 512 Mo |
+| Sauvegarde | Cron `45 3 * * *` ; premier dump controle (lisible, empreinte sha256) dans `/opt/sigtb/sauvegardes`, conservation 14 jours |
+
+Restent a faire :
+
+1. Creation du premier administrateur par le proprietaire :
+   `ssh root@<vps> bash /opt/sigtb/outils/creer-admin.sh`.
+2. Copie des sauvegardes hors du VPS (emplacement a fournir).
+3. SMTP (reinitialisation de mot de passe par courriel).
+4. Constat nouveau : `iot-ingestion` lit le corps JSON avant de controler
+   l'identifiant du boitier ; un appel sans corps renvoie 500 au lieu de
+   401 (aucune ecriture). A corriger au LOT 08.
+5. Tables encore absentes (`fuel_stations`, `fuel_anomalies` et les vues
+   carburant, tables FleetOptimizer) : ecrans concernes en erreur jusqu'aux
+   LOT 09 et 10.
+
+Mise a jour : deposer la nouvelle version dans `/opt/sigtb/depot/<sha>`,
+relancer `installer.sh` (sans effet sur les secrets ni les donnees) puis
+`appliquer-migrations.sh --tests`, construire l'interface dans une
+nouvelle release et basculer `current` ; retour arriere en rebasculant
+`current` sur la release precedente.
