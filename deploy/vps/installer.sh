@@ -41,10 +41,13 @@ for f in realtime.sql webhooks.sql roles.sql jwt.sql _supabase.sql logs.sql pool
 done
 cp -r "$OFFICIEL/docker/volumes/functions/main" "$PILE/volumes/functions/"
 cp "$OFFICIEL/docker/volumes/functions/deno.jsonc" "$PILE/volumes/functions/"
-# Fonction exposee : iot-ingestion seulement. geofence-monitor n'est pas
-# deployee tant que son appelant n'est pas controle (constat N3).
-rm -rf "$PILE/volumes/functions/iot-ingestion"
-cp -r "$DEPOT/supabase/functions/iot-ingestion" "$PILE/volumes/functions/"
+# Fonctions deployees : iot-ingestion et admin-utilisateurs (D-021).
+# geofence-monitor n'est pas deployee tant que son appelant n'est pas
+# controle (constat N3).
+for fonction in iot-ingestion admin-utilisateurs; do
+  rm -rf "$PILE/volumes/functions/$fonction"
+  cp -r "$DEPOT/supabase/functions/$fonction" "$PILE/volumes/functions/"
+done
 
 # 3. Secrets, generes une seule fois sur le serveur.
 if [ ! -f "$PILE/.env" ]; then

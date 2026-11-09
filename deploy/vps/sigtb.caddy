@@ -19,11 +19,12 @@ sigtb.infranetgn.com {
 		reverse_proxy 127.0.0.1:8200
 	}
 
-	# Seule fonction publiee : ingestion des boitiers (cle par boitier).
-	# geofence-monitor et les autres routes de la passerelle (/pg, /graphql,
-	# /storage, /realtime, studio) ne sont pas exposees.
-	@iot path /functions/v1/iot-ingestion /functions/v1/iot-ingestion/*
-	handle @iot {
+	# Fonctions publiees : ingestion des boitiers (cle par boitier) et
+	# gestion des comptes (jeton d'un administrateur actif, verifie par la
+	# fonction). geofence-monitor et les autres routes de la passerelle
+	# (/pg, /graphql, /storage, /realtime, studio) ne sont pas exposees.
+	@fonctions path /functions/v1/iot-ingestion /functions/v1/iot-ingestion/* /functions/v1/admin-utilisateurs
+	handle @fonctions {
 		request_body {
 			max_size 1MB
 		}
