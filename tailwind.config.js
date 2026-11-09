@@ -1,38 +1,37 @@
 import colors from 'tailwindcss/colors';
 
-// Charte SIGTB : terre de bauxite (laterite), acier industriel, pierre.
-// Les palettes Tailwind utilisees par les ecrans sont redefinies ici pour
-// que tout l'outil adopte la charte sans reecrire chaque composant :
-//  - orange : rouille de bauxite (couleur de marque) ;
-//  - blue   : acier (information, actions secondaires) ;
-//  - slate et gray : pierre chaude.
-// red (danger), green (succes) et yellow (alerte) gardent leur sens.
-const bauxite = {
-  50: '#fdf5f1',
-  100: '#fae6dc',
-  200: '#f4c9b4',
-  300: '#eaa284',
-  400: '#dc7650',
-  500: '#c95a32',
-  600: '#b04524',
-  700: '#8f371f',
-  800: '#732e1e',
-  900: '#5e281c',
-  950: '#33130c',
+// Charte SIGTB (maquettes du proprietaire, 2026-11-09, D-018) :
+//  - orange : orange bauxite des maquettes (actions, accents, marque) ;
+//  - bauxite : bruns profonds du menu lateral et des bandeaux ;
+//  - slate et gray : pierre chaude (neutres) ;
+//  - blue, green, red, purple, yellow : couleurs semantiques standard
+//    (indicateurs et statuts, comme sur les maquettes).
+const orangeSigtb = {
+  50: '#fff5ed',
+  100: '#ffe8d5',
+  200: '#fdcaa5',
+  300: '#fba56b',
+  400: '#f6853a',
+  500: '#ec6b1b',
+  600: '#d45513',
+  700: '#ad4212',
+  800: '#8a3616',
+  900: '#702f16',
+  950: '#3d1508',
 };
 
-const acier = {
-  50: '#f2f6f8',
-  100: '#e1eaef',
-  200: '#c5d6df',
-  300: '#9cb9c8',
-  400: '#6c95aa',
-  500: '#4d7a90',
-  600: '#3d6378',
-  700: '#345163',
-  800: '#2f4553',
-  900: '#2a3b47',
-  950: '#1b2630',
+const bauxite = {
+  50: '#fbf4f1',
+  100: '#f4e3dc',
+  200: '#e7c3b3',
+  300: '#d49a82',
+  400: '#bb6f52',
+  500: '#9c5236',
+  600: '#7e3f28',
+  700: '#62301f',
+  800: '#4a2418',
+  900: '#361a12',
+  950: '#22100b',
 };
 
 /** @type {import('tailwindcss').Config} */
@@ -41,16 +40,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        orange: bauxite,
+        orange: orangeSigtb,
         bauxite,
-        blue: acier,
-        acier,
         slate: colors.stone,
         gray: colors.stone,
-        ocre: colors.amber,
+        sable: '#faf6f2',
       },
       fontFamily: {
         sans: ['"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'system-ui', 'sans-serif'],
+      },
+      boxShadow: {
+        carte: '0 1px 2px rgba(54, 26, 18, 0.06), 0 4px 16px rgba(54, 26, 18, 0.06)',
       },
     },
   },

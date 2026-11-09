@@ -1,657 +1,472 @@
-import { useCallback, useEffect, useState } from 'react';
-import { SceneMine } from '../Brand/SceneMine';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Fuel, Info, Mountain, Target, Truck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { useSite } from '../../contexts/SiteContext';
+import { Embleme, NOM_PRODUIT } from '../Brand/Marque';
+import { Panneau, Provenance, Puce, SansDonnees, type TeintePuce } from '../ui/Panneau';
+import { Anneau, BarresProduction, Donut } from './Graphiques';
+import { CarteFlotte, type PositionAffichee } from './CarteFlotte';
 import {
-  Truck, Users, MapPin, DollarSign, AlertTriangle, TrendingUp,
-  Fuel, Wrench, FileText, Package, Clock, Activity,
-  CheckCircle
-} from 'lucide-react';
+  bilanVoyages, debutJour, disponibilite, formatNombre, positionFraiche, repartitionFlotte,
+  tonnesParHeure, variation, type VoyageTermine, FRAICHEUR_POSITION_MINUTES,
+} from './indicateurs';
 
-interface DashboardStats {
-  activeVehicles: number;
-  totalVehicles: number;
-  activeDrivers: number;
-  totalDrivers: number;
-  todayTrips: number;
-  monthTrips: number;
-  totalTonnage: number;
-  averageTonnage: number;
-  fuelConsumption: number;
-  fuelStock: number;
-  lowFuelStock: number;
-  pendingMaintenance: number;
-  completedMaintenance: number;
-  lowStockParts: number;
-  totalRevenue: number;
-  paidInvoices: number;
-  unpaidInvoices: number;
-  overdueInvoices: number;
-  outstandingBalance: number;
-  totalCosts: number;
-  fuelCosts: number;
-  maintenanceCosts: number;
-  tireCosts: number;
-  insuranceCosts: number;
-}
+// Tableau de bord, maquette du proprietaire (2026-11-09, D-018).
+// Regles : chaque indicateur vient de la base et affiche sa source et son
+// heure (CDC 8) ; donnee absente = « sans donnees » (regle 1) ; une
+// position de plus de 15 minutes n'est pas montree en direct (CDC 15).
+// L'objectif de production n'existe pas encore (planification, LOT 03).
 
-interface RecentActivity {
+interface Vehicule {
   id: string;
-  type: string;
-  description: string;
-  timestamp: string;
-  icon: any;
-  color: string;
+  registration: string;
+  status: string;
+  site_id: string | null;
 }
 
-const StatCard = ({
-  title,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  color = 'blue',
-  onClick
-}: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon: any;
-  trend?: string;
-  color?: string;
-  onClick?: () => void;
-}) => {
-  const colorClasses = {
-    blue: 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 shadow-blue-100',
-    green: 'bg-gradient-to-br from-green-50 to-green-100 text-green-600 shadow-green-100',
-    orange: 'bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600 shadow-orange-100',
-    red: 'bg-gradient-to-br from-red-50 to-red-100 text-red-600 shadow-red-100',
-    slate: 'bg-gradient-to-br from-slate-50 to-slate-100 text-slate-600 shadow-slate-100',
-    purple: 'bg-gradient-to-br from-purple-50 to-purple-100 text-purple-600 shadow-purple-100',
-    indigo: 'bg-gradient-to-br from-indigo-50 to-indigo-100 text-indigo-600 shadow-indigo-100',
-  }[color];
+interface Voyage extends VoyageTermine {
+  id: string;
+}
 
-  return (
-    <div
-      className={`bg-white rounded-2xl shadow-lg border-2 border-slate-100 p-6 hover:shadow-xl hover:scale-105 transition-all duration-300 ${onClick ? 'cursor-pointer' : ''} group`}
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-slate-600 mb-2 uppercase tracking-wide">{title}</p>
-          <p className="text-4xl font-black text-slate-900 mb-1">{value}</p>
-          {subtitle && (
-            <p className="text-sm text-slate-500 mt-2 font-medium">{subtitle}</p>
-          )}
-          {trend && (
-            <div className="flex items-center gap-1 mt-3 text-emerald-600">
-              <TrendingUp className="w-4 h-4" />
-              <p className="text-sm font-semibold">{trend}</p>
-            </div>
-          )}
-        </div>
-        <div className={`p-4 rounded-2xl ${colorClasses} flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-          <Icon className="w-8 h-8" strokeWidth={2} />
-        </div>
-      </div>
-    </div>
-  );
+interface DernierVoyage {
+  id: string;
+  reference: string | null;
+  vehicle_id: string | null;
+  departure_site_id: string | null;
+  arrival_site_id: string | null;
+  net_weight: number | null;
+  load_weight: number | null;
+  status: string;
+}
+
+interface Alerte {
+  id: string;
+  title: string;
+  message: string;
+  severity: string;
+  created_at: string;
+}
+
+interface Position {
+  vehicle_id: string;
+  latitude: number | null;
+  longitude: number | null;
+  timestamp: string;
+  speed: number | null;
+}
+
+interface Donnees {
+  vehicules: Vehicule[] | null;
+  voyages: Voyage[] | null;
+  enCours: { vehicle_id: string | null }[] | null;
+  derniers: DernierVoyage[] | null;
+  litres: number | null;
+  carburantErreur: boolean;
+  alertes: Alerte[] | null;
+  positions: Position[] | null;
+  heure: Date;
+}
+
+const STATUT_VOYAGE: Record<string, { libelle: string; teinte: TeintePuce }> = {
+  planned: { libelle: 'Planifié', teinte: 'gris' },
+  in_progress: { libelle: 'En cours', teinte: 'bleu' },
+  completed: { libelle: 'Livré', teinte: 'vert' },
+  cancelled: { libelle: 'Annulé', teinte: 'rouge' },
 };
 
+const ymd = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const ilYa = (iso: string, maintenant: Date) => {
+  const min = Math.max(0, Math.round((maintenant.getTime() - new Date(iso).getTime()) / 60_000));
+  if (min < 60) return `Il y a ${min} min`;
+  const h = Math.round(min / 60);
+  return h < 48 ? `Il y a ${h} h` : `Il y a ${Math.round(h / 24)} j`;
+};
+
+const resultat = <T,>(r: { data: T | null; error: { message: string } | null }, source: string): T | null => {
+  if (r.error) {
+    console.error(`${source} :`, r.error.message);
+    return null;
+  }
+  return r.data;
+};
+
+const Variation = ({ valeur }: { valeur: number | null }) =>
+  valeur === null ? (
+    <span className="text-sm text-stone-400">— vs hier</span>
+  ) : (
+    <span className={`flex items-center gap-1 text-sm font-semibold ${valeur >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+      {valeur >= 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+      {valeur >= 0 ? '+' : ''}
+      {formatNombre(valeur, 1)} % <span className="font-normal text-stone-500">vs hier</span>
+    </span>
+  );
+
+const Tuile = ({
+  teinte, icone, titre, valeur, pied, droite,
+}: {
+  teinte: string;
+  icone: ReactNode;
+  titre: string;
+  valeur: ReactNode;
+  pied: ReactNode;
+  droite?: ReactNode;
+}) => (
+  <div className={`flex items-center justify-between gap-3 rounded-2xl border p-5 shadow-carte ${teinte}`}>
+    <div className="flex min-w-0 gap-4">
+      <div className="mt-1 flex-shrink-0">{icone}</div>
+      <div className="min-w-0">
+        <p className="font-medium text-stone-700">{titre}</p>
+        <p className="mt-1 truncate text-3xl font-black text-stone-900">{valeur}</p>
+        <div className="mt-1">{pied}</div>
+      </div>
+    </div>
+    {droite}
+  </div>
+);
+
 export const DashboardView = () => {
-  const [stats, setStats] = useState<DashboardStats>({
-    activeVehicles: 0,
-    totalVehicles: 0,
-    activeDrivers: 0,
-    totalDrivers: 0,
-    todayTrips: 0,
-    monthTrips: 0,
-    totalTonnage: 0,
-    averageTonnage: 0,
-    fuelConsumption: 0,
-    fuelStock: 0,
-    lowFuelStock: 0,
-    pendingMaintenance: 0,
-    completedMaintenance: 0,
-    lowStockParts: 0,
-    totalRevenue: 0,
-    paidInvoices: 0,
-    unpaidInvoices: 0,
-    overdueInvoices: 0,
-    outstandingBalance: 0,
-    totalCosts: 0,
-    fuelCosts: 0,
-    maintenanceCosts: 0,
-    tireCosts: 0,
-    insuranceCosts: 0,
-  });
-  const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { siteId, sites } = useSite();
+  const [donnees, setDonnees] = useState<Donnees | null>(null);
 
+  const charger = useCallback(async () => {
+    const maintenant = new Date();
+    const hier = debutJour(maintenant, -1);
+    const demain = debutJour(maintenant, 1);
+    const ilYa24h = new Date(maintenant.getTime() - 24 * 3600_000);
+    const filtreVoyages = siteId ? `departure_site_id.eq.${siteId},arrival_site_id.eq.${siteId}` : null;
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const today = new Date().toISOString().split('T')[0];
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
-
-      const [
-        vehiclesRes,
-        activeVehiclesRes,
-        driversRes,
-        activeDriversRes,
-        todayTripsRes,
-        monthTripsRes,
-        fuelStockRes,
-        fuelTransactionsRes,
-        maintenanceRes,
-        completedMaintenanceRes,
-        recentMaintenanceRes,
-        partsInventoryRes,
-        invoicesRes,
-        paymentsRes,
-        costsRes,
-        recentTripsRes,
-      ] = await Promise.all([
-        supabase.from('vehicles').select('id', { count: 'exact' }),
-        supabase.from('vehicles').select('id', { count: 'exact' }).eq('status', 'active'),
-        supabase.from('drivers').select('id', { count: 'exact' }),
-        supabase.from('drivers').select('id', { count: 'exact' }).eq('status', 'active'),
-        supabase
-          .from('trips')
-          .select('load_weight')
-          .gte('start_date', today),
-        supabase
-          .from('trips')
-          .select('load_weight')
-          .gte('start_date', monthStart),
-        supabase
-          .from('fuel_stocks')
-          .select('current_stock, minimum_stock'),
-        supabase
-          .from('fuel_transactions')
-          .select('quantity, transaction_date')
-          .gte('transaction_date', monthStart),
-        supabase
-          .from('maintenance_orders')
-          .select('id', { count: 'exact' })
-          .in('status', ['open', 'in_progress']),
-        supabase
-          .from('maintenance_orders')
-          .select('id', { count: 'exact' })
-          .eq('status', 'completed')
-          .gte('completion_date', monthStart),
-        supabase
-          .from('maintenance_orders')
-          .select('id, description, created_at, vehicles(registration_number)')
-          .order('created_at', { ascending: false })
-          .limit(3),
-        supabase
-          .from('stock_items')
-          .select('quantity, minimum_quantity'),
-        supabase
-          .from('invoices')
-          .select('total_amount, amount_paid, status, due_date'),
-        supabase
-          .from('payments')
-          .select('id, amount, payment_date')
-          .gte('payment_date', monthStart)
-          .order('payment_date', { ascending: false })
-          .limit(5),
-        supabase
-          .from('costs')
-          .select('amount, category_id, cost_categories(name)')
-          .gte('date', monthStart),
-        supabase
-          .from('trips')
-          .select('id, status, start_date, vehicles(registration_number), drivers(first_name, last_name)')
-          .order('start_date', { ascending: false })
-          .limit(3),
-      ]);
-
-      const todayTrips = todayTripsRes.data || [];
-      const monthTrips = monthTripsRes.data || [];
-      const fuelStocks = fuelStockRes.data || [];
-      const fuelTransactions = fuelTransactionsRes.data || [];
-      const partsInventory = partsInventoryRes.data || [];
-      const invoices = invoicesRes.data || [];
-      const costs = costsRes.data || [];
-      const recentMaintenance = recentMaintenanceRes.data || [];
-      const recentTrips = recentTripsRes.data || [];
-
-      const totalTonnageMonth = monthTrips.reduce((sum, trip) => sum + (trip.load_weight || 0), 0);
-      const avgTonnage = monthTrips.length > 0 ? totalTonnageMonth / monthTrips.length : 0;
-      const totalFuelConsumed = fuelTransactions.reduce((sum, tx) => sum + (tx.quantity || 0), 0);
-
-      const totalFuelStock = fuelStocks.reduce((sum, stock) => sum + (stock.current_stock || 0), 0);
-      const lowFuelStock = fuelStocks.filter(stock => (stock.current_stock || 0) <= (stock.minimum_stock || 5000)).length;
-
-      const lowStockParts = partsInventory.filter(part => (part.quantity || 0) <= (part.minimum_quantity || 0)).length;
-
-      const totalRevenue = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-      const paidInvoices = invoices.filter(inv => inv.status === 'paid').length;
-      const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid' && inv.status !== 'cancelled').length;
-      const overdueInvoices = invoices.filter(inv => {
-        if (inv.status === 'paid' || inv.status === 'cancelled') return false;
-        return new Date(inv.due_date) < new Date();
-      }).length;
-      const outstandingBalance = invoices.reduce((sum, inv) => {
-        const balance = (inv.total_amount || 0) - (inv.amount_paid || 0);
-        return sum + (balance > 0 ? balance : 0);
-      }, 0);
-
-      const totalCosts = costs.reduce((sum, cost) => sum + (cost.amount || 0), 0);
-      const fuelCosts = costs.filter((cost: any) => cost.cost_categories?.name === 'Carburant').reduce((sum, cost) => sum + (cost.amount || 0), 0);
-      const maintenanceCosts = costs.filter((cost: any) => ['Entretien courant', 'Réparations'].includes(cost.cost_categories?.name)).reduce((sum, cost) => sum + (cost.amount || 0), 0);
-      const tireCosts = costs.filter((cost: any) => cost.cost_categories?.name === 'Pneus').reduce((sum, cost) => sum + (cost.amount || 0), 0);
-      const insuranceCosts = costs.filter((cost: any) => cost.cost_categories?.name === 'Assurances').reduce((sum, cost) => sum + (cost.amount || 0), 0);
-
-      setStats({
-        activeVehicles: activeVehiclesRes.count || 0,
-        totalVehicles: vehiclesRes.count || 0,
-        activeDrivers: activeDriversRes.count || 0,
-        totalDrivers: driversRes.count || 0,
-        todayTrips: todayTrips.length,
-        monthTrips: monthTrips.length,
-        totalTonnage: Math.round(totalTonnageMonth),
-        averageTonnage: Math.round(avgTonnage * 10) / 10,
-        fuelConsumption: Math.round(totalFuelConsumed),
-        fuelStock: Math.round(totalFuelStock),
-        lowFuelStock,
-        pendingMaintenance: maintenanceRes.count || 0,
-        completedMaintenance: completedMaintenanceRes.count || 0,
-        lowStockParts,
-        totalRevenue,
-        paidInvoices,
-        unpaidInvoices,
-        overdueInvoices,
-        outstandingBalance,
-        totalCosts,
-        fuelCosts,
-        maintenanceCosts,
-        tireCosts,
-        insuranceCosts,
-      });
-
-      const activities: RecentActivity[] = [];
-
-      // Ajouter les voyages récents
-      recentTrips.forEach((trip: any) => {
-        const statusLabels: any = {
-          'completed': 'Voyage complété',
-          'in_progress': 'Voyage en cours',
-          'planned': 'Voyage planifié'
-        };
-        const vehicleReg = trip.vehicles?.registration_number || 'N/A';
-        const driverName = trip.drivers ? `${trip.drivers.first_name} ${trip.drivers.last_name}` : 'N/A';
-        activities.push({
-          id: `trip-${trip.id}`,
-          type: 'trip',
-          description: `${statusLabels[trip.status] || trip.status} - ${vehicleReg} (${driverName})`,
-          timestamp: trip.start_date,
-          icon: MapPin,
-          color: 'text-blue-600 bg-blue-50',
-        });
-      });
-
-      // Ajouter les maintenances récentes
-      recentMaintenance.forEach((maintenance: any) => {
-        const vehicleReg = maintenance.vehicles?.registration_number || 'N/A';
-        activities.push({
-          id: `maintenance-${maintenance.id}`,
-          type: 'maintenance',
-          description: `Maintenance: ${maintenance.description} (${vehicleReg})`,
-          timestamp: maintenance.created_at,
-          icon: Wrench,
-          color: 'text-orange-600 bg-orange-50',
-        });
-      });
-
-      // Ajouter les paiements récents
-      const recentPayments = paymentsRes.data || [];
-      recentPayments.forEach((payment, index) => {
-        activities.push({
-          id: `payment-${payment.id || index}`,
-          type: 'payment',
-          description: `Paiement reçu: ${((payment.amount || 0) / 1000000).toFixed(2)}M GNF`,
-          timestamp: payment.payment_date,
-          icon: DollarSign,
-          color: 'text-green-600 bg-green-50',
-        });
-      });
-
-      // Trier par date décroissante
-      activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-      if (activities.length === 0) {
-        activities.push({
-          id: '1',
-          type: 'info',
-          description: 'Système opérationnel',
-          timestamp: new Date().toISOString(),
-          icon: Activity,
-          color: 'text-blue-600 bg-blue-50',
-        });
-      }
-
-      setRecentActivities(activities.slice(0, 5));
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
+    let qVehicules = supabase.from('vehicles').select('id, registration, status, site_id');
+    let qVoyages = supabase
+      .from('trips')
+      .select('id, net_weight, load_weight, actual_arrival_time')
+      .eq('status', 'completed')
+      .gte('actual_arrival_time', hier.toISOString())
+      .lt('actual_arrival_time', demain.toISOString());
+    let qEnCours = supabase.from('trips').select('vehicle_id').eq('status', 'in_progress');
+    let qDerniers = supabase
+      .from('trips')
+      .select('id, reference, vehicle_id, departure_site_id, arrival_site_id, net_weight, load_weight, status')
+      .order('created_at', { ascending: false })
+      .limit(5);
+    let qCarburant = supabase
+      .from('fuel_transactions')
+      .select('volume_liters')
+      .eq('transaction_type', 'refuel')
+      .eq('transaction_date', ymd(maintenant));
+    if (siteId) {
+      qVehicules = qVehicules.eq('site_id', siteId);
+      qCarburant = qCarburant.eq('site_id', siteId);
     }
-  }, []);
+    if (filtreVoyages) {
+      qVoyages = qVoyages.or(filtreVoyages);
+      qEnCours = qEnCours.or(filtreVoyages);
+      qDerniers = qDerniers.or(filtreVoyages);
+    }
+
+    const [rV, rT, rE, rD, rC, rA, rP] = await Promise.all([
+      qVehicules,
+      qVoyages,
+      qEnCours,
+      qDerniers,
+      qCarburant,
+      supabase.from('alerts').select('id, title, message, severity, created_at').eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(4),
+      supabase.from('vehicle_tracking').select('vehicle_id, latitude, longitude, timestamp, speed')
+        .gte('timestamp', ilYa24h.toISOString()).order('timestamp', { ascending: false }).limit(1000),
+    ]);
+
+    const carburant = resultat<{ volume_liters: number | null }[]>(rC, 'Carburant');
+    setDonnees({
+      vehicules: resultat<Vehicule[]>(rV, 'Véhicules'),
+      voyages: resultat<Voyage[]>(rT, 'Voyages'),
+      enCours: resultat<{ vehicle_id: string | null }[]>(rE, 'Voyages en cours'),
+      derniers: resultat<DernierVoyage[]>(rD, 'Derniers voyages'),
+      litres: carburant && carburant.length > 0 ? carburant.reduce((s, t) => s + (t.volume_liters ?? 0), 0) : null,
+      carburantErreur: carburant === null,
+      alertes: resultat<Alerte[]>(rA, 'Alertes'),
+      positions: resultat<Position[]>(rP, 'Positions'),
+      heure: maintenant,
+    });
+  }, [siteId]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    charger();
+    const minuterie = window.setInterval(charger, 60_000);
+    return () => window.clearInterval(minuterie);
+  }, [charger]);
 
-  if (loading) {
+  const calculs = useMemo(() => {
+    if (!donnees) return null;
+    const debut = debutJour(donnees.heure).getTime();
+    const voyages = donnees.voyages ?? [];
+    const duJour = voyages.filter((v) => v.actual_arrival_time && new Date(v.actual_arrival_time).getTime() >= debut);
+    const veille = voyages.filter((v) => v.actual_arrival_time && new Date(v.actual_arrival_time).getTime() < debut);
+    const enMission = new Set((donnees.enCours ?? []).map((t) => t.vehicle_id).filter((id): id is string => !!id));
+    const flotte = repartitionFlotte(donnees.vehicules ?? [], enMission);
+    const immat = new Map((donnees.vehicules ?? []).map((v) => [v.id, v.registration]));
+
+    const dernieresPositions = new Map<string, Position>();
+    for (const p of donnees.positions ?? []) {
+      if (!dernieresPositions.has(p.vehicle_id)) dernieresPositions.set(p.vehicle_id, p);
+    }
+    const positions: PositionAffichee[] = [];
+    let anciennes = 0;
+    for (const p of dernieresPositions.values()) {
+      if (p.latitude === null || p.longitude === null) continue;
+      if (!positionFraiche(p.timestamp, donnees.heure)) {
+        anciennes += 1;
+        continue;
+      }
+      const roule = (p.speed ?? 0) > 3;
+      positions.push({
+        vehiculeId: p.vehicle_id,
+        immatriculation: immat.get(p.vehicle_id) ?? 'Véhicule',
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        horodatage: p.timestamp,
+        vitesse: p.speed,
+        couleur: roule ? '#16a34a' : '#eab308',
+      });
+    }
+
+    return {
+      jour: bilanVoyages(duJour),
+      veille: bilanVoyages(veille),
+      serie: tonnesParHeure(duJour),
+      flotte,
+      dispo: disponibilite(flotte),
+      positions,
+      anciennes,
+      enMouvement: positions.filter((p) => p.couleur === '#16a34a').length,
+      immat,
+    };
+  }, [donnees]);
+
+  const nomSite = (id: string | null) => sites.find((s) => s.id === id)?.name ?? '—';
+
+  if (!donnees || !calculs) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      <div className="flex h-96 items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" />
       </div>
     );
   }
 
-  const alerts = [];
-  if (stats.pendingMaintenance > 0) {
-    alerts.push({
-      icon: Wrench,
-      color: 'orange',
-      title: `${stats.pendingMaintenance} maintenance(s) en attente`,
-      description: 'Vérifiez les ordres de maintenance',
-    });
-  }
-  if (stats.lowFuelStock > 0) {
-    alerts.push({
-      icon: Fuel,
-      color: 'red',
-      title: `${stats.lowFuelStock} type(s) de carburant en stock faible`,
-      description: 'Réapprovisionnement recommandé',
-    });
-  }
-  if (stats.lowStockParts > 0) {
-    alerts.push({
-      icon: Package,
-      color: 'orange',
-      title: `${stats.lowStockParts} pièce(s) en stock faible`,
-      description: 'Commandez les pièces détachées',
-    });
-  }
-  if (stats.overdueInvoices > 0) {
-    alerts.push({
-      icon: AlertTriangle,
-      color: 'red',
-      title: `${stats.overdueInvoices} facture(s) en retard`,
-      description: 'Relancez vos clients',
-    });
-  }
-
+  const { jour, veille, flotte } = calculs;
+  const litresParTonne = donnees.litres !== null && jour.tonnes > 0 ? donnees.litres / jour.tonnes : null;
 
   return (
-    <div className="space-y-8 animate-fadeIn">
-      {/* Bandeau : scene de mine, titre et indicateurs cles */}
-      <div className="relative overflow-hidden rounded-3xl shadow-2xl text-white bg-bauxite-950">
-        <SceneMine className="absolute inset-0 h-full w-full" cadrage="bas" />
-        <div className="absolute inset-0 bg-gradient-to-r from-bauxite-950/90 via-bauxite-950/55 to-bauxite-950/10" />
-        <div className="relative z-10 p-8">
-          <div className="mb-8 max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-bauxite-200">Exploitation</p>
-            <h1 className="texte-relief mt-2 text-4xl font-black">Tableau de bord</h1>
-            <p className="texte-relief mt-2 text-lg text-stone-200">Vue d'ensemble des opérations de transport de bauxite</p>
+    <div className="space-y-6">
+      {/* Bandeau */}
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#3d1f15] via-[#5e2a16] to-[#b0501d] shadow-carte">
+        <img
+          src="/images/banniere-tombereau.webp"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-y-0 right-0 h-full w-[46%] object-cover object-left"
+          style={{ maskImage: 'linear-gradient(to right, transparent, black 30%)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 30%)' }}
+        />
+        <div className="relative flex items-center justify-between gap-6 px-8 py-8">
+          <div className="border-l-4 border-orange-500 pl-6">
+            <h2 className="texte-relief text-3xl font-black text-white">{NOM_PRODUIT} – Centre de Contrôle Opérationnel</h2>
+            <p className="mt-2 text-lg text-orange-50/90">Planifier • Affecter • Suivre • Livrer • Analyser</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[
-              { libelle: 'Véhicules actifs', valeur: `${stats.activeVehicles}/${stats.totalVehicles}` },
-              { libelle: 'Voyages ce mois', valeur: `${stats.monthTrips}` },
-              { libelle: 'Tonnage transporté', valeur: `${stats.totalTonnage} T` },
-              { libelle: 'Chauffeurs actifs', valeur: `${stats.activeDrivers}/${stats.totalDrivers}` },
-            ].map(({ libelle, valeur }) => (
-              <div key={libelle} className="rounded-xl border border-white/15 bg-black/30 p-4 backdrop-blur-sm">
-                <p className="mb-1 text-sm font-medium text-stone-300">{libelle}</p>
-                <p className="text-3xl font-black">{valeur}</p>
+          <Embleme className="hidden h-14 w-14 flex-shrink-0 rounded-2xl opacity-90 shadow-xl 2xl:block" />
+        </div>
+      </section>
+
+      {/* Indicateurs du jour */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
+        <Tuile
+          teinte="border-orange-100 bg-orange-50/70"
+          icone={<Mountain className="h-9 w-9 text-orange-700" />}
+          titre="Tonnes livrées (jour)"
+          valeur={donnees.voyages === null ? '—' : `${formatNombre(jour.tonnes)} T`}
+          pied={<Variation valeur={variation(jour.tonnes, veille.tonnes)} />}
+          droite={<Anneau pourcentage={null} legende="du plan" />}
+        />
+        <Tuile
+          teinte="border-blue-100 bg-blue-50/70"
+          icone={<Truck className="h-9 w-9 text-blue-600" />}
+          titre="Voyages réalisés"
+          valeur={donnees.voyages === null ? '—' : formatNombre(jour.voyages)}
+          pied={<Variation valeur={variation(jour.voyages, veille.voyages)} />}
+        />
+        <Tuile
+          teinte="border-green-100 bg-green-50/70"
+          icone={<Truck className="h-9 w-9 text-green-600" />}
+          titre="Véhicules actifs"
+          valeur={donnees.vehicules === null ? '—' : `${flotte.enMission + flotte.disponibles} / ${flotte.total}`}
+          pied={
+            <span className="text-sm text-stone-600">
+              Disponibilité : <b className="text-green-700">{calculs.dispo === null ? '—' : `${formatNombre(calculs.dispo, 1)} %`}</b>
+            </span>
+          }
+        />
+        <Tuile
+          teinte="border-red-100 bg-red-50/70"
+          icone={<Fuel className="h-9 w-9 text-red-600" />}
+          titre="Consommation carburant"
+          valeur={donnees.litres === null ? '—' : `${formatNombre(donnees.litres)} L`}
+          pied={
+            <span className="text-sm text-stone-600">
+              {donnees.litres === null
+                ? donnees.carburantErreur ? 'Données indisponibles' : 'Aucune distribution saisie'
+                : litresParTonne === null ? '— L/T' : `${formatNombre(litresParTonne, 2)} L/T`}
+            </span>
+          }
+        />
+      </div>
+      <Provenance
+        source="voyages terminés (heure d'arrivée), véhicules, distributions de carburant du jour"
+        heure={donnees.heure}
+      />
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <Panneau titre="Production & Réalisation" className="xl:col-span-7" action={<span className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-700">Aujourd'hui</span>}>
+          <div className="flex flex-col gap-4 lg:flex-row">
+            <div className="h-64 flex-1">
+              {calculs.serie.length === 0 ? (
+                <SansDonnees detail="Aucun voyage terminé aujourd'hui. Les barres apparaissent dès la première arrivée enregistrée." />
+              ) : (
+                <BarresProduction serie={calculs.serie} objectifParHeure={null} />
+              )}
+            </div>
+            <div className="flex flex-row gap-3 lg:w-44 lg:flex-col">
+              <div className="flex-1 rounded-xl border border-stone-200 p-3">
+                <p className="flex items-center gap-1.5 text-xs text-stone-500"><Target className="h-4 w-4 text-orange-600" />Objectif jour</p>
+                <p className="mt-1 text-sm font-semibold text-stone-500">Non défini</p>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Véhicules actifs"
-          value={stats.activeVehicles}
-          subtitle={`sur ${stats.totalVehicles} total`}
-          icon={Truck}
-          color="blue"
-        />
-        <StatCard
-          title="Chauffeurs actifs"
-          value={stats.activeDrivers}
-          subtitle={`sur ${stats.totalDrivers} total`}
-          icon={Users}
-          color="green"
-        />
-        <StatCard
-          title="Voyages aujourd'hui"
-          value={stats.todayTrips}
-          subtitle={`${stats.monthTrips} ce mois`}
-          icon={MapPin}
-          color="blue"
-        />
-        <StatCard
-          title="Tonnage moyen"
-          value={`${stats.averageTonnage} T`}
-          subtitle={`${stats.totalTonnage}T au total`}
-          icon={TrendingUp}
-          color="green"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Stock carburant"
-          value={`${stats.fuelStock}L`}
-          subtitle={stats.lowFuelStock > 0 ? `${stats.lowFuelStock} alerte(s)` : 'Stock normal'}
-          icon={Fuel}
-          color={stats.lowFuelStock > 0 ? 'red' : 'blue'}
-        />
-        <StatCard
-          title="Maintenance"
-          value={stats.pendingMaintenance}
-          subtitle={`${stats.completedMaintenance} terminées ce mois`}
-          icon={Wrench}
-          color={stats.pendingMaintenance > 0 ? 'orange' : 'green'}
-        />
-        <StatCard
-          title="Pièces détachées"
-          value={stats.lowStockParts}
-          subtitle="alertes de stock"
-          icon={Package}
-          color={stats.lowStockParts > 0 ? 'orange' : 'green'}
-        />
-        <StatCard
-          title="Facturation"
-          value={stats.unpaidInvoices}
-          subtitle={`${stats.paidInvoices} payées`}
-          icon={FileText}
-          color={stats.overdueInvoices > 0 ? 'red' : 'blue'}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Revenus du mois</h3>
-            <DollarSign className="w-8 h-8 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold mb-2">
-            {(stats.totalRevenue / 1000000).toFixed(1)}M
-          </p>
-          <p className="text-sm opacity-90">GNF</p>
-          <div className="mt-4 pt-4 border-t border-green-400">
-            <div className="flex justify-between text-sm">
-              <span>Factures payées</span>
-              <span className="font-semibold">{stats.paidInvoices}</span>
+              <div className="flex-1 rounded-xl border border-stone-200 p-3">
+                <p className="flex items-center gap-1.5 text-xs text-stone-500"><CheckCircle2 className="h-4 w-4 text-green-600" />Réalisé</p>
+                <p className="mt-1 text-xl font-black text-stone-900">{formatNombre(jour.tonnes)} T</p>
+              </div>
+              <div className="flex-1 rounded-xl border border-stone-200 p-3">
+                <p className="text-xs text-stone-500">Écart</p>
+                <p className="mt-1 text-sm font-semibold text-stone-500">—</p>
+              </div>
             </div>
           </div>
-        </div>
+          <Provenance source={`voyages terminés aujourd'hui${jour.voyagesSansPoids ? ` (${jour.voyagesSansPoids} sans poids saisi)` : ''} ; objectif : planification (LOT 03)`} heure={donnees.heure} />
+        </Panneau>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">En attente</h3>
-            <Clock className="w-8 h-8 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold mb-2">
-            {(stats.outstandingBalance / 1000000).toFixed(1)}M
-          </p>
-          <p className="text-sm opacity-90">GNF</p>
-          <div className="mt-4 pt-4 border-t border-orange-400">
-            <div className="flex justify-between text-sm">
-              <span>Factures impayées</span>
-              <span className="font-semibold">{stats.unpaidInvoices}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Carburant</h3>
-            <Fuel className="w-8 h-8 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold mb-2">
-            {stats.fuelConsumption}L
-          </p>
-          <p className="text-sm opacity-90">Consommation ce mois</p>
-          <div className="mt-4 pt-4 border-t border-blue-400">
-            <div className="flex justify-between text-sm">
-              <span>Stock disponible</span>
-              <span className="font-semibold">{stats.fuelStock}L</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">Alertes récentes</h2>
-            <AlertTriangle className="w-5 h-5 text-orange-600" />
-          </div>
-          <div className="space-y-3">
-            {alerts.length > 0 ? (
-              alerts.map((alert, index) => {
-                const colorClasses = {
-                  orange: 'bg-orange-50 border-orange-200 text-orange-600',
-                  red: 'bg-red-50 border-red-200 text-red-600',
-                  green: 'bg-green-50 border-green-200 text-green-600',
-                }[alert.color];
-
-                return (
-                  <div key={index} className={`flex items-start gap-3 p-3 rounded-lg border ${colorClasses}`}>
-                    <alert.icon className="w-5 h-5 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{alert.title}</p>
-                      <p className="text-xs text-slate-600 mt-1">{alert.description}</p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <p className="text-sm text-slate-700">Aucune alerte, tout fonctionne normalement</p>
+        <Panneau titre="Suivi temps réel de la flotte" className="xl:col-span-5">
+          <div className="relative h-64 overflow-hidden rounded-xl">
+            <CarteFlotte positions={calculs.positions} />
+            {calculs.positions.length === 0 && (
+              <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[400] rounded-lg bg-white/90 px-3 py-2 text-center text-sm text-stone-600 shadow">
+                Aucune position reçue depuis {FRAICHEUR_POSITION_MINUTES} min
               </div>
             )}
           </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-slate-900">Activité récente</h2>
-            <Activity className="w-5 h-5 text-blue-600" />
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm text-stone-700">
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-green-600" />En mouvement ({calculs.enMouvement})</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-yellow-500" />À l'arrêt ({calculs.positions.length - calculs.enMouvement})</span>
+            <span className="flex items-center gap-2"><span className="h-3 w-3 rounded-full bg-blue-500" />Voyages en cours ({flotte.enMission})</span>
+            {calculs.anciennes > 0 && <span className="text-stone-400">{calculs.anciennes} position(s) ancienne(s) non affichée(s)</span>}
           </div>
-          <div className="space-y-3">
-            {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-start gap-3 p-3 hover:bg-slate-50 rounded-lg transition-colors">
-                <div className={`p-2 rounded-lg ${activity.color}`}>
-                  <activity.icon className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-900">{activity.description}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {new Date(activity.timestamp).toLocaleDateString('fr-FR')}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+          <Provenance source={`traceurs GPS, positions de moins de ${FRAICHEUR_POSITION_MINUTES} min`} heure={donnees.heure} />
+        </Panneau>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-600">OPÉRATIONS</h3>
-            <MapPin className="w-5 h-5 text-blue-600" />
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Voyages ce mois</span>
-              <span className="text-lg font-bold text-slate-900">{stats.monthTrips}</span>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <Panneau titre="État de la flotte" className="xl:col-span-4">
+          {donnees.vehicules === null || flotte.total === 0 ? (
+            <SansDonnees detail="Aucun véhicule enregistré pour ce périmètre." />
+          ) : (
+            <div className="flex flex-col items-center gap-6 sm:flex-row">
+              <Donut
+                total={flotte.total}
+                libelleTotal="Véhicules"
+                segments={[
+                  { libelle: 'En mission', valeur: flotte.enMission, couleur: '#16a34a' },
+                  { libelle: 'Disponibles', valeur: flotte.disponibles, couleur: '#2563eb' },
+                  { libelle: 'En maintenance', valeur: flotte.maintenance, couleur: '#a8a29e' },
+                  { libelle: 'Immobilisés', valeur: flotte.immobilises, couleur: '#dc2626' },
+                ]}
+              />
+              <ul className="w-full space-y-2.5 text-sm">
+                {[
+                  ['En mission', flotte.enMission, 'bg-green-600'],
+                  ['Disponibles', flotte.disponibles, 'bg-blue-600'],
+                  ['En maintenance', flotte.maintenance, 'bg-stone-400'],
+                  ['Immobilisés', flotte.immobilises, 'bg-red-600'],
+                ].map(([libelle, n, couleur]) => (
+                  <li key={libelle as string} className="flex items-center gap-2">
+                    <span className={`h-3 w-3 rounded-full ${couleur}`} />
+                    <span className="flex-1 text-stone-700">{libelle}</span>
+                    <b className="text-stone-900">{n}</b>
+                    <span className="w-12 text-right text-stone-500">{formatNombre(((n as number) / flotte.total) * 100)} %</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Tonnage total</span>
-              <span className="text-lg font-bold text-slate-900">{stats.totalTonnage}T</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Carburant consommé</span>
-              <span className="text-lg font-bold text-slate-900">{stats.fuelConsumption}L</span>
-            </div>
-          </div>
-        </div>
+          )}
+          <Provenance source="statut des véhicules et voyages en cours" heure={donnees.heure} />
+        </Panneau>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-600">FLOTTE</h3>
-            <Truck className="w-5 h-5 text-blue-600" />
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Véhicules actifs</span>
-              <span className="text-lg font-bold text-green-600">{stats.activeVehicles}</span>
+        <Panneau titre="Derniers voyages" className="xl:col-span-5">
+          {!donnees.derniers || donnees.derniers.length === 0 ? (
+            <SansDonnees detail="Aucun voyage enregistré." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stone-200 text-left text-stone-500">
+                    <th className="py-2 font-medium">Voyage</th>
+                    <th className="py-2 font-medium">Véhicule</th>
+                    <th className="py-2 font-medium">Origine → Destination</th>
+                    <th className="py-2 text-right font-medium">Tonnage</th>
+                    <th className="py-2 pl-3 font-medium">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {donnees.derniers.map((v) => {
+                    const statut = STATUT_VOYAGE[v.status] ?? { libelle: v.status, teinte: 'gris' as const };
+                    const t = v.net_weight ?? v.load_weight;
+                    return (
+                      <tr key={v.id} className="border-b border-stone-100 last:border-0">
+                        <td className="py-2.5 font-medium text-stone-800">{v.reference ?? '—'}</td>
+                        <td className="py-2.5 text-stone-700">{calculs.immat.get(v.vehicle_id ?? '') ?? '—'}</td>
+                        <td className="py-2.5 text-stone-700">{nomSite(v.departure_site_id)} → {nomSite(v.arrival_site_id)}</td>
+                        <td className="py-2.5 text-right font-semibold text-stone-900">{t === null ? '—' : `${formatNombre(t, 1)} T`}</td>
+                        <td className="py-2.5 pl-3"><Puce teinte={statut.teinte}>{statut.libelle}</Puce></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Chauffeurs actifs</span>
-              <span className="text-lg font-bold text-green-600">{stats.activeDrivers}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">En maintenance</span>
-              <span className="text-lg font-bold text-orange-600">{stats.pendingMaintenance}</span>
-            </div>
-          </div>
-        </div>
+          )}
+        </Panneau>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-600">FINANCES</h3>
-            <DollarSign className="w-5 h-5 text-green-600" />
-          </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">Factures payées</span>
-              <span className="text-lg font-bold text-green-600">{stats.paidInvoices}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">En attente</span>
-              <span className="text-lg font-bold text-orange-600">{stats.unpaidInvoices}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-600">En retard</span>
-              <span className="text-lg font-bold text-red-600">{stats.overdueInvoices}</span>
-            </div>
-          </div>
-        </div>
+        <Panneau titre={`Alertes & Événements${donnees.alertes?.length ? ` (${donnees.alertes.length})` : ''}`} className="xl:col-span-3">
+          {!donnees.alertes || donnees.alertes.length === 0 ? (
+            <SansDonnees message="Aucune alerte active" detail={donnees.alertes === null ? 'Alertes indisponibles.' : undefined} />
+          ) : (
+            <ul className="space-y-3">
+              {donnees.alertes.map((a) => {
+                const critique = a.severity === 'critical';
+                const avert = a.severity === 'warning';
+                const Icone = critique || avert ? AlertTriangle : Info;
+                return (
+                  <li key={a.id} className="flex gap-3">
+                    <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg ${critique ? 'bg-red-50 text-red-600' : avert ? 'bg-yellow-50 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
+                      <Icone className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-stone-900">{a.title}</p>
+                      <p className="truncate text-sm text-stone-500">{a.message}</p>
+                    </div>
+                    <span className="flex-shrink-0 text-xs text-stone-400">{ilYa(a.created_at, donnees.heure)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Panneau>
       </div>
     </div>
   );
