@@ -61,7 +61,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 9.2 | 11 statuts vehicule | enum `vehicle_status` : `active`, `maintenance`, `immobilized`, `sold` (4) | A corriger | 05 |
 | 9.3, 10 | Flotte sous-traitants, gestion transporteurs | Aucune table `transporters`, aucune colonne de propriete | Absent | 05 |
 | 11 | Smart Dispatch (deterministe puis OR-Tools, decision humaine historisee) | `dispatch_assignments` et FleetOptimizer alimentes par `Math.random` | Maquette | 09 |
-| 12 | Cycle voyage 14 etats + 4 exceptionnels, evenements detectes / declares / valides | enum `trip_status` : `planned`, `in_progress`, `completed`, `cancelled` (4) ; pas de `trip_events` | A corriger (ecart majeur) | 06 |
+| 12 | Cycle voyage 14 etats + 4 exceptionnels, evenements detectes / declares / valides | Migration `20261110120000` : `trips.etat` (18 etats), journal immuable `trip_events`, transitions par `creer_voyage` / `avancer_voyage` seulement (garde sur la table) ; `trip_status` deduit de l'etat ; ecran Voyages & Rotations (liste du jour, fiche, chronologie). Evenements « detectes » (GPS) et « valides » non produits | En developpement | 06 |
 | 13 | Ponts-bascules, tickets, controles de doublon, tonnes chargees / livrees / acceptees | `weighings` (trip, ticket, brut, tare, net, photo) ; `ticket_number` sans contrainte d'unicite ; pas de referentiel pont-bascule ni de calibration ; une seule notion de poids net | A corriger | 07 |
 | 14 | Tracabilite matiere (lots, stockpiles) | Aucune table | Absent | 07 |
 | 15 | GPS : precision, source, qualite, fraicheur ; pas de position ancienne affichee en direct | Positions reelles depuis PR #7 (« sans donnees » sinon) ; Edge Function `iot-ingestion` ; champs precision / qualite / fraicheur non verifies | A corriger | 08 |
@@ -111,7 +111,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |
 | 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
 | 05 | Flotte mixte et sous-traitants | Absent | 02 | Enum `vehicle_status` a etendre sans casser l'existant ; flotte louee a l'heure, tracteurs et semi-remorques, 2 chargeuses et 1 pelle (D-011) | - |
-| 06 | Cycle de transport et Event Engine | A corriger (ecart majeur) | 02, 05 | Migration `trip_status` 4 -> 18 etats | - |
+| 06 | Cycle de transport et Event Engine | En developpement : cycle voyage v1 (etape 2 de la reprise) : 18 etats, journal `trip_events`, fonctions serveur, ecran Voyages & Rotations, demo avec chronologie ; pgTAP 09 (16 assertions), 4 E2E | 02, 05 | Perimetre par site (LOT 02) ; tickets de pesee et unicite (LOT 07) ; evenements detectes (LOT 08) ; outbox (CDC 31) | branche `lot-06/voyages-cycle` |
 | 07 | Pesee, livraison et tracabilite | A corriger | 06 | Unicite des tickets sur donnees existantes | - |
 | 08 | GPS, IoT et cartographie | A corriger | 02, 06 | PostGIS ; protocoles traceurs reels inconnus | - |
 | 09 | Smart Dispatch et Optimization Engine | Maquette | 05, 06, 08 | Service Python OR-Tools a cadrer | - |

@@ -126,6 +126,67 @@ SELECT pg_temp.demo_id(5, d * 1000 + camion * 10 + rot),
        'Démonstration'
 FROM statut;
 
+-- 5b. Cycle des voyages (CDC 12, migration 20261110120000) : chargeuse ou
+--     pelle, puis journal des evenements jusqu'a l'heure du chargement.
+--     Etapes : affectation, arrivee et chargement, depart, arrivee,
+--     dechargement avec pesee, livraison, acceptation 45 min plus tard.
+--     L'etat du voyage est celui du dernier evenement survenu. Execute en
+--     supabase_admin : la garde du cycle laisse passer (pas d'auth.uid()).
+UPDATE public.trips
+SET loader_vehicle_id = pg_temp.demo_id(3, 101 + ((substring(reference FROM 12)::int / 10) % 3))
+WHERE id::text LIKE 'dec0de00-0005-%';
+
+WITH voyage AS (
+  SELECT t.id, t.actual_departure_time AS depart, t.actual_arrival_time AS arrivee,
+         t.loading_time_minutes AS l, t.unloading_time_minutes AS u,
+         t.gross_weight, t.tare_weight, t.net_weight,
+         ('x' || right(replace(t.id::text, '-', ''), 8))::bit(32)::int AS numero,
+         -- Voyage prevu : depart prevu reconstitue depuis la reference de grille
+         coalesce(t.actual_departure_time,
+                  t.planned_date + time '06:00'
+                  + make_interval(mins => (t.shift_sequence - 1) * 112 + (substring(t.reference FROM 12)::int / 10) * 4)) AS depart_prevu
+  FROM public.trips t
+  WHERE t.id::text LIKE 'dec0de00-0005-%'
+),
+etape AS (
+  SELECT v.id, v.numero, e.rang, e.etat, e.instant, e.donnees
+  FROM voyage v
+  CROSS JOIN LATERAL (VALUES
+    (1, 'ASSIGNED', least(now(), v.depart_prevu - make_interval(mins => v.l + 25)), '{}'::jsonb),
+    (2, 'AT_LOADING', v.depart - make_interval(mins => v.l + 10), '{}'::jsonb),
+    (3, 'LOADING', v.depart - make_interval(mins => v.l), '{}'::jsonb),
+    (4, 'LOADED', v.depart - interval '3 minutes', '{}'::jsonb),
+    (5, 'IN_TRANSIT', v.depart, '{}'::jsonb),
+    (6, 'AT_DESTINATION', v.arrivee, '{}'::jsonb),
+    (7, 'UNLOADING', v.arrivee + interval '2 minutes', '{}'::jsonb),
+    (8, 'WEIGHED_IN', v.arrivee + make_interval(mins => v.u + 2),
+        jsonb_build_object('brut', v.gross_weight, 'tare', v.tare_weight, 'net', v.net_weight)),
+    (9, 'DELIVERED', v.arrivee + make_interval(mins => v.u + 4), '{}'::jsonb),
+    (10, 'ACCEPTED', v.arrivee + make_interval(mins => v.u + 49), jsonb_build_object('accepte', v.net_weight))
+  ) AS e(rang, etat, instant, donnees)
+  WHERE e.instant IS NOT NULL AND e.instant <= now()
+),
+journal AS (
+  INSERT INTO public.trip_events (id, trip_id, etat_avant, etat_apres, survenu_le, enregistre_le, origine, note, donnees)
+  SELECT pg_temp.demo_id(11, numero * 16 + rang), id,
+         lag(etat) OVER (PARTITION BY id ORDER BY rang), etat, instant, instant,
+         'declare', CASE WHEN rang = 1 THEN 'Démonstration' END, donnees
+  FROM etape
+  RETURNING trip_id, etat_apres, survenu_le
+),
+dernier AS (
+  SELECT DISTINCT ON (trip_id) trip_id, etat_apres, survenu_le
+  FROM journal
+  ORDER BY trip_id, survenu_le DESC
+)
+UPDATE public.trips t
+SET etat = d.etat_apres,
+    etat_modifie_le = d.survenu_le,
+    net_weight_reception = CASE WHEN d.etat_apres IN ('WEIGHED_IN', 'DELIVERED', 'ACCEPTED') THEN t.net_weight END,
+    accepted_tonnage = CASE WHEN d.etat_apres = 'ACCEPTED' THEN t.net_weight END
+FROM dernier d
+WHERE t.id = d.trip_id;
+
 -- 6. Carburant : distribution quotidienne a 05:30 (semi-remorques actifs,
 --    chargeuses, pelle) et remplissage de cuve deux fois par semaine.
 INSERT INTO public.fuel_transactions (id, transaction_date, vehicle_id, driver_id, volume_liters, unit_price, total_cost, transaction_type, supplier, site_id, reference, notes)

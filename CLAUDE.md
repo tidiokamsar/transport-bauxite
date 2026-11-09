@@ -79,7 +79,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 46 unitaires (dont 27 du moteur de decompte), 2 E2E, 39 assertions RLS (via
+- Tests (D-007) : 58 unitaires (dont 27 du moteur de decompte), 9 E2E (API
+  simulee : `e2e/api-simulee.ts`), 83 assertions pgTAP (via
   `npm run test:rls:rejeu`).
 - Migrations (D-017) : `supabase/migrations` commence par la base de
   reference `20260903000000_base_reference.sql`, generee par
@@ -102,5 +103,8 @@ PR quand la dette diminue ; ne jamais les remonter.
 - Donnees de demonstration en production (D-020) : identifiants
   `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh purger`
   obligatoire avant la premiere saisie reelle.
+- Cycle voyage (CDC 12, LOT 06) : `trips.etat` ne change que par
+  `creer_voyage` / `avancer_voyage` (garde `trips_garde_cycle`), journal
+  `trip_events` immuable.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.
