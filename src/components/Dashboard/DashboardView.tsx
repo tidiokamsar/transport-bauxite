@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SceneMine } from '../Brand/SceneMine';
 import { supabase } from '../../lib/supabase';
 import {
   Truck, Users, MapPin, DollarSign, AlertTriangle, TrendingUp,
@@ -390,37 +391,28 @@ export const DashboardView = () => {
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Header avec gradient */}
-      <div className="bg-gradient-to-r from-orange-500 via-red-600 to-orange-700 rounded-3xl shadow-2xl p-8 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white opacity-5 rounded-full -ml-24 -mb-24"></div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-black mb-2">Tableau de bord DARI HOLDING</h1>
-              <p className="text-orange-100 text-lg font-medium">Vue d'ensemble de vos opérations de transport de bauxite</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-              <Truck className="w-16 h-16" strokeWidth={1.5} />
-            </div>
+      {/* Bandeau : scene de mine, titre et indicateurs cles */}
+      <div className="relative overflow-hidden rounded-3xl shadow-2xl text-white bg-bauxite-950">
+        <SceneMine className="absolute inset-0 h-full w-full" cadrage="bas" />
+        <div className="absolute inset-0 bg-gradient-to-r from-bauxite-950/90 via-bauxite-950/55 to-bauxite-950/10" />
+        <div className="relative z-10 p-8">
+          <div className="mb-8 max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-bauxite-200">Exploitation</p>
+            <h1 className="texte-relief mt-2 text-4xl font-black">Tableau de bord</h1>
+            <p className="texte-relief mt-2 text-lg text-stone-200">Vue d'ensemble des opérations de transport de bauxite</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-orange-100 font-medium mb-1">Véhicules actifs</p>
-              <p className="text-3xl font-black">{stats.activeVehicles}/{stats.totalVehicles}</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-orange-100 font-medium mb-1">Voyages ce mois</p>
-              <p className="text-3xl font-black">{stats.monthTrips}</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-orange-100 font-medium mb-1">Tonnage transporté</p>
-              <p className="text-3xl font-black">{stats.totalTonnage}T</p>
-            </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <p className="text-sm text-orange-100 font-medium mb-1">Chauffeurs actifs</p>
-              <p className="text-3xl font-black">{stats.activeDrivers}/{stats.totalDrivers}</p>
-            </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              { libelle: 'Véhicules actifs', valeur: `${stats.activeVehicles}/${stats.totalVehicles}` },
+              { libelle: 'Voyages ce mois', valeur: `${stats.monthTrips}` },
+              { libelle: 'Tonnage transporté', valeur: `${stats.totalTonnage} T` },
+              { libelle: 'Chauffeurs actifs', valeur: `${stats.activeDrivers}/${stats.totalDrivers}` },
+            ].map(({ libelle, valeur }) => (
+              <div key={libelle} className="rounded-xl border border-white/15 bg-black/30 p-4 backdrop-blur-sm">
+                <p className="mb-1 text-sm font-medium text-stone-300">{libelle}</p>
+                <p className="text-3xl font-black">{valeur}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

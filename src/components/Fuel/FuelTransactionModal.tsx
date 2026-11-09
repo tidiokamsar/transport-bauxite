@@ -27,7 +27,7 @@ export const FuelTransactionModal = ({ transaction, onClose }: FuelTransactionMo
     total_cost: 0,
     odometer_reading: 0,
     transaction_date: new Date().toISOString().split('T')[0],
-    supplier: 'DARI HOLDING',
+    supplier: '',
     invoice_number: '',
     notes: '',
   });
@@ -62,7 +62,7 @@ export const FuelTransactionModal = ({ transaction, onClose }: FuelTransactionMo
         total_cost: transaction.total_cost || transaction.total_amount || 0,
         odometer_reading: transaction.odometer_reading || 0,
         transaction_date: transaction.transaction_date?.split('T')[0] || new Date().toISOString().split('T')[0],
-        supplier: transaction.supplier || 'DARI HOLDING',
+        supplier: transaction.supplier || '',
         invoice_number: transaction.invoice_number || '',
         notes: transaction.notes || '',
       });
@@ -374,7 +374,7 @@ export const FuelTransactionModal = ({ transaction, onClose }: FuelTransactionMo
                   value={formData.supplier}
                   onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                   className={inputClass}
-                  placeholder="DARI HOLDING"
+                  placeholder="Nom du fournisseur"
                 />
               </div>
             </div>

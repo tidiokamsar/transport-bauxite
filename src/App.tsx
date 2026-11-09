@@ -6,6 +6,7 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { DashboardView } from './components/Dashboard/DashboardView';
 import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
+import { Embleme } from './components/Brand/Marque';
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
@@ -51,8 +52,8 @@ const LoadingFallback = () => (
   <div className="flex items-center justify-center h-96 animate-fade-in">
     <div className="text-center">
       <div className="relative">
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200 mx-auto mb-4"></div>
-        <div className="animate-spin rounded-full h-16 w-16 border-4 border-transparent border-t-slate-900 absolute top-0 left-1/2 -translate-x-1/2"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-stone-200 mx-auto mb-4"></div>
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-transparent border-t-bauxite-600 absolute top-0 left-1/2 -translate-x-1/2"></div>
       </div>
       <p className="text-slate-600 font-medium animate-pulse">Chargement du module...</p>
     </div>
@@ -65,8 +66,9 @@ const MainApp = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+      <div className="min-h-screen bg-[#1a1411] flex flex-col items-center justify-center gap-6">
+        <Embleme className="w-16 h-16 animate-pulse" />
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-bauxite-400 border-t-transparent"></div>
       </div>
     );
   }
@@ -168,7 +170,7 @@ const MainApp = () => {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen bg-slate-50">
+      <div className="flex h-screen fond-topo">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
         <main className="flex-1 overflow-y-auto">
           <div className="p-8">

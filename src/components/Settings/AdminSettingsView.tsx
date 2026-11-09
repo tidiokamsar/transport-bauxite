@@ -340,7 +340,7 @@ export const AdminSettingsView = () => {
                   value={settings.company_name || ''}
                   onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  placeholder="DARI HOLDING"
+                  placeholder="Raison sociale"
                 />
               </div>
               <div>
@@ -376,7 +376,7 @@ export const AdminSettingsView = () => {
                   value={settings.company_email || ''}
                   onChange={(e) => setSettings({ ...settings, company_email: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  placeholder="contact@dariholding.gn"
+                  placeholder="contact@exemple.gn"
                 />
               </div>
             </div>

@@ -32,12 +32,14 @@ import {
   Activity,
   Zap,
   AlertTriangle,
-  Search
+  Search,
+  type LucideIcon
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { GlobalSearchModal } from '../Search/GlobalSearchModal';
 import { LanguageSelector } from '../Language/LanguageSelector';
+import { Embleme, NOM_PRODUIT, SOUS_TITRE_PRODUIT } from '../Brand/Marque';
 
 interface SidebarProps {
   currentView: string;
@@ -47,7 +49,7 @@ interface SidebarProps {
 interface MenuItem {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   badge?: number;
   children?: MenuItem[];
 }
@@ -220,15 +222,15 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
               onViewChange(item.id);
             }
           }}
-          className={`w-full flex items-center gap-3 px-6 py-3 transition-all ${
-            level > 0 ? 'pl-12' : ''
+          className={`w-full flex items-center gap-3 py-2.5 pr-4 transition-all border-l-4 ${
+            level > 0 ? 'pl-11 text-[13px]' : 'pl-5'
           } ${
             isActive
-              ? 'bg-slate-800 text-white border-l-4 border-blue-500'
-              : 'text-slate-400 hover:bg-slate-800/50 hover:text-white'
+              ? 'bg-gradient-to-r from-bauxite-600/30 to-transparent text-white border-bauxite-400'
+              : 'border-transparent text-stone-400 hover:bg-white/5 hover:text-white'
           }`}
         >
-          <Icon className="w-5 h-5 flex-shrink-0" />
+          <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-bauxite-300' : ''}`} />
           <span className="font-medium flex-1 text-left text-sm">{item.label}</span>
           {item.badge && (
             <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -240,7 +242,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
           )}
         </button>
         {hasChildren && isExpanded && (
-          <div className="bg-slate-900/50">
+          <div className="bg-black/20">
             {accessibleChildren.map(child => renderMenuItem(child, level + 1))}
           </div>
         )}
@@ -249,53 +251,58 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
   };
 
   return (
-    <div className="w-64 bg-slate-900 text-white flex flex-col h-screen shadow-2xl">
-      <div className="p-6 border-b border-slate-800 bg-gradient-to-r from-slate-900 to-slate-800">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="bg-gradient-to-br from-orange-500 to-red-600 p-3 rounded-xl shadow-lg">
-            <Truck className="w-10 h-10 text-white" strokeWidth={1.5} />
-          </div>
+    <div className="relative w-64 flex-shrink-0 bg-[#1a1411] text-white flex flex-col h-screen shadow-2xl overflow-hidden">
+      {/* Gradins de fosse en filigrane, bas du menu */}
+      <svg viewBox="0 0 256 160" className="pointer-events-none absolute bottom-0 left-0 w-full opacity-[0.18]" aria-hidden="true">
+        <path d="M0 40 L256 40 L256 160 L0 160 Z" fill="#5e281c" />
+        <path d="M20 70 L236 70 L236 160 L20 160 Z" fill="#8f371f" />
+        <path d="M44 100 L212 100 L212 160 L44 160 Z" fill="#b04524" />
+        <path d="M70 128 L186 128 L186 160 L70 160 Z" fill="#c95a32" />
+      </svg>
+
+      <div className="relative px-5 pt-6 pb-5 border-b border-white/10">
+        <div className="flex items-center gap-3">
+          <Embleme className="w-11 h-11 flex-shrink-0" />
           <div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-orange-400 via-red-400 to-orange-500 bg-clip-text text-transparent">
-              DARI HOLDING
-            </h1>
-            <p className="text-xs text-slate-400">Gestion Transport Bauxite</p>
+            <p className="text-xl font-black tracking-tight">{NOM_PRODUIT}</p>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-bauxite-300">{SOUS_TITRE_PRODUIT}</p>
           </div>
         </div>
         {profile && (
-          <div className="mt-4 pt-4 border-t border-slate-800">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">Utilisateur</p>
-            <p className="text-sm font-semibold truncate mt-1">{profile.full_name}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              <p className="text-xs text-slate-400 capitalize">{profile.role.replace('_', ' ')}</p>
+          <div className="mt-5 flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-bauxite-700 text-sm font-bold">
+              {profile.full_name?.trim().charAt(0).toUpperCase() || '?'}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{profile.full_name}</p>
+              <p className="text-xs capitalize text-stone-400">{profile.role.replace(/_/g, ' ')}</p>
             </div>
           </div>
         )}
       </div>
 
-      <div className="px-4 py-3 border-b border-slate-800">
+      <div className="relative px-4 py-3 border-b border-white/10">
         <button
           onClick={() => setShowSearchModal(true)}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-all group"
+          className="w-full flex items-center gap-3 px-3 py-2.5 bg-white/5 hover:bg-white/10 text-stone-300 hover:text-white rounded-lg transition-all"
         >
-          <Search className="w-5 h-5 text-blue-400" />
+          <Search className="w-4 h-4 text-bauxite-300" />
           <span className="text-sm flex-1 text-left">{t('common.search')}...</span>
-          <kbd className="hidden sm:inline-block px-2 py-1 text-xs font-semibold text-slate-400 bg-slate-700 border border-slate-600 rounded">
-            ⌘K
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[11px] font-semibold text-stone-400 bg-black/30 border border-white/10 rounded">
+            Ctrl K
           </kbd>
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-900">
+      <nav className="relative flex-1 overflow-y-auto py-2 scrollbar-thin">
         {menuItems.map((item) => renderMenuItem(item))}
       </nav>
 
-      <div className="p-4 border-t border-slate-800 bg-slate-900/50 space-y-2">
+      <div className="relative p-4 border-t border-white/10 bg-black/30 backdrop-blur-sm space-y-2">
         <LanguageSelector />
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-400 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 border border-transparent rounded-lg transition-all"
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-stone-400 hover:bg-red-500/10 hover:text-red-300 hover:border-red-500/20 border border-transparent rounded-lg transition-all"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium text-sm">{t('menu.logout')}</span>

@@ -52,7 +52,7 @@ describe('calculerDecompte - heures et coefficients', () => {
     expect(r.nature).toBe('cout');
   });
 
-  it('L-11 : DARI bailleur, meme calcul en revenu', () => {
+  it('L-11 : exploitant bailleur, meme calcul en revenu', () => {
     const r = brouillon(calculerDecompte(contrat({ sens: 'bailleur' }), [seg('02T06:00', '02T10:00')], periode));
     expect(r.nature).toBe('revenu');
     expect(r.total).toBe(400);
