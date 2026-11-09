@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 # Rejeu des migrations sur une base vierge et tests RLS pgTAP (LOT 01, P4).
 #
-# En attendant D-009 (base locale reconstruite depuis un dump de
-# production), `supabase start` echoue : 41 migrations Bolt ne rejouent
-# pas. Ce script les applique une a une, chacune dans sa transaction, dans
-# un conteneur Postgres Supabase jetable, et continue apres un echec.
-#
-# Cliquet : la liste des echecs attendus est versionnee dans
-# supabase/tests/echecs-connus.txt.
-#  - echec si une migration absente de la liste echoue (regression,
-#    nouvelle migration cassee) ;
-#  - avis si une migration de la liste passe (la retirer de la liste).
-#
-# La base obtenue n'est PAS le schema de production : elle sert a verifier
-# les migrations et les politiques RLS, pas a valider des donnees.
+# Depuis D-017, supabase/migrations commence par la base de reference
+# (20260903000000_base_reference.sql, generee par
+# scripts/construire-base-reference.sh) ; les migrations Bolt sont
+# archivees dans supabase/migrations_bolt_archive. Toutes les migrations
+# doivent rejouer : un echec fait echouer le script. Ce script les applique
+# une a une, chacune dans sa transaction, dans un conteneur Postgres
+# Supabase jetable, comme deploy/vps/appliquer-migrations.sh sur le VPS.
 #
 # Usage : bash scripts/rejeu-migrations.sh [--tests] [--garder]
 #   --tests   lance aussi supabase/tests/database/*.test.sql (pgTAP)
@@ -24,7 +18,7 @@ cd "$(dirname "$0")/.."
 
 IMAGE="${SIGTB_PG_IMAGE:-public.ecr.aws/supabase/postgres:17.6.1.106}"
 NOM="sigtb-rejeu-$$"
-LISTE_CONNUS="supabase/tests/echecs-connus.txt"
+LISTE_CONNUS="supabase/tests/echecs-connus.txt"  # absent depuis D-017 : aucun echec admis
 RAPPORT="test-results/rejeu-migrations.txt"
 TESTS=0
 GARDER=0
@@ -88,7 +82,8 @@ done
 echo "Migrations : $OK passent, ${#ECHECS[@]} echouent (detail : $RAPPORT)"
 
 STATUT=0
-CONNUS=$(grep -v '^\s*#' "$LISTE_CONNUS" | grep -v '^\s*$' || true)
+CONNUS=""
+[ -f "$LISTE_CONNUS" ] && CONNUS=$(grep -v '^\s*#' "$LISTE_CONNUS" | grep -v '^\s*$' || true)
 for f in "${ECHECS[@]}"; do
   if ! grep -qxF "$f" <<< "$CONNUS"; then
     echo "::error::Echec non attendu : $f ($(grep -F "ECHEC $f" "$RAPPORT" | cut -d'|' -f2-))"

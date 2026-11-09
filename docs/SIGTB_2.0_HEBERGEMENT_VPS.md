@@ -59,21 +59,24 @@ precise que les sauvegardes ne sont pas fournies en auto-hebergement.
 ## 5. Base de donnees de reference (D-017)
 
 Le dump de production prevu par D-009 est impossible. La base est
-construite depuis le depot :
+construite depuis le depot (fait le 2026-11-09) :
 
-1. Les migrations qui rejouent sur base vierge, dont la Tranche 0, N4 et
-   D-012.
-2. Une migration consolidee pour les tables lues par l'interface mais
-   creees par des migrations Bolt qui echouent (liste en section 5.1).
-3. Aucune donnee de demonstration Bolt (regle 1). Le premier
-   administrateur est cree sur le VPS avec un mot de passe neuf (C1) : les
-   migrations `20251211134113_create_admin_user_account` et
-   `20251211134305_update_admin_user_credentials` sont exclues. Elles
-   ecrivent dans `auth.users`, dont le schema appartient au service Auth
-   et differe de celui de l'image Postgres seule (resultat de rejeu
-   variable d'une execution a l'autre le 2026-11-08 : colonne
-   `email_confirmed_at` tantot presente, tantot absente). Elles restent
-   dans `supabase/tests/echecs-connus.txt`.
+| Migration | Contenu |
+|---|---|
+| `20260903000000_base_reference` | Generee par `scripts/construire-base-reference.sh` : schema `public` obtenu en rejouant les 88 migrations Bolt qui passent sur 129 (140 tables, toutes avec RLS ; 53 politiques ; droits), plus les 133 lignes de la matrice `role_permissions`. Aucune autre donnee |
+| `20260903090000`, `20260903090100` | Tranche 0 (garde du role, ecriture par module) |
+| `20261108090000` | `is_admin` durci (N4) |
+| `20261108100000` | Matrice des roles alignee (D-012) |
+| `20261109090000_tables_manquantes` | `costs`, `departments` ; politiques manquantes de `cost_categories` et `user_preferences` |
+
+Les 129 migrations Bolt sont archivees dans
+`supabase/migrations_bolt_archive`, avec la liste des 41 qui echouent.
+Elles ne sont plus appliquees. Aucune donnee de demonstration n'arrive en
+base (regle 1) ; le premier administrateur est cree sur le VPS par le
+proprietaire (`deploy/vps/creer-admin.sh`), avec un mot de passe neuf (C1).
+
+Controle : `npm run test:rls:rejeu` rejoue les 6 migrations sans echec et
+passe 39 assertions RLS (fichiers 01 a 05).
 
 ### 5.1 Tables lues par l'interface, absentes de la base rejouee
 
@@ -82,9 +85,9 @@ Mesure du 2026-11-08 : 84 tables ou vues lues par `supabase.from()`,
 
 | Table | Creee par | Lue par | Traitement propose |
 |---|---|---|---|
-| `costs` | `20251023120246` (echoue) | Costs, Dashboard, Reports | A recreer (module reel) |
-| `departments` | `20251023120423` (echoue) | HR (EmployeeModal) | A recreer (module reel) |
-| `user_preferences` | `20251211131020` (echoue) | LanguageContext | A recreer |
+| `costs` | `20251023120246` (echoue) | Costs, Dashboard, Reports | Recreee (`20261109090000`) |
+| `departments` | `20251023120423` (echoue) | HR (EmployeeModal) | Recreee (`20261109090000`) |
+| `user_preferences` | Presente dans la base de reference, sans politique | LanguageContext | Politique ajoutee (`20261109090000`) |
 | `fuel_stations` | Aucune migration | Fuel | A creer (module reel, LOT 10) |
 | `fuel_anomalies` | Aucune migration | Fuel (3 ecrans) | A creer ou retirer des ecrans (LOT 10) |
 | `fuel_consumption`, `fuel_predictions`, `fuel_vehicle_stats` | Aucune migration | FuelIntelligentDashboard | Ecran a signaler « sans donnees » jusqu'au LOT 10 |
@@ -92,7 +95,25 @@ Mesure du 2026-11-08 : 84 tables ou vues lues par `supabase.from()`,
 
 Le detail de la migration consolidee fera l'objet d'une PR dediee.
 
-## 6. Integration continue (D-015)
+## 6. Procedure d'installation sur le VPS
+
+Kit versionne dans `deploy/vps/`. Tout s'execute en root sur le serveur,
+depuis une copie du depot deposee dans `/opt/sigtb/depot`.
+
+| Etape | Commande | Effet |
+|---|---|---|
+| 1 | `bash deploy/vps/installer.sh` | Modele officiel Supabase au tag `self-hosted/v0.8.4`, pile reduite (`deploy/vps/docker-compose.yml` : base, connexion, API, passerelle, fonctions), secrets generes sur place dans `/opt/sigtb/pile/.env` (600, jamais affiches), demarrage. Un seul port : `127.0.0.1:8200` |
+| 2 | `bash deploy/vps/appliquer-migrations.sh --tests` | Migrations du depot dans l'ordre, chacune dans sa transaction, tracees dans `supabase_migrations.schema_migrations` ; tests pgTAP en transaction annulee |
+| 3 | Build de l'interface avec `VITE_SUPABASE_URL=https://sigtb.infranetgn.com` et la cle publique `ANON_KEY` du serveur, depose dans `/opt/sigtb/web/releases/<sha>`, lien `current` | Interface servie par Caddy |
+| 4 | Copie de `deploy/vps/sigtb.caddy` dans `/etc/caddy/`, sauvegarde du Caddyfile, ligne `import`, `caddy validate`, `systemctl reload caddy` | HTTPS sur `sigtb.infranetgn.com` ; seules `/auth/v1`, `/rest/v1` et `/functions/v1/iot-ingestion` sont exposees |
+| 5 | `bash /opt/sigtb/outils/creer-admin.sh` (proprietaire) | Premier administrateur ; mot de passe saisi sans echo |
+| 6 | Cron `45 3 * * * /opt/sigtb/outils/sauvegarder.sh` | Dump quotidien, empreinte, controle de lisibilite, 14 jours |
+
+Regles sur ce serveur partage : ne jamais redemarrer Caddy ni les autres
+piles ; pas de port publie hors `127.0.0.1` (Docker contourne `ufw`) ;
+`geofence-monitor` n'est pas deployee (N3).
+
+## 7. Integration continue (D-015)
 
 En attendant une CI hebergee : `bash scripts/ci-locale.sh` reproduit les
 trois jobs de `.github/workflows/ci.yml` (cliquet, tests unitaires, build,
@@ -102,14 +123,18 @@ ou forge auto-hebergee) sera proposee une fois le VPS en service ; la
 possibilite d'utiliser un runner GitHub auto-heberge avec un compte
 verrouille n'est pas verifiee.
 
-## 7. Informations a fournir par le proprietaire
+## 8. Informations a fournir par le proprietaire
 
-1. Systeme et version du VPS, RAM, coeurs, disque (a mesurer sur le
-   serveur des que l'acces SSH est ouvert).
-2. Docker deja installe ou non ; autres services presents sur le VPS.
-3. Domaine : `sigtb.infranetgn.com`, qui pointe vers l'adresse du VPS
-   (resolution DNS verifiee le 2026-11-08).
-4. Acces SSH par cle (D-016) : adresse du VPS, utilisateur, et cle publique
-   autorisee par le proprietaire.
-5. Serveur SMTP pour les courriels d'authentification (facultatif).
-6. Emplacement des sauvegardes hors du VPS.
+Obtenu le 2026-11-09 : acces SSH root par cle (deja utilise pour les
+autres applications du serveur) ; serveur mesure : Ubuntu 26.04.1,
+4 coeurs, 15 Go de RAM (8,2 Go disponibles), 85 Go de disque libres,
+Docker 29.8, Compose 5.5, Caddy 2.11 en service systeme, ufw sur 22, 80 et
+443. Le serveur heberge six autres applications, dont une pile Supabase
+(GesPro) ; ports locaux deja pris : 3000, 3001, 3072, 5432, 8000, 8089,
+8090, 8100, 8765. Domaine `sigtb.infranetgn.com` resolu vers le VPS.
+
+Reste a fournir :
+
+1. Serveur SMTP pour les courriels d'authentification (facultatif ; sans
+   lui, pas de reinitialisation de mot de passe par courriel).
+2. Emplacement des sauvegardes hors du VPS.
