@@ -174,3 +174,23 @@ relancer `installer.sh` (sans effet sur les secrets ni les donnees) puis
 `appliquer-migrations.sh --tests`, construire l'interface dans une
 nouvelle release et basculer `current` ; retour arriere en rebasculant
 `current` sur la release precedente.
+
+## 10. Donnees de demonstration (D-020)
+
+Commandes, en root sur le serveur, depuis `/opt/sigtb/depot/courant` :
+
+| Commande | Effet |
+|---|---|
+| `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refuse s'il est deja present) et active le bandeau |
+| `bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge : les dates suivent le jour courant |
+| `bash deploy/vps/demo/demo.sh purger` | Supprime tout le jeu et retire le bandeau |
+| `bash deploy/vps/demo/demo.sh etat` | Nombre de lignes de demonstration par table |
+
+Contenu : 4 sites, 2 shifts (06:00-18:00, 18:00-06:00), 24 semi-remorques
+bennes (20 actifs, 2 en maintenance, 2 immobilises), 2 chargeuses
+Caterpillar 980L, 1 pelle Caterpillar 374F, 22 chauffeurs aux noms fictifs,
+6 rotations par camion et par jour sur 15 jours (mine vers stock tampon,
+24 km), distributions de carburant quotidiennes et remplissages de cuve,
+ordres de maintenance, 3 alertes, positions GPS des camions en route au
+moment du chargement (elles quittent la carte apres 15 minutes). Une
+sauvegarde est prise avant chaque operation.

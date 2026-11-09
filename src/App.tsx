@@ -6,6 +6,7 @@ import { Sidebar } from './components/Layout/Sidebar';
 import { libelleVue } from './components/Layout/menu';
 import { TopBar } from './components/Layout/TopBar';
 import { PageAttente } from './components/Layout/PageAttente';
+import { BandeauDemonstration } from './components/Layout/BandeauDemonstration';
 import { SiteProvider } from './contexts/SiteContext';
 import { DashboardView } from './components/Dashboard/DashboardView';
 import OfflineIndicator from './components/Offline/OfflineIndicator';
@@ -193,6 +194,7 @@ const MainApp = () => {
       <div className="flex h-screen bg-sable">
         <Sidebar currentView={currentView} onViewChange={setCurrentView} />
         <div className="flex min-w-0 flex-1 flex-col">
+        <BandeauDemonstration />
         <TopBar
           sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : libelleVue(currentView)}
           onAllerA={setCurrentView}
