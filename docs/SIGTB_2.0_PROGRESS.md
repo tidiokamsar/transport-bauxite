@@ -28,9 +28,9 @@ teste, valide et deploye.
 | `npm run typecheck` | 37 erreurs (baseline cliquet 37) | 0 erreur |
 | `npm run lint` | 0 erreur, 243 avertissements au 2026-11-08 (baseline 243) | 0 erreur bloquante : OK |
 | `npm run build` | OK | OK |
-| Tests automatises | Outillage installe (D-007, PR #15) : Vitest 46 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 30 assertions RLS au 2026-11-08. Tests RLS executes par `npm run test:rls:rejeu` sur une base rejouee (pas encore via `supabase test db`, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
+| Tests automatises | Outillage installe (D-007, PR #15) : Vitest 46 tests + 2 `todo`, Playwright 2 tests E2E, pgTAP 39 assertions RLS au 2026-11-09. Tests RLS executes par `npm run test:rls:rejeu` sur une base rejouee (pas encore via `supabase test db`, D-009) | Unitaires, integration, RLS, E2E, charge, offline, restauration |
 | CI GitHub Actions | Jamais executee : tous les runs en `startup_failure` (facturation Actions, depot prive) | GitHub Actions operationnelle |
-| Migrations | 131 fichiers, 142 noms de tables crees. Rejeu sur base vierge (2026-11-07) : 89 passent, 42 echouent ; apres correctif D-008 : 90 passent, 41 echouent (toutes issues de Bolt, traitees par D-017) | Rejouables (CDC 33) |
+| Migrations | 2026-11-09 (D-017) : base de reference generee depuis les 88 migrations Bolt qui rejouent sur 129 (140 tables, toutes avec RLS ; 53 politiques), puis Tranche 0, N4, D-012 et tables manquantes : 6 migrations, 0 echec. Les 129 migrations Bolt sont archivees (`supabase/migrations_bolt_archive`) | Rejouables (CDC 33) : OK |
 | PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |
 | Projet Supabase de l'app | `bprfctzqplahvrepxgrw`, absent du compte Supabase connecte | Acces requis pour deployer |
 | Tranche 0 securite | Mergee (PR #2), **non deployee, non verifiee** | RLS restrictive, anti-escalade |

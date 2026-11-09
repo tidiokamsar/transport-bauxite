@@ -1,0 +1,49 @@
+# Site SIGTB (D-016). Copie sur le serveur dans /etc/caddy/sigtb.caddy et
+# importe depuis /etc/caddy/Caddyfile (`import /etc/caddy/sigtb.caddy`).
+# Recharger avec `caddy validate` puis `systemctl reload caddy`, jamais
+# restart : le Caddy du serveur sert aussi les autres applications.
+sigtb.infranetgn.com {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# API utilisees par l'interface : connexion et donnees.
+	@api path /auth/v1/* /rest/v1/*
+	handle @api {
+		reverse_proxy 127.0.0.1:8200
+	}
+
+	# Seule fonction publiee : ingestion des boitiers (cle par boitier).
+	# geofence-monitor et les autres routes de la passerelle (/pg, /graphql,
+	# /storage, /realtime, studio) ne sont pas exposees.
+	@iot path /functions/v1/iot-ingestion /functions/v1/iot-ingestion/*
+	handle @iot {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy 127.0.0.1:8200
+	}
+	@autres_api path /functions/* /pg/* /graphql/* /storage/* /realtime/*
+	handle @autres_api {
+		respond 404
+	}
+
+	# Interface (build Vite), release courante.
+	handle {
+		root * /opt/sigtb/web/current
+		@cartes path *.map
+		respond @cartes 404
+		try_files {path} /index.html
+		file_server
+		@empreinte path /assets/*
+		header @empreinte Cache-Control "public, max-age=31536000, immutable"
+		@page not path /assets/*
+		header @page Cache-Control "no-cache"
+	}
+}

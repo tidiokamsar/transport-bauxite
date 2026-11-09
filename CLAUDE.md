@@ -79,17 +79,22 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 46 unitaires (dont 27 du moteur de decompte), 2 E2E, 30 assertions RLS (via
-  `npm run test:rls:rejeu`). Les tests RLS ne tournent pas via `supabase start` : 41 migrations Bolt sur 131 ne
-  rejouent pas sur base vierge (D-017 : base de reference construite
-  depuis le depot). Migration Tranche 0 corrigee (D-008).
+- Tests (D-007) : 46 unitaires (dont 27 du moteur de decompte), 2 E2E, 39 assertions RLS (via
+  `npm run test:rls:rejeu`).
+- Migrations (D-017) : `supabase/migrations` commence par la base de
+  reference `20260903000000_base_reference.sql`, generee par
+  `scripts/construire-base-reference.sh` (ne pas l'editer, la regenerer) ;
+  les 129 migrations Bolt sont archivees dans
+  `supabase/migrations_bolt_archive`. Toute migration doit rejouer.
+- Deploiement VPS : kit `deploy/vps/`, procedure dans
+  `docs/SIGTB_2.0_HEBERGEMENT_VPS.md` section 6.
 - Matrice des roles alignee sur l'enum (D-010, D-012, migration
   `20261108100000`), mergee, non deployee.
 - CI GitHub Actions impossible (paiement refuse) : CI locale
   `npm run ci:locale` (D-015), resultat dans chaque PR.
 - Hebergement cible : VPS du proprietaire, pile Supabase auto-hebergee
   (D-016), base neuve sans donnees de demonstration (D-017). Projet
-  Supabase Bolt abandonne. Tranche 0 autorisee (P3), non deployee : attend
-  l'acces SSH au VPS.
+  Supabase Bolt abandonne. Tranche 0 autorisee (P3) ; acces SSH root
+  par cle obtenu le 2026-11-09.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.
