@@ -29,8 +29,8 @@ leves par l'equipe de developpement.
 | # | Prerequis | Debloque | Qui |
 |---|---|---|---|
 | P1 | CI : GitHub Actions impossible (paiement refuse) ; CI locale `scripts/ci-locale.sh` (D-015), puis CI sur le VPS | Execution de la CI : cliquet, tests unitaires, RLS, E2E | Equipe ; CI VPS apres P2 |
-| P2 | Acces SSH par cle au VPS du proprietaire (D-016) : utilisateur et cle autorisee | Installation de la pile Supabase auto-hebergee, deploiement | DARI HOLDING |
-| P3 | Deploiement de la Tranche 0 : autorise le 2026-11-08, sur le VPS (D-017) | Fermeture des failles C1 a C4 | Fait (autorisation) ; execution apres P2 |
+| P2 | Acces SSH par cle au VPS du proprietaire (D-016) : obtenu le 2026-11-09, pile installee | Installation de la pile Supabase auto-hebergee, deploiement | DARI HOLDING |
+| P3 | Deploiement de la Tranche 0 : autorise le 2026-11-08, deploye et verifie le 2026-11-09 sur le VPS | Fermeture des failles C1 a C4 | Fait (autorisation) ; execution apres P2 |
 | P5 | Entrees metier : structure organisation et sites, valeurs des contrats de location (section 5.3), protocoles des traceurs GPS, regles de rapprochement des pesees, validation du cycle a 18 etats | LOT 02, 05, 06, 07, 08, 12 | DARI HOLDING (metier) |
 | P6 | Merges des PR ouvertes | Integration sur `main` | Proprietaire du depot |
 | P7 | Valider la correspondance role x module (D-012) | Fait le 2026-11-08 (PR #22 mergee) | DARI HOLDING |

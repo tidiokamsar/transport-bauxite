@@ -92,9 +92,12 @@ PR quand la dette diminue ; ne jamais les remonter.
   `20261108100000`), mergee, non deployee.
 - CI GitHub Actions impossible (paiement refuse) : CI locale
   `npm run ci:locale` (D-015), resultat dans chaque PR.
-- Hebergement cible : VPS du proprietaire, pile Supabase auto-hebergee
-  (D-016), base neuve sans donnees de demonstration (D-017). Projet
-  Supabase Bolt abandonne. Tranche 0 autorisee (P3) ; acces SSH root
-  par cle obtenu le 2026-11-09.
+- **En production depuis le 2026-11-09** : https://sigtb.infranetgn.com,
+  VPS partage (6 autres applications), pile Supabase auto-hebergee
+  `/opt/sigtb` (D-016), base neuve sans donnees (D-017), Tranche 0, N4 et
+  D-012 deployees. Journal et mise a jour :
+  `docs/SIGTB_2.0_HEBERGEMENT_VPS.md` sections 6 et 9. Aucun utilisateur
+  tant que le proprietaire n'a pas lance `creer-admin.sh`. Projet
+  Supabase Bolt abandonne.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.

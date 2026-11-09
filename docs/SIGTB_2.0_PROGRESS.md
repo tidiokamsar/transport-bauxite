@@ -33,7 +33,7 @@ teste, valide et deploye.
 | Migrations | 2026-11-09 (D-017) : base de reference generee depuis les 88 migrations Bolt qui rejouent sur 129 (140 tables, toutes avec RLS ; 53 politiques), puis Tranche 0, N4, D-012 et tables manquantes : 6 migrations, 0 echec. Les 129 migrations Bolt sont archivees (`supabase/migrations_bolt_archive`) | Rejouables (CDC 33) : OK |
 | PostGIS | Non installe (seule extension : `uuid-ossp`) ; les geofences calculent sans PostGIS | Obligatoire (CDC 5, 29, 30) |
 | Projet Supabase de l'app | `bprfctzqplahvrepxgrw`, absent du compte Supabase connecte | Acces requis pour deployer |
-| Tranche 0 securite | Mergee (PR #2), **non deployee, non verifiee** | RLS restrictive, anti-escalade |
+| Tranche 0 securite | **Deployee et verifiee le 2026-11-09** sur le VPS (avec N4 et D-012) : 39 assertions RLS sur la base du serveur (HEBERGEMENT_VPS section 9) | RLS restrictive, anti-escalade |
 | `Math.random` dans `src/` | 36 occurrences dans 13 fichiers (AI, Analytics, FleetOptimizer, Invoices, Notifications, Purchases, QuickActions) | CDC 27 et 32 : aucune donnee inventee |
 | Application mobile | Absente | React Native / Expo + SQLite (CDC 24) |
 | Hors ligne web | `src/lib/offline.ts` : file en `localStorage`, identifiant fictif renvoye (C11) | SQLite, idempotence, PENDING_SYNC |
@@ -106,7 +106,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
 |---|---|---|---|---|---|
 | 00 | Audit et etat de reference | En developpement : livrables CDC 43 merges (MASTER_PLAN, ARCHITECTURE, DATABASE_MODEL, SECURITY, DEPLOYMENT, TEST_PLAN) ; contexte Nimba (D-011) | - | Base distante non inspectee (acces Supabase) ; cartographie a refaire sur le dump D-009 ; modele de location parametrable (D-013) | #19 |
-| 01 | Securite et qualite du socle | A corriger : code merge, non deploye ; outillage de test (PR #15), correctif Tranche 0 (D-008, PR #16), rejeu des migrations (PR #18), durcissement `is_admin` (PR #20) merges ; alignement `role_permissions` (D-012, PR #22) merges | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15, #16, #18, #20, #22 |
+| 01 | Securite et qualite du socle | Deploye le 2026-11-09 sur le VPS (Tranche 0, N4, D-012, base de reference D-017, PR #25) ; outillage de test (PR #15), correctif Tranche 0 (D-008, PR #16), rejeu des migrations (PR #18), durcissement `is_admin` (PR #20) merges ; alignement `role_permissions` (D-012, PR #22) merges | 00 | Facturation GitHub Actions ; acces projet Supabase ; rotation mot de passe admin ; 41 migrations Bolt non rejouables (D-009, apres P2) | #2, #4, #7 a #11, #15, #16, #18, #20, #22 |
 | 02 | Organisation Enterprise et referentiels | Absent | 01 | Migration des donnees existantes vers une organisation par defaut | - |
 | 03 | Production Planning et Shift Management | Maquette | 02 | Remplace la partie planification de FleetOptimizer | - |
 | 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
