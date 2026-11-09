@@ -125,7 +125,7 @@ export const exportToPDF = (title: string, data: any[], _filename: string) => {
         </tbody>
       </table>
       <div class="footer">
-        <strong>DARI HOLDING - SIGTB</strong><br>
+        <strong>SIGTB</strong><br>
         Système d'Information de Gestion du Transport et du Carburant<br>
         © ${new Date().getFullYear()} - Tous droits réservés
       </div>

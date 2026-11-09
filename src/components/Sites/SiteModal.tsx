@@ -95,7 +95,7 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
                 {site ? 'Modifier le site' : 'Nouveau site'}
               </h2>
               <p className="text-sm text-orange-100 mt-0.5">
-                {site ? 'Mettre à jour les informations du site' : 'Ajouter un nouveau site dans le réseau DARI HOLDING'}
+                {site ? 'Mettre à jour les informations du site' : 'Ajouter un nouveau site au réseau'}
               </p>
             </div>
           </div>
@@ -270,7 +270,7 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
                   value={formData.contact_email}
                   onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
                   className={inputClass}
-                  placeholder="contact@dariholding.gn"
+                  placeholder="contact@exemple.gn"
                 />
               </div>
 

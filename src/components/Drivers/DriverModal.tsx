@@ -186,7 +186,7 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                  placeholder="chauffeur@dariholding.gn"
+                  placeholder="prenom.nom@exemple.gn"
                 />
               </div>
 
