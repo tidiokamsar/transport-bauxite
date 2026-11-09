@@ -64,6 +64,7 @@ test.describe('Tableau de bord', () => {
     await expect(page.getByText('Non défini')).toBeVisible();
     await expect(page.getByText('Aucun shift défini')).toBeVisible();
     await expect(page.getByText('Aucune distribution saisie')).toBeVisible();
+    await expect(page.getByText(/DONNÉES DE DÉMONSTRATION/)).toHaveCount(0);
     await page.screenshot({ path: 'test-results/tableau-de-bord-vide.png', fullPage: true });
   });
 
@@ -88,6 +89,7 @@ test.describe('Tableau de bord', () => {
       alerts: [{ id: 'a1', title: 'Retard de livraison', message: 'Écart estimé', severity: 'warning', created_at: ilYa(12) }],
       vehicle_tracking: [{ vehicle_id: 'v1', latitude: 7.6, longitude: -8.4, timestamp: ilYa(3), speed: 34 }],
       fuel_transactions: [{ volume_liters: 230 }],
+      sigtb_demonstration: [{ active: true, chargee_le: ilYa(5) }],
     });
     await page.setViewportSize({ width: 1680, height: 1700 });
     await page.goto('/');
@@ -98,6 +100,7 @@ test.describe('Tableau de bord', () => {
     await expect(page.getByText('Shift Jour')).toBeVisible();
     await expect(page.getByText('230 L')).toBeVisible();
     await expect(page.getByText('2,30 L/T')).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'DONNÉES DE DÉMONSTRATION' })).toBeVisible();
     await page.screenshot({ path: 'test-results/tableau-de-bord-donnees.png', fullPage: true });
   });
 

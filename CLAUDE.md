@@ -99,5 +99,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   `docs/SIGTB_2.0_HEBERGEMENT_VPS.md` sections 6 et 9. Aucun utilisateur
   tant que le proprietaire n'a pas lance `creer-admin.sh`. Projet
   Supabase Bolt abandonne.
+- Donnees de demonstration en production (D-020) : identifiants
+  `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh purger`
+  obligatoire avant la premiere saisie reelle.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.
