@@ -138,6 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'drivers': 'drivers',
       'trips': 'trips',
       'planification': 'planning',
+      'dispatch': 'trips',
       'gps-tracking': 'gps_tracking',
       'geofencing': 'gps_tracking',
       'route-history': 'gps_tracking',

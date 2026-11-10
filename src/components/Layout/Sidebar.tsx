@@ -6,9 +6,8 @@ import { useSite } from '../../contexts/SiteContext';
 import { GlobalSearchModal } from '../Search/GlobalSearchModal';
 import { Embleme, NOM_PRODUIT, SOUS_TITRE_PRODUIT } from '../Brand/Marque';
 
-// Menu lateral, maquette du proprietaire (2026-11-09, D-018). La rubrique
-// Dispatch mene a une page d'attente (etape 4 de la reprise) ; la
-// Planification suit le droit `planning` (D-023).
+// Menu lateral, maquette du proprietaire (2026-11-09, D-018). Planification
+// suit le droit `planning` (D-023), Dispatch celui des voyages (D-024).
 
 interface SidebarProps {
   currentView: string;
@@ -47,7 +46,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
       return n;
     });
 
-  const accessible = (id: string) => ['dashboard', 'dispatch'].includes(id) || canAccessModule(id);
+  const accessible = (id: string) => id === 'dashboard' || canAccessModule(id);
 
   const rendre = (item: MenuItem, niveau = 0) => {
     const Icone = item.icon;
