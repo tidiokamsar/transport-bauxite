@@ -5,7 +5,6 @@ import { LoginPage } from './components/Auth/LoginPage';
 import { Sidebar } from './components/Layout/Sidebar';
 import { libelleVue } from './components/Layout/menu';
 import { TopBar } from './components/Layout/TopBar';
-import { PageAttente } from './components/Layout/PageAttente';
 import { BandeauDemonstration } from './components/Layout/BandeauDemonstration';
 import { SiteProvider } from './contexts/SiteContext';
 import { DashboardView } from './components/Dashboard/DashboardView';
@@ -16,6 +15,7 @@ import { Embleme } from './components/Brand/Marque';
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
 const PlanificationView = lazy(() => import('./components/Planning/PlanificationView').then(m => ({ default: m.PlanificationView })));
+const DispatchView = lazy(() => import('./components/Dispatch/DispatchView').then(m => ({ default: m.DispatchView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const FuelView = lazy(() => import('./components/Fuel/FuelViewEnhanced').then(m => ({ default: m.FuelViewEnhanced })));
 const FuelDashboard = lazy(() => import('./components/Fuel/FuelIntelligentDashboard').then(m => ({ default: m.FuelIntelligentDashboard })));
@@ -172,13 +172,7 @@ const MainApp = () => {
       case 'planification':
         return <PlanificationView />;
       case 'dispatch':
-        return (
-          <PageAttente
-            titre="Dispatch"
-            lot="LOT 09"
-            description="Affectation des camions et des chauffeurs : le système recommande, l'exploitant décide, chaque décision est historisée."
-          />
-        );
+        return <DispatchView />;
       default:
         return <DashboardView />;
     }

@@ -14,6 +14,7 @@ DELETE FROM public.maintenance_orders WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.fuel_stocks        WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.fuel_transactions  WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.objectifs_production WHERE id::text LIKE 'dec0de00-%';
+DELETE FROM public.decisions_dispatch WHERE trip_id::text LIKE 'dec0de00-%';
 DELETE FROM public.trip_events        WHERE trip_id::text LIKE 'dec0de00-%';
 DELETE FROM public.trips              WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.drivers            WHERE id::text LIKE 'dec0de00-%';
