@@ -1,7 +1,8 @@
 # SIGTB - consignes projet
 
-Plateforme de gestion des operations de transport de bauxite de DARI
-HOLDING (Guinee). Code initial genere par Bolt, repris sous git le
+Plateforme de gestion des operations de transport de bauxite de Kogon
+Mining SARL (Guinee ; mention historique : DARI HOLDING ; D-027). Client
+facture : CBG ; loueur des engins : Neemba. Code initial genere par Bolt, repris sous git le
 2026-09-03. Langue du code et des docs : francais.
 
 ## Documents de reference (lire avant d'agir)
@@ -79,8 +80,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 73 unitaires (dont 27 du moteur de decompte), 21 E2E (API
-  simulee : `e2e/api-simulee.ts`), 136 assertions pgTAP (via
+- Tests (D-007) : 75 unitaires (dont 27 du moteur de decompte), 24 E2E (API
+  simulee : `e2e/api-simulee.ts`), 153 assertions pgTAP (via
   `npm run test:rls:rejeu`).
 - Migrations (D-017) : `supabase/migrations` commence par la base de
   reference `20260903000000_base_reference.sql`, generee par
@@ -112,7 +113,10 @@ PR quand la dette diminue ; ne jamais les remonter.
   l'interface, decision par `decider_affectation` (contraintes serveur),
   historisee dans `decisions_dispatch`. Planification et Dispatch deployes
   le 2026-11-10 (#33, #34).
-- Immobilisations (D-022, D-025) : engins loues a Nimba Mining ; la
+- Contrats et facturation (D-026) : role `contract_manager` (droits de
+  demarrage etendus, derogation consciente a la separation des taches),
+  dossier contractuel journalise, fiche `societe` ; phases 2 a 6 a venir.
+- Immobilisations (D-022, D-025) : engins loues a Neemba ; la
   declaration et la cloture mettent a jour le statut de l'engin.
 - PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
   en maquette.

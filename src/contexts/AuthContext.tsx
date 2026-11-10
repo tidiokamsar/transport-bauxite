@@ -150,6 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'stock': 'stock',
       'purchases': 'purchases',
       'suppliers': 'purchases',
+      'contrats': 'contracts',
       'invoices': 'invoices',
       'costs': 'costs',
       'hr-employees': 'hr',

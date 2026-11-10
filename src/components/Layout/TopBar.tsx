@@ -17,6 +17,7 @@ const LIBELLES_ROLE: Record<string, string> = {
   maintenance_chief: 'Chef de maintenance',
   logistician: 'Logisticien',
   accountant: 'Comptable',
+  contract_manager: 'Chargé de contrats et facturation',
   driver: 'Chauffeur',
 };
 
