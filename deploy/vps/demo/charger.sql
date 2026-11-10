@@ -133,7 +133,11 @@ FROM statut;
 --     L'etat du voyage est celui du dernier evenement survenu. Execute en
 --     supabase_admin : la garde du cycle laisse passer (pas d'auth.uid()).
 UPDATE public.trips
-SET loader_vehicle_id = pg_temp.demo_id(3, 101 + ((substring(reference FROM 12)::int / 10) % 3))
+SET loader_vehicle_id = CASE
+      -- Aujourd'hui, CAT-980L-02 est immobilisee (section 7b) : chargeuse 01 ou pelle
+      WHEN planned_date = current_date THEN pg_temp.demo_id(3, 101 + 2 * ((substring(reference FROM 12)::int / 10) % 2))
+      ELSE pg_temp.demo_id(3, 101 + ((substring(reference FROM 12)::int / 10) % 3))
+    END
 WHERE id::text LIKE 'dec0de00-0005-%';
 
 WITH voyage AS (
@@ -275,6 +279,40 @@ SELECT pg_temp.demo_id(8, 100 + i), pg_temp.demo_id(3, i), current_date - (2 + i
        'OT-DEMO-' || lpad((100 + i)::text, 3, '0'), 'Vidange périodique', 'low', pg_temp.demo_id(1, 3),
        current_date - (2 + i % 12), 2600000, 2450000 + (i % 4) * 50000, 'Démonstration'
 FROM generate_series(1, 8) AS i;
+
+-- 7b. Immobilisations des engins loues (D-022, D-025), coherentes avec le
+--     statut des engins : 4 semi-remorques et la chargeuse CAT-980L-02
+--     arretes en ce moment, et des arrets clos sur les 14 derniers jours.
+INSERT INTO public.immobilisations (id, vehicle_id, debut, fin, cause, imputation, description, reference_loueur, statut, declare_le, cloture_le) VALUES
+  (pg_temp.demo_id(13, 1), pg_temp.demo_id(3, 21), least(now(), current_date + time '06:00'), NULL, 'maintenance_planifiee', 'loueur', 'Révision 1 000 h', 'NM-2611-014', 'ouverte', least(now(), current_date + time '06:00'), NULL),
+  (pg_temp.demo_id(13, 2), pg_temp.demo_id(3, 22), current_date - 1 + time '14:00', NULL, 'maintenance_planifiee', 'loueur', 'Vidange moteur et filtres (500 h)', 'NM-2611-011', 'ouverte', current_date - 1 + time '14:05', NULL),
+  (pg_temp.demo_id(13, 3), pg_temp.demo_id(3, 23), current_date - 6 + time '08:00', NULL, 'attente_piece', 'loueur', 'Boîte de vitesses : pièce attendue', 'NM-2611-003', 'ouverte', current_date - 6 + time '08:20', NULL),
+  (pg_temp.demo_id(13, 4), pg_temp.demo_id(3, 24), current_date - 3 + time '10:00', NULL, 'pneumatique', 'exploitant', 'Pneus avant endommagés sur piste', NULL, 'ouverte', current_date - 3 + time '10:10', NULL),
+  (pg_temp.demo_id(13, 5), pg_temp.demo_id(3, 102), least(now(), current_date + time '05:30'), NULL, 'attente_piece', 'loueur', 'Vérin de godet : pièce en commande chez Nimba Mining', 'NM-2611-016', 'ouverte', least(now(), current_date + time '05:30'), NULL);
+
+INSERT INTO public.immobilisations (id, vehicle_id, debut, fin, cause, imputation, description, reference_loueur, statut, declare_le, cloture_le)
+SELECT pg_temp.demo_id(13, 100 + i),
+       pg_temp.demo_id(3, i),
+       current_date - (2 + i % 12) + time '19:00',
+       current_date - (2 + i % 12) + time '19:00' + make_interval(hours => 3 + (i * 5) % 7),
+       CASE WHEN i % 4 = 0 THEN 'pneumatique' ELSE 'panne' END,
+       CASE WHEN i % 4 = 0 THEN 'exploitant' WHEN i = 10 THEN 'a_determiner' ELSE 'loueur' END,
+       CASE WHEN i % 4 = 0 THEN 'Crevaison sur piste' WHEN i % 3 = 0 THEN 'Démarreur' ELSE 'Fuite hydraulique' END,
+       CASE WHEN i % 4 = 0 THEN NULL ELSE 'NM-25' || lpad(i::text, 3, '0') END,
+       'cloturee',
+       current_date - (2 + i % 12) + time '19:10',
+       current_date - (2 + i % 12) + time '19:00' + make_interval(hours => 3 + (i * 5) % 7)
+FROM generate_series(1, 12) AS i;
+
+INSERT INTO public.immobilisations_journal (id, immobilisation_id, action, apres, le)
+SELECT pg_temp.demo_id(14, n::int), i.id, 'declaration', to_jsonb(i) - 'n', i.declare_le
+FROM (SELECT *, row_number() OVER (ORDER BY id) AS n FROM public.immobilisations WHERE id::text LIKE 'dec0de00-%') i;
+INSERT INTO public.immobilisations_journal (id, immobilisation_id, action, apres, le)
+SELECT pg_temp.demo_id(14, 1000 + n::int), i.id, 'cloture', to_jsonb(i) - 'n', i.cloture_le
+FROM (SELECT *, row_number() OVER (ORDER BY id) AS n FROM public.immobilisations
+      WHERE id::text LIKE 'dec0de00-%' AND statut = 'cloturee') i;
+
+UPDATE public.vehicles SET status = 'immobilized' WHERE id = pg_temp.demo_id(3, 102);
 
 -- 8. Alertes actives
 INSERT INTO public.alerts (id, alert_type, severity, title, message, vehicle_id, driver_id, status, created_at) VALUES

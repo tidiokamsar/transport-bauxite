@@ -195,7 +195,10 @@ ordres de maintenance, 3 alertes, positions GPS des camions en route au
 moment du chargement (elles quittent la carte apres 15 minutes). Chaque
 voyage porte sa chargeuse ou la pelle et le journal de son cycle jusqu'a
 l'heure du chargement (CDC 12). Objectifs de production du shift de jour
-sur 15 jours, dont une revision motivee le jour du chargement (D-023). Une
+sur 15 jours, dont une revision motivee le jour du chargement (D-023).
+Immobilisations (D-025) : 5 arrets en cours coherents avec le statut des
+engins (dont la chargeuse CAT-980L-02, non utilisee par les voyages du
+jour) et 12 arrets clos sur 14 jours, avec leur journal. Une
 sauvegarde est prise avant chaque operation.
 
 ## 11. Journal des mises a jour
@@ -203,3 +206,4 @@ sauvegarde est prise avant chaque operation.
 | Date | Version | Etapes | Resultat verifie |
 |---|---|---|---|
 | 2026-11-10 | `main` 32c1d89 (PR #32, cycle voyage) | depot `/opt/sigtb/depot/32c1d89` et lien `courant` ; `sauvegarder.sh` ; `appliquer-migrations.sh --tests` ; `demo.sh recharger` ; release `web/releases/32c1d89` et lien `current` (precedente : ce905ba) | Migration `20261110120000` appliquee, 83 assertions pgTAP OK sur la base du serveur ; demo : 1 800 voyages, 16 920 evenements, etat de chaque voyage = dernier evenement, aucune donnee reelle ; seul JWT du bundle `role: anon` ; `/` 200, `/rest/v1/*` 401 sans cle |
+| 2026-11-10 | `main` 51db029 (PR #33 planification, #34 dispatch) | depot `/opt/sigtb/depot/51db029` ; `sauvegarder.sh` ; `appliquer-migrations.sh --tests` ; `demo.sh recharger` ; release `web/releases/51db029` (precedente : 32c1d89) | Migrations `20261110150000` et `20261110180000` appliquees, 118 assertions pgTAP OK sur la base du serveur ; 11 lignes de droits `planning` ; demo : 16 objectifs, objectif du jour revise (4 800 t), aucune donnee reelle ; seul JWT du bundle `role: anon` ; `/` 200, `/rest/v1/*` 401 sans cle |
