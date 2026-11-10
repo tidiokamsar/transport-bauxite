@@ -10,6 +10,8 @@
 
 DELETE FROM public.vehicle_tracking   WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.alerts             WHERE id::text LIKE 'dec0de00-%';
+DELETE FROM public.immobilisations_journal WHERE id::text LIKE 'dec0de00-%';
+DELETE FROM public.immobilisations   WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.maintenance_orders WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.fuel_stocks        WHERE id::text LIKE 'dec0de00-%';
 DELETE FROM public.fuel_transactions  WHERE id::text LIKE 'dec0de00-%';
