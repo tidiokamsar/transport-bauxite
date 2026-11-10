@@ -15,6 +15,7 @@ import { Embleme } from './components/Brand/Marque';
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
+const PlanificationView = lazy(() => import('./components/Planning/PlanificationView').then(m => ({ default: m.PlanificationView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const FuelView = lazy(() => import('./components/Fuel/FuelViewEnhanced').then(m => ({ default: m.FuelViewEnhanced })));
 const FuelDashboard = lazy(() => import('./components/Fuel/FuelIntelligentDashboard').then(m => ({ default: m.FuelIntelligentDashboard })));
@@ -169,13 +170,7 @@ const MainApp = () => {
       case 'settings':
         return <AdminSettingsView />;
       case 'planification':
-        return (
-          <PageAttente
-            titre="Planification de la production"
-            lot="LOT 03"
-            description="Objectifs de tonnage par site et par shift, ressources nécessaires et plan de rattrapage. Tant que ce module n'existe pas, le tableau de bord affiche « objectif non défini »."
-          />
-        );
+        return <PlanificationView />;
       case 'dispatch':
         return (
           <PageAttente

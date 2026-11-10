@@ -10,12 +10,15 @@ import {
   bilanVoyages, debutJour, disponibilite, formatNombre, positionFraiche, repartitionFlotte,
   tonnesParHeure, variation, type VoyageTermine, FRAICHEUR_POSITION_MINUTES,
 } from './indicateurs';
+import { fenetreJournee, totalJournee, type ObjectifRealise, type ShiftHoraire } from '../Planning/plan';
 
 // Tableau de bord, maquette du proprietaire (2026-11-09, D-018).
 // Regles : chaque indicateur vient de la base et affiche sa source et son
 // heure (CDC 8) ; donnee absente = « sans donnees » (regle 1) ; une
 // position de plus de 15 minutes n'est pas montree en direct (CDC 15).
-// L'objectif de production n'existe pas encore (planification, LOT 03).
+// Objectif du jour : planification (D-023), par site l'objectif de journee
+// sinon la somme des shifts ; realisation = voyages livres partis du site
+// a la date du plan (vue v_realisation_objectifs).
 
 interface Vehicule {
   id: string;
@@ -64,6 +67,8 @@ interface Donnees {
   carburantErreur: boolean;
   alertes: Alerte[] | null;
   positions: Position[] | null;
+  objectifs: ObjectifRealise[] | null;
+  shifts: ShiftHoraire[];
   heure: Date;
 }
 
@@ -150,6 +155,7 @@ export const DashboardView = () => {
       .select('id, reference, vehicle_id, departure_site_id, arrival_site_id, net_weight, load_weight, status')
       .order('created_at', { ascending: false })
       .limit(5);
+    let qObjectifs = supabase.from('v_realisation_objectifs').select('site_id, shift_id, tonnes_cible, tonnes_livrees').eq('date_plan', ymd(maintenant));
     let qCarburant = supabase
       .from('fuel_transactions')
       .select('volume_liters')
@@ -158,6 +164,7 @@ export const DashboardView = () => {
     if (siteId) {
       qVehicules = qVehicules.eq('site_id', siteId);
       qCarburant = qCarburant.eq('site_id', siteId);
+      qObjectifs = qObjectifs.eq('site_id', siteId);
     }
     if (filtreVoyages) {
       qVoyages = qVoyages.or(filtreVoyages);
@@ -165,7 +172,7 @@ export const DashboardView = () => {
       qDerniers = qDerniers.or(filtreVoyages);
     }
 
-    const [rV, rT, rE, rD, rC, rA, rP] = await Promise.all([
+    const [rV, rT, rE, rD, rC, rA, rP, rO, rS] = await Promise.all([
       qVehicules,
       qVoyages,
       qEnCours,
@@ -175,6 +182,8 @@ export const DashboardView = () => {
         .order('created_at', { ascending: false }).limit(4),
       supabase.from('vehicle_tracking').select('vehicle_id, latitude, longitude, timestamp, speed')
         .gte('timestamp', ilYa24h.toISOString()).order('timestamp', { ascending: false }).limit(1000),
+      qObjectifs,
+      supabase.from('work_shifts').select('id, display_name, start_time, end_time').eq('is_active', true),
     ]);
 
     const carburant = resultat<{ volume_liters: number | null }[]>(rC, 'Carburant');
@@ -187,6 +196,8 @@ export const DashboardView = () => {
       carburantErreur: carburant === null,
       alertes: resultat<Alerte[]>(rA, 'Alertes'),
       positions: resultat<Position[]>(rP, 'Positions'),
+      objectifs: resultat<ObjectifRealise[]>(rO, 'Objectifs'),
+      shifts: resultat<ShiftHoraire[]>(rS, 'Shifts') ?? [],
       heure: maintenant,
     });
   }, [siteId]);
@@ -231,7 +242,14 @@ export const DashboardView = () => {
       });
     }
 
+    const plan = totalJournee(donnees.objectifs ?? []);
+    const fenetre = fenetreJournee(ymd(donnees.heure), donnees.shifts);
+    const heuresPlan = (fenetre.fin.getTime() - fenetre.debut.getTime()) / 3_600_000;
+
     return {
+      plan,
+      pourcentagePlan: plan && plan.cible > 0 ? (plan.realise / plan.cible) * 100 : null,
+      objectifParHeure: plan && heuresPlan > 0 ? plan.cible / heuresPlan : null,
       jour: bilanVoyages(duJour),
       veille: bilanVoyages(veille),
       serie: tonnesParHeure(duJour),
@@ -285,7 +303,7 @@ export const DashboardView = () => {
           titre="Tonnes livrées (jour)"
           valeur={donnees.voyages === null ? '—' : `${formatNombre(jour.tonnes)} T`}
           pied={<Variation valeur={variation(jour.tonnes, veille.tonnes)} />}
-          droite={<Anneau pourcentage={null} legende="du plan" />}
+          droite={<Anneau pourcentage={calculs.pourcentagePlan} legende="du plan" />}
         />
         <Tuile
           teinte="border-blue-100 bg-blue-50/70"
@@ -331,25 +349,29 @@ export const DashboardView = () => {
               {calculs.serie.length === 0 ? (
                 <SansDonnees detail="Aucun voyage terminé aujourd'hui. Les barres apparaissent dès la première arrivée enregistrée." />
               ) : (
-                <BarresProduction serie={calculs.serie} objectifParHeure={null} />
+                <BarresProduction serie={calculs.serie} objectifParHeure={calculs.objectifParHeure} />
               )}
             </div>
             <div className="flex flex-row gap-3 lg:w-44 lg:flex-col">
               <div className="flex-1 rounded-xl border border-stone-200 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-stone-500"><Target className="h-4 w-4 text-orange-600" />Objectif jour</p>
-                <p className="mt-1 text-sm font-semibold text-stone-500">Non défini</p>
+                {calculs.plan
+                  ? <p className="mt-1 text-xl font-black text-stone-900">{formatNombre(calculs.plan.cible)} T</p>
+                  : <p className="mt-1 text-sm font-semibold text-stone-500">Non défini</p>}
               </div>
               <div className="flex-1 rounded-xl border border-stone-200 p-3">
                 <p className="flex items-center gap-1.5 text-xs text-stone-500"><CheckCircle2 className="h-4 w-4 text-green-600" />Réalisé</p>
-                <p className="mt-1 text-xl font-black text-stone-900">{formatNombre(jour.tonnes)} T</p>
+                <p className="mt-1 text-xl font-black text-stone-900">{formatNombre(calculs.plan ? calculs.plan.realise : jour.tonnes)} T</p>
               </div>
               <div className="flex-1 rounded-xl border border-stone-200 p-3">
                 <p className="text-xs text-stone-500">Écart</p>
-                <p className="mt-1 text-sm font-semibold text-stone-500">—</p>
+                {calculs.plan
+                  ? <p className={`mt-1 text-xl font-black ${calculs.plan.realise >= calculs.plan.cible ? 'text-green-600' : 'text-orange-600'}`}>{calculs.plan.realise >= calculs.plan.cible ? '+' : ''}{formatNombre(calculs.plan.realise - calculs.plan.cible)} T</p>
+                  : <p className="mt-1 text-sm font-semibold text-stone-500">—</p>}
               </div>
             </div>
           </div>
-          <Provenance source={`voyages terminés aujourd'hui${jour.voyagesSansPoids ? ` (${jour.voyagesSansPoids} sans poids saisi)` : ''} ; objectif : planification (LOT 03)`} heure={donnees.heure} />
+          <Provenance source={`voyages terminés aujourd'hui${jour.voyagesSansPoids ? ` (${jour.voyagesSansPoids} sans poids saisi)` : ''}${calculs.plan ? ' ; objectif et réalisé : planification du jour (voyages livrés partis des sites planifiés)' : ' ; aucun objectif planifié pour ce jour'}`} heure={donnees.heure} />
         </Panneau>
 
         <Panneau titre="Suivi temps réel de la flotte" className="xl:col-span-5">

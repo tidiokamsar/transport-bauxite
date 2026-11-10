@@ -192,5 +192,14 @@ Caterpillar 980L, 1 pelle Caterpillar 374F, 22 chauffeurs aux noms fictifs,
 6 rotations par camion et par jour sur 15 jours (mine vers stock tampon,
 24 km), distributions de carburant quotidiennes et remplissages de cuve,
 ordres de maintenance, 3 alertes, positions GPS des camions en route au
-moment du chargement (elles quittent la carte apres 15 minutes). Une
+moment du chargement (elles quittent la carte apres 15 minutes). Chaque
+voyage porte sa chargeuse ou la pelle et le journal de son cycle jusqu'a
+l'heure du chargement (CDC 12). Objectifs de production du shift de jour
+sur 15 jours, dont une revision motivee le jour du chargement (D-023). Une
 sauvegarde est prise avant chaque operation.
+
+## 11. Journal des mises a jour
+
+| Date | Version | Etapes | Resultat verifie |
+|---|---|---|---|
+| 2026-11-10 | `main` 32c1d89 (PR #32, cycle voyage) | depot `/opt/sigtb/depot/32c1d89` et lien `courant` ; `sauvegarder.sh` ; `appliquer-migrations.sh --tests` ; `demo.sh recharger` ; release `web/releases/32c1d89` et lien `current` (precedente : ce905ba) | Migration `20261110120000` appliquee, 83 assertions pgTAP OK sur la base du serveur ; demo : 1 800 voyages, 16 920 evenements, etat de chaque voyage = dernier evenement, aucune donnee reelle ; seul JWT du bundle `role: anon` ; `/` 200, `/rest/v1/*` 401 sans cle |
