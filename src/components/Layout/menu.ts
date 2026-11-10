@@ -81,6 +81,7 @@ export const MENU: MenuItem[] = [
     label: 'Contrats & Finance',
     icon: Banknote,
     children: [
+      { id: 'contrats', label: 'Dossier contractuel', icon: FileStack },
       { id: 'invoices', label: 'Facturation', icon: FileText },
       { id: 'costs', label: 'Coûts', icon: Banknote },
     ],

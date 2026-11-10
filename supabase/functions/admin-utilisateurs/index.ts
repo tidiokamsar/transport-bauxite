@@ -7,7 +7,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const ROLES = [
   'admin', 'director', 'operations_manager', 'fleet_manager',
-  'maintenance_chief', 'logistician', 'accountant', 'driver',
+  'maintenance_chief', 'logistician', 'accountant', 'contract_manager', 'driver',
 ] as const;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

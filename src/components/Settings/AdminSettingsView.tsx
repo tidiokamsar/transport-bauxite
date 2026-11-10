@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { UserModal } from './UserModal';
+import { FicheSociete } from './FicheSociete';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   Users, Save, Building2, Truck, Wrench, Bell, Shield,
   MapPin, Fuel, Package, FileText, Zap, Edit, Trash2, Plus, Search
@@ -20,6 +22,7 @@ interface Profile {
 }
 
 export const AdminSettingsView = () => {
+  const { hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState<Profile[]>([]);
   const [settings, setSettings] = useState<any>({});
@@ -328,59 +331,7 @@ export const AdminSettingsView = () => {
 
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-lg font-bold text-slate-900 mb-4">Informations entreprise</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Nom de l'entreprise
-                </label>
-                <input
-                  type="text"
-                  value={settings.company_name || ''}
-                  onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  placeholder="Raison sociale"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Adresse
-                </label>
-                <textarea
-                  value={settings.company_address || ''}
-                  onChange={(e) => setSettings({ ...settings, company_address: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  rows={3}
-                  placeholder="Conakry, Guinée"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Téléphone
-                </label>
-                <input
-                  type="text"
-                  value={settings.company_phone || ''}
-                  onChange={(e) => setSettings({ ...settings, company_phone: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  placeholder="+224 XX XX XX XX"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={settings.company_email || ''}
-                  onChange={(e) => setSettings({ ...settings, company_email: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
-                  placeholder="contact@exemple.gn"
-                />
-              </div>
-            </div>
-          </div>
+          <FicheSociete peutEcrire={hasPermission('settings', 'edit') || hasPermission('settings', 'create')} />
 
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-slate-900 mb-4">Configuration système</h2>

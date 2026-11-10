@@ -17,6 +17,7 @@ const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m
 const PlanificationView = lazy(() => import('./components/Planning/PlanificationView').then(m => ({ default: m.PlanificationView })));
 const DispatchView = lazy(() => import('./components/Dispatch/DispatchView').then(m => ({ default: m.DispatchView })));
 const ImmobilisationsView = lazy(() => import('./components/Maintenance/ImmobilisationsView').then(m => ({ default: m.ImmobilisationsView })));
+const ContratsView = lazy(() => import('./components/Contrats/ContratsView').then(m => ({ default: m.ContratsView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const FuelView = lazy(() => import('./components/Fuel/FuelViewEnhanced').then(m => ({ default: m.FuelViewEnhanced })));
 const FuelDashboard = lazy(() => import('./components/Fuel/FuelIntelligentDashboard').then(m => ({ default: m.FuelIntelligentDashboard })));
@@ -134,6 +135,8 @@ const MainApp = () => {
         return <PurchasesView />;
       case 'suppliers':
         return <SuppliersView />;
+      case 'contrats':
+        return <ContratsView />;
       case 'invoices':
         return <InvoicesView />;
       case 'costs':

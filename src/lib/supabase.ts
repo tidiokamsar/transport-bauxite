@@ -63,6 +63,7 @@ export type UserRole =
   | 'maintenance_chief'
   | 'logistician'
   | 'accountant'
+  | 'contract_manager'
   | 'driver';
 
 export interface Profile {

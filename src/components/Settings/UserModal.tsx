@@ -30,6 +30,7 @@ const ROLES = [
   { value: 'maintenance_chief', label: 'Chef de maintenance' },
   { value: 'logistician', label: 'Logisticien' },
   { value: 'accountant', label: 'Comptable' },
+  { value: 'contract_manager', label: 'Chargé de contrats et facturation' },
   { value: 'driver', label: 'Chauffeur' },
 ];
 
