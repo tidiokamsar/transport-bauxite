@@ -187,6 +187,40 @@ SET etat = d.etat_apres,
 FROM dernier d
 WHERE t.id = d.trip_id;
 
+-- 5c. Objectifs de production (planification, D-023) : shift de jour du
+--     site de la mine, sur les 14 derniers jours et aujourd'hui, entre 4 800
+--     et 5 200 t. Aujourd'hui, l'objectif initial de 5 000 t est revise a
+--     4 800 t (version 2, motif), pour montrer le plan initial et revise.
+INSERT INTO public.objectifs_production (
+  id, date_plan, site_id, shift_id, version, tonnes_cible, voyages_cible,
+  camions_prevus, chargeuses_prevues, statut, motif, note, cree_le, clos_le
+)
+SELECT pg_temp.demo_id(12, d * 10 + 1),
+       current_date - d,
+       pg_temp.demo_id(1, 1),
+       pg_temp.demo_id(2, 1),
+       1,
+       CASE WHEN d = 0 THEN 5000 ELSE 4800 + ((d * 37) % 5) * 100 END,
+       120,
+       20,
+       3,
+       CASE WHEN d = 0 THEN 'remplace' ELSE 'actif' END,
+       NULL,
+       'Démonstration',
+       (current_date - d - 1) + time '17:00',
+       CASE WHEN d = 0 THEN least(now(), current_date + time '05:40') END
+FROM generate_series(0, 14) AS d;
+
+INSERT INTO public.objectifs_production (
+  id, date_plan, site_id, shift_id, version, tonnes_cible, voyages_cible,
+  camions_prevus, chargeuses_prevues, statut, motif, note, cree_le
+) VALUES (
+  pg_temp.demo_id(12, 2), current_date, pg_temp.demo_id(1, 1), pg_temp.demo_id(2, 1), 2,
+  4800, 118, 20, 2, 'actif',
+  'Chargeuse CAT-980L-02 en attente de pièce chez Nimba Mining',
+  'Démonstration', least(now(), current_date + time '05:40')
+);
+
 -- 6. Carburant : distribution quotidienne a 05:30 (semi-remorques actifs,
 --    chargeuses, pelle) et remplissage de cuve deux fois par semaine.
 INSERT INTO public.fuel_transactions (id, transaction_date, vehicle_id, driver_id, volume_liters, unit_price, total_cost, transaction_type, supplier, site_id, reference, notes)

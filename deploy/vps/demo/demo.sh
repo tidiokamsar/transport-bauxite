@@ -19,6 +19,7 @@ etat() {
       SELECT 'vehicules', count(*) FROM public.vehicles WHERE id::text LIKE 'dec0de00-%' UNION ALL
       SELECT 'chauffeurs', count(*) FROM public.drivers WHERE id::text LIKE 'dec0de00-%' UNION ALL
       SELECT 'voyages', count(*) FROM public.trips WHERE id::text LIKE 'dec0de00-%' UNION ALL
+      SELECT 'objectifs', count(*) FROM public.objectifs_production WHERE id::text LIKE 'dec0de00-%' UNION ALL
       SELECT 'carburant', count(*) FROM public.fuel_transactions WHERE id::text LIKE 'dec0de00-%' UNION ALL
       SELECT 'maintenance', count(*) FROM public.maintenance_orders WHERE id::text LIKE 'dec0de00-%' UNION ALL
       SELECT 'alertes', count(*) FROM public.alerts WHERE id::text LIKE 'dec0de00-%' UNION ALL
