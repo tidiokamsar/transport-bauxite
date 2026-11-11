@@ -38,7 +38,7 @@ export const FuelStockModal = ({ stock, onClose }: FuelStockModalProps) => {
 
   const fetchOptions = async () => {
     const [sitesRes, fuelTypesRes] = await Promise.all([
-      supabase.from('sites').select('id, name').eq('active', true),
+      supabase.from('sites').select('id, name').eq('is_active', true),
       supabase.from('fuel_types').select('id, name').eq('active', true),
     ]);
 
@@ -54,6 +54,7 @@ export const FuelStockModal = ({ stock, onClose }: FuelStockModalProps) => {
     try {
       const dataToSave = {
         ...formData,
+        last_refill_date: formData.last_refill_date || null,
         updated_at: new Date().toISOString(),
       };
 

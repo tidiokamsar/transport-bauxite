@@ -66,7 +66,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 14 | Tracabilite matiere (lots, stockpiles) | Aucune table | Absent | 07 |
 | 15 | GPS : precision, source, qualite, fraicheur ; pas de position ancienne affichee en direct | Positions reelles depuis PR #7 (« sans donnees » sinon) ; Edge Function `iot-ingestion` ; champs precision / qualite / fraicheur non verifies | A corriger | 08 |
 | 16 | Road Intelligence | Aucune table de troncons | Absent | 15 |
-| 17 | Fuel 360 (cuves, stations, reconciliation, anomalies) | `fuel_transactions`, Fuel nettoye en Vague A ; pas de `fuel_tanks`, `fuel_stations`, reconciliation | A corriger | 10 |
+| 17 | Fuel 360 (cuves, stations, reconciliation, anomalies) | Ecrans sur donnees reelles (D-030) : pleins et cuves au prix saisi, `consommation_carburant` (L/t, L/h), `anomalies_carburant` (regles affichees, seuil saisi), jauges connectees ; plus de valeurs fixes. Absents : reconciliation cuve / distributions, stations | En developpement | 10 |
 | 18 | Maintenance, immobilisations, blocage dispatch | Migration `20261110210000` (D-022, D-025) : `immobilisations` (engin, debut, fin, cause, imputation loueur / exploitant / a determiner, reference du loueur), journal immuable, fonctions declarer / cloturer / corriger / annuler (motif), statut de l'engin mis a jour, donc dispatch et planification bloques ; `heures_immobilisation` par imputation ; ecran Immobilisations (arrets en cours, heures du mois, disponibilite, export). `maintenance_orders` (ordres d'atelier Bolt) laissee hors perimetre | En developpement | 11 |
 | 19 | Pneus individuels | 14 tables `tire_*`, module TireManagement (33 erreurs tsc au 2026-09-03) | Existant | 11 |
 | 20 | Stocks et achats | `stock_items`, `stock_movements`, `purchase_orders`, `suppliers` ; `Math.random` dans Purchases | A corriger | 11 |
@@ -76,7 +76,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 24 | Mobile Offline-First (Expo, SQLite) | Aucune application ; `offline.ts` web non conforme (C11) | Absent | 13 |
 | 25 | Portails sous-traitants et clients isoles | `ClientPortal` (1 fichier, filtrage par client non verifie) ; pas de portail sous-traitant | A corriger | 17 |
 | 26 | Digital Twin, replay, what-if | Aucun | Absent | 14 |
-| 27 | AI Copilot sans donnees inventees | Module `AI` : maquettes `Math.random` ecrivant en base, contraire au CDC 27 | Maquette (non conforme) | 16 |
+| 27 | AI Copilot sans donnees inventees | Maquettes `AI` supprimees (D-030) ; analyses reelles a la place : fiabilite des engins (pannes, MTTR, MTBF), performance des chauffeurs ; aucun copilote | A construire (LOT 16) | 16 |
 | 28, 37 | KPI centralises dans des vues de reference | KPI recalcules ecran par ecran ; Analytics en maquette | A corriger | 04 |
 | 31 | Event Engine, outbox, idempotence | `tracking_events`, `user_activity_logs` seulement | Absent | 06 |
 | 32 | Statuts de qualite de donnee | Aucun | Absent | 04, 06 |
@@ -117,7 +117,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 09 | Smart Dispatch et Optimization Engine | Deploye le 2026-11-10 (#34) : dispatch v1 deterministe (etape 4 de la reprise, D-024), pgTAP 11 (17 assertions), 5 unitaires, 4 E2E | 05, 06, 08 | Service Python OR-Tools a cadrer ; position et files reelles (LOT 08) | #34 |
 | 10 | Fuel Intelligence 360 | A corriger | 02, 06 | Methode de mesure de consommation | - |
 | 11 | Maintenance, pneus et stocks | En developpement : immobilisations des engins loues (D-025), pgTAP 12 (18 assertions), 5 unitaires, 3 E2E ; pneus et stocks inchanges | 05 | Branchement des heures d'immobilisation au decompte de location (LOT 12) | branche `lot-11/immobilisations` |
-| 12 | Finance, contrats et rentabilite | En developpement : phase 3 (reconciliation mensuelle et factures, D-029 ; pgTAP 15, 24 assertions ; 2 unitaires ; 3 E2E) ; phase 2 deployee le 2026-11-11 (#37, fiches terrain, D-028) ; phase 1 deployee le 2026-11-11 (#36) : role `contract_manager`, fiche `societe`, dossier contractuel (contrats, avenants, tarifs, engagements, journal), pgTAP 13 (17 assertions), 2 unitaires, 3 E2E ; moteur de decompte v1 (#23) ; 05, 07 | Moteur de decompte v1 developpe et teste, non branche (D-013, LOCATION_MODEL section 7) ; valeurs des contrats a saisir par DARI | #23 |
+| 12 | Finance, contrats et rentabilite | En developpement : phase 3 deployee le 2026-11-11 (#38, reconciliation mensuelle et factures, D-029) ; phase 2 deployee le 2026-11-11 (#37, fiches terrain, D-028) ; phase 1 deployee le 2026-11-11 (#36) : role `contract_manager`, fiche `societe`, dossier contractuel (contrats, avenants, tarifs, engagements, journal), pgTAP 13 (17 assertions), 2 unitaires, 3 E2E ; moteur de decompte v1 (#23) ; 05, 07 | Moteur de decompte v1 developpe et teste, non branche (D-013, LOCATION_MODEL section 7) ; valeurs des contrats a saisir par DARI | #23 |
 | 13 | Mobile et Offline-First | Absent | 06, 07 | Nouveau projet Expo | - |
 | 14 | Digital Twin et Simulation | Absent | 06, 08, 09 | - | - |
 | 15 | Road Intelligence et Safety Intelligence | Absent | 08 | - | - |

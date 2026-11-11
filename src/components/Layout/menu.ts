@@ -49,11 +49,11 @@ export const MENU: MenuItem[] = [
     label: 'Carburant',
     icon: Fuel,
     children: [
-      { id: 'fuel', label: 'Transactions', icon: Fuel },
+      { id: 'fuel', label: 'Pleins et cuves', icon: Fuel },
       { id: 'fuel-stocks', label: 'Stocks et cuves', icon: Package },
       { id: 'fuel-dashboard', label: 'Analyse carburant', icon: Brain },
       { id: 'fuel-anomalies', label: 'Anomalies', icon: AlertTriangle },
-      { id: 'fuel-sensors', label: 'Capteurs', icon: Gauge },
+      { id: 'fuel-sensors', label: 'Jauges connectées', icon: Gauge },
     ],
   },
   {
@@ -105,10 +105,10 @@ export const MENU: MenuItem[] = [
     icon: BarChart3,
     children: [
       { id: 'reports', label: 'Rapports', icon: BarChart3 },
-      { id: 'tco-analysis', label: 'Coût de possession', icon: Calculator },
+      { id: 'tco-analysis', label: 'Coût direct par tonne', icon: Calculator },
       { id: 'fleet-health', label: 'Santé de la flotte', icon: Activity },
-      { id: 'predictive-maintenance', label: 'Maintenance prédictive', icon: Brain },
-      { id: 'driver-behavior', label: 'Conduite', icon: Target },
+      { id: 'predictive-maintenance', label: 'Fiabilité des engins', icon: Brain },
+      { id: 'driver-behavior', label: 'Performance chauffeurs', icon: Target },
       { id: 'iot-dashboard', label: 'Capteurs IoT', icon: Radio },
       { id: 'esg-tracking', label: 'Environnement', icon: Leaf },
       { id: 'notifications', label: 'Notifications', icon: Bell },

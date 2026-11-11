@@ -1,207 +1,92 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+// Reception des boitiers IoT (GPS, jauge carburant, telemetrie brute).
+// Ordre des controles : route, identifiant et cle du boitier (en-tetes),
+// boitier actif connu, puis seulement lecture et validation du corps.
+// Reponses : 401 sans identifiant ou cle, 403 boitier inconnu ou inactif,
+// 400 corps absent ou invalide, 404 route inconnue, 500 erreur serveur.
+// L'heure retenue est celle du serveur (CDC 15) : l'horodatage du boitier
+// est conserve dans la telemetrie brute, pas utilise pour la fraicheur.
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey, X-Device-Id, X-Api-Key',
 };
 
-interface GPSData {
-  device_id: string;
-  latitude: number;
-  longitude: number;
-  speed?: number;
-  heading?: number;
-  odometer?: number;
-  timestamp?: string;
-}
+const reponse = (status: number, corps: unknown) =>
+  new Response(JSON.stringify(corps), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-interface FuelData {
-  device_id: string;
-  fuel_level: number;
-  tank_capacity?: number;
-  latitude?: number;
-  longitude?: number;
-  timestamp?: string;
-}
+const nombre = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method !== 'POST') return reponse(405, { erreur: 'Méthode non autorisée : POST attendu' });
+
+  const chemin = new URL(req.url).pathname;
+  const route = chemin.endsWith('/gps') ? 'gps' : chemin.endsWith('/fuel') ? 'fuel' : chemin.endsWith('/telemetry') ? 'telemetry' : null;
+  if (!route) return reponse(404, { erreur: 'Route inconnue : /gps, /fuel ou /telemetry' });
+
+  const boitier = req.headers.get('X-Device-Id')?.trim();
+  const cle = req.headers.get('X-Api-Key')?.trim();
+  if (!boitier || !cle) return reponse(401, { erreur: 'En-têtes X-Device-Id et X-Api-Key requis' });
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 
-    const url = new URL(req.url);
-    const path = url.pathname;
+    const { data: appareil, error: erreurAppareil } = await supabase
+      .from('iot_devices')
+      .select('device_id, status')
+      .eq('device_id', boitier)
+      .eq('api_key', cle)
+      .maybeSingle();
+    if (erreurAppareil) throw erreurAppareil;
+    if (!appareil || appareil.status !== 'active') return reponse(403, { erreur: 'Boîtier inconnu, clé invalide ou boîtier inactif' });
 
-    // Route GPS
-    if (path.includes('/gps')) {
-      const data: GPSData = await req.json();
+    let corps: Record<string, unknown>;
+    try {
+      const lu = await req.json();
+      if (!lu || typeof lu !== 'object' || Array.isArray(lu)) return reponse(400, { erreur: 'Corps JSON objet attendu' });
+      corps = lu as Record<string, unknown>;
+    } catch {
+      return reponse(400, { erreur: 'Corps absent ou JSON invalide' });
+    }
 
-      // Valider API key
-      const apiKey = req.headers.get('X-Api-Key');
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'API key required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+    if (route === 'gps') {
+      const latitude = nombre(corps.latitude);
+      const longitude = nombre(corps.longitude);
+      if (latitude === null || longitude === null || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        return reponse(400, { erreur: 'latitude et longitude numériques et valides requises' });
       }
-
-      // Vérifier device existe
-      const { data: device } = await supabase
-        .from('iot_devices')
-        .select('*')
-        .eq('device_id', data.device_id)
-        .eq('api_key', apiKey)
-        .single();
-
-      if (!device) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid device or API key' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Insérer données GPS
-      const { data: reading, error } = await supabase.rpc('ingest_gps_data', {
-        p_device_id: data.device_id,
-        p_latitude: data.latitude,
-        p_longitude: data.longitude,
-        p_speed: data.speed || null,
-        p_heading: data.heading || null,
-        p_odometer: data.odometer || null
+      const { data, error } = await supabase.rpc('ingest_gps_data', {
+        p_device_id: boitier, p_latitude: latitude, p_longitude: longitude,
+        p_speed: nombre(corps.speed), p_heading: nombre(corps.heading), p_odometer: nombre(corps.odometer),
       });
-
-      if (error) {
-        throw error;
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          reading_id: reading,
-          timestamp: new Date().toISOString()
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (error) throw error;
+      return reponse(200, { ok: true, lecture: data });
     }
 
-    // Route Fuel
-    if (path.includes('/fuel')) {
-      const data: FuelData = await req.json();
-
-      const apiKey = req.headers.get('X-Api-Key');
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'API key required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const { data: device } = await supabase
-        .from('iot_devices')
-        .select('*')
-        .eq('device_id', data.device_id)
-        .eq('api_key', apiKey)
-        .single();
-
-      if (!device) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid device or API key' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Insérer données carburant
-      const { data: reading, error } = await supabase.rpc('ingest_fuel_data', {
-        p_device_id: data.device_id,
-        p_fuel_level: data.fuel_level,
-        p_tank_capacity: data.tank_capacity || 400,
-        p_latitude: data.latitude || null,
-        p_longitude: data.longitude || null
+    if (route === 'fuel') {
+      const niveau = nombre(corps.fuel_level);
+      if (niveau === null || niveau < 0) return reponse(400, { erreur: 'fuel_level (litres) numérique et positif requis' });
+      const { data, error } = await supabase.rpc('ingest_fuel_data', {
+        p_device_id: boitier, p_fuel_level: niveau, p_tank_capacity: nombre(corps.tank_capacity),
+        p_latitude: nombre(corps.latitude), p_longitude: nombre(corps.longitude),
       });
-
-      if (error) {
-        throw error;
-      }
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          reading_id: reading,
-          timestamp: new Date().toISOString()
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (error) throw error;
+      return reponse(200, { ok: true, lecture: data });
     }
 
-    // Route Telemetry (générique)
-    if (path.includes('/telemetry')) {
-      const payload = await req.json();
-      const deviceId = req.headers.get('X-Device-Id');
-      const apiKey = req.headers.get('X-Api-Key');
-
-      if (!deviceId || !apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'Device ID and API key required' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Valider le couple device / clé API, comme les routes /gps et /fuel
-      const { data: device } = await supabase
-        .from('iot_devices')
-        .select('id')
-        .eq('device_id', deviceId)
-        .eq('api_key', apiKey)
-        .single();
-
-      if (!device) {
-        return new Response(
-          JSON.stringify({ error: 'Invalid device or API key' }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Stocker en télémétrie brute
-      const { error } = await supabase
-        .from('iot_telemetry_raw')
-        .insert({
-          device_id: deviceId,
-          message_type: payload.type || 'unknown',
-          payload: payload,
-          protocol: 'http',
-          processed: false
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, message: 'Telemetry received' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Route non trouvée
-    return new Response(
-      JSON.stringify({ error: 'Route not found. Use /gps, /fuel, or /telemetry' }),
-      { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
-  } catch (error) {
-    console.error('Error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    const { error } = await supabase.from('iot_telemetry_raw').insert({
+      device_id: boitier,
+      message_type: typeof corps.type === 'string' ? corps.type : 'inconnu',
+      payload: corps,
+      protocol: 'http',
+    });
+    if (error) throw error;
+    return reponse(200, { ok: true });
+  } catch (erreur) {
+    console.error('iot-ingestion :', erreur instanceof Error ? erreur.message : erreur);
+    return reponse(500, { erreur: 'Erreur serveur' });
   }
 });
