@@ -4,7 +4,7 @@ import {
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
   Cog, FileStack, TrendingUp, Leaf, ExternalLink, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
-  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, type LucideIcon,
+  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, type LucideIcon,
 } from 'lucide-react';
 import { NOM_PRODUIT } from '../Brand/Marque';
 
@@ -82,9 +82,13 @@ export const MENU: MenuItem[] = [
     label: 'Contrats & Finance',
     icon: Banknote,
     children: [
+      { id: 'mon-poste', label: 'Mon tableau de bord', icon: LayoutDashboard },
       { id: 'contrats', label: 'Dossier contractuel', icon: FileStack },
+      { id: 'engagements', label: 'Engagements et rapport', icon: Target },
+      { id: 'comites', label: 'Comités de contrat', icon: Handshake },
       { id: 'reconciliation', label: 'Réconciliation mensuelle', icon: Scale },
       { id: 'invoices', label: 'Facturation', icon: FileText },
+      { id: 'recouvrement', label: 'Recouvrement', icon: Wallet },
       { id: 'costs', label: 'Coûts', icon: Banknote },
     ],
   },
