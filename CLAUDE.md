@@ -80,8 +80,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 38 E2E (API
-  simulee : `e2e/api-simulee.ts`), 237 assertions pgTAP (via
+- Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 40 E2E (API
+  simulee : `e2e/api-simulee.ts`), 254 assertions pgTAP (via
   `npm run test:rls:rejeu`).
 - Migrations (D-017) : `supabase/migrations` commence par la base de
   reference `20260903000000_base_reference.sql`, generee par
@@ -122,8 +122,9 @@ PR quand la dette diminue ; ne jamais les remonter.
 - Reconciliation et factures (D-029) : facture signee par le role director
   seulement, numerotee a l'emission, avoir pour corriger (deployees le
   2026-11-11). Phase 4 (D-031) : engagements contre realise, rapport de
-  performance, recouvrement et relances, comites, tableau de bord du poste.
-  Phases 5 (factures Neemba) et 6 (paiements) a venir.
+  performance, recouvrement et relances, comites, tableau de bord du poste
+  (deployee le 2026-11-11). Phase 5 (D-032) : controle des factures Neemba
+  sur les heures pointees et le tarif du contrat. Phase 6 (paiements) a venir.
 - Tests pgTAP : utiliser une periode vide en production (annee 2001) quand
   un resultat agrege depend des donnees presentes (demo D-020).
 - Immobilisations (D-022, D-025) : engins loues a Neemba ; la

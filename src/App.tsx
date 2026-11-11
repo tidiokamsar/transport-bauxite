@@ -23,6 +23,7 @@ const MonPosteView = lazy(() => import('./components/Contrats/MonPosteView').the
 const EngagementsView = lazy(() => import('./components/Contrats/EngagementsView').then(m => ({ default: m.EngagementsView })));
 const ComitesView = lazy(() => import('./components/Contrats/ComitesView').then(m => ({ default: m.ComitesView })));
 const RecouvrementView = lazy(() => import('./components/Facturation/RecouvrementView').then(m => ({ default: m.RecouvrementView })));
+const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeembaView').then(m => ({ default: m.FacturesNeembaView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const FuelDashboard = lazy(() => import('./components/Fuel/AnalyseCarburantView').then(m => ({ default: m.AnalyseCarburantView })));
@@ -146,6 +147,8 @@ const MainApp = () => {
         return <EngagementsView />;
       case 'comites':
         return <ComitesView />;
+      case 'factures-neemba':
+        return <FacturesNeembaView />;
       case 'recouvrement':
         return <RecouvrementView />;
       case 'contrats':
