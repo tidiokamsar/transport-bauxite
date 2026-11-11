@@ -1,6 +1,8 @@
 -- Tests (D-030) : reception IoT reservee au service, lectures rattachees a
 -- l'engin, consommation et anomalies carburant calculees sur les donnees
--- reelles (migration 20261111150000_iot_carburant). Tout est annule.
+-- reelles (migration 20261111150000_iot_carburant). Periode d'octobre 2001,
+-- vide en production : resultat independant des donnees presentes. Tout
+-- est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -31,24 +33,24 @@ SELECT is((SELECT fuel_level_percentage FROM public.iot_fuel_readings WHERE id =
 
 -- Consommation : TEST-IOT-1 300 L pour 80 t ; TEST-IOT-2 200 L pour 40 t
 INSERT INTO public.fuel_transactions (transaction_date, vehicle_id, volume_liters, unit_price, total_cost, transaction_type, reference) VALUES
-  ('2026-10-05', '00000000-0000-4000-9000-0000000000b1', 200, 10, 2000, 'refuel', 'TEST-IOT-P1'),
-  ('2026-10-05', '00000000-0000-4000-9000-0000000000b1', 100, 10, 1000, 'refuel', 'TEST-IOT-P2'),
-  ('2026-10-06', '00000000-0000-4000-9000-0000000000b2', 200, 10, 2000, 'refuel', 'TEST-IOT-P3'),
-  ('2026-10-07', '00000000-0000-4000-9000-0000000000b2', 50, 10, 500, 'refuel', 'TEST-IOT-P4');
+  ('2001-10-05', '00000000-0000-4000-9000-0000000000b1', 200, 10, 2000, 'refuel', 'TEST-IOT-P1'),
+  ('2001-10-05', '00000000-0000-4000-9000-0000000000b1', 100, 10, 1000, 'refuel', 'TEST-IOT-P2'),
+  ('2001-10-06', '00000000-0000-4000-9000-0000000000b2', 200, 10, 2000, 'refuel', 'TEST-IOT-P3'),
+  ('2001-10-07', '00000000-0000-4000-9000-0000000000b2', 50, 10, 500, 'refuel', 'TEST-IOT-P4');
 INSERT INTO public.trips (reference, planned_date, vehicle_id, etat, net_weight, accepted_tonnage) VALUES
-  ('TIOT-1', '2026-10-05', '00000000-0000-4000-9000-0000000000b1', 'ACCEPTED', 40, 40),
-  ('TIOT-2', '2026-10-05', '00000000-0000-4000-9000-0000000000b1', 'ACCEPTED', 40, 40),
-  ('TIOT-3', '2026-10-06', '00000000-0000-4000-9000-0000000000b2', 'DELIVERED', 40, NULL);
+  ('TIOT-1', '2001-10-05', '00000000-0000-4000-9000-0000000000b1', 'ACCEPTED', 40, 40),
+  ('TIOT-2', '2001-10-05', '00000000-0000-4000-9000-0000000000b1', 'ACCEPTED', 40, 40),
+  ('TIOT-3', '2001-10-06', '00000000-0000-4000-9000-0000000000b2', 'DELIVERED', 40, NULL);
 
-SELECT is((SELECT (litres, tonnes, litres_par_tonne)::text FROM public.consommation_carburant('2026-10-01', '2026-10-31')
+SELECT is((SELECT (litres, tonnes, litres_par_tonne)::text FROM public.consommation_carburant('2001-10-01', '2001-10-31')
   WHERE vehicle_id = '00000000-0000-4000-9000-0000000000b1'), '(300.00,80.00,3.750)', 'litres par tonne sur les voyages livres');
-SELECT is((SELECT litres_par_heure FROM public.consommation_carburant('2026-10-01', '2026-10-31')
+SELECT is((SELECT litres_par_heure FROM public.consommation_carburant('2001-10-01', '2001-10-31')
   WHERE vehicle_id = '00000000-0000-4000-9000-0000000000b1'), NULL, 'sans pointage : litres par heure non calculable');
-SELECT is((SELECT count(*)::int FROM public.anomalies_carburant('2026-10-01', '2026-10-31') WHERE type = 'pleins_meme_jour'), 1,
+SELECT is((SELECT count(*)::int FROM public.anomalies_carburant('2001-10-01', '2001-10-31') WHERE type = 'pleins_meme_jour'), 1,
   'deux pleins le meme jour signales');
-SELECT is((SELECT reference FROM public.anomalies_carburant('2026-10-01', '2026-10-31') WHERE type = 'plein_sans_activite'), 'TEST-IOT-P4',
+SELECT is((SELECT reference FROM public.anomalies_carburant('2001-10-01', '2001-10-31') WHERE type = 'plein_sans_activite'), 'TEST-IOT-P4',
   'plein un jour sans activite signale');
-SELECT is((SELECT count(*)::int FROM public.anomalies_carburant('2026-10-01', '2026-10-31', 20) WHERE type = 'surconsommation'), 1,
+SELECT is((SELECT count(*)::int FROM public.anomalies_carburant('2001-10-01', '2001-10-31', 20) WHERE type = 'surconsommation'), 1,
   'surconsommation au-dela de la mediane et du seuil saisi');
 
 SELECT * FROM finish();
