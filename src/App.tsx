@@ -25,7 +25,8 @@ const FuelDashboard = lazy(() => import('./components/Fuel/FuelIntelligentDashbo
 const FuelAnomaliesView = lazy(() => import('./components/Fuel/FuelAnomaliesView').then(m => ({ default: m.FuelAnomaliesView })));
 const FuelStocksView = lazy(() => import('./components/Fuel/FuelStocksView').then(m => ({ default: m.FuelStocksView })));
 const MaintenanceView = lazy(() => import('./components/Maintenance/MaintenanceView').then(m => ({ default: m.MaintenanceView })));
-const InvoicesView = lazy(() => import('./components/Invoices/InvoicesView').then(m => ({ default: m.InvoicesView })));
+const FacturesView = lazy(() => import('./components/Facturation/FacturesView').then(m => ({ default: m.FacturesView })));
+const ReconciliationView = lazy(() => import('./components/Facturation/ReconciliationView').then(m => ({ default: m.ReconciliationView })));
 const ReportsView = lazy(() => import('./components/Reports/ReportsView').then(m => ({ default: m.ReportsView })));
 const AdminSettingsView = lazy(() => import('./components/Settings/AdminSettingsView').then(m => ({ default: m.AdminSettingsView })));
 const CompleteTireManagement = lazy(() => import('./components/TireManagement/CompleteTireManagement'));
@@ -140,8 +141,10 @@ const MainApp = () => {
         return <FichesView />;
       case 'contrats':
         return <ContratsView />;
+      case 'reconciliation':
+        return <ReconciliationView onFactureCreee={() => setCurrentView('invoices')} />;
       case 'invoices':
-        return <InvoicesView />;
+        return <FacturesView />;
       case 'costs':
         return <CostsView />;
       case 'hr-employees':
