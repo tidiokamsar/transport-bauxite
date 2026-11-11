@@ -20,9 +20,9 @@ const ImmobilisationsView = lazy(() => import('./components/Maintenance/Immobili
 const ContratsView = lazy(() => import('./components/Contrats/ContratsView').then(m => ({ default: m.ContratsView })));
 const FichesView = lazy(() => import('./components/Fiches/FichesView').then(m => ({ default: m.FichesView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
-const FuelView = lazy(() => import('./components/Fuel/FuelViewEnhanced').then(m => ({ default: m.FuelViewEnhanced })));
-const FuelDashboard = lazy(() => import('./components/Fuel/FuelIntelligentDashboard').then(m => ({ default: m.FuelIntelligentDashboard })));
-const FuelAnomaliesView = lazy(() => import('./components/Fuel/FuelAnomaliesView').then(m => ({ default: m.FuelAnomaliesView })));
+const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
+const FuelDashboard = lazy(() => import('./components/Fuel/AnalyseCarburantView').then(m => ({ default: m.AnalyseCarburantView })));
+const FuelAnomaliesView = lazy(() => import('./components/Fuel/AnomaliesCarburantView').then(m => ({ default: m.AnomaliesCarburantView })));
 const FuelStocksView = lazy(() => import('./components/Fuel/FuelStocksView').then(m => ({ default: m.FuelStocksView })));
 const MaintenanceView = lazy(() => import('./components/Maintenance/MaintenanceView').then(m => ({ default: m.MaintenanceView })));
 const FacturesView = lazy(() => import('./components/Facturation/FacturesView').then(m => ({ default: m.FacturesView })));
@@ -33,7 +33,7 @@ const CompleteTireManagement = lazy(() => import('./components/TireManagement/Co
 const GPSTrackingView = lazy(() => import('./components/Tracking/GPSTrackingView').then(m => ({ default: m.GPSTrackingView })));
 const RouteHistoryView = lazy(() => import('./components/Tracking/RouteHistoryView').then(m => ({ default: m.RouteHistoryView })));
 const FleetIntelligenceView = lazy(() => import('./components/Tracking/FleetIntelligenceView').then(m => ({ default: m.FleetIntelligenceView })));
-const FuelSensorsView = lazy(() => import('./components/Fuel/FuelSensorsView').then(m => ({ default: m.FuelSensorsView })));
+const FuelSensorsView = lazy(() => import('./components/Fuel/CapteursCarburantView').then(m => ({ default: m.CapteursCarburantView })));
 const PreventiveMaintenanceView = lazy(() => import('./components/Maintenance/PreventiveMaintenanceView').then(m => ({ default: m.PreventiveMaintenanceView })));
 const StockView = lazy(() => import('./components/Stock/StockView').then(m => ({ default: m.StockView })));
 const PurchasesView = lazy(() => import('./components/Purchases/PurchasesView').then(m => ({ default: m.PurchasesView })));
@@ -50,13 +50,12 @@ const GeofencingView = lazy(() => import('./components/Geofencing/GeofencingView
 const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').then(m => ({ default: m.IncidentsView })));
 const AlertsView = lazy(() => import('./components/Alerts/AlertsView').then(m => ({ default: m.AlertsView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
-const PredictiveMaintenanceView = lazy(() => import('./components/AI/PredictiveMaintenanceView'));
-const DriverBehaviorAnalyticsView = lazy(() => import('./components/AI/DriverBehaviorAnalyticsView'));
-const TCOAnalysisView = lazy(() => import('./components/Analytics/TCOAnalysisView'));
-const FleetHealthDashboard = lazy(() => import('./components/Analytics/FleetHealthDashboard'));
+const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.FiabiliteEnginsView })));
+const DriverBehaviorAnalyticsView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.PerformanceChauffeursView })));
+const TCOAnalysisView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.CoutTonneView })));
+const FleetHealthDashboard = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.SanteFlotteView })));
 const SmartNotificationCenter = lazy(() => import('./components/Notifications/SmartNotificationCenter'));
 const QuickActionsPanel = lazy(() => import('./components/QuickActions/QuickActionsPanel'));
-const FleetOptimizerView = lazy(() => import('./components/FleetOptimizer/FleetOptimizerView').then(m => ({ default: m.FleetOptimizerView })));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center h-96 animate-fade-in">
@@ -105,8 +104,6 @@ const MainApp = () => {
         return <DriversView />;
       case 'trips':
         return <TripsView />;
-      case 'fleet-optimizer':
-        return <FleetOptimizerView />;
       case 'fleet-intelligence':
         return <FleetIntelligenceView />;
       case 'gps-tracking':

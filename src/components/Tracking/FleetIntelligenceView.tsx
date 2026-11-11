@@ -128,19 +128,18 @@ export const FleetIntelligenceView = () => {
       const { data: zonesData } = await supabase
         .from('geofence_zones')
         .select('*')
-        .eq('active', true);
+        .eq('is_active', true);
 
       if (zonesData) {
         setZones(zonesData.map(z => ({
           id: z.id,
           name: z.name,
           type: z.zone_type,
-          latitude: z.center_latitude,
-          longitude: z.center_longitude,
+          latitude: z.center_lat,
+          longitude: z.center_lng,
           radius: z.radius_meters,
           color: getZoneColor(z.zone_type),
-          speed_limit: z.max_speed_kmh,
-          active: z.active,
+          active: z.is_active,
         })));
       }
 
@@ -148,7 +147,7 @@ export const FleetIntelligenceView = () => {
       const { data: alertsData } = await supabase
         .from('geofence_alerts')
         .select('*, vehicle:vehicles(registration)')
-        .eq('resolved', false)
+        .eq('is_read', false)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -157,10 +156,10 @@ export const FleetIntelligenceView = () => {
           id: a.id,
           vehicle_id: a.vehicle_id,
           type: a.alert_type,
-          severity: a.severity,
+          severity: a.priority === 'urgent' ? 'critical' : a.priority,
           message: a.message,
           timestamp: a.created_at,
-          resolved: a.resolved,
+          resolved: a.is_read,
         })));
       }
 

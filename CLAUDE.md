@@ -80,8 +80,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
 - 37 erreurs typecheck, 0 erreur lint, build OK.
-- Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 30 E2E (API
-  simulee : `e2e/api-simulee.ts`), 200 assertions pgTAP (via
+- Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 34 E2E (API
+  simulee : `e2e/api-simulee.ts`), 218 assertions pgTAP (via
   `npm run test:rls:rejeu`).
 - Migrations (D-017) : `supabase/migrations` commence par la base de
   reference `20260903000000_base_reference.sql`, generee par
@@ -120,9 +120,10 @@ PR quand la dette diminue ; ne jamais les remonter.
   numero de fiche et ticket de pesee au journal des voyages (deployees le
   2026-11-11).
 - Reconciliation et factures (D-029) : facture signee par le role director
-  seulement, numerotee a l'emission, avoir pour corriger. Phases 4 a 6 de
-  D-026 a venir.
+  seulement, numerotee a l'emission, avoir pour corriger (deployees le
+  2026-11-11). Phases 4 a 6 de D-026 a venir.
 - Immobilisations (D-022, D-025) : engins loues a Neemba ; la
   declaration et la cloture mettent a jour le statut de l'engin.
-- PostGIS absent ; mobile absent ; modules AI, FleetOptimizer, Analytics
-  en maquette.
+- PostGIS absent ; mobile absent. Maquettes Bolt (AI, FleetOptimizer,
+  Analytics, anciens ecrans carburant) remplacees par des ecrans sur donnees
+  reelles ou supprimees (D-030) ; IoT, ESG, achats encore a revoir.

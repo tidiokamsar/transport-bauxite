@@ -145,6 +145,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'route-history': 'gps_tracking',
       'fuel': 'fuel',
       'fuel-sensors': 'fuel',
+      'fuel-dashboard': 'fuel',
+      'fuel-anomalies': 'fuel',
       'immobilisations': 'maintenance',
       'maintenance': 'maintenance',
       'preventive': 'maintenance',
