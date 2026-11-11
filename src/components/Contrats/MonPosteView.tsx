@@ -12,6 +12,7 @@ interface Indicateurs {
   delai_emission_jours: number | null; factures_emises: number; ecart_tonnage_pct: number | null; reconciliations_closes: number;
   delai_rapport_jours: number | null; rapports_remis: number; delai_recouvrement_jours: number | null; factures_soldees: number;
   creances_en_retard: number; montant_en_retard: number; factures_a_signer: number;
+  ecarts_detectes: number; ecarts_recouvres: number; factures_fournisseur_controlees: number;
 }
 
 const moisPrecedent = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); };
@@ -50,7 +51,7 @@ export const MonPosteView = () => {
   const tuiles: [string, string, string][] = ind ? [
     ['Délai d\'émission des factures', j(ind.delai_emission_jours, ind.factures_emises, 'j'), `après la fin de période · ${ind.factures_emises} facture(s)`],
     ['Écart tonnage relevé / facturé', ind.ecart_tonnage_pct === null ? 'Sans données' : `${formatNombre(Number(ind.ecart_tonnage_pct), 2)} %`, `${ind.reconciliations_closes} réconciliation(s) clôturée(s)`],
-    ['Écarts Neemba détectés et recouvrés', 'Phase 5', 'contrôle des factures Neemba à venir'],
+    ['Écarts Neemba détectés / recouvrés', ind.factures_fournisseur_controlees === 0 ? 'Sans données' : `${formatNombre(Number(ind.ecarts_detectes))} / ${formatNombre(Number(ind.ecarts_recouvres))}`, `${ind.factures_fournisseur_controlees} facture(s) du loueur contrôlée(s), devise des factures`],
     ['Délai du rapport de performance', j(ind.delai_rapport_jours, ind.rapports_remis, 'j'), `après la fin du mois · ${ind.rapports_remis} rapport(s)`],
     ['Délai moyen de recouvrement CBG', j(ind.delai_recouvrement_jours, ind.factures_soldees, 'j'), `de l'émission au solde · ${ind.factures_soldees} facture(s) soldée(s)`],
     ['Délai de l\'état d\'écarts sur paiements', 'Phase 6', 'contrôle des paiements à venir'],

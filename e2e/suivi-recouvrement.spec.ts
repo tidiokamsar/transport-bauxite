@@ -71,10 +71,12 @@ test.describe('Suivi et recouvrement', () => {
     await capturer(page, 'indicateurs_charge_contrats', [{
       delai_emission_jours: 4.5, factures_emises: 3, ecart_tonnage_pct: 1.2, reconciliations_closes: 3, delai_rapport_jours: null, rapports_remis: 0,
       delai_recouvrement_jours: 38, factures_soldees: 2, creances_en_retard: 1, montant_en_retard: 400, factures_a_signer: 1,
+      ecarts_detectes: 1000, ecarts_recouvres: 600, factures_fournisseur_controlees: 2,
     }]);
     await aller(page, 'Mon tableau de bord');
     await expect(page.getByText('4,5 j')).toBeVisible();
-    await expect(page.getByText('Phase 5')).toBeVisible();
+    await expect(page.getByText('1 000 / 600')).toBeVisible();
+    await expect(page.getByText('Phase 6')).toBeVisible();
     await expect(page.getByText('1 facture(s) attendent la signature du DG.', { exact: false })).toBeVisible();
     await expect(page.getByText('Réconciliation du mois clôturée')).toBeVisible();
   });
