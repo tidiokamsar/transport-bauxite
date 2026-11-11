@@ -130,3 +130,16 @@
     text-shadow: 0 2px 12px rgba(20, 8, 4, 0.45);
   }
 }
+
+/* Impression des fiches terrain (D-028) : seule la zone d'impression sort,
+   au format A4, sans le cadre de l'application. */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  @page paysage { size: A4 landscape; margin: 10mm; }
+  body * { visibility: hidden !important; }
+  .zone-impression, .zone-impression * { visibility: visible !important; }
+  .zone-impression { position: absolute; inset: 0; background: #fff; color: #000; }
+  .zone-impression .saut-page { break-after: page; }
+  .zone-impression .page-paysage { page: paysage; }
+  .pas-imprime { display: none !important; }
+}
