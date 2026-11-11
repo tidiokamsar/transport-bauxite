@@ -4,7 +4,7 @@ import {
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
   Cog, FileStack, TrendingUp, Leaf, ExternalLink, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
-  ShieldAlert, Briefcase, Timer, type LucideIcon,
+  ShieldAlert, Briefcase, Timer, ClipboardList, type LucideIcon,
 } from 'lucide-react';
 import { NOM_PRODUIT } from '../Brand/Marque';
 
@@ -33,6 +33,7 @@ export const MENU: MenuItem[] = [
   { id: 'planification', label: 'Planification', icon: CalendarDays },
   { id: 'dispatch', label: 'Dispatch', icon: Waypoints },
   { id: 'trips', label: 'Voyages & Rotations', icon: Route },
+  { id: 'fiches', label: 'Fiches terrain', icon: ClipboardList },
   {
     id: 'flotte',
     label: 'Flotte',
