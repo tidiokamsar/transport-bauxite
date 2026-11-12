@@ -112,7 +112,7 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 04 | Command Center et KPI | A corriger | 03, 06 | KPI a centraliser en vues SQL | - |
 | 05 | Flotte mixte et sous-traitants | Absent | 02 | Enum `vehicle_status` a etendre sans casser l'existant ; flotte louee : camions bennes au km, chargeuses et pelle a l'heure, type de facturation et tarif par engin (D-033) ; tracteurs et semi-remorques, 2 chargeuses et 1 pelle (D-011) | - |
 | 06 | Cycle de transport et Event Engine | En developpement : cycle voyage v1 (etape 2 de la reprise) : 18 etats, journal `trip_events`, fonctions serveur, ecran Voyages & Rotations, demo avec chronologie ; pgTAP 09 (16 assertions), 4 E2E | 02, 05 | Perimetre par site (LOT 02) ; tickets de pesee et unicite (LOT 07) ; evenements detectes (LOT 08) ; outbox (CDC 31) | #32 (deployee le 2026-11-10) |
-| 07 | Pesee, livraison et tracabilite | A corriger | 06 | Unicite des tickets sur donnees existantes ; pesee double agent + CBG confrontee avant facturation (D-035) | - |
+| 07 | Pesee, livraison et tracabilite | A corriger | 06 | Unicite des tickets sur donnees existantes ; D-037 remplace le flux D-035 : pesee CBG au depot, ticket integre par Kogon, rapprochement et correction par evenement rectificatif | - |
 | 08 | GPS, IoT et cartographie | A corriger | 02, 06 | PostGIS ; protocoles traceurs reels inconnus | - |
 | 09 | Smart Dispatch et Optimization Engine | Deploye le 2026-11-10 (#34) : dispatch v1 deterministe (etape 4 de la reprise, D-024), pgTAP 11 (17 assertions), 5 unitaires, 4 E2E | 05, 06, 08 | Service Python OR-Tools a cadrer ; position et files reelles (LOT 08) | #34 |
 | 10 | Fuel Intelligence 360 | A corriger | 02, 06 | Methode de mesure de consommation ; livraisons hebdomadaires CBG facturees, prix au litre saisi par livraison, suivi consommation et cout (D-034) | - |
@@ -125,3 +125,14 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 | 17 | Portails partenaires | A corriger | 02, 05, 12 | Isolation RLS a tester | - |
 | 18 | Tests integres et pilote | Absent | tous | Site pilote Nimba (D-011) | - |
 | 19 | Preparation et validation de production | Absent | 18 | - | - |
+
+## 6. Audit de transformation selon le prompt operationnel du 2026-11-12
+
+Le prompt operationnel le plus recent complete les exigences du CDC et sert de cible pour les prochains lots. L'audit du depot `main` (`921d583`) et de la branche D-034/D-035 (`d807159`, PR #45 ouverte, non integree) est consigne dans :
+
+- [Audit technique](SIGTB_AUDIT_TECHNIQUE.md)
+- [Audit fonctionnel](SIGTB_AUDIT_FONCTIONNEL.md)
+- [Ecarts et priorites](SIGTB_ECARTS_ET_PRIORITES.md)
+- [Plan de transformation](SIGTB_PLAN_TRANSFORMATION.md)
+
+La decision D-037 remplace D-035 : CBG pese au depot et Kogon integre la piece CBG sans refaire la pesee. La migration D-035 candidate de la PR #45 doit etre adaptee avant fusion ou deploiement. Aucun constat de cet audit ne constitue une recette terrain ou une preuve nouvelle de production. La CI locale de la branche a passe 83 tests unitaires, 44 E2E, le build, 24 migrations et 302 assertions pgTAP; la baseline demeure a 37 erreurs TypeScript et 165 avertissements lint. Les checks GitHub de la PR se sont termines sans etapes executees.
