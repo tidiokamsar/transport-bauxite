@@ -137,3 +137,8 @@ PR quand la dette diminue ; ne jamais les remonter.
   `has_module_write` (lecture, ecriture, aucun, ou retour au role) ; ecriture
   par `definir_droit_module` (administrateur, journalisee dans
   `journal_droits_modules`) ; ecran dans Parametres -> Utilisateurs.
+- Facturation par engin (D-033) : `contrat_tarifs.engin` attache un tarif a un
+  engin (priorite : engin, puis categorie, puis tarif unique de la version) ;
+  les lignes de facture fournisseur portent quantite et unite facturees ; le
+  controle loueur confronte dans l'unite du tarif (heures pointees ou km des
+  voyages livres), une unite differente est signalee, jamais estimee.

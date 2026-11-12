@@ -34,6 +34,7 @@ export interface Tarif {
   unite: string;
   prix: number;
   categorie_materiel: string | null;
+  engin: string | null;
   conditions: string | null;
   ordre: number;
 }

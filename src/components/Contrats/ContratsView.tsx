@@ -35,6 +35,7 @@ export const ContratsView = () => {
   const [choisi, setChoisi] = useState<string | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
   const [tarifs, setTarifs] = useState<Tarif[]>([]);
+  const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [journal, setJournal] = useState<EntreeJournal[]>([]);
   const [voirJournal, setVoirJournal] = useState(false);
@@ -60,6 +61,8 @@ export const ContratsView = () => {
       .eq('contrat_id', choisi).order('numero');
     const liste = (v ?? []) as Version[];
     setVersions(liste);
+    const { data: veh } = await supabase.from('vehicles').select('id, registration').order('registration');
+    setEngins((veh as { id: string; registration: string }[] | null) ?? []);
     const ids = liste.map((x) => x.id);
     if (ids.length > 0) {
       const [t, e] = await Promise.all([
@@ -82,6 +85,7 @@ export const ContratsView = () => {
 
   const contrat = contrats?.find((c) => c.id === choisi) ?? null;
   const enVigueur = useMemo(() => versionEnVigueur(versions, aujourdhui()), [versions]);
+  const immat = useMemo(() => new Map(engins.map((e) => [e.id, e.registration])), [engins]);
 
   const supprimer = async (table: string, id: string, quoi: string) => {
     if (!window.confirm(`Supprimer ${quoi} ? La suppression reste tracée au journal du contrat.`)) return;
@@ -227,7 +231,7 @@ export const ContratsView = () => {
                                 <ul className="space-y-1 text-sm">
                                   {tv.map((t) => (
                                     <li key={t.id} className="flex items-center justify-between gap-2 rounded-lg bg-stone-50 px-2 py-1">
-                                      <span>{t.libelle}{t.categorie_materiel ? ` (${t.categorie_materiel})` : ''}</span>
+                                      <span>{t.libelle}{t.engin ? ` · ${immat.get(t.engin) ?? 'engin retiré'}` : t.categorie_materiel ? ` (${t.categorie_materiel})` : ''}</span>
                                       <span className="flex items-center gap-1 font-semibold text-stone-900">
                                         {formatNombre(Number(t.prix), 2)} {contrat.devise} {UNITES_TARIF[t.unite] ?? t.unite}
                                         {peutEcrire && <button onClick={() => setFenetre({ type: 'tarif', versionId: v.id, tarif: t })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier le tarif ${t.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>}

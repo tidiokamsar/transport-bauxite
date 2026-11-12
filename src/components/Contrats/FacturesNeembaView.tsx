@@ -5,10 +5,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { montant } from '../Facturation/facturation';
 
-// Controle des factures du loueur (phase 5, D-032). Le charge de contrats
-// saisit la facture recue ; le serveur la confronte aux heures de marche
-// pointees (fiches signees) et au tarif horaire du contrat ; l'ecart est
-// notifie formellement puis suivi jusqu'a sa regularisation.
+// Controle des factures du loueur (phase 5, D-032 ; type de facturation et
+// tarif par engin, D-033). Le charge de contrats saisit la facture recue ;
+// le serveur la confronte, dans l'unite du tarif de chaque engin (heures
+// pointees ou kilometres releves des voyages livres), au tarif du contrat ;
+// l'ecart est notifie formellement puis suivi jusqu'a sa regularisation.
 
 interface FactureF {
   id: string; contrat_id: string; numero_fournisseur: string; date_facture: string; periode_debut: string; periode_fin: string;
@@ -18,8 +19,9 @@ interface FactureF {
 }
 interface LigneF {
   id: string; facture_id: string; vehicle_id: string | null; libelle: string; categorie_materiel: string | null;
-  heures_facturees: number | null; taux_facture: number | null; montant_facture: number;
-  heures_attendues: number | null; taux_attendu: number | null; montant_attendu: number | null; heures_arret_loueur: number | null;
+  quantite_facturee: number | null; unite_facturee: string | null; heures_facturees: number | null; taux_facture: number | null; montant_facture: number;
+  quantite_attendue: number | null; unite_attendue: string | null; heures_attendues: number | null;
+  taux_attendu: number | null; montant_attendu: number | null; heures_arret_loueur: number | null;
   ecart: number | null; constat: string | null;
 }
 interface Regul { id: string; facture_id: string; date_regularisation: string; montant: number; mode: string; reference: string | null }
@@ -31,12 +33,14 @@ const STATUTS: Record<FactureF['statut'], { l: string; t: 'gris' | 'bleu' | 'ora
   regularisee: { l: 'Régularisée', t: 'vert' }, conforme: { l: 'Conforme', t: 'vert' },
 };
 const MODES: Record<string, string> = { avoir: 'Avoir du loueur', deduction: 'Déduction sur paiement', remboursement: 'Remboursement' };
+const UNITES: Record<string, string> = { heure: 'Heures', km: 'Kilomètres', tonne: 'Tonnes', jour: 'Jours', mois: 'Mois', forfait: 'Forfaits', autre: 'Autre' };
+const COURT: Record<string, string> = { heure: 'h', km: 'km', tonne: 't', jour: 'j', mois: 'mois', forfait: 'forfait', autre: '' };
 const jour = (d: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR') : '—');
 const CHAMP = 'mt-1 w-full rounded-lg border border-stone-300 px-2 py-1.5 text-sm';
 const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
 
-interface LigneSaisie { vehicule: string; libelle: string; categorie: string; heures: string; taux: string; montant: string }
-const ligneVide = (): LigneSaisie => ({ vehicule: '', libelle: '', categorie: '', heures: '', taux: '', montant: '' });
+interface LigneSaisie { vehicule: string; libelle: string; categorie: string; quantite: string; unite: string; taux: string; montant: string }
+const ligneVide = (): LigneSaisie => ({ vehicule: '', libelle: '', categorie: '', quantite: '', unite: 'heure', taux: '', montant: '' });
 
 export const FacturesNeembaView = () => {
   const { hasPermission } = useAuth();
@@ -63,7 +67,7 @@ export const FacturesNeembaView = () => {
       supabase.from('factures_fournisseur').select('*').order('date_facture', { ascending: false }),
       supabase.from('contrats').select('id, reference, contrepartie, devise, nature').eq('nature', 'location').order('reference'),
       supabase.from('vehicles').select('id, registration').order('registration'),
-      supabase.from('contrat_tarifs').select('categorie_materiel').eq('unite', 'heure'),
+      supabase.from('contrat_tarifs').select('categorie_materiel'),
       supabase.from('societe').select('raison_sociale, adresse, rccm, nif, signataire_nom, signataire_fonction').eq('id', 1).maybeSingle(),
     ]);
     const liste = (f.data ?? []) as FactureF[];
@@ -106,7 +110,8 @@ export const FacturesNeembaView = () => {
     if (error) { setMessage({ ok: false, texte: error.code === '23505' ? 'Ce numéro de facture existe déjà pour ce contrat' : error.message }); return; }
     const { error: e2 } = await supabase.from('factures_fournisseur_lignes').insert(remplies.map((l) => ({
       facture_id: id, vehicle_id: l.vehicule || null, libelle: l.libelle.trim() || immat.get(l.vehicule) || 'Ligne',
-      categorie_materiel: l.categorie || null, heures_facturees: nombre(l.heures), taux_facture: nombre(l.taux), montant_facture: nombre(l.montant),
+      categorie_materiel: l.categorie || null, quantite_facturee: nombre(l.quantite), unite_facturee: l.quantite.trim() === '' ? null : l.unite,
+      taux_facture: nombre(l.taux), montant_facture: nombre(l.montant),
     })));
     setMessage(e2 ? { ok: false, texte: `Facture créée, lignes refusées : ${e2.message}` } : { ok: true, texte: 'Facture saisie : lancez le contrôle' });
     setSaisie(false);
@@ -134,11 +139,11 @@ export const FacturesNeembaView = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><h2 className="text-2xl font-black text-stone-900">Contrôle des factures Neemba</h2><p className="text-stone-500">Heures facturées confrontées aux heures pointées et au tarif du contrat de location</p></div>
+        <div><h2 className="text-2xl font-black text-stone-900">Contrôle des factures Neemba</h2><p className="text-stone-500">Quantités facturées confrontées, dans l'unité du tarif de chaque engin (heures pointées ou kilomètres relevés), au contrat de location</p></div>
         {peutEcrire && <button onClick={() => { setSaisie(true); setEntete({ contrat: contrats[0]?.id ?? '', numero: '', date: '', debut: '', fin: '', ht: '' }); setLignesSaisie([ligneVide()]); }} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Saisir une facture reçue</button>}
       </div>
       {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
-      {contrats.length === 0 && <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900">Aucun contrat de location : saisissez le contrat Neemba (nature « Location ») et ses tarifs à l'heure dans le dossier contractuel.</p>}
+      {contrats.length === 0 && <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900">Aucun contrat de location : saisissez le contrat Neemba (nature « Location ») et ses tarifs par engin (à l'heure ou au kilomètre, D-033) dans le dossier contractuel.</p>}
 
       {factures === null ? <div className="h-16" /> : factures.length === 0 ? <Panneau><SansDonnees message="Aucune facture du loueur" detail="Saisissez la facture Neemba reçue pour la contrôler." /></Panneau> : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -170,20 +175,21 @@ export const FacturesNeembaView = () => {
                 {fac.notifiee_le && <p className="mt-2 text-sm text-stone-600">Notifiée le {jour(fac.notifiee_le)}{fac.reference_notification ? ` · réf. ${fac.reference_notification}` : ''}</p>}
                 <div className="mt-4 overflow-x-auto"><table className="w-full text-sm">
                   <thead><tr className="border-b border-stone-200 text-left text-stone-500">
-                    <th className="py-2 pr-2 font-medium">Ligne</th><th className="py-2 pr-2 text-right font-medium">Heures facturées</th><th className="py-2 pr-2 text-right font-medium">Heures pointées</th>
+                    <th className="py-2 pr-2 font-medium">Ligne</th><th className="py-2 pr-2 text-right font-medium">Quantité facturée</th><th className="py-2 pr-2 text-right font-medium">Quantité attendue</th>
                     <th className="py-2 pr-2 text-right font-medium">Arrêt loueur</th><th className="py-2 pr-2 text-right font-medium">Facturé</th><th className="py-2 pr-2 text-right font-medium">Attendu</th><th className="py-2 text-right font-medium">Écart</th>
                   </tr></thead>
                   <tbody>{lignes.map((l) => (
                     <tr key={l.id} className="border-b border-stone-100 align-top last:border-0">
                       <td className="py-2 pr-2"><p className="font-semibold">{l.vehicle_id ? immat.get(l.vehicle_id) ?? l.libelle : l.libelle}</p><p className="text-xs text-stone-500">{l.categorie_materiel ?? ''}{l.constat ? ` · ${l.constat}` : ''}</p></td>
-                      <td className="py-2 pr-2 text-right">{l.heures_facturees ?? '—'}</td><td className="py-2 pr-2 text-right">{l.heures_attendues ?? '—'}</td>
+                      <td className="py-2 pr-2 text-right">{l.quantite_facturee ?? l.heures_facturees ?? '—'}{l.quantite_facturee !== null && l.unite_facturee ? ` ${COURT[l.unite_facturee] ?? l.unite_facturee}` : ''}</td>
+                      <td className="py-2 pr-2 text-right">{l.quantite_attendue ?? '—'}{l.quantite_attendue !== null && l.unite_attendue ? ` ${COURT[l.unite_attendue] ?? l.unite_attendue}` : ''}</td>
                       <td className="py-2 pr-2 text-right">{l.heures_arret_loueur ? `${l.heures_arret_loueur} h` : '—'}</td>
                       <td className="py-2 pr-2 text-right">{montant(l.montant_facture, fac.devise)}</td><td className="py-2 pr-2 text-right">{l.montant_attendu === null ? '—' : montant(l.montant_attendu, fac.devise)}</td>
                       <td className={`py-2 text-right font-semibold ${(l.ecart ?? 0) > 0 ? 'text-red-700' : ''}`}>{l.ecart === null ? '—' : montant(l.ecart, fac.devise)}</td>
                     </tr>
                   ))}</tbody>
                 </table></div>
-                <Provenance source="heures de marche des fiches de pointage signées, tarif horaire du contrat en vigueur à la fin de la période, immobilisations imputées au loueur" heure={heure} />
+                <Provenance source="unité et tarif de chaque engin dans la version du contrat en vigueur à la fin de la période : heures de marche des fiches de pointage signées ou kilomètres relevés des voyages livrés ; immobilisations imputées au loueur" heure={heure} />
               </Panneau>
               {reguls.length > 0 && (
                 <Panneau titre="Régularisations">
@@ -210,11 +216,12 @@ export const FacturesNeembaView = () => {
               </div>
               <p className="font-semibold">Lignes de la facture</p>
               {lignesSaisie.map((l, i) => (
-                <div key={i} className="grid grid-cols-2 items-end gap-2 md:grid-cols-7">
+                <div key={i} className="grid grid-cols-2 items-end gap-2 md:grid-cols-8">
                   <label className="md:col-span-2">Engin<select aria-label={`Ligne ${i + 1} engin`} value={l.vehicule} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, vehicule: e.target.value } : x)))} className={CHAMP}><option value="">Sans engin (frais)</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
                   <label>Catégorie<select value={l.categorie} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, categorie: e.target.value } : x)))} className={CHAMP}><option value="">—</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-                  <label>Heures<input aria-label={`Ligne ${i + 1} heures`} inputMode="decimal" value={l.heures} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, heures: e.target.value } : x)))} className={CHAMP} /></label>
-                  <label>Taux<input inputMode="decimal" value={l.taux} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, taux: e.target.value } : x)))} className={CHAMP} /></label>
+                  <label>Quantité<input aria-label={`Ligne ${i + 1} quantité`} inputMode="decimal" value={l.quantite} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, quantite: e.target.value } : x)))} className={CHAMP} /></label>
+                  <label>Unité<select aria-label={`Ligne ${i + 1} unité`} value={l.unite} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, unite: e.target.value } : x)))} className={CHAMP}>{Object.entries(UNITES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+                  <label>Taux<input aria-label={`Ligne ${i + 1} taux`} inputMode="decimal" value={l.taux} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, taux: e.target.value } : x)))} className={CHAMP} /></label>
                   <label>Montant *<input aria-label={`Ligne ${i + 1} montant`} inputMode="decimal" value={l.montant} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, montant: e.target.value } : x)))} className={CHAMP} /></label>
                   <div className="flex items-end gap-1">{!l.vehicule && <input placeholder="Libellé" value={l.libelle} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, libelle: e.target.value } : x)))} className={CHAMP} />}<button onClick={() => setLignesSaisie(lignesSaisie.filter((_, j) => j !== i))} className="rounded p-2 text-stone-400 hover:text-red-600" aria-label={`Retirer la ligne ${i + 1}`}><Trash2 className="h-4 w-4" /></button></div>
                 </div>
@@ -255,11 +262,11 @@ export const FacturesNeembaView = () => {
               <p className="text-right">Le {jour(fac.notifiee_le)}{fac.reference_notification ? ` · réf. ${fac.reference_notification}` : ''}</p>
               <p className="mt-8 font-bold uppercase">Objet : notification d'écart · facture n° {fac.numero_fournisseur} du {jour(fac.date_facture)}</p>
               <p className="mt-4">Madame, Monsieur,</p>
-              <p className="mt-2">Le contrôle de votre facture n° {fac.numero_fournisseur} (période du {jour(fac.periode_debut)} au {jour(fac.periode_fin)}, contrat {contrat(fac.contrat_id)?.reference}) au regard des heures de fonctionnement relevées sur nos feuilles de pointage signées et des tarifs contractuels fait apparaître les écarts suivants :</p>
+              <p className="mt-2">Le contrôle de votre facture n° {fac.numero_fournisseur} (période du {jour(fac.periode_debut)} au {jour(fac.periode_fin)}, contrat {contrat(fac.contrat_id)?.reference}) au regard des quantités relevées sur nos justificatifs signés (heures de fonctionnement ou kilomètres parcourus selon l'unité contractuelle de chaque engin) et des tarifs contractuels fait apparaître les écarts suivants :</p>
               <table className="mt-3 w-full border-collapse text-xs">
-                <thead><tr className="border-y border-black text-left"><th className="py-1">Engin</th><th className="py-1 text-right">Heures facturées</th><th className="py-1 text-right">Heures relevées</th><th className="py-1 text-right">Facturé</th><th className="py-1 text-right">Dû selon contrat</th><th className="py-1 text-right">Écart</th></tr></thead>
+                <thead><tr className="border-y border-black text-left"><th className="py-1">Engin</th><th className="py-1 text-right">Quantité facturée</th><th className="py-1 text-right">Quantité relevée</th><th className="py-1 text-right">Facturé</th><th className="py-1 text-right">Dû selon contrat</th><th className="py-1 text-right">Écart</th></tr></thead>
                 <tbody>{lignesEcart.map((l) => (
-                  <tr key={l.id} className="border-b border-stone-300"><td className="py-1">{l.vehicle_id ? immat.get(l.vehicle_id) ?? l.libelle : l.libelle}</td><td className="py-1 text-right">{l.heures_facturees}</td><td className="py-1 text-right">{l.heures_attendues}</td>
+                  <tr key={l.id} className="border-b border-stone-300"><td className="py-1">{l.vehicle_id ? immat.get(l.vehicle_id) ?? l.libelle : l.libelle}</td><td className="py-1 text-right">{l.quantite_facturee ?? l.heures_facturees ?? '—'}{l.quantite_facturee !== null && l.unite_facturee ? ` ${COURT[l.unite_facturee] ?? l.unite_facturee}` : ''}</td><td className="py-1 text-right">{l.quantite_attendue ?? '—'}{l.quantite_attendue !== null && l.unite_attendue ? ` ${COURT[l.unite_attendue] ?? l.unite_attendue}` : ''}</td>
                     <td className="py-1 text-right">{montant(l.montant_facture, fac.devise)}</td><td className="py-1 text-right">{l.montant_attendu === null ? '—' : montant(l.montant_attendu, fac.devise)}</td><td className="py-1 text-right font-bold">{montant(l.ecart ?? 0, fac.devise)}</td></tr>
                 ))}</tbody>
               </table>

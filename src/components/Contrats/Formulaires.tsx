@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import {
@@ -207,8 +207,14 @@ export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versio
     unite: tarif?.unite ?? '',
     prix: tarif?.prix?.toString() ?? '',
     categorie: tarif?.categorie_materiel ?? '',
+    engin: tarif?.engin ?? '',
     conditions: tarif?.conditions ?? '',
   });
+  const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
+  useEffect(() => {
+    supabase.from('vehicles').select('id, registration').order('registration')
+      .then(({ data }) => setEngins((data as { id: string; registration: string }[] | null) ?? []));
+  }, []);
   const { erreur, enCours, enregistrer } = useEnregistrement('contrat_tarifs', tarif?.id, onFait);
   const prix = nombre(f.prix);
   return (
@@ -220,12 +226,18 @@ export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versio
       erreur={erreur}
       onValider={() => enregistrer({
         version_id: versionId, libelle: f.libelle.trim(), unite: f.unite, prix,
-        categorie_materiel: texte(f.categorie), conditions: texte(f.conditions),
+        categorie_materiel: texte(f.categorie), engin: f.engin || null, conditions: texte(f.conditions),
       })}
     >
       <Champ libelle="Libellé *" large><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Unité *"><Choix valeur={f.unite} options={UNITES_TARIF} onChange={(unite) => setF({ ...f, unite })} /></Champ>
       <Champ libelle="Prix unitaire *"><input inputMode="decimal" value={f.prix} onChange={(e) => setF({ ...f, prix: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Engin (tarif propre à cet engin, D-033)">
+        <select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value })} className={CHAMP}>
+          <option value="">Tous (catégorie ou tarif unique)</option>
+          {engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}
+        </select>
+      </Champ>
       <Champ libelle="Catégorie de matériel"><input value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} placeholder="Semi-remorque, chargeuse..." className={CHAMP} /></Champ>
       <Champ libelle="Conditions"><input value={f.conditions} onChange={(e) => setF({ ...f, conditions: e.target.value })} className={CHAMP} /></Champ>
     </Fenetre>
