@@ -19,7 +19,7 @@ interface Reconciliation {
 }
 interface Ligne {
   id: string; trip_id: string; reference: string; date_voyage: string; etat: string | null;
-  tonnage_charge: number | null; tonnage_recu: number | null; tonnage_accepte: number | null; tonnage_base: number | null;
+  tonnage_charge: number | null; tonnage_recu: number | null; tonnage_accepte: number | null; tonnage_kogon: number | null; tonnage_cbg: number | null; tonnage_base: number | null;
   ticket: string | null; fiche: string | null; anomalies: string[]; decision: string | null; motif_decision: string | null;
 }
 
@@ -110,7 +110,7 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
   const exporter = () => {
     const csv = buildCSV(lignes.map((l) => ({
       Voyage: l.reference, Date: l.date_voyage, Etat: l.etat ?? '', Charge_t: l.tonnage_charge ?? '', Recu_t: l.tonnage_recu ?? '',
-      Accepte_t: l.tonnage_accepte ?? '', Base_t: l.tonnage_base ?? '', Ticket: l.ticket ?? '', Fiche: l.fiche ?? '',
+      Accepte_t: l.tonnage_accepte ?? '', Kogon_t: l.tonnage_kogon ?? '', CBG_t: l.tonnage_cbg ?? '', Base_t: l.tonnage_base ?? '', Ticket: l.ticket ?? '', Fiche: l.fiche ?? '',
       Anomalies: l.anomalies.map((a) => ANOMALIES[a]?.libelle ?? a).join(' ; '), Statut: STATUTS_LIGNE[statutLigne(l.decision, l.anomalies)].libelle,
       Motif: l.motif_decision ?? '',
     })));
@@ -226,6 +226,7 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
                     <table className="w-full text-sm">
                       <thead><tr className="border-b border-stone-200 text-left text-stone-500">
                         <th className="py-2 pr-2 font-medium">Voyage</th><th className="py-2 pr-2 text-right font-medium">Chargé</th><th className="py-2 pr-2 text-right font-medium">Reçu</th>
+                        <th className="py-2 pr-2 text-right font-medium">Kogon</th><th className="py-2 pr-2 text-right font-medium">CBG</th>
                         <th className="py-2 pr-2 text-right font-medium">Accepté</th><th className="py-2 pr-2 font-medium">Ticket · fiche</th><th className="py-2 pr-2 font-medium">Anomalies</th>
                         <th className="py-2 pr-2 font-medium">Statut</th>{peutEcrire && rec.statut === 'ouverte' && <th className="py-2 font-medium">Décision</th>}
                       </tr></thead>
@@ -236,6 +237,8 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
                             <td className="py-2 pr-2"><p className="font-semibold text-stone-900">{l.reference}</p><p className="text-xs text-stone-500">{date(l.date_voyage)}</p></td>
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_charge)}</td>
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_recu)}</td>
+                            <td className="py-2 pr-2 text-right">{t(l.tonnage_kogon)}</td>
+                            <td className="py-2 pr-2 text-right">{t(l.tonnage_cbg)}</td>
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_accepte)}</td>
                             <td className="py-2 pr-2 text-xs text-stone-600">{l.ticket ?? '—'}<br />{l.fiche ?? '—'}</td>
                             <td className="py-2 pr-2 text-xs">{l.anomalies.map((a) => <span key={a} className={`mr-1 inline-block rounded px-1.5 py-0.5 ${ANOMALIES[a]?.bloquante ? 'bg-orange-100 text-orange-800' : 'bg-stone-100 text-stone-600'}`}>{ANOMALIES[a]?.libelle ?? a}</span>)}</td>

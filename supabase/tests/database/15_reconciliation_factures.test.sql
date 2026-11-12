@@ -14,7 +14,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(24);
+SELECT plan(26);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-8f00-000000000001', 'contrats.rec@exemple.invalid'),
@@ -47,6 +47,15 @@ INSERT INTO public.trips (id, reference, planned_date, departure_site_id, arriva
   ('00000000-0000-4000-8f00-000000000104', 'TREC-4', (SELECT debut FROM p), '00000000-0000-4000-8f00-0000000000a1', '00000000-0000-4000-8f00-0000000000a2', 'DELIVERED', 39, 39, NULL),
   ('00000000-0000-4000-8f00-000000000105', 'TREC-5', (SELECT debut FROM p), '00000000-0000-4000-8f00-0000000000a1', '00000000-0000-4000-8f00-0000000000a2', 'IN_TRANSIT', 40, NULL, NULL),
   ('00000000-0000-4000-8f00-000000000106', 'TREC-6', (SELECT debut FROM p) - 1, '00000000-0000-4000-8f00-0000000000a1', '00000000-0000-4000-8f00-0000000000a2', 'ACCEPTED', 40, 40, 40);
+INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status)
+VALUES ('00000000-0000-4000-8f00-0000000000d1', 'TREC-TEST', 'Test', 40, 'tipper', 'active');
+INSERT INTO public.fiches_terrain (id, numero, type, date_fiche, site_id, vehicle_id, options)
+VALUES ('00000000-0000-4000-8f00-0000000000f1', 'FR-TEST-DOUBLE', 'rotations', (SELECT debut FROM p),
+  '00000000-0000-4000-8f00-0000000000a1', '00000000-0000-4000-8f00-0000000000d1', '{"pesee":"depart"}');
+INSERT INTO public.pesees_doubles (trip_id, fiche_id, ticket, tonnage_kogon, tonnage_cbg, mesure_le) VALUES
+  ('00000000-0000-4000-8f00-000000000101', '00000000-0000-4000-8f00-0000000000f1', 'TICKET-TREC-1', 40, 40, now()),
+  ('00000000-0000-4000-8f00-000000000102', '00000000-0000-4000-8f00-0000000000f1', 'TICKET-TREC-2', 40, 37, now()),
+  ('00000000-0000-4000-8f00-000000000103', '00000000-0000-4000-8f00-0000000000f1', 'TICKET-TREC-3', 41, 41, now());
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-8f00-000000000001');
 SET LOCAL ROLE authenticated;
@@ -57,10 +66,13 @@ CREATE TEMP TABLE r AS SELECT public.ouvrir_reconciliation('00000000-0000-4000-8
   'accepte', 2, '00000000-0000-4000-8f00-0000000000a1') AS id;
 SELECT is((SELECT count(*)::int FROM public.reconciliation_lignes WHERE reconciliation_id = (SELECT id FROM r)), 4,
   'voyages livres de la periode et du trajet seulement');
-SELECT is((SELECT anomalies FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), ARRAY['ecart_hors_tolerance', 'sans_fiche'],
+SELECT is((SELECT anomalies FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), ARRAY['ecart_hors_tolerance', 'ecart_double_pesee', 'sans_fiche'],
   'ecart charge / recu au-dela de la tolerance signale');
+SELECT is((SELECT (tonnage_kogon, tonnage_cbg)::text FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), '(40,40)',
+  'les deux poids sont repris dans l''instantane de reconciliation');
 SELECT ok((SELECT anomalies @> ARRAY['litige', 'base_absente'] FROM public.reconciliation_lignes WHERE reference = 'TREC-3'), 'litige signale');
 SELECT ok((SELECT anomalies @> ARRAY['non_accepte'] FROM public.reconciliation_lignes WHERE reference = 'TREC-4'), 'livre non accepte signale');
+SELECT ok((SELECT anomalies @> ARRAY['sans_double_pesee'] FROM public.reconciliation_lignes WHERE reference = 'TREC-4'), 'absence de double pesee bloquante avant facturation');
 
 SELECT throws_ok($$SELECT public.cloturer_reconciliation((SELECT id FROM r))$$, '22023', NULL, 'cloture refusee : lignes a examiner');
 SELECT throws_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), 'facturable', NULL)$$,

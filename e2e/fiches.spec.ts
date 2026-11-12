@@ -101,4 +101,27 @@ test.describe('Fiches terrain', () => {
     expect(etapes[3].donnees).toEqual({ brut: 56.1, tare: 15.4, ticket: 'PB-001' });
     await expect(s.getByText('Enregistré : Livré')).toBeVisible();
   });
+
+  test('double pesee au depart : valeurs Kogon et CBG envoyees avec le ticket', async ({ page }) => {
+    await simulerApi(page, { ...JEU, fiches_terrain: [fiche({ options: { pesee: 'depart' } })] });
+    const corps: Record<string, unknown>[] = [];
+    await page.route('**/rest/v1/rpc/saisir_rotation', (route) => {
+      corps.push(route.request().postDataJSON());
+      return repondre(route, 'WEIGHED_OUT');
+    });
+    await ouvrir(page);
+    await page.getByRole('button', { name: 'Saisir FR-261111-001' }).click();
+    const s = page.getByRole('dialog');
+    await s.getByLabel('VYG-001 Fin chargement').fill('07:20');
+    await s.getByLabel('VYG-001 heure de pesée').fill('07:25');
+    await s.getByLabel('VYG-001 ticket').fill('PB-DOUBLE-001');
+    await s.getByLabel('VYG-001 brut').fill('56');
+    await s.getByLabel('VYG-001 tare').fill('15');
+    await s.getByLabel('VYG-001 poids CBG').fill('40,8');
+    await s.getByRole('button', { name: 'Enregistrer VYG-001' }).click();
+    await expect.poll(() => corps.length).toBe(1);
+    const etapes = corps[0].p_etapes as { etat: string; donnees?: unknown }[];
+    expect(etapes.map((e) => e.etat)).toEqual(['LOADED', 'WEIGHED_OUT']);
+    expect(etapes[1].donnees).toEqual({ brut: 56, tare: 15, ticket: 'PB-DOUBLE-001', tonnage_cbg: 40.8 });
+  });
 });

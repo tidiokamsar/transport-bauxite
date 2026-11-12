@@ -170,6 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'geofencing': 'gps_tracking',
       'route-history': 'gps_tracking',
       'fuel': 'fuel',
+      'livraisons-cbg': 'fuel',
       'fuel-sensors': 'fuel',
       'fuel-dashboard': 'fuel',
       'fuel-anomalies': 'fuel',

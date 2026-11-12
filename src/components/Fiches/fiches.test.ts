@@ -23,6 +23,22 @@ describe('fiches terrain', () => {
     expect(etapes.find((e) => e.etat === 'WEIGHED_OUT')?.donnees).toEqual({ brut: 55, tare: 15 });
   });
 
+  it('double pesee : les deux valeurs et le ticket partent au depart apres chargement', () => {
+    const ligne = { ...ligneVide(), heures: { LOADED: '07:20', IN_TRANSIT: '07:30' }, heurePesee: '07:25', ticket: 'PB-10', brut: '56', tare: '15', tonnageCbg: '40.8' };
+    const { etapes, erreur } = etapesRotation(ligne, '2026-11-10', 'depart', '06:00');
+    expect(erreur).toBeNull();
+    const pesee = etapes.find((e) => e.etat === 'WEIGHED_OUT');
+    expect(pesee?.donnees).toEqual({ brut: 56, tare: 15, ticket: 'PB-10', tonnage_cbg: 40.8 });
+    expect(Date.parse(pesee?.quand ?? '')).toBeLessThan(Date.parse(etapes.find((e) => e.etat === 'IN_TRANSIT')?.quand ?? ''));
+  });
+
+  it('double pesee incomplete ou au mauvais lieu : refusee', () => {
+    const ligne = { ...ligneVide(), heurePesee: '07:25', brut: '56', tare: '15', tonnageCbg: '40.8' };
+    expect(etapesRotation(ligne, '2026-11-10', 'depart', '06:00').erreur).toBe('Double pesée : poids CBG positif et ticket requis');
+    expect(etapesRotation({ ...ligne, ticket: 'PB-11' }, '2026-11-10', 'arrivee', '06:00').erreur)
+      .toBe('La double pesée Kogon / CBG se fait au départ, après chargement');
+  });
+
   it('pesee incomplete ou incoherente, ligne vide : refusees avant envoi', () => {
     expect(etapesRotation({ ...ligneVide(), heures: { LOADED: '07:00' }, brut: '55' }, '2026-11-10', 'arrivee', null).erreur)
       .toBe('Pesée incomplète : heure, brut et tare requis');

@@ -57,6 +57,7 @@ export interface LigneRotation {
   ticket: string;
   brut: string;
   tare: string;
+  tonnageCbg: string;
 }
 
 export interface Etape {
@@ -102,19 +103,26 @@ export const etapesRotation = (
   }
   const brut = nombre(ligne.brut);
   const tare = nombre(ligne.tare);
-  const peseeSaisie = brut !== null || tare !== null || ligne.ticket.trim() !== '' || ligne.heurePesee !== '';
+  const tonnageCbg = nombre(ligne.tonnageCbg ?? '');
+  const peseeSaisie = brut !== null || tare !== null || ligne.ticket.trim() !== '' || ligne.heurePesee !== '' || tonnageCbg !== null;
   if (peseeSaisie) {
     if (brut === null || tare === null || !ligne.heurePesee) {
       return { etapes: [], erreur: 'Pesée incomplète : heure, brut et tare requis' };
     }
     if (brut <= tare) return { etapes: [], erreur: 'Pesée incohérente : le brut doit dépasser la tare' };
+    if (tonnageCbg !== null && (!Number.isFinite(tonnageCbg) || tonnageCbg <= 0 || !ligne.ticket.trim())) {
+      return { etapes: [], erreur: 'Double pesée : poids CBG positif et ticket requis' };
+    }
+    if (tonnageCbg !== null && pesee !== 'depart') {
+      return { etapes: [], erreur: 'La double pesée Kogon / CBG se fait au départ, après chargement' };
+    }
     etapes.push({
       etat: pesee === 'depart' ? 'WEIGHED_OUT' : 'WEIGHED_IN',
       quand: horodater(date, ligne.heurePesee, debutShift).toISOString(),
-      donnees: { brut, tare, ...(ligne.ticket.trim() ? { ticket: ligne.ticket.trim() } : {}) },
+      donnees: { brut, tare, ...(ligne.ticket.trim() ? { ticket: ligne.ticket.trim() } : {}), ...(tonnageCbg === null ? {} : { tonnage_cbg: tonnageCbg }) },
     });
   }
   return { etapes, erreur: etapes.length === 0 ? 'Aucune heure saisie' : null };
 };
 
-export const ligneVide = (): LigneRotation => ({ heures: {}, heurePesee: '', ticket: '', brut: '', tare: '' });
+export const ligneVide = (): LigneRotation => ({ heures: {}, heurePesee: '', ticket: '', brut: '', tare: '', tonnageCbg: '' });

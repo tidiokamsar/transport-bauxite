@@ -11,6 +11,8 @@ export const BASES: Record<BaseTonnage, string> = {
 
 export const ANOMALIES: Record<string, { libelle: string; bloquante: boolean }> = {
   base_absente: { libelle: 'Tonnage de base absent', bloquante: true },
+  sans_double_pesee: { libelle: 'Pesée Kogon / CBG incomplète', bloquante: true },
+  ecart_double_pesee: { libelle: 'Écart entre les pesées Kogon et CBG', bloquante: true },
   sans_pesee: { libelle: 'Sans pesée', bloquante: false },
   ecart_hors_tolerance: { libelle: 'Écart chargé / reçu hors tolérance', bloquante: true },
   litige: { libelle: 'En litige', bloquante: true },

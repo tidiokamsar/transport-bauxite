@@ -81,7 +81,7 @@ export const AnalyseCarburantView = () => {
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Synthèse carburant">
         {[
           ['Litres distribués', lignes ? `${n(total.litres)} L` : '—', `${total.pleins} plein(s)`],
-          ['Coût des pleins', lignes && total.cout > 0 ? n(total.cout) : '—', 'au prix saisi sur les fiches'],
+          ['Coût des pleins', lignes && total.cout > 0 ? n(total.cout) : '—', 'prix moyen pondéré des livraisons CBG'],
           ['Tonnes livrées', lignes ? `${n(total.tonnes, 1)} t` : '—', 'engins ayant reçu du carburant'],
           ['Litres par tonne', total.litresParTonne === null ? '—' : `${n(total.litresParTonne, 3)} L/t`, 'camions avec tonnage livré'],
         ].map(([l, v, d]) => (
@@ -115,7 +115,7 @@ export const AnalyseCarburantView = () => {
             </table>
           </div>
         )}
-        <Provenance source="pleins (transactions carburant), voyages livrés du mois, heures de marche des fiches de pointage ; « — » = non calculable" heure={heure} />
+        <Provenance source="pleins des fiches carburant ; valorisation au prix moyen pondéré des livraisons CBG de la période ; sans livraison, coût non disponible ; voyages livrés et heures pointées" heure={heure} />
       </Panneau>
     </div>
   );
