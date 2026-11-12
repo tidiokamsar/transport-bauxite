@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [droitsSpecifiques, setDroitsSpecifiques] = useState<{ module: string; niveau: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -62,6 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setProfile(null);
           setPermissions([]);
+          setDroitsSpecifiques([]);
         }
       })();
     });
@@ -85,8 +87,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (data?.role) {
       await fetchPermissions(data.role);
+      await fetchDroitsSpecifiques(userId);
       await updateLastLogin(userId);
     }
+  };
+
+  // Droits specifiques par utilisateur (D-036) : ils priment sur la matrice
+  // du role, comme dans has_module_view / has_module_write cote serveur.
+  const fetchDroitsSpecifiques = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('droits_utilisateur')
+      .select('module, niveau')
+      .eq('utilisateur', userId);
+
+    if (error) {
+      console.error('Error fetching module rights:', error);
+      return;
+    }
+
+    setDroitsSpecifiques(data ?? []);
   };
 
   const fetchPermissions = async (role: string) => {
@@ -112,6 +131,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete' | 'approve'): boolean => {
     if (profile?.role === 'admin') return true;
+
+    // Attribution specifique (D-036) : lecture ou ecriture, avant la matrice.
+    const specifique = droitsSpecifiques.find(d => d.module === module);
+    if (specifique) {
+      if (action === 'view') return specifique.niveau === 'lecture' || specifique.niveau === 'ecriture';
+      return specifique.niveau === 'ecriture';
+    }
 
     const permission = permissions.find(p => p.module === module);
     if (!permission) return false;
@@ -229,6 +255,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setProfile(null);
       setPermissions([]);
+      setDroitsSpecifiques([]);
     }
   };
 

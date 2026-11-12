@@ -132,3 +132,8 @@ PR quand la dette diminue ; ne jamais les remonter.
 - PostGIS absent ; mobile absent. Maquettes Bolt (AI, FleetOptimizer,
   Analytics, anciens ecrans carburant) remplacees par des ecrans sur donnees
   reelles ou supprimees (D-030) ; IoT, ESG, achats encore a revoir.
+- Droits par utilisateur (D-036) : au-dessus de la matrice role x module
+  (D-012), `droits_utilisateur` prime dans `has_module_view` et
+  `has_module_write` (lecture, ecriture, aucun, ou retour au role) ; ecriture
+  par `definir_droit_module` (administrateur, journalisee dans
+  `journal_droits_modules`) ; ecran dans Parametres -> Utilisateurs.

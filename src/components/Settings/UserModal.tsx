@@ -36,6 +36,47 @@ const ROLES = [
 
 const LONGUEUR_MOT_DE_PASSE = 12;
 
+// Droits d'acces aux modules par utilisateur (D-036) : l'attribution
+// specifique prime sur la matrice du role, appliquee par le serveur.
+interface DroitModule {
+  module: string;
+  role_lecture: boolean;
+  role_ecriture: boolean;
+  niveau_attribue: string | null;
+}
+
+const LIBELLES_MODULES: Record<string, string> = {
+  dashboard: 'Tableau de bord',
+  vehicles: 'Véhicules et engins',
+  drivers: 'Chauffeurs',
+  trips: 'Voyages et fiches terrain',
+  gps_tracking: 'Suivi GPS',
+  geofencing: 'Géorepérage',
+  fuel: 'Carburant',
+  maintenance: 'Maintenance',
+  stock: 'Stocks',
+  purchases: 'Achats et fournisseurs',
+  invoices: 'Facturation',
+  hr: 'Ressources humaines',
+  costs: 'Coûts',
+  reports: 'Rapports',
+  settings: 'Paramètres',
+  contracts: 'Contrats et finance',
+  planning: 'Planification',
+  iot: 'Capteurs IoT',
+  esg: 'Environnement (ESG)',
+  client_portal: 'Portail client',
+  ai_analytics: 'Analyses IA',
+};
+
+const libelleModule = (module: string) => LIBELLES_MODULES[module] ?? module;
+
+const libelleNiveauRole = (droit: DroitModule) => {
+  if (droit.role_ecriture) return 'Rôle : lecture et écriture';
+  if (droit.role_lecture) return 'Rôle : lecture';
+  return 'Rôle : aucun accès';
+};
+
 /** Appel de la fonction serveur de gestion des comptes (admin seulement). */
 const gererCompte = async (corps: Record<string, unknown>) => {
   const { data, error } = await supabase.functions.invoke('admin-utilisateurs', { body: corps });
@@ -65,6 +106,8 @@ const DEPARTMENTS = [
 export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [droitsModules, setDroitsModules] = useState<DroitModule[]>([]);
+  const [choixDroits, setChoixDroits] = useState<Record<string, string>>({});
   const [formData, setFormData] = useState<UserForm>({
     email: '',
     password: '',
@@ -107,6 +150,20 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           status: data.status || 'active',
         });
       }
+
+      const { data: droits, error: erreurDroits } = await supabase
+        .from('v_droits_modules')
+        .select('module, role_lecture, role_ecriture, niveau_attribue')
+        .eq('utilisateur', userId)
+        .order('module');
+
+      if (erreurDroits) throw erreurDroits;
+      setDroitsModules((droits as DroitModule[] | null) ?? []);
+      const choix: Record<string, string> = {};
+      ((droits as DroitModule[] | null) ?? []).forEach((d) => {
+        choix[d.module] = d.niveau_attribue ?? 'defaut';
+      });
+      setChoixDroits(choix);
     } catch (error) {
       console.error('Error fetching user:', error);
     }
@@ -123,6 +180,8 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
       photo_url: '',
       status: 'active',
     });
+    setDroitsModules([]);
+    setChoixDroits({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -155,6 +214,21 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           p_action: 'user_updated',
           p_details: { user_id: userId, changes: modifications, mot_de_passe_change: !!formData.password },
         });
+
+        // Droits specifiques (D-036) : seuls les modules changes partent,
+        // chacun par la fonction serveur qui journalise.
+        const changements = Object.entries(choixDroits).filter(([module, niveau]) => {
+          const droit = droitsModules.find(d => d.module === module);
+          return niveau !== (droit?.niveau_attribue ?? 'defaut');
+        });
+        for (const [module, niveau] of changements) {
+          const { error: erreurDroit } = await supabase.rpc('definir_droit_module', {
+            p_utilisateur: userId,
+            p_module: module,
+            p_niveau: niveau,
+          });
+          if (erreurDroit) throw erreurDroit;
+        }
       } else {
         const cree = await gererCompte({
           action: 'creer',
@@ -363,6 +437,40 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
                 <option value="inactive">Inactif</option>
                 <option value="suspended">Suspendu</option>
               </select>
+            </div>
+          )}
+
+          {userId && droitsModules.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                <Shield className="w-4 h-4 inline mr-2" />
+                Droits d'accès aux modules
+              </label>
+              <p className="text-xs text-slate-500 mb-2">
+                Les droits du rôle s'appliquent par défaut ; une attribution spécifique prime sur lui (D-036).
+                Chaque changement est journalisé par le serveur.
+              </p>
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                {droitsModules.map((droit) => (
+                  <div key={droit.module} className="flex items-center justify-between px-3 py-2 gap-3">
+                    <div>
+                      <div className="text-sm text-slate-900">{libelleModule(droit.module)}</div>
+                      <div className="text-xs text-slate-500">{libelleNiveauRole(droit)}</div>
+                    </div>
+                    <select
+                      aria-label={`Droits ${libelleModule(droit.module)}`}
+                      value={choixDroits[droit.module] ?? 'defaut'}
+                      onChange={(e) => setChoixDroits({ ...choixDroits, [droit.module]: e.target.value })}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="defaut">Défaut du rôle</option>
+                      <option value="lecture">Lecture</option>
+                      <option value="ecriture">Écriture</option>
+                      <option value="aucun">Aucun accès</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
