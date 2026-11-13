@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Download, FileCheck2, Lock, Plus, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Download, FileCheck2, Lock, Plus, RefreshCw, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
@@ -21,6 +21,7 @@ interface Ligne {
   id: string; trip_id: string; reference: string; date_voyage: string; etat: string | null;
   tonnage_charge: number | null; tonnage_recu: number | null; tonnage_accepte: number | null; tonnage_kogon: number | null; tonnage_cbg: number | null; tonnage_base: number | null;
   ticket: string | null; fiche: string | null; anomalies: string[]; decision: string | null; motif_decision: string | null;
+  ticket_brut: number | null; ticket_tare: number | null; ticket_document_ref: string | null; ticket_rectifie: boolean;
 }
 
 const moisPrecedent = () => {
@@ -46,6 +47,8 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
   const [ouverture, setOuverture] = useState(false);
   const [f, setF] = useState({ contrat: '', mois: moisPrecedent(), base: '', tolerance: '', depart: '', arrivee: '' });
   const [taxe, setTaxe] = useState('');
+  const [rectification, setRectification] = useState<Ligne | null>(null);
+  const [correction, setCorrection] = useState({ ticket: '', brut: '', tare: '', documentRef: '', motif: '' });
   const [heure, setHeure] = useState<Date | null>(null);
 
   const chargerListe = useCallback(async () => {
@@ -106,6 +109,23 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
     const motif = decision ? window.prompt(`Motif : ${l.reference} ${decision === 'facturable' ? 'facturable' : 'exclue'}`) : '';
     if (decision && !motif) return;
     if (await appeler('decider_ligne_reconciliation', { p_ligne_id: l.id, p_decision: decision, p_motif: motif || null }, `${l.reference} : décision enregistrée`)) chargerLignes();
+  };
+  const ouvrirRectification = (l: Ligne) => {
+    setRectification(l);
+    setCorrection({ ticket: l.ticket ?? '', brut: l.ticket_brut == null ? '' : String(l.ticket_brut), tare: l.ticket_tare == null ? '' : String(l.ticket_tare), documentRef: l.ticket_document_ref ?? '', motif: '' });
+  };
+  const enregistrerRectification = async () => {
+    if (!rectification || !rec) return;
+    const id = await appeler('rectifier_ticket_pesee_cbg', {
+      p_trip_id: rectification.trip_id, p_ticket: correction.ticket,
+      p_brut: Number(correction.brut.replace(',', '.')), p_tare: Number(correction.tare.replace(',', '.')),
+      p_document_ref: correction.documentRef || null, p_motif: correction.motif,
+    }, `Rectification du ticket ${rectification.reference} enregistrée. La preuve initiale est conservée.`);
+    if (id) {
+      setRectification(null);
+      const rafraichi = await appeler('actualiser_reconciliation', { p_id: rec.id }, 'Rapprochement actualisé après rectification');
+      if (rafraichi) { chargerLignes(); chargerListe(); }
+    }
   };
   const exporter = () => {
     const csv = buildCSV(lignes.map((l) => ({
@@ -240,13 +260,14 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_kogon)}</td>
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_cbg)}</td>
                             <td className="py-2 pr-2 text-right">{t(l.tonnage_accepte)}</td>
-                            <td className="py-2 pr-2 text-xs text-stone-600">{l.ticket ?? '—'}<br />{l.fiche ?? '—'}</td>
+                            <td className="py-2 pr-2 text-xs text-stone-600">{l.ticket ?? '—'}<br />{l.fiche ?? '—'}{l.ticket_document_ref && <><br />Doc: {l.ticket_document_ref}</>}</td>
                             <td className="py-2 pr-2 text-xs">{l.anomalies.map((a) => <span key={a} className={`mr-1 inline-block rounded px-1.5 py-0.5 ${ANOMALIES[a]?.bloquante ? 'bg-orange-100 text-orange-800' : 'bg-stone-100 text-stone-600'}`}>{ANOMALIES[a]?.libelle ?? a}</span>)}</td>
                             <td className="py-2 pr-2"><Puce teinte={STATUTS_LIGNE[s].teinte}>{STATUTS_LIGNE[s].libelle}</Puce>{l.motif_decision && <p className="mt-1 text-xs text-stone-500">{l.motif_decision}</p>}</td>
                             {peutEcrire && rec.statut === 'ouverte' && (
                               <td className="whitespace-nowrap py-2 text-xs">
                                 <button onClick={() => decider(l, 'facturable')} className="mr-1 rounded bg-green-50 px-2 py-1 font-semibold text-green-700" aria-label={`Facturer ${l.reference}`}>Facturer</button>
                                 <button onClick={() => decider(l, 'exclue')} className="mr-1 rounded bg-stone-100 px-2 py-1 font-semibold text-stone-700" aria-label={`Exclure ${l.reference}`}>Exclure</button>
+                                {l.ticket && <button onClick={() => ouvrirRectification(l)} className="mr-1 rounded bg-amber-50 px-2 py-1 font-semibold text-amber-800" aria-label={`Rectifier ticket CBG ${l.reference}`}><Pencil className="mr-1 inline h-3 w-3" />Ticket</button>}
                                 {l.decision && <button onClick={() => decider(l, null)} className="rounded px-2 py-1 text-stone-500 hover:bg-stone-100">Annuler la décision</button>}
                               </td>
                             )}
@@ -261,7 +282,22 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
           )}
         </div>
       )}
-      <Provenance source="voyages livrés de la période (journal du cycle, pesées, tickets, fiches terrain) ; décisions du chargé de contrats tracées ; tonnage figé à la clôture" heure={heure} />
+      {rectification && rec?.statut === 'ouverte' && (
+        <div role="dialog" aria-modal="true" aria-labelledby="rectification-titre" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Panneau titre="Rectifier un ticket CBG">
+            <p id="rectification-titre" className="mb-3 text-sm text-stone-600">Voyage {rectification.reference}. Le ticket initial restera conservé dans l’historique.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label>Numéro du ticket *<input value={correction.ticket} onChange={(e) => setCorrection({ ...correction, ticket: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label>Poids brut (kg) *<input inputMode="decimal" value={correction.brut} onChange={(e) => setCorrection({ ...correction, brut: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label>Tare (kg) *<input inputMode="decimal" value={correction.tare} onChange={(e) => setCorrection({ ...correction, tare: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label>Référence du document<input value={correction.documentRef} onChange={(e) => setCorrection({ ...correction, documentRef: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label className="sm:col-span-2">Motif obligatoire *<textarea value={correction.motif} onChange={(e) => setCorrection({ ...correction, motif: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" rows={2} /></label>
+            </div>
+            <div className="mt-4 flex justify-end gap-2"><button onClick={() => setRectification(null)} className="rounded-lg border px-4 py-2">Annuler</button><button onClick={enregistrerRectification} disabled={enCours || !correction.ticket.trim() || !correction.brut.trim() || !correction.tare.trim() || !correction.motif.trim()} className="rounded-lg bg-amber-700 px-4 py-2 font-bold text-white disabled:opacity-50">Enregistrer la rectification</button></div>
+          </Panneau>
+        </div>
+      )}
+      <Provenance source="voyages livrés de la période (cycle, tickets CBG et fiches terrain) ; rectifications motivées tracées ; décisions du chargé de contrats ; tonnage figé à la clôture" heure={heure} />
     </div>
   );
 };

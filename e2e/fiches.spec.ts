@@ -44,7 +44,7 @@ const ouvrir = async (page: Page) => {
 };
 
 test.describe('Fiches terrain', () => {
-  test('preparation : une fiche de rotations par camion du dispatch, lieu de pesee exige', async ({ page }) => {
+  test('preparation : fiche par camion, pesée CBG fixée à la réception du dépôt', async ({ page }) => {
     await simulerApi(page, { ...JEU, fiches_terrain: [] });
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/preparer_fiche', (route) => {
@@ -53,8 +53,7 @@ test.describe('Fiches terrain', () => {
     });
     await ouvrir(page);
     const bouton = page.getByRole('button', { name: 'Préparer 2 fiche(s) de rotations' });
-    await expect(bouton).toBeDisabled();
-    await page.getByLabel('Lieu de la pesée *').selectOption({ label: 'À l\'arrivée (réception)' });
+    await expect(page.getByText('Pesée effectuée par CBG au dépôt; Kogon intègre le ticket reçu.')).toBeVisible();
     await bouton.click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[0]).toMatchObject({ p_type: 'rotations', p_vehicle_id: 'v1', p_driver_id: 'c1', p_shift_id: SHIFT, p_options: { pesee: 'arrivee' } });
@@ -89,7 +88,7 @@ test.describe('Fiches terrain', () => {
     await s.getByLabel('VYG-001 Fin chargement').fill('07:20');
     await s.getByLabel('VYG-001 Fin déchargement').fill('08:30');
     await s.getByLabel('VYG-001 heure de pesée').fill('08:20');
-    await s.getByLabel('VYG-001 ticket').fill('PB-001');
+    await s.getByLabel('VYG-001 ticket CBG').fill('PB-001');
     await s.getByLabel('VYG-001 brut').fill('56,1');
     await s.getByLabel('VYG-001 tare').fill('15,4');
     await page.screenshot({ path: 'test-results/fiche-saisie.png', fullPage: true });
@@ -102,26 +101,27 @@ test.describe('Fiches terrain', () => {
     await expect(s.getByText('Enregistré : Livré')).toBeVisible();
   });
 
-  test('double pesee au depart : valeurs Kogon et CBG envoyees avec le ticket', async ({ page }) => {
-    await simulerApi(page, { ...JEU, fiches_terrain: [fiche({ options: { pesee: 'depart' } })] });
+  test('ticket CBG : source unique intégrée à WEIGHED_IN, sans deuxième poids Kogon', async ({ page }) => {
+    await simulerApi(page, { ...JEU, fiches_terrain: [fiche()] });
     const corps: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/saisir_rotation', (route) => {
       corps.push(route.request().postDataJSON());
-      return repondre(route, 'WEIGHED_OUT');
+      return repondre(route, 'DELIVERED');
     });
     await ouvrir(page);
     await page.getByRole('button', { name: 'Saisir FR-261111-001' }).click();
     const s = page.getByRole('dialog');
-    await s.getByLabel('VYG-001 Fin chargement').fill('07:20');
-    await s.getByLabel('VYG-001 heure de pesée').fill('07:25');
-    await s.getByLabel('VYG-001 ticket').fill('PB-DOUBLE-001');
+    await s.getByLabel('VYG-001 Fin déchargement').fill('08:30');
+    await s.getByLabel('VYG-001 heure de pesée').fill('08:20');
+    await s.getByLabel('VYG-001 ticket CBG').fill('PB-CBG-001');
     await s.getByLabel('VYG-001 brut').fill('56');
     await s.getByLabel('VYG-001 tare').fill('15');
-    await s.getByLabel('VYG-001 poids CBG').fill('40,8');
+    await s.getByLabel('VYG-001 référence document CBG').fill('BL-CBG-001.pdf');
     await s.getByRole('button', { name: 'Enregistrer VYG-001' }).click();
     await expect.poll(() => corps.length).toBe(1);
     const etapes = corps[0].p_etapes as { etat: string; donnees?: unknown }[];
-    expect(etapes.map((e) => e.etat)).toEqual(['LOADED', 'WEIGHED_OUT']);
-    expect(etapes[1].donnees).toEqual({ brut: 56, tare: 15, ticket: 'PB-DOUBLE-001', tonnage_cbg: 40.8 });
+    expect(etapes.map((e) => e.etat)).toContain('WEIGHED_IN');
+    expect(etapes.some((e) => e.etat === 'WEIGHED_OUT')).toBe(false);
+    expect(etapes.find((e) => e.etat === 'WEIGHED_IN')?.donnees).toEqual({ brut: 56, tare: 15, ticket: 'PB-CBG-001', document_ref: 'BL-CBG-001.pdf' });
   });
 });

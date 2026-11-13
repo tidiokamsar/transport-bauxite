@@ -48,17 +48,17 @@ SELECT lives_ok($$SELECT public.suivre_fiche((SELECT id FROM fr), 'remise', 'Mam
 
 -- Deux voyages du camion de la fiche, un voyage d'un autre camion
 CREATE TEMP TABLE vy AS SELECT
-  public.creer_voyage(current_date, '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a2',
+  public.creer_voyage(current_date, '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a1',
     '00000000-0000-4000-8e00-0000000000b1', '00000000-0000-4000-8e00-0000000000c1') AS v1,
-  public.creer_voyage(current_date, '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a2',
+  public.creer_voyage(current_date, '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a1',
     '00000000-0000-4000-8e00-0000000000b1', '00000000-0000-4000-8e00-0000000000c1') AS v2,
   public.creer_voyage(current_date, '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a2',
     '00000000-0000-4000-8e00-0000000000b2', NULL) AS v3;
 CREATE TEMP TABLE fr_double AS SELECT public.preparer_fiche('rotations', current_date,
   '00000000-0000-4000-8e00-0000000000a1', NULL, '00000000-0000-4000-8e00-0000000000b1',
-  '00000000-0000-4000-8e00-0000000000c1', NULL, '{"pesee":"depart"}') AS id;
+  '00000000-0000-4000-8e00-0000000000c1', NULL, '{"pesee":"arrivee"}') AS id;
 CREATE TEMP TABLE vy_double AS SELECT public.creer_voyage(current_date,
-  '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a2',
+  '00000000-0000-4000-8e00-0000000000a1', '00000000-0000-4000-8e00-0000000000a1',
   '00000000-0000-4000-8e00-0000000000b1', '00000000-0000-4000-8e00-0000000000c1') AS id;
 
 CREATE TEMP TABLE etapes AS SELECT jsonb_build_array(
@@ -87,11 +87,15 @@ SELECT lives_ok($$SELECT public.saisir_rotation((SELECT id FROM fr_double), (SEL
   jsonb_build_object('etat', 'AT_LOADING', 'quand', now() - interval '50 minutes'),
   jsonb_build_object('etat', 'LOADING', 'quand', now() - interval '45 minutes'),
   jsonb_build_object('etat', 'LOADED', 'quand', now() - interval '40 minutes'),
-  jsonb_build_object('etat', 'WEIGHED_OUT', 'quand', now() - interval '35 minutes',
-    'donnees', jsonb_build_object('brut', 56.1, 'tare', 15.4, 'ticket', 'PB-DOUBLE-1', 'tonnage_cbg', 40.5))))$$,
-  'double pesee liee a la fiche et au voyage');
-SELECT is((SELECT (tonnage_kogon, tonnage_cbg, ticket)::text FROM public.pesees_doubles WHERE trip_id = (SELECT id FROM vy_double)),
-  '(40.7,40.5,PB-DOUBLE-1)', 'net Kogon calcule et poids CBG conserves separement');
+  jsonb_build_object('etat', 'IN_TRANSIT', 'quand', now() - interval '35 minutes'),
+  jsonb_build_object('etat', 'AT_DESTINATION', 'quand', now() - interval '30 minutes'),
+  jsonb_build_object('etat', 'UNLOADING', 'quand', now() - interval '25 minutes'),
+  jsonb_build_object('etat', 'WEIGHED_IN', 'quand', now() - interval '20 minutes',
+    'donnees', jsonb_build_object('brut', 56.1, 'tare', 15.4, 'ticket', 'PB-CBG-1', 'document_ref', 'BL-CBG-1.pdf')),
+  jsonb_build_object('etat', 'DELIVERED', 'quand', now() - interval '15 minutes')))$$,
+  'ticket CBG de reception lie a la fiche et au voyage');
+SELECT is((SELECT (net, ticket, document_ref)::text FROM public.tickets_pesee_cbg WHERE trip_id = (SELECT id FROM vy_double)),
+  '(40.7,PB-CBG-1,BL-CBG-1.pdf)', 'poids net calcule depuis la preuve CBG et document reference conserve');
 
 SELECT throws_ok($$SELECT public.saisir_rotation((SELECT id FROM fr), (SELECT v2 FROM vy), jsonb_build_array(
   jsonb_build_object('etat', 'AT_LOADING', 'quand', now() - interval '3 hours'),
@@ -152,9 +156,9 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-8e00-000000000002');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.preparer_fiche('carburant', current_date, '00000000-0000-4000-8e00-0000000000a1')$$,
   '42501', NULL, 'un chauffeur ne prepare pas de fiche');
-SELECT throws_ok($$INSERT INTO public.pesees_doubles (trip_id, fiche_id, ticket, tonnage_kogon, tonnage_cbg, mesure_le)
-  VALUES ((SELECT id FROM vy_double), (SELECT id FROM fr_double), 'PB-DIRECT-INTERDIT', 40, 40, now())$$,
-  '42501', NULL, 'ecriture directe des doubles pesees interdite');
+SELECT throws_ok($$INSERT INTO public.tickets_pesee_cbg (trip_id, fiche_id, ticket, brut, tare, mesure_le)
+  VALUES ((SELECT id FROM vy_double), (SELECT id FROM fr_double), 'PB-DIRECT-INTERDIT', 56, 15, now())$$,
+  '42501', NULL, 'ecriture directe sur la preuve de pesee CBG interdite');
 SELECT is((SELECT count(*)::int FROM public.livraisons_carburant_cbg), 0, 'les livraisons CBG sont masquees sans droit de lecture carburant');
 SELECT throws_ok($$SELECT public.enregistrer_livraison_cbg('CBG-INTERDIT', current_date,
   '00000000-0000-4000-8e00-0000000000a1', 100, 12000)$$, '42501', NULL, 'saisie livraison reservee au droit ecriture carburant');

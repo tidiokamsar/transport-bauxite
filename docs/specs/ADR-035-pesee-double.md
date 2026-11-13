@@ -1,6 +1,6 @@
 # ADR-035 — Conservation et rapprochement de la double pesée
 
-- **Statut :** implémentée et vérifiée localement ; à valider en revue de PR avant déploiement
+- **Statut :** remplacée par D-037 le 2026-11-12 ; conservée comme historique de décision
 - **Date :** 2026-11-12
 - **Contexte :** après chargement, l'agent Kogon et CBG relèvent chacun un tonnage. Les deux valeurs doivent rester liées au même voyage, à la fiche FR et au ticket de pesée ; la facturation client attend leur confrontation.
 
@@ -10,11 +10,11 @@
 2. **Garder les valeurs uniquement dans `trip_events.donnees`** : pas de table supplémentaire, mais les contrôles, contraintes d'unicité et lectures de réconciliation dépendent d'un JSON peu typé.
 3. **Créer une preuve relationnelle liée au voyage, à la fiche et au ticket** : retenue pour imposer les deux valeurs positives, l'unicité du ticket et le lien au document terrain, puis copier les deux poids dans l'instantané de réconciliation.
 
-## Décision proposée
+## Décision initiale (remplacée)
 
-Conserver une ligne de double pesée par voyage dans `pesees_doubles`. Le poids Kogon est calculé par brut moins tare ; le poids net CBG est saisi séparément. Les deux valeurs sont enregistrées lors de la pesée au départ, après chargement, dans la saisie de la fiche FR. La ligne de réconciliation copie ces deux mesures.
+La décision D-035 proposait une ligne de double pesée par voyage dans `pesees_doubles`, avec une pesée Kogon et CBG au départ. Le prompt maître SIGTB du 2026-11-12 a précisé que CBG pèse au dépôt de destination et que Kogon intègre le ticket sans refaire la pesée. D-037 remplace donc ce parcours : voir [ADR-037](ADR-037-integration-ticket-pesee-cbg.md).
 
-La tolérance déjà saisie à l'ouverture de la réconciliation s'applique à l'écart relatif `abs(Kogon - CBG) / Kogon × 100`. Une double pesée absente ou hors tolérance produit une anomalie bloquante ; la clôture et la facturation attendent une décision humaine motivée. La base de tonnage contractuelle existante (chargé, reçu ou accepté) continue de déterminer la quantité facturée après cette décision.
+Les sections ci-dessous décrivent la proposition historique D-035 et ne constituent plus l'état cible.
 
 ## Conséquences et limites
 

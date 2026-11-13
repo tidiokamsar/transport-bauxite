@@ -51,8 +51,8 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
         <thead><tr className="text-left text-stone-500">
           <th className="py-1 pr-2">Voyage</th>
           {COLONNES_ROTATION.map((c) => <th key={c.cle} className="py-1 pr-1 font-medium">{c.libelle}</th>)}
-          <th className="py-1 pr-1 font-medium">Pesée ({fiche.options.pesee === 'depart' ? 'départ' : 'arrivée'})</th>
-          <th className="py-1 pr-1 font-medium">Ticket</th><th className="py-1 pr-1 font-medium">Brut Kogon</th><th className="py-1 pr-1 font-medium">Tare Kogon</th><th className="py-1 pr-1 font-medium">Net CBG (t)</th><th />
+          <th className="py-1 pr-1 font-medium">Pesée CBG au dépôt</th>
+          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (kg)</th><th className="py-1 pr-1 font-medium">Tare (kg)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
         </tr></thead>
         <tbody>
           {voyages.map((v) => {
@@ -70,10 +70,10 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
                   </td>
                 ))}
                 <td className="py-1.5 pr-1"><input type="time" aria-label={`${v.reference} heure de pesée`} value={l.heurePesee} onChange={(e) => maj(v.id, { ...l, heurePesee: e.target.value })} className={HEURE} /></td>
-                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} ticket`} value={l.ticket} onChange={(e) => maj(v.id, { ...l, ticket: e.target.value })} className={`${CHAMP} w-20`} /></td>
+                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} ticket CBG`} value={l.ticket} onChange={(e) => maj(v.id, { ...l, ticket: e.target.value })} className={`${CHAMP} w-20`} /></td>
                 <td className="py-1.5 pr-1"><input inputMode="decimal" aria-label={`${v.reference} brut`} value={l.brut} onChange={(e) => maj(v.id, { ...l, brut: e.target.value })} className={`${CHAMP} w-16`} /></td>
                 <td className="py-1.5 pr-1"><input inputMode="decimal" aria-label={`${v.reference} tare`} value={l.tare} onChange={(e) => maj(v.id, { ...l, tare: e.target.value })} className={`${CHAMP} w-16`} /></td>
-                <td className="py-1.5 pr-1"><input inputMode="decimal" aria-label={`${v.reference} poids CBG`} value={l.tonnageCbg} onChange={(e) => maj(v.id, { ...l, tonnageCbg: e.target.value })} className={`${CHAMP} w-16`} /></td>
+                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} référence document CBG`} value={l.documentRef} onChange={(e) => maj(v.id, { ...l, documentRef: e.target.value })} className={`${CHAMP} w-28`} /></td>
                 <td className="py-1.5">
                   <button onClick={() => enregistrer(v.id)} disabled={enCours === v.id} className="rounded bg-orange-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50" aria-label={`Enregistrer ${v.reference}`}>
                     {enCours === v.id ? '...' : 'Enregistrer'}
