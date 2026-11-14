@@ -54,10 +54,10 @@ SET LOCAL ROLE authenticated;
 SELECT is(public.site_permis('00000000-0000-4000-9500-0000000000a1'::uuid), true, 'compte du site A : son site permis');
 SELECT is(public.site_permis('00000000-0000-4000-9500-0000000000a2'::uuid), false, 'compte du site A : site B refuse');
 SELECT is(public.site_permis(NULL), false, 'compte du site A : ligne sans site refusee');
-SELECT is((SELECT count(*)::int FROM public.vehicles), 1, 'compte du site A : ne lit que le vehicule de son site');
-SELECT is((SELECT count(*)::int FROM public.trips), 2, 'compte du site A : lit les voyages qui touchent son site (depart ou arrivee)');
-SELECT is((SELECT count(*)::int FROM public.drivers), 1, 'compte du site A : un seul chauffeur, celui de son site');
-SELECT is((SELECT count(*)::int FROM public.fiches_terrain), 1, 'compte du site A : fiche de son site');
+SELECT is((SELECT count(*)::int FROM public.vehicles WHERE registration LIKE 'TEST-S-%'), 1, 'compte du site A : ne lit que le vehicule de son site');
+SELECT is((SELECT count(*)::int FROM public.trips WHERE reference LIKE 'TEST-P-%'), 2, 'compte du site A : lit les voyages qui touchent son site (depart ou arrivee)');
+SELECT is((SELECT count(*)::int FROM public.drivers WHERE license_number LIKE 'PC-%-038'), 1, 'compte du site A : un seul chauffeur, celui de son site');
+SELECT is((SELECT count(*)::int FROM public.fiches_terrain WHERE numero = 'FP-140000-921'), 1, 'compte du site A : fiche de son site');
 SELECT lives_ok($$UPDATE public.vehicles SET brand_model = 'Test A' WHERE id = '00000000-0000-4000-9500-0000000000b1'$$,
   'compte du site A : modifie le vehicule de son site');
 -- Une ligne masquee par le perimetre n'est pas en erreur : l'UPDATE la
@@ -75,15 +75,15 @@ RESET ROLE;
 -- Vue du compte du site B.
 SELECT pg_temp.se_connecter('00000000-0000-4000-9500-000000000003');
 SET LOCAL ROLE authenticated;
-SELECT is((SELECT count(*)::int FROM public.vehicles), 1, 'compte du site B : ne lit que le vehicule de son site');
-SELECT is((SELECT count(*)::int FROM public.trips), 2, 'compte du site B : A-B et B-B, pas A-A');
+SELECT is((SELECT count(*)::int FROM public.vehicles WHERE registration LIKE 'TEST-S-%'), 1, 'compte du site B : ne lit que le vehicule de son site');
+SELECT is((SELECT count(*)::int FROM public.trips WHERE reference LIKE 'TEST-P-%'), 2, 'compte du site B : A-B et B-B, pas A-A');
 RESET ROLE;
 
 -- Vue du compte global (site NULL) : comportement inchange.
 SELECT pg_temp.se_connecter('00000000-0000-4000-9500-000000000004');
 SET LOCAL ROLE authenticated;
-SELECT is((SELECT count(*)::int FROM public.vehicles), 3, 'compte global : tous les vehicules, y compris sans site');
-SELECT is((SELECT count(*)::int FROM public.trips), 3, 'compte global : tous les voyages');
+SELECT is((SELECT count(*)::int FROM public.vehicles WHERE registration LIKE 'TEST-S-%'), 3, 'compte global : tous les vehicules de test, y compris sans site');
+SELECT is((SELECT count(*)::int FROM public.trips WHERE reference LIKE 'TEST-P-%'), 3, 'compte global : tous les voyages de test');
 SELECT is(public.site_permis(NULL), true, 'compte global : ligne sans site permise');
 RESET ROLE;
 
