@@ -115,7 +115,12 @@ SELECT is((SELECT count(*)::int FROM public.journal_droits_modules
   WHERE utilisateur = '00000000-0000-4000-9000-000000000012'
     AND module = 'hr' AND niveau_avant = 'aucun' AND niveau_apres IS NULL), 1,
   'journal : retour au role trace (avant aucun, apres null)');
-SELECT is((SELECT count(*)::int FROM public.journal_droits_modules), 5,
+-- Comptage borne aux comptes du test : en production, la table contient
+-- l'historique reel des attributions (le rejeu local part d'une base vide).
+SELECT is((SELECT count(*)::int FROM public.journal_droits_modules
+  WHERE utilisateur IN ('00000000-0000-4000-9000-000000000011',
+                        '00000000-0000-4000-9000-000000000012',
+                        '00000000-0000-4000-9000-000000000013')), 5,
   'journal : une ligne par changement, ni plus ni moins');
 RESET ROLE;
 
