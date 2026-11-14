@@ -143,3 +143,5 @@ PR quand la dette diminue ; ne jamais les remonter.
   controle loueur confronte dans l'unite du tarif (heures pointees ou km des
   voyages livres), une unite differente est signalee, jamais estimee.
 - Perimetre site (D-038, LOT 02 phase 1) : `site_permis(site)` borne les policies de vehicles, trips (depart ou arrivee), drivers et fiches_terrain ; un profil sans site est global, un profil affecte ne voit que son site ; organisations = referentiel administrateur. Fonctions serveur non encore bornees (phase 2).
+- Gardes d'ecriture (D-039) : declencheurs site_permis sur trips (depart ou arrivee), vehicles, drivers, fiches_terrain, pointages_engins et immobilisations ; les fonctions SECURITY DEFINER respectent le perimetre malgre la RLS bypassée.
+- Socle MFA (D-040) : garde_aal2 exige aal2 pour droits, rectifications de tickets et signature de facture, seulement si settings mfa_exige = true (desactive tant que les facteurs TOTP ne sont pas inscrits).
