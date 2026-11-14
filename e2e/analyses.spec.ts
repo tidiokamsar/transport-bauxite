@@ -51,7 +51,7 @@ test.describe('Écrans remis à niveau', () => {
     await page.screenshot({ path: 'test-results/fiabilite.png', fullPage: true });
   });
 
-  test('plein unitaire : prix du litre exige, montant calcule', async ({ page }) => {
+  test('plein unitaire : enregistre les litres sans inventer le prix', async ({ page }) => {
     await simulerApi(page, { profiles: PROFIL, vehicles: ENGINS, drivers: [], fuel_transactions: [] });
     const envois: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/fuel_transactions*', (route) => {
@@ -64,10 +64,7 @@ test.describe('Écrans remis à niveau', () => {
     await f.getByLabel('Engin *').selectOption({ label: 'RC-1001' });
     await f.getByLabel('Litres *').fill('250');
     await f.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(f.getByText('Quantité et prix du litre requis, positifs')).toBeVisible();
-    await f.getByLabel('Prix du litre * (facture ou cuve)').fill('12 400');
-    await f.getByRole('button', { name: 'Enregistrer' }).click();
     await expect.poll(() => envois.length).toBe(1);
-    expect(envois[0]).toMatchObject({ vehicle_id: 'v1', volume_liters: 250, unit_price: 12400, total_cost: 3100000, transaction_type: 'refuel' });
+    expect(envois[0]).toMatchObject({ vehicle_id: 'v1', volume_liters: 250, unit_price: null, total_cost: null, total_amount: null, supplier: 'CBG', transaction_type: 'refuel' });
   });
 });

@@ -51,8 +51,8 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
         <thead><tr className="text-left text-stone-500">
           <th className="py-1 pr-2">Voyage</th>
           {COLONNES_ROTATION.map((c) => <th key={c.cle} className="py-1 pr-1 font-medium">{c.libelle}</th>)}
-          <th className="py-1 pr-1 font-medium">Pesée ({fiche.options.pesee === 'depart' ? 'départ' : 'arrivée'})</th>
-          <th className="py-1 pr-1 font-medium">Ticket</th><th className="py-1 pr-1 font-medium">Brut</th><th className="py-1 pr-1 font-medium">Tare</th><th />
+          <th className="py-1 pr-1 font-medium">Pesée CBG au dépôt</th>
+          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (kg)</th><th className="py-1 pr-1 font-medium">Tare (kg)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
         </tr></thead>
         <tbody>
           {voyages.map((v) => {
@@ -70,9 +70,10 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
                   </td>
                 ))}
                 <td className="py-1.5 pr-1"><input type="time" aria-label={`${v.reference} heure de pesée`} value={l.heurePesee} onChange={(e) => maj(v.id, { ...l, heurePesee: e.target.value })} className={HEURE} /></td>
-                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} ticket`} value={l.ticket} onChange={(e) => maj(v.id, { ...l, ticket: e.target.value })} className={`${CHAMP} w-20`} /></td>
+                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} ticket CBG`} value={l.ticket} onChange={(e) => maj(v.id, { ...l, ticket: e.target.value })} className={`${CHAMP} w-20`} /></td>
                 <td className="py-1.5 pr-1"><input inputMode="decimal" aria-label={`${v.reference} brut`} value={l.brut} onChange={(e) => maj(v.id, { ...l, brut: e.target.value })} className={`${CHAMP} w-16`} /></td>
                 <td className="py-1.5 pr-1"><input inputMode="decimal" aria-label={`${v.reference} tare`} value={l.tare} onChange={(e) => maj(v.id, { ...l, tare: e.target.value })} className={`${CHAMP} w-16`} /></td>
+                <td className="py-1.5 pr-1"><input aria-label={`${v.reference} référence document CBG`} value={l.documentRef} onChange={(e) => maj(v.id, { ...l, documentRef: e.target.value })} className={`${CHAMP} w-28`} /></td>
                 <td className="py-1.5">
                   <button onClick={() => enregistrer(v.id)} disabled={enCours === v.id} className="rounded bg-orange-600 px-2 py-1 text-xs font-bold text-white disabled:opacity-50" aria-label={`Enregistrer ${v.reference}`}>
                     {enCours === v.id ? '...' : 'Enregistrer'}
@@ -172,8 +173,6 @@ const SaisiePointage = ({ fiche, engins, debutShift }: { fiche: Fiche; engins: R
 interface LignePlein { vehicule: string; chauffeur: string; litres: string; compteur: string }
 
 const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; engins: Reference[]; chauffeurs: Reference[]; onFait: () => void }) => {
-  const [prix, setPrix] = useState('');
-  const [fournisseur, setFournisseur] = useState('');
   const [lignes, setLignes] = useState<LignePlein[]>([{ vehicule: '', chauffeur: '', litres: '', compteur: '' }]);
   const [message, setMessage] = useState<{ ok: boolean; texte: string }>();
   const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
@@ -183,7 +182,7 @@ const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; 
     const remplies = lignes.filter((l) => l.vehicule || l.litres);
     if (remplies.some((l) => !l.vehicule || !(Number(nombre(l.litres)) > 0))) { setMessage({ ok: false, texte: 'Chaque ligne demande un engin et une quantité positive' }); return; }
     const { data, error } = await supabase.rpc('saisir_carburant', {
-      p_fiche_id: fiche.id, p_prix_litre: nombre(prix), p_fournisseur: fournisseur || null,
+      p_fiche_id: fiche.id, p_prix_litre: null, p_fournisseur: 'CBG',
       p_lignes: remplies.map((l) => ({ vehicle_id: l.vehicule, driver_id: l.chauffeur || null, litres: nombre(l.litres), compteur: nombre(l.compteur) })),
     });
     if (error) setMessage({ ok: false, texte: error.message });
@@ -192,10 +191,7 @@ const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; 
 
   return (
     <div className="space-y-3 text-xs">
-      <div className="flex flex-wrap gap-3">
-        <label>Prix du litre * (facture ou prix de la cuve)<input inputMode="decimal" value={prix} onChange={(e) => setPrix(e.target.value)} className={`${CHAMP} w-36`} /></label>
-        <label>Fournisseur ou cuve<input value={fournisseur} onChange={(e) => setFournisseur(e.target.value)} className={`${CHAMP} w-48`} /></label>
-      </div>
+      <p className="text-stone-500">Le coût sera valorisé avec les prix des livraisons CBG enregistrées pour la période.</p>
       {lignes.map((l, i) => (
         <div key={i} className="flex flex-wrap items-end gap-2">
           <label>Engin<select aria-label={`Ligne ${i + 1} engin`} value={l.vehicule} onChange={(e) => maj(i, { ...l, vehicule: e.target.value })} className={`${CHAMP} w-36`}>

@@ -6,6 +6,8 @@ describe('facturation', () => {
     expect(statutLigne(null, [])).toBe('facturable');
     expect(statutLigne(null, ['sans_fiche'])).toBe('facturable');
     expect(statutLigne(null, ['ecart_hors_tolerance', 'sans_fiche'])).toBe('a_examiner');
+    expect(statutLigne(null, ['ecart_double_pesee'])).toBe('a_examiner');
+    expect(statutLigne(null, ['sans_double_pesee'])).toBe('a_examiner');
     expect(statutLigne('exclue', ['litige'])).toBe('exclue');
     expect(statutLigne('facturable', ['ecart_hors_tolerance'])).toBe('facturable');
   });

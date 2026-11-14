@@ -78,4 +78,6 @@ baselines de `.github/ci-baseline.env`.
 | Document | Contenu |
 |---|---|
 | [specs/CONFORMITE_DECLAREE_BOLT.md](specs/CONFORMITE_DECLAREE_BOLT.md) | Archive : auto-evaluation Bolt, affirmations non fiables (remplacee par le CDC 2.0) |
+| [specs/ADR-034-valorisation-carburant.md](specs/ADR-034-valorisation-carburant.md) | Proposition de valorisation des pleins au prix moyen pondere des livraisons CBG |
+| [specs/ADR-035-pesee-double.md](specs/ADR-035-pesee-double.md) | Proposition de conservation des deux pesées Kogon / CBG et blocage de la facturation sur écart |
 | [specs/APPLICATION_MOBILE.md](specs/APPLICATION_MOBILE.md) | Specification de l'application mobile chauffeur (non developpee) |

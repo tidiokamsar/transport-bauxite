@@ -57,6 +57,7 @@ export interface LigneRotation {
   ticket: string;
   brut: string;
   tare: string;
+  documentRef: string;
 }
 
 export interface Etape {
@@ -85,9 +86,9 @@ export const horodater = (date: string, heure: string, debutShift: string | null
 
 /**
  * Etapes d'une ligne de fiche de rotations. Une colonne vide n'est pas
- * envoyee. La pesee (brut, tare, ticket) s'insere au depart (avant le
- * depart) ou a l'arrivee (avant la fin du dechargement) selon la fiche.
- * Erreur si une pesee est incomplete.
+ * envoyee. La pesee CBG est integree a l'arrivee au depot depuis le ticket;
+ * Kogon ne refait pas la pesee. Une reference de document est facultative
+ * pour permettre une saisie manuelle controlee si la piece manque.
  */
 export const etapesRotation = (
   ligne: LigneRotation,
@@ -102,19 +103,22 @@ export const etapesRotation = (
   }
   const brut = nombre(ligne.brut);
   const tare = nombre(ligne.tare);
-  const peseeSaisie = brut !== null || tare !== null || ligne.ticket.trim() !== '' || ligne.heurePesee !== '';
+  const peseeSaisie = brut !== null || tare !== null || ligne.ticket.trim() !== '' || ligne.heurePesee !== '' || ligne.documentRef.trim() !== '';
   if (peseeSaisie) {
-    if (brut === null || tare === null || !ligne.heurePesee) {
-      return { etapes: [], erreur: 'Pesée incomplète : heure, brut et tare requis' };
+    if (brut === null || tare === null || !ligne.heurePesee || !ligne.ticket.trim()) {
+      return { etapes: [], erreur: 'Ticket CBG, heure, brut et tare requis pour intégrer la pesée' };
     }
     if (brut <= tare) return { etapes: [], erreur: 'Pesée incohérente : le brut doit dépasser la tare' };
+    if (pesee !== 'arrivee') {
+      return { etapes: [], erreur: 'Le ticket CBG est intégré à la réception au dépôt' };
+    }
     etapes.push({
-      etat: pesee === 'depart' ? 'WEIGHED_OUT' : 'WEIGHED_IN',
+      etat: 'WEIGHED_IN',
       quand: horodater(date, ligne.heurePesee, debutShift).toISOString(),
-      donnees: { brut, tare, ...(ligne.ticket.trim() ? { ticket: ligne.ticket.trim() } : {}) },
+      donnees: { brut, tare, ticket: ligne.ticket.trim(), ...(ligne.documentRef.trim() ? { document_ref: ligne.documentRef.trim() } : {}) },
     });
   }
   return { etapes, erreur: etapes.length === 0 ? 'Aucune heure saisie' : null };
 };
 
-export const ligneVide = (): LigneRotation => ({ heures: {}, heurePesee: '', ticket: '', brut: '', tare: '' });
+export const ligneVide = (): LigneRotation => ({ heures: {}, heurePesee: '', ticket: '', brut: '', tare: '', documentRef: '' });
