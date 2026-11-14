@@ -18,6 +18,7 @@ interface UserForm {
   department: string;
   photo_url: string;
   status: string;
+  site: string;
 }
 
 // Roles de l'enum user_role (D-010, D-012) ; les droits de chacun sont
@@ -108,6 +109,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
   const [showPassword, setShowPassword] = useState(false);
   const [droitsModules, setDroitsModules] = useState<DroitModule[]>([]);
   const [choixDroits, setChoixDroits] = useState<Record<string, string>>({});
+  const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
   const [formData, setFormData] = useState<UserForm>({
     email: '',
     password: '',
@@ -117,6 +119,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
     department: 'Opérations',
     photo_url: '',
     status: 'active',
+    site: '',
   });
 
   useEffect(() => {
@@ -126,6 +129,11 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
       resetForm();
     }
   }, [isOpen, userId]);
+
+  useEffect(() => {
+    supabase.from('sites').select('id, name').order('name')
+      .then(({ data }) => setSites((data as { id: string; name: string }[] | null) ?? []));
+  }, []);
 
   const fetchUser = async () => {
     if (!userId) return;
@@ -148,6 +156,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           department: data.department || 'Opérations',
           photo_url: data.photo_url || '',
           status: data.status || 'active',
+          site: data.site_id || '',
         });
       }
 
@@ -179,6 +188,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
       department: 'Opérations',
       photo_url: '',
       status: 'active',
+      site: '',
     });
     setDroitsModules([]);
     setChoixDroits({});
@@ -196,6 +206,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
             full_name: formData.full_name,
             phone: formData.phone,
             role: formData.role,
+            site_id: formData.site || null,
             department: formData.department,
             photo_url: formData.photo_url,
             status: formData.status,
@@ -385,6 +396,23 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
                   <option key={role.value} value={role.value}>
                     {role.label}
                   </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Site d'affectation (D-038)
+              </label>
+              <select
+                aria-label="Site d'affectation (D-038)"
+                value={formData.site}
+                onChange={(e) => setFormData({ ...formData, site: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Tous les sites (compte global)</option>
+                {sites.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </div>
