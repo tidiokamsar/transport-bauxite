@@ -1,6 +1,6 @@
 # ADR-037 — Intégration et rectification des tickets de pesée CBG
 
-- **Statut :** accepté; implémentation requise avant fusion/déploiement de la nouvelle pesée
+- **Statut :** accepté ; implémentation intégrée à main (PR #45, D-034 + D-037), non déployée à ce jour
 - **Date :** 2026-11-12
 - **Remplace :** D-035 pour le flux de saisie de pesée
 - **Contexte :** le prompt opérationnel du 2026-11-12 précise que CBG effectue la pesée au pont-bascule du dépôt et transmet ticket/rapport. Kogon l'intègre au voyage et contrôle sa cohérence. Kogon ne réalise pas une deuxième pesée pour reproduire celle de CBG.

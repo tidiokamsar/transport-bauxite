@@ -26,6 +26,7 @@ const RecouvrementView = lazy(() => import('./components/Facturation/Recouvremen
 const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeembaView').then(m => ({ default: m.FacturesNeembaView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
+const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
 const FuelDashboard = lazy(() => import('./components/Fuel/AnalyseCarburantView').then(m => ({ default: m.AnalyseCarburantView })));
 const FuelAnomaliesView = lazy(() => import('./components/Fuel/AnomaliesCarburantView').then(m => ({ default: m.AnomaliesCarburantView })));
 const FuelStocksView = lazy(() => import('./components/Fuel/FuelStocksView').then(m => ({ default: m.FuelStocksView })));
@@ -119,6 +120,8 @@ const MainApp = () => {
         return <RouteHistoryView />;
       case 'fuel':
         return <FuelView />;
+      case 'livraisons-cbg':
+        return <LivraisonsCbgView />;
       case 'fuel-dashboard':
         return <FuelDashboard />;
       case 'fuel-anomalies':

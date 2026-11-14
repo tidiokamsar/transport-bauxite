@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
-import { STATUTS_FICHE, TYPES_FICHE, type Fiche, type LieuPesee, type TypeFiche } from './fiches';
+import { STATUTS_FICHE, TYPES_FICHE, type Fiche, type TypeFiche } from './fiches';
 import { FicheImprimable, type ContexteImpression } from './FicheImprimable';
 import { SaisieFiche } from './SaisieFiche';
 
@@ -37,7 +37,6 @@ export const FichesView = () => {
   const [societe, setSociete] = useState<Societe | null>(null);
   const [fiches, setFiches] = useState<Fiche[] | null>(null);
   const [voyages, setVoyages] = useState<Voyage[]>([]);
-  const [pesee, setPesee] = useState<LieuPesee | ''>('');
   const [agent, setAgent] = useState('');
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -105,7 +104,7 @@ export const FichesView = () => {
       ? camionsSansFiche.map(([camion, liste]) => ({
           p_type: type, p_date: date, p_site_id: site, p_shift_id: shift || null, p_vehicle_id: camion,
           p_driver_id: liste.find((v) => v.driver_id)?.driver_id ?? null, p_agent: agent || null,
-          p_options: { pesee }, p_contenu: { voyages: liste.map((v) => ({ id: v.id, reference: v.reference })) },
+          p_options: { pesee: 'arrivee' }, p_contenu: { voyages: liste.map((v) => ({ id: v.id, reference: v.reference })) },
         }))
       : [{
           p_type: type, p_date: date, p_site_id: site, p_shift_id: shift || null, p_vehicle_id: null, p_driver_id: null,
@@ -175,13 +174,8 @@ export const FichesView = () => {
             <section className="rounded-xl border border-stone-200 p-4" aria-label="Fiches de rotations">
               <p className="flex items-center gap-2 font-semibold text-stone-900"><Truck className="h-4 w-4 text-orange-600" /> Rotations : une fiche par camion</p>
               <p className="mt-1 text-sm text-stone-500">{camionsSansFiche.length} camion(s) avec des voyages du Dispatch et sans fiche.</p>
-              <label className="mt-3 block text-sm">
-                <span className="mb-1 block font-medium text-stone-700">Lieu de la pesée *</span>
-                <select value={pesee} onChange={(e) => setPesee(e.target.value as LieuPesee | '')} className="w-full rounded-lg border border-stone-300 px-3 py-2">
-                  <option value="">Choisir</option><option value="depart">Au départ (sortie de mine)</option><option value="arrivee">À l'arrivée (réception)</option>
-                </select>
-              </label>
-              <button onClick={() => preparer('rotations')} disabled={enCours || !pesee || camionsSansFiche.length === 0} className="mt-3 w-full rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <p className="mt-2 text-sm text-stone-600">Pesée effectuée par CBG au dépôt; Kogon intègre le ticket reçu.</p>
+              <button onClick={() => preparer('rotations')} disabled={enCours || camionsSansFiche.length === 0} className="mt-3 w-full rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">
                 Préparer {camionsSansFiche.length} fiche(s) de rotations
               </button>
             </section>

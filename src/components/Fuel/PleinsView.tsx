@@ -8,13 +8,13 @@ import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 
 // Pleins et remplissages de cuve (D-030) : liste du mois et saisie
-// unitaire. Le prix du litre est saisi (facture du fournisseur ou prix de
-// la cuve) : aucun prix par defaut. Les pleins des fiches carburant
+// unitaire. Le prix est porte par les livraisons CBG, jamais saisi sur un
+// plein individuel. Les pleins des fiches carburant
 // (D-028) arrivent ici avec la reference de leur fiche.
 
 interface Plein {
   id: string; transaction_date: string; reference: string; vehicle_id: string | null; driver_id: string | null;
-  volume_liters: number; unit_price: number; total_cost: number; transaction_type: 'refuel' | 'tank_fill';
+  volume_liters: number; unit_price: number | null; total_cost: number | null; transaction_type: 'refuel' | 'tank_fill';
   supplier: string | null; site_id: string | null; odometer_reading: number | null; notes: string | null;
 }
 
@@ -30,7 +30,7 @@ export const PleinsView = () => {
   const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
   const [chauffeurs, setChauffeurs] = useState<{ id: string; name: string }[]>([]);
   const [saisie, setSaisie] = useState(false);
-  const [f, setF] = useState({ type: 'refuel', date: new Date().toISOString().slice(0, 10), engin: '', chauffeur: '', litres: '', prix: '', fournisseur: '', compteur: '', site: '', note: '' });
+  const [f, setF] = useState({ type: 'refuel', date: new Date().toISOString().slice(0, 10), engin: '', chauffeur: '', litres: '', compteur: '', site: '', note: '' });
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
 
@@ -62,7 +62,7 @@ export const PleinsView = () => {
     const distrib = l.filter((x) => x.transaction_type === 'refuel');
     return {
       litres: distrib.reduce((s, x) => s + Number(x.volume_liters), 0),
-      cout: distrib.reduce((s, x) => s + Number(x.total_cost), 0),
+      cout: distrib.some((x) => x.total_cost === null) ? null : distrib.reduce((s, x) => s + Number(x.total_cost), 0),
       cuves: l.filter((x) => x.transaction_type === 'tank_fill').reduce((s, x) => s + Number(x.volume_liters), 0),
     };
   }, [pleins]);
@@ -70,17 +70,16 @@ export const PleinsView = () => {
   const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
   const enregistrer = async () => {
     const litres = nombre(f.litres);
-    const prix = nombre(f.prix);
     const site = f.site || siteId || null;
-    if (!(litres && litres > 0) || !(prix && prix > 0)) { setErreur('Quantité et prix du litre requis, positifs'); return; }
+    if (!(litres && litres > 0)) { setErreur('La quantité en litres doit être positive'); return; }
     if (f.type === 'refuel' && !f.engin) { setErreur('Engin requis pour un plein'); return; }
     if (f.type === 'tank_fill' && !site) { setErreur('Site de la cuve requis pour un remplissage'); return; }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from('fuel_transactions').insert({
       transaction_date: f.date, transaction_type: f.type, vehicle_id: f.type === 'refuel' ? f.engin : null,
       driver_id: f.type === 'refuel' && f.chauffeur ? f.chauffeur : null, volume_liters: litres, quantity: litres,
-      unit_price: prix, total_cost: Math.round(litres * prix * 100) / 100, total_amount: Math.round(litres * prix * 100) / 100,
-      supplier: f.fournisseur.trim() || null, site_id: site, odometer_reading: nombre(f.compteur), notes: f.note.trim() || 'Saisie unitaire',
+      unit_price: null, total_cost: null, total_amount: null,
+      supplier: 'CBG', site_id: site, odometer_reading: nombre(f.compteur), notes: f.note.trim() || 'Saisie unitaire',
       reference: `PL-${f.date.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`, created_by: u.user?.id ?? null,
     });
     if (error) { setErreur(error.message); return; }
@@ -108,7 +107,7 @@ export const PleinsView = () => {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-stone-900">Pleins et cuves</h2>
-          <p className="text-stone-500">Distributions aux engins et remplissages de cuve, au prix saisi</p>
+          <p className="text-stone-500">Distributions aux engins ; prix et factures suivis dans « Livraisons et factures CBG »</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input type="month" value={mois} onChange={(e) => setMois(e.target.value)} aria-label="Mois" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
@@ -120,7 +119,7 @@ export const PleinsView = () => {
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label="Synthèse des pleins">
         {[
           ['Litres distribués aux engins', `${formatNombre(totaux.litres)} L`],
-          ['Coût des distributions', totaux.cout > 0 ? formatNombre(totaux.cout) : '—'],
+          ['Coût des distributions', totaux.cout === null || totaux.cout === 0 ? '—' : formatNombre(totaux.cout)],
           ['Litres reçus en cuve', `${formatNombre(totaux.cuves)} L`],
         ].map(([l, v]) => <div key={l} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-carte"><p className="text-sm text-stone-500">{l}</p><p className="text-2xl font-black text-stone-900">{pleins ? v : '—'}</p></div>)}
       </section>
@@ -142,8 +141,8 @@ export const PleinsView = () => {
                   <td className="py-2 pr-3 font-semibold">{x.transaction_type === 'tank_fill' ? `Cuve · ${x.site_id ? nomSite.get(x.site_id) ?? '' : ''}` : immat.get(x.vehicle_id ?? '') ?? '—'}</td>
                   <td className="py-2 pr-3">{x.driver_id ? nom.get(x.driver_id) ?? '—' : '—'}</td>
                   <td className="py-2 pr-3 text-right">{formatNombre(Number(x.volume_liters))}</td>
-                  <td className="py-2 pr-3 text-right">{formatNombre(Number(x.unit_price))}</td>
-                  <td className="py-2 pr-3 text-right font-semibold">{formatNombre(Number(x.total_cost))}</td>
+                  <td className="py-2 pr-3 text-right">{x.unit_price === null ? '—' : formatNombre(Number(x.unit_price))}</td>
+                  <td className="py-2 pr-3 text-right font-semibold">{x.total_cost === null ? '—' : formatNombre(Number(x.total_cost))}</td>
                   <td className="py-2 text-xs text-stone-500">{x.notes ?? ''}{x.supplier ? ` · ${x.supplier}` : ''}</td>
                 </tr>
               ))}</tbody>
@@ -161,7 +160,7 @@ export const PleinsView = () => {
               <button onClick={() => setSaisie(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
             </header>
             <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
-              <label>Type<select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} className={CHAMP}><option value="refuel">Plein d'un engin</option><option value="tank_fill">Remplissage de cuve</option></select></label>
+              <label>Type<select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} className={CHAMP}><option value="refuel">Plein d'un engin</option></select></label>
               <label>Date *<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={CHAMP} /></label>
               {f.type === 'refuel' ? <>
                 <label>Engin *<select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value })} className={CHAMP}><option value="">Choisir</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
@@ -170,8 +169,6 @@ export const PleinsView = () => {
                 <label className="sm:col-span-2">Site de la cuve *<select value={f.site} onChange={(e) => setF({ ...f, site: e.target.value })} className={CHAMP}><option value="">Choisir</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
               )}
               <label>Litres *<input inputMode="decimal" value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} className={CHAMP} /></label>
-              <label>Prix du litre * (facture ou cuve)<input inputMode="decimal" value={f.prix} onChange={(e) => setF({ ...f, prix: e.target.value })} className={CHAMP} /></label>
-              <label>Fournisseur<input value={f.fournisseur} onChange={(e) => setF({ ...f, fournisseur: e.target.value })} className={CHAMP} /></label>
               <label>Compteur km ou horamètre<input inputMode="decimal" value={f.compteur} onChange={(e) => setF({ ...f, compteur: e.target.value })} className={CHAMP} /></label>
               <label className="sm:col-span-2">Note<input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={CHAMP} /></label>
               {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}

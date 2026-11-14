@@ -17,16 +17,27 @@ describe('fiches terrain', () => {
     expect(etapes[0].quand).toBe(new Date(2026, 10, 10, 7, 0).toISOString());
   });
 
-  it('pesee au depart, sans ticket', () => {
-    const ligne = { ...ligneVide(), heures: { IN_TRANSIT: '07:30' }, heurePesee: '07:25', brut: '55', tare: '15' };
-    const { etapes } = etapesRotation(ligne, '2026-11-10', 'depart', '06:00');
-    expect(etapes.find((e) => e.etat === 'WEIGHED_OUT')?.donnees).toEqual({ brut: 55, tare: 15 });
+  it('integre la pesee source CBG a la reception sans demander une seconde lecture Kogon', () => {
+    const ligne = { ...ligneVide(), heures: { DELIVERED: '08:30' }, heurePesee: '08:20', ticket: ' PB-10 ', brut: '56', tare: '15', documentRef: 'BL-10.pdf' };
+    const { etapes, erreur } = etapesRotation(ligne, '2026-11-10', 'arrivee', '06:00');
+    expect(erreur).toBeNull();
+    const pesee = etapes.find((e) => e.etat === 'WEIGHED_IN');
+    expect(pesee?.donnees).toEqual({ brut: 56, tare: 15, ticket: 'PB-10', document_ref: 'BL-10.pdf' });
+    expect(etapes.some((e) => e.etat === 'WEIGHED_OUT')).toBe(false);
+  });
+
+  it('ticket CBG incomplet ou saisi au depart : refuse avant envoi', () => {
+    const ligne = { ...ligneVide(), heurePesee: '07:25', brut: '56', tare: '15' };
+    expect(etapesRotation(ligne, '2026-11-10', 'arrivee', '06:00').erreur)
+      .toBe('Ticket CBG, heure, brut et tare requis pour intégrer la pesée');
+    expect(etapesRotation({ ...ligne, ticket: 'PB-11' }, '2026-11-10', 'depart', '06:00').erreur)
+      .toBe('Le ticket CBG est intégré à la réception au dépôt');
   });
 
   it('pesee incomplete ou incoherente, ligne vide : refusees avant envoi', () => {
     expect(etapesRotation({ ...ligneVide(), heures: { LOADED: '07:00' }, brut: '55' }, '2026-11-10', 'arrivee', null).erreur)
-      .toBe('Pesée incomplète : heure, brut et tare requis');
-    expect(etapesRotation({ ...ligneVide(), heurePesee: '07:00', brut: '10', tare: '15' }, '2026-11-10', 'arrivee', null).erreur)
+      .toBe('Ticket CBG, heure, brut et tare requis pour intégrer la pesée');
+    expect(etapesRotation({ ...ligneVide(), heurePesee: '07:00', brut: '10', tare: '15', ticket: 'PB-12' }, '2026-11-10', 'arrivee', null).erreur)
       .toBe('Pesée incohérente : le brut doit dépasser la tare');
     expect(etapesRotation(ligneVide(), '2026-11-10', 'arrivee', null).erreur).toBe('Aucune heure saisie');
   });
