@@ -11,9 +11,11 @@ interface SiteModalProps {
 export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
   const [loading, setLoading] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [organisations, setOrganisations] = useState<{ id: string; raison_sociale: string }[]>([]);
   const [formData, setFormData] = useState({
     name: site?.name || '',
     type: site?.type || 'depot',
+    organisation_id: site?.organisation_id || '',
     address: site?.address || '',
     city: site?.city || '',
     country: site?.country || 'Guinée',
@@ -31,6 +33,7 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
 
   useEffect(() => {
     fetchEmployees();
+    fetchOrganisations();
   }, []);
 
   const fetchEmployees = async () => {
@@ -40,6 +43,15 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
       .eq('status', 'active')
       .order('name');
     setEmployees(data || []);
+  };
+
+  // Referentiel des organisations (D-038) : rattache le site a son organisation.
+  const fetchOrganisations = async () => {
+    const { data } = await supabase
+      .from('organisations')
+      .select('id, raison_sociale')
+      .order('raison_sociale');
+    setOrganisations((data as { id: string; raison_sociale: string }[] | null) ?? []);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,6 +66,7 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
         capacity: parseFloat(formData.capacity.toString()) || null,
         current_stock: parseFloat(formData.current_stock.toString()) || null,
         manager_id: formData.manager_id || null,
+        organisation_id: formData.organisation_id || null,
         location: formData.address
       };
 
@@ -152,6 +165,20 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
                 >
                   <option value="active">✓ Actif</option>
                   <option value="inactive">✗ Inactif</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={labelClass}>Organisation (D-038)</label>
+                <select
+                  value={formData.organisation_id}
+                  onChange={(e) => setFormData({ ...formData, organisation_id: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">À rattacher (aucune)</option>
+                  {organisations.map((o) => (
+                    <option key={o.id} value={o.id}>{o.raison_sociale}</option>
+                  ))}
                 </select>
               </div>
             </div>

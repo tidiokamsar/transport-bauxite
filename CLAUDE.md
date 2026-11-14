@@ -142,3 +142,4 @@ PR quand la dette diminue ; ne jamais les remonter.
   les lignes de facture fournisseur portent quantite et unite facturees ; le
   controle loueur confronte dans l'unite du tarif (heures pointees ou km des
   voyages livres), une unite differente est signalee, jamais estimee.
+- Perimetre site (D-038, LOT 02 phase 1) : `site_permis(site)` borne les policies de vehicles, trips (depart ou arrivee), drivers et fiches_terrain ; un profil sans site est global, un profil affecte ne voit que son site ; organisations = referentiel administrateur. Fonctions serveur non encore bornees (phase 2).

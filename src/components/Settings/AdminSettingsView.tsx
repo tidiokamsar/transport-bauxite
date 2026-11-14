@@ -31,11 +31,31 @@ export const AdminSettingsView = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | undefined>();
+  const [organisations, setOrganisations] = useState<{ id: string; raison_sociale: string; statut: string }[]>([]);
+  const [nouvelleOrg, setNouvelleOrg] = useState('');
 
   useEffect(() => {
     fetchUsers();
     fetchAllSettings();
+    fetchOrganisations();
   }, []);
+
+  const fetchOrganisations = async () => {
+    const { data } = await supabase
+      .from('organisations')
+      .select('id, raison_sociale, statut')
+      .order('raison_sociale');
+    setOrganisations((data as { id: string; raison_sociale: string; statut: string }[] | null) ?? []);
+  };
+
+  const creerOrganisation = async () => {
+    const nom = nouvelleOrg.trim();
+    if (!nom) return;
+    const { error } = await supabase.from('organisations').insert({ raison_sociale: nom });
+    if (error) { alert(error.message); return; }
+    setNouvelleOrg('');
+    fetchOrganisations();
+  };
 
   const fetchUsers = async () => {
     try {
@@ -148,6 +168,7 @@ export const AdminSettingsView = () => {
 
   const tabs = [
     { id: 'users', label: 'Utilisateurs', icon: Users },
+    { id: 'organisations', label: 'Organisations', icon: Building2 },
     { id: 'general', label: 'Général', icon: Building2 },
     { id: 'vehicles', label: 'Véhicules', icon: Truck },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench },
@@ -326,6 +347,45 @@ export const AdminSettingsView = () => {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'organisations' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6">
+          <h3 className="text-lg font-semibold text-slate-900 mb-1">Organisations</h3>
+          <p className="text-sm text-slate-600 mb-4">
+            Référentiel des organisations (D-038) : chaque site s'y rattache ; la création est réservée à l'administrateur.
+          </p>
+          <div className="flex gap-2 mb-4">
+            <input
+              value={nouvelleOrg}
+              onChange={(e) => setNouvelleOrg(e.target.value)}
+              placeholder="Raison sociale de la nouvelle organisation"
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg"
+            />
+            <button onClick={creerOrganisation} className="flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+              <Plus className="w-4 h-4" /> Créer
+            </button>
+          </div>
+          <table className="w-full">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Raison sociale</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {organisations.map((o) => (
+                <tr key={o.id} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 font-medium text-slate-900">{o.raison_sociale}</td>
+                  <td className="px-6 py-4 text-slate-700 text-sm">{o.statut === 'active' ? 'Active' : 'Inactive'}</td>
+                </tr>
+              ))}
+              {organisations.length === 0 && (
+                <tr><td className="px-6 py-4 text-slate-500 text-sm" colSpan={2}>Aucune organisation saisie.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
 
