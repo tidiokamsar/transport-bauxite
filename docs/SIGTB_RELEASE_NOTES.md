@@ -1,5 +1,8 @@
 # SIGTB : notes de version
 
+> **Erratum du 2026-11-15 (D-070).** Des entrees de ce document portent les dates du 2026-11-16, du 2026-11-17 ou du 2026-11-18. Ces dates sont fausses : le travail correspondant a ete fait le 2026-11-15. L'horodatage des commits et l'heure du serveur, lus par `date -u`, le confirment. Les entrees sont laissees telles quelles pour la tracabilite ; seul cet erratum les corrige. Les numeros de migration `20261116...` a `20261120...` sont des identifiants de sequence, pas des dates : les versions deja appliquees en production ne sont pas renommees.
+
+
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
 ## 5ef4ab6 (2026-11-18) : écrans hérités corrigés (D-061, PR #76)
