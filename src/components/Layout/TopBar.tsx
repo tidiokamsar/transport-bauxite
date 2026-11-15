@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CalendarDays, ChevronDown, HelpCircle, Languages, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { Bell, CalendarDays, ChevronDown, HelpCircle, Inbox, Languages, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
@@ -58,6 +58,7 @@ export const TopBar = ({
   const [maintenant, setMaintenant] = useState(() => new Date());
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [alertes, setAlertes] = useState<number | null>(null);
+  const [aTraiter, setATraiter] = useState<number | null>(null);
   const [menu, setMenu] = useState<'aide' | 'profil' | null>(null);
   const [deconnexion, setDeconnexion] = useState(false);
   const zoneMenu = useRef<HTMLDivElement>(null);
@@ -85,8 +86,14 @@ export const TopBar = ({
         .then(({ count, error }) => {
           if (actif) setAlertes(error ? null : count ?? 0);
         });
+    // Elements en attente de decision (D-056), calcules par le serveur.
+    const lireValidations = () =>
+      supabase.rpc('mes_validations').then(({ data, error }) => {
+        if (actif) setATraiter(error || !Array.isArray(data) ? null : data.length);
+      });
     lireAlertes();
-    const minuterie = window.setInterval(lireAlertes, 60_000);
+    lireValidations();
+    const minuterie = window.setInterval(() => { lireAlertes(); lireValidations(); }, 60_000);
     return () => {
       actif = false;
       window.clearInterval(minuterie);
@@ -131,6 +138,20 @@ export const TopBar = ({
             <span className="text-sm text-stone-500">Aucun shift défini</span>
           )}
         </span>
+
+        <button
+          onClick={() => onAllerA('mes-validations')}
+          className="relative rounded-xl p-2.5 text-stone-700 transition hover:bg-stone-100"
+          aria-label={aTraiter ? `${aTraiter} validations en attente` : 'Validations en attente'}
+          title={aTraiter === null ? 'Validations indisponibles' : `${aTraiter} élément(s) à traiter`}
+        >
+          <Inbox className="h-6 w-6" />
+          {!!aTraiter && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-600 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+              {aTraiter > 99 ? '99+' : aTraiter}
+            </span>
+          )}
+        </button>
 
         <button
           onClick={() => onAllerA('alerts')}

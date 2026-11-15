@@ -2,7 +2,12 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : paiements fournisseurs (D-055)
+## À venir : mes validations et notifications (D-056)
+
+- Mes validations : tout ce qui attend votre décision (bons de commande, paiements, carburant, postes, interventions Neemba, écarts CBG, factures à signer, actions en retard), selon vos droits ; compteur dans la barre supérieure.
+- Notifications personnelles quand une décision vous concerne (bon ou paiement approuvé ou rejeté, anomalie au contrôle, clôture de poste validée).
+
+## 48d2cf0 (2026-11-17) : paiements fournisseurs (D-055, PR #67)
 
 - Contrats & Finance > Paiements fournisseurs : pièces payables (factures Neemba contrôlées, bons de commande reçus) avec reste à payer.
 - Bon à payer plafonné au reste, approuvé par une autre personne, puis paiement exécuté saisi avec sa référence bancaire.

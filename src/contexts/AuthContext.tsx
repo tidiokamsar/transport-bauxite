@@ -158,6 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const modulePermissionMap: Record<string, string> = {
       'dashboard': 'dashboard',
+      'mes-validations': 'dashboard',
       'vehicles': 'vehicles',
       'tires': 'vehicles',
       'documents': 'vehicles',
