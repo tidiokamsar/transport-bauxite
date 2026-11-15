@@ -683,25 +683,29 @@ BEGIN
   IF p_echeance IS NOT NULL AND p_echeance <= p_remis_le THEN
     RAISE EXCEPTION 'Echeance de renouvellement posterieure a la remise' USING ERRCODE = '22023';
   END IF;
-  IF p_driver IS NOT NULL THEN
-    SELECT d.name INTO v_nom FROM public.drivers d WHERE d.id = p_driver;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Chauffeur introuvable' USING ERRCODE = '22023'; END IF;
-  END IF;
-  IF p_employee IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = p_employee) THEN
-    RAISE EXCEPTION 'Employe introuvable' USING ERRCODE = '22023';
-  END IF;
-  v_nom := public.texte_requis(coalesce(nullif(btrim(coalesce(p_beneficiaire, '')), ''), v_nom), 'Beneficiaire');
+  -- Renouvellement : meme type, la personne de la dotation remplacee sauf saisie contraire.
   IF p_remplace IS NOT NULL THEN
     SELECT * INTO o FROM public.dotations_epi WHERE id = p_remplace FOR UPDATE;
     IF NOT FOUND OR o.statut <> 'remis' THEN RAISE EXCEPTION 'Dotation remplacee introuvable ou deja close' USING ERRCODE = '22023'; END IF;
     IF NOT public.site_permis(o.site_id) THEN RAISE EXCEPTION 'Dotation hors de votre perimetre' USING ERRCODE = '42501'; END IF;
     IF o.type_epi <> p_type THEN RAISE EXCEPTION 'Le remplacement porte sur le meme type d''EPI' USING ERRCODE = '22023'; END IF;
+  END IF;
+  IF coalesce(p_driver, o.driver_id) IS NOT NULL THEN
+    SELECT d.name INTO v_nom FROM public.drivers d WHERE d.id = coalesce(p_driver, o.driver_id);
+    IF NOT FOUND THEN RAISE EXCEPTION 'Chauffeur introuvable' USING ERRCODE = '22023'; END IF;
+  END IF;
+  IF coalesce(p_employee, o.employee_id) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = coalesce(p_employee, o.employee_id)) THEN
+    RAISE EXCEPTION 'Employe introuvable' USING ERRCODE = '22023';
+  END IF;
+  v_nom := public.texte_requis(coalesce(nullif(btrim(coalesce(p_beneficiaire, '')), ''), o.beneficiaire, v_nom), 'Beneficiaire');
+  IF p_remplace IS NOT NULL THEN
     UPDATE public.dotations_epi SET statut = 'remplace', cloture_par = auth.uid(), cloture_le = now() WHERE id = p_remplace;
   END IF;
   INSERT INTO public.dotations_epi (numero, site_id, beneficiaire, driver_id, employee_id, type_epi, designation, taille, quantite,
                                     remis_le, echeance_renouvellement, remplace_dotation_id, remis_par)
   VALUES ('EPI-' || to_char(p_remis_le, 'YYYY') || '-' || lpad(nextval('public.dotations_epi_numero_seq')::text, 5, '0'),
-          p_site, v_nom, p_driver, p_employee, p_type, nullif(btrim(coalesce(p_designation, '')), ''), nullif(btrim(coalesce(p_taille, '')), ''),
+          p_site, v_nom, coalesce(p_driver, o.driver_id), coalesce(p_employee, o.employee_id), p_type,
+          nullif(btrim(coalesce(p_designation, '')), ''), nullif(btrim(coalesce(p_taille, '')), ''),
           p_quantite, p_remis_le, p_echeance, p_remplace, auth.uid())
   RETURNING id INTO v_id;
   RETURN v_id;
