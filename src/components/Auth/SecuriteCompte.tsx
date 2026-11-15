@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce } from '../ui/Panneau';
 import { codeValide, nettoyerCode, urlQrCode } from './mfa';
+import { Delegations } from '../Settings/Delegations';
 
 // Securite du compte (D-045) : inscription d'un facteur TOTP, liste et
 // retrait des facteurs. L'administrateur active ensuite l'exigence aal2 pour
@@ -112,5 +113,7 @@ export const SecuriteCompte = () => {
       {mfaExige === false && <button onClick={() => basculerExigence(true)} disabled={verifies.length === 0} title={verifies.length === 0 ? 'Activez d\'abord la double authentification de votre compte' : undefined} className="flex items-center gap-2 rounded-lg bg-stone-800 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><ShieldCheck className="h-4 w-4" /> Exiger</button>}
       {mfaExige && <button onClick={() => basculerExigence(false)} className="flex items-center gap-2 rounded-lg border border-stone-300 px-4 py-2 text-sm"><ShieldOff className="h-4 w-4" /> Lever l'exigence</button>}
     </Panneau>}
+
+    <Delegations />
   </div>;
 };

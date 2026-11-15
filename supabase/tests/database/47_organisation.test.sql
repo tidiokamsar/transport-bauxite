@@ -35,7 +35,7 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-b640-000000000002', 'fleet_manager', 'Flotte F D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000003', 'fleet_manager', 'Flotte G D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000004', 'fleet_manager', 'Flotte H D-064', 'active', '00000000-0000-4000-b640-0000000000a1'),
-  ('00000000-0000-4000-b640-000000000005', 'dispatcher', 'Dispatch X D-064', 'active', NULL),
+  ('00000000-0000-4000-b640-000000000005', 'operations_manager', 'Dispatch X D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000006', 'driver', 'Chauffeur Y D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000007', 'driver', 'Chauffeur Z D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000008', 'logistician', 'Logistique 1 D-064', 'active', NULL),
