@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : fournisseurs (D-059)
+## À venir : rapports et coûts directs (D-058)
+
+- Rapports : journalier, de shift, mensuel avec tableau jour par jour, loueur (Neemba) et client (CBG), calculés par le serveur sur les données réelles, selon vos droits et votre site. Une donnée absente ou hors droits est signalée, jamais remplacée par 0.
+- Export CSV et impression ; un rapport peut être figé et numéroté (RAP).
+- Coûts : « Nouvelle dépense » enregistre réellement la dépense (devise obligatoire) ; une dépense s'annule avec motif ; totaux par devise.
+
+## eca55e3 (2026-11-18) : fournisseurs (D-059, PR #74)
 
 - Fournisseurs : répertoire et fiche détaillée (contacts, catégories, documents administratifs avec alerte d'échéance, évaluations, historique des commandes et des paiements, journal) ; aucune suppression physique.
 - Évaluation périodique sur une grille pondérée définie par l'administrateur ; suspension et réactivation motivées : un fournisseur suspendu ne reçoit plus de bon de commande.
