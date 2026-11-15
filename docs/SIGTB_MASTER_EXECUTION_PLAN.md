@@ -26,7 +26,7 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 
 | # | Lot | Modules | LOT CDC | Contenu | Statut |
 |---|---|---|---|---|---|
-| 1 | Registre carburant (D-041) | 13 | 10 | Stock calculé depuis les mouvements validés, réception mesurée, transferts, distributions, inventaires, annulation, séparation saisie / décision | PR #51 |
+| 1 | Registre carburant (D-041) | 13 | 10 | Stock calculé depuis les mouvements validés, réception mesurée, transferts, distributions, inventaires, annulation, séparation saisie / décision | Déployé le 2026-11-15 (8144424) |
 | 2 | Assainissement des écrans non conformes | 12, 16, 17, 20, 25, divers | 01 | Retirer du menu le portail client fabriqué ; retirer les chiffres et recommandations codés en dur des pneus ; supprimer le numéro aléatoire des achats ; retirer le droit DELETE du navigateur sur les enregistrements métier (commandes, paie, présences, pneus, ordres de travail, mouvements de stock, alertes) | À faire |
 | 3 | Relevés kilométriques (lot K) | 06, 07, 08, 10, 20 | 07, 12 | Relevés d'odomètre append-only (source, auteur, heure, justificatif) ; distances référence, déclarée, mesurée, validée, facturable ; contrôle Neemba et facture au km sur la seule distance validée | À faire |
 | 4 | Registre des stocks magasin (lot M) | 17 | 11 | Mouvements append-only, solde calculé, entrées, sorties, transferts, inventaires, ajustements autorisés ; correction des colonnes de l'écran | À faire |
@@ -88,4 +88,4 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | Date | Lot | Résultat |
 |---|---|---|
 | 2026-11-15 | Phase 0 | Reprise, audit des écrans hérités, matrice de couverture, ce plan |
-| 2026-11-15 | 1. Registre carburant (D-041) | Branche `lot-10/registre-carburant` ; pgTAP 25 (25 assertions), 4 unitaires, 2 E2E |
+| 2026-11-15 | 1. Registre carburant (D-041) | PR #51 fusionnée ; déployé (8144424) : sauvegarde, migration `20261115090000`, 25 fichiers pgTAP OK sur la base du serveur, release front (précédente feda997) |
