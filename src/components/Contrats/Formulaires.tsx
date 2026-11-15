@@ -158,7 +158,7 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
       .eq('contrat_id', contratId).lt('numero', numero ?? 0).order('numero', { ascending: false }).limit(1).maybeSingle();
     if (precedente) {
       const [t, e] = await Promise.all([
-        supabase.from('contrat_tarifs').select('libelle, unite, prix, categorie_materiel, conditions, ordre').eq('version_id', precedente.id),
+        supabase.from('contrat_tarifs').select('libelle, unite, prix, categorie_materiel, engin, conditions, ordre, km_retour_vide_facturable').eq('version_id', precedente.id),
         supabase.from('contrat_engagements').select('indicateur, libelle, seuil, unite, sens, periodicite, consequence, ordre').eq('version_id', precedente.id),
       ]);
       const copies = await Promise.all([
@@ -209,6 +209,7 @@ export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versio
     categorie: tarif?.categorie_materiel ?? '',
     engin: tarif?.engin ?? '',
     conditions: tarif?.conditions ?? '',
+    retourVide: tarif?.km_retour_vide_facturable == null ? '' : String(tarif.km_retour_vide_facturable),
   });
   const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
   useEffect(() => {
@@ -227,6 +228,7 @@ export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versio
       onValider={() => enregistrer({
         version_id: versionId, libelle: f.libelle.trim(), unite: f.unite, prix,
         categorie_materiel: texte(f.categorie), engin: f.engin || null, conditions: texte(f.conditions),
+        km_retour_vide_facturable: f.unite === 'km' && f.retourVide !== '' ? f.retourVide === 'true' : null,
       })}
     >
       <Champ libelle="Libellé *" large><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
@@ -240,6 +242,13 @@ export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versio
       </Champ>
       <Champ libelle="Catégorie de matériel"><input value={f.categorie} onChange={(e) => setF({ ...f, categorie: e.target.value })} placeholder="Semi-remorque, chargeuse..." className={CHAMP} /></Champ>
       <Champ libelle="Conditions"><input value={f.conditions} onChange={(e) => setF({ ...f, conditions: e.target.value })} className={CHAMP} /></Champ>
+      {f.unite === 'km' && <Champ libelle="Retour à vide facturable (D-043)">
+        <select value={f.retourVide} onChange={(e) => setF({ ...f, retourVide: e.target.value })} className={CHAMP}>
+          <option value="">À confirmer (kilomètres non contrôlés)</option>
+          <option value="true">Oui : trajet chargé et retour à vide</option>
+          <option value="false">Non : trajet chargé seulement</option>
+        </select>
+      </Champ>}
     </Fenetre>
   );
 };

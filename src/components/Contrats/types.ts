@@ -37,6 +37,8 @@ export interface Tarif {
   engin: string | null;
   conditions: string | null;
   ordre: number;
+  /** Tarif au km (D-043) : retour a vide facture ; null = regle a confirmer. */
+  km_retour_vide_facturable?: boolean | null;
 }
 
 export interface Engagement {

@@ -37,7 +37,7 @@ Un bloc sans sens métier pour un domaine n'est pas créé.
 |---|---|---|
 | Planning vers dispatch | Opérationnel | Objectifs D-023 lus par la recommandation D-024 |
 | Dispatch vers rotation | Opérationnel | `decider_affectation` puis `creer_voyage` / cycle à 18 états |
-| Rotation vers kilomètres | Manquant | Lot 3 (relevés d'odomètre) |
+| Rotation vers kilomètres | En cours (D-043) | Relevés du voyage, distance validée, contrôle des factures au km sur distance facturable |
 | Rotation vers ticket CBG | Opérationnel | Ticket source rattaché au voyage (D-037) |
 | Ticket validé vers rapprochement | Opérationnel (mensuel) | Réconciliation D-029 ; journalier : lot 10 |
 | Rapprochement clôturé vers facturation | Opérationnel | Facture CBG préparée depuis la réconciliation close, signée par le DG |
