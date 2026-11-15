@@ -2,7 +2,14 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : centre de pilotage (D-057)
+## À venir : moyens généraux et patrimoine (D-060)
+
+- Stocks & Achats > Moyens généraux et patrimoine : registre des biens (matériel, mobilier, équipements, outillage, véhicules administratifs) et fiche avec tout l'historique.
+- Affectation, remise, restitution, transfert entre sites, constat d'état, réparation, réforme motivée ; la dernière opération s'annule avec motif.
+- Inventaire physique par site : manquants, biens d'un autre site, réformés retrouvés, non référencés ; le registre n'est jamais corrigé automatiquement.
+- Amortissement linéaire seulement si la valeur, la date d'acquisition et la durée sont saisies.
+
+## 9cf47cf (2026-11-17) : centre de pilotage (D-057, PR #70)
 
 - Centre de pilotage : indicateurs de production, tickets, flotte, carburant, maintenance, HSE, achats et finance, filtrés par période et site.
 - Chaque indicateur affiche sa source, sa fiabilité (mesuré, partiel, sans données), sa période et son heure de calcul ; export CSV.

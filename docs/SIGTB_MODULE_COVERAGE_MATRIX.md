@@ -42,7 +42,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Tableau de bord exploitation | `Dashboard/*` (menu `dashboard`) | `vehicles`, `trips`, `v_realisation_objectifs`, `fuel_transactions`, `alerts`, `vehicle_tracking`, `work_shifts` (lecture) | EXISTANT À AMÉLIORER | P2 | Métadonnées source / période / fraîcheur par KPI (règle 5 CLAUDE.md) ; centraliser les KPI en vues SQL |
 | Tableau de bord du chargé de contrats | `Contrats/MonPosteView` | `indicateurs_charge_contrats()` | DÉPLOYÉ | P2 | Rattacher au centre de pilotage |
-| Dashboards Direction, Finance, Flotte, Carburant, Maintenance, Performance | `Pilotage/CentrePilotageView` | `indicateurs_pilotage()` : indicateurs par domaine avec source, fiabilité, période, heure (D-057) | À TESTER | P2 | Widgets par profil ; graphiques d'évolution |
+| Dashboards Direction, Finance, Flotte, Carburant, Maintenance, Performance | `Pilotage/CentrePilotageView` | `indicateurs_pilotage()` : indicateurs par domaine avec source, fiabilité, période, heure (D-057) | DÉPLOYÉ | P2 | Widgets par profil ; graphiques d'évolution |
 | Centre des décisions, alertes prioritaires | - | `alerts` (aucun écrivain) | MANQUANT | P2 | Après le centre de notifications (lot T3) |
 | Comparaison de périodes, analyse site / shift / véhicule / partenaire | partiel dans Analyses | `fiabilite_engins`, `performance_chauffeurs`, `consommation_carburant` | PARTIEL | P2 | Filtres communs période / site / shift |
 | Prévisions production et financières | - | - | MANQUANT | P3 | Après historique réel suffisant |
@@ -215,7 +215,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Matériel, mobilier, équipements, outillage, véhicules administratifs, affectations, inventaires, réformes | - | - | MANQUANT | P2 | Lot G |
+| Matériel, mobilier, équipements, outillage, véhicules administratifs, affectations, inventaires, réformes | `MoyensGeneraux/MoyensGenerauxView` | `biens`, `biens_operations` append-only, `inventaires_biens`, `inventaires_biens_lignes`, `v_biens` (amortissement linéaire si durée saisie), `v_inventaires_biens_ecarts` ; `enregistrer_bien`, `affecter_bien`, `transferer_bien`, `reformer_bien`, `annuler_operation_bien`, `cloturer_inventaire_biens` (D-060) | À TESTER | P2 | Lien bénéficiaire et employé, étiquettes et codes-barres, pièces jointes (PV de remise) |
 
 ### 19. Contrats et engagements
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 59 |
+| DÉPLOYÉ | 60 |
 | À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
 | PARTIEL | 24 |
 | À CORRIGER | 9 |
 | NON CONFORME | 0 |
-| MANQUANT | 21 |
+| MANQUANT | 20 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
