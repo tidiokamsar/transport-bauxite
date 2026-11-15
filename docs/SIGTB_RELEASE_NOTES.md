@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : tickets et relevés CBG (D-050)
+## À venir : habilitations des chauffeurs (D-051)
+
+- Flotte > Habilitations chauffeurs : visites médicales, formations, habilitations engins, accès sites, avec échéances ; révocation motivée.
+- Alertes des habilitations expirées ou expirant sous 30 jours.
+- L'administrateur choisit les habilitations exigées : le dispatch refuse alors un chauffeur non habilité.
+
+## 6b55549 (2026-11-16) : tickets et relevés CBG (D-050, PR #62)
 
 - Exploitation > Tickets CBG : import du relevé CBG en CSV, conservé tel que reçu.
 - Rapprochement ticket par ticket : écart de poids, autre camion, autre date, ticket inconnu, ticket absent du relevé ; décision motivée (accepté ou litige) sur chaque anomalie.

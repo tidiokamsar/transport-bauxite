@@ -162,6 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'tires': 'vehicles',
       'documents': 'vehicles',
       'drivers': 'drivers',
+      'habilitations': 'drivers',
       'trips': 'trips',
       'kilometrage': 'trips',
       'tickets-cbg': 'trips',

@@ -15,6 +15,8 @@ LANGUAGE sql AS $$
 $$;
 
 SELECT plan(17);
+-- D-051 : exigences d'habilitation neutralisees pour ce test (annule en fin).
+DELETE FROM public.habilitations_requises;
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-8b00-000000000001', 'operations.dispatch@exemple.invalid'),
