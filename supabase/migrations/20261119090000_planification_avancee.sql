@@ -153,7 +153,7 @@ DECLARE
   o public.objectifs_production;
   l jsonb;
   v_dest uuid; v_contrat uuid; v_tonnes numeric; v_voyages integer;
-  c public.contrats;
+  k public.contrats;
   v_total numeric := 0;
   v_n integer := 0;
 BEGIN
@@ -199,9 +199,9 @@ BEGIN
       END IF;
     END IF;
     IF v_contrat IS NOT NULL THEN
-      SELECT * INTO c FROM public.contrats WHERE id = v_contrat;
-      IF NOT FOUND OR c.nature <> 'client' OR c.statut <> 'actif'
-         OR c.date_debut > o.date_plan OR (c.date_fin IS NOT NULL AND c.date_fin < o.date_plan) THEN
+      SELECT * INTO k FROM public.contrats WHERE id = v_contrat;
+      IF NOT FOUND OR k.nature <> 'client' OR k.statut <> 'actif'
+         OR k.date_debut > o.date_plan OR (k.date_fin IS NOT NULL AND k.date_fin < o.date_plan) THEN
         RAISE EXCEPTION 'Contrat client actif a la date de l''objectif requis' USING ERRCODE = '22023';
       END IF;
     END IF;
