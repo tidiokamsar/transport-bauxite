@@ -84,7 +84,7 @@ PR quand la dette diminue ; ne jamais les remonter.
   loues a l'heure, 2 chargeuses Caterpillar et 1 pelle. Location et
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
-- 37 erreurs typecheck, 0 erreur lint, build OK.
+- 29 erreurs typecheck (baseline au 2026-11-18), 0 erreur lint, build OK.
 - Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 40 E2E (API
   simulee : `e2e/api-simulee.ts`), 254 assertions pgTAP (via
   `npm run test:rls:rejeu`).
