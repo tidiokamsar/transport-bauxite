@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : infrastructures et fermetures de site (D-047)
+## À venir : postes de travail (D-048)
+
+- Exploitation > Postes de travail : ouverture d'un poste par shift et par site, avec les consignes du poste précédent.
+- Équipe et présence (retard, absence motivée), journal des événements du poste.
+- Clôture avec consignes pour le poste suivant et bilan figé (objectif, livré, voyages, présences) ; validation par une autre personne ; rapport imprimable.
+
+## d11cf3c (2026-11-15) : infrastructures et fermetures de site (D-047, PR #59)
 
 - Exploitation > Infrastructures et fermetures : points de chargement, dépôts, ponts-bascules, stations, ateliers, avec leur capacité.
 - Fermeture temporaire d'un site, motivée et levée avec motif ; le dispatch refuse les affectations vers ou depuis un site fermé.

@@ -32,6 +32,7 @@ export const MENU: MenuItem[] = [
     ],
   },
   { id: 'planification', label: 'Planification', icon: CalendarDays },
+  { id: 'postes', label: 'Postes de travail', icon: Timer },
   { id: 'dispatch', label: 'Dispatch', icon: Waypoints },
   { id: 'trips', label: 'Voyages & Rotations', icon: Route },
   { id: 'kilometrage', label: 'Kilométrage', icon: Gauge },

@@ -37,8 +37,8 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 
 | # | Lot | Modules | LOT CDC | Contenu |
 |---|---|---|---|---|
-| 7 | Infrastructures de site (lot I, D-047 en PR) | 03, 06 | 02 | Points de chargement, dépôts, ponts-bascules, stations ; capacités, horaires, fermetures temporaires ; contraintes du dispatch (dépôt fermé, saturé) |
-| 8 | Shifts opérables (lot S) | 05 | 03 | Instance de shift, responsable, équipe, affectations, passation, événements, clôture validée, rapport |
+| 7 | Infrastructures de site (lot I, D-047 déployé le 2026-11-15, d11cf3c) | 03, 06 | 02 | Points de chargement, dépôts, ponts-bascules, stations ; capacités, horaires, fermetures temporaires ; contraintes du dispatch (dépôt fermé, saturé) |
+| 8 | Shifts opérables (lot S, D-048 en PR) | 05 | 03 | Instance de shift, responsable, équipe, affectations, passation, événements, clôture validée, rapport |
 | 9 | Interventions Neemba (lot N) | 10, 11 | 11 | Déclaration de panne, notification, demande d'intervention, suivi, rapport, pièces, validation de remise en service, calcul d'indisponibilité ; heures présence / productives / arrêt / facturables |
 | 10 | Registre des tickets CBG (lot T) | 14 | 07 | Registre, tickets manquants et orphelins, contrôles immatriculation / date / poids, litiges, réconciliation journalière, export |
 | 11 | Chauffeurs habilités (lot C) | 09, 06 | 05 | Permis, qualifications, habilitations, alertes d'expiration ; contrainte serveur au dispatch |
@@ -94,4 +94,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-15 | 4. Registre des stocks (D-044) | PR #56 fusionnée ; déployé (7abf1b6) : 28 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-15 | 5. MFA côté client (D-045) | PR #57 fusionnée ; déployé (d34b10c), aucune migration |
 | 2026-11-15 | 6. Périmètre étendu (D-046) | PR #58 fusionnée ; déployé (c1f4bfe) : 29 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-15 | 7. Infrastructures de site (D-047) | Branche `lot-02/infrastructures-sites` ; pgTAP 30 (10 assertions), 2 unitaires, 1 E2E |
+| 2026-11-15 | 7. Infrastructures de site (D-047) | PR #59 fusionnée ; déployé (d11cf3c) : 30 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-16 | 8. Postes de travail (D-048) | Branche `lot-03/postes` ; pgTAP 31 (14 assertions), 2 unitaires, 2 E2E |

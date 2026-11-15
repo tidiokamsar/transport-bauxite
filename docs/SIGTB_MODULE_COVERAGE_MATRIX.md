@@ -69,7 +69,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Sites | `Sites/SitesView`, `SiteModal` | `sites` (écriture `settings`) | EXISTANT À AMÉLIORER | P1 | Colonnes inexistantes retirées (D-047), désactivation au lieu de suppression (D-042) ; coordonnées GPS sans colonne |
-| Points de chargement, dépôts, ponts-bascules, stations, ateliers | `Sites/InfrastructuresView` | `infrastructures_site` (D-047) | À TESTER | P1 | - |
+| Points de chargement, dépôts, ponts-bascules, stations, ateliers | `Sites/InfrastructuresView` | `infrastructures_site` (D-047) | DÉPLOYÉ | P1 | - |
 | Capacités, horaires, fermetures temporaires, files d'attente | `Sites/InfrastructuresView` | capacités avec unité, `fermetures_site`, garde du dispatch (D-047) | PARTIEL | P1 | Horaires d'activité et files d'attente : à mesurer |
 | Géorepérage | `Geofencing/*` | `geofence_zones/violations/alerts` (régime C) | À CORRIGER | P3 | Politiques absentes : écran inutilisable ; suppression de zone ; PostGIS absent |
 | Cartographie, routes et pistes, import géographique | Leaflet (Tracking) | - | MANQUANT | P3 | - |
@@ -89,8 +89,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Modèles d'horaires | Paramètres | `work_shifts` (définitions) | EXISTANT | P1 | - |
-| Instances de shift : ouverture, responsable, équipe, affectations, clôture validée | - | - | MANQUANT | P1 | Lot S : `shifts` (instance datée), équipe, affectations, clôture |
-| Passation de consignes, événements, rapport de shift, retards et absences | - | - | MANQUANT | P1 | Idem |
+| Instances de shift : ouverture, responsable, équipe, affectations, clôture validée | `Postes/PostesView` | `postes`, `postes_equipe`, `ouvrir_poste`, `cloturer_poste`, `valider_cloture_poste` (D-048) | À TESTER | P1 | Affectation des engins au poste depuis l'écran |
+| Passation de consignes, événements, rapport de shift, retards et absences | `Postes/PostesView` | passation automatique, `postes_evenements`, bilan figé, présences (D-048) | À TESTER | P1 | - |
 | Comparaison entre shifts, historique des équipes | - | `trips.shift_id` | PARTIEL | P2 | - |
 
 ### 06. Dispatch et affectation
@@ -100,7 +100,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | File des camions, recommandation déterministe expliquée, décision humaine historisée, motif de refus | `Dispatch/*` | `decisions_dispatch`, `decider_affectation` (D-024) | DÉPLOYÉ | P1 | - |
 | Disponibilité engins (immobilisations bloquantes) | `Dispatch/*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Disponibilité et habilitation des chauffeurs | - | `drivers` (sans qualification) | PARTIEL | P1 | Habilitations (module 09) puis contrainte serveur |
-| Fermeture des points de chargement, capacité et files des dépôts | Dispatch (refus serveur) | `site_ferme_le`, garde `garde_site_ferme` (D-047) | À TESTER | P1 | Saturation : pas de donnée observée |
+| Fermeture des points de chargement, capacité et files des dépôts | Dispatch (refus serveur) | `site_ferme_le`, garde `garde_site_ferme` (D-047) | DÉPLOYÉ | P1 | Saturation : pas de donnée observée |
 | Affectation groupée, réaffectation directe, simulation, comparaison de scénarios, optimisation | - | - | MANQUANT | P2-P3 | Réaffectation directe après livraison : à vérifier dans le cycle (module 07) |
 
 ### 07. Voyages et rotations
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 45 |
+| DÉPLOYÉ | 47 |
 | À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 7 |
 | PARTIEL | 19 |
 | À CORRIGER | 11 |
 | NON CONFORME | 1 |
-| MANQUANT | 36 |
+| MANQUANT | 34 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
