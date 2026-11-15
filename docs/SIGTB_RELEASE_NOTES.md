@@ -2,7 +2,7 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : écrans hérités corrigés (D-061)
+## 5ef4ab6 (2026-11-18) : écrans hérités corrigés (D-061, PR #76)
 
 - Ordres de travail : numéro attribué par le serveur, annulation motivée, pièces sorties du registre des stocks (plus de second inventaire).
 - Maintenance préventive, présences, recherche globale et géorepérage réécrits sur les colonnes réelles ; plus de suppression ni de valeur par défaut inventée.

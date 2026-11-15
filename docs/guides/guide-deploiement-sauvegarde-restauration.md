@@ -123,11 +123,14 @@ tail -n 20 /var/log/sigtb-sauvegarde.log
 
 ## 5. Restauration d'une sauvegarde
 
-> **À VALIDER PAR UN TEST DE RESTAURATION.** Le dépôt ne contient aucun
-> script ni aucune procédure de restauration testée. La procédure
-> ci-dessous est la procédure standard `pg_restore` adaptée à cette pile.
-> Elle doit être répétée une première fois sur une base jetable (étape 2)
-> et le résultat consigné avant tout usage en production.
+> **Procédure testée le 2026-11-15** avec le script `deploy/vps/tester-restauration.sh` :
+> - la sauvegarde `sigtb-20261115T224535Z.dump`, prise par `sauvegarder.sh`, a été restaurée dans un conteneur jetable de la même image que la production, sans réseau ;
+> - l'empreinte sha256 était valide et la restauration a pris 4 s ;
+> - les comptages sont identiques à la production : 50 migrations, 3 comptes, 27 engins, 1 813 voyages, 18 026 événements de voyage, 277 politiques d'accès, 289 fonctions.
+>
+> `pg_restore` signale 7 erreurs, toutes « role supabase_functions_admin does not exist ». Ce rôle est créé par la pile complète, pas par une image nue. Ces erreurs ne concernent que la propriété de quelques objets, aucune donnée. Dans le conteneur `sigtb-db` de la pile, ce rôle existe.
+>
+> Un premier essai sur la sauvegarde prise juste avant un déploiement montrait une migration de moins, et donc moins de politiques et de fonctions. C'est le comportement attendu : `deployer` sauvegarde avant d'appliquer les migrations.
 
 Une restauration remet la base à l'état du dump : toute saisie postérieure
 est perdue. Elle exige l'autorisation explicite du propriétaire.
@@ -140,17 +143,13 @@ sha256sum -c "$DUMP.sha256"
 docker exec -i sigtb-db pg_restore --list < "$DUMP" > /dev/null && echo "dump lisible"
 ```
 
-### Étape 2 : test dans une base jetable (sans effet sur la production)
+### Étape 2 : test dans un conteneur jetable (sans effet sur la production)
 
-```bash
-docker exec sigtb-db psql -U supabase_admin -d postgres -X -c "CREATE DATABASE sigtb_test_restauration"
-docker exec -i sigtb-db pg_restore -U supabase_admin -d sigtb_test_restauration \
-  -n public -n auth -n supabase_migrations < "$DUMP" 2> restauration-test.log
-# Lire restauration-test.log, puis comparer quelques comptages avec la production :
-docker exec sigtb-db psql -U supabase_admin -d sigtb_test_restauration -X -tA \
-  -c "select count(*) from public.trips; select count(*) from auth.users; select count(*) from supabase_migrations.schema_migrations;"
-docker exec sigtb-db psql -U supabase_admin -d postgres -X -c "DROP DATABASE sigtb_test_restauration"
-```
+Script versionné `deploy/vps/tester-restauration.sh`, à lancer sur le serveur
+(`bash tester-restauration.sh`). Il restaure la dernière sauvegarde dans un
+conteneur de la même image, sans réseau, compare les comptages avec la
+production (lecture seule), puis détruit le conteneur. Pour tester une autre
+sauvegarde que la dernière, adapter la variable `DUMP` en tête du script.
 
 Consigner le résultat (erreurs éventuelles, comptages) avant de passer à
 l'étape 3.
