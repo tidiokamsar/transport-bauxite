@@ -143,13 +143,13 @@ export const PurchasesView = () => {
       const numeros = lireNumerosPneus(s.pneus ?? '');
       if (numeros && numeros.length === recue) base.pneus = numeros.map((numero) => ({ numero })); else complet = false;
     }
-    return { ...base, complet } as { ligne: string; recue: number; refusee: number; motif_refus: string | null; complet: boolean };
-  }).filter((x) => x.recue > 0 || x.refusee > 0) : [];
-  const receptionValide = lignesReceptionServeur.length > 0 && lignesReceptionServeur.every((x) => x.complet && Number.isInteger(x.recue) && Number.isInteger(x.refusee) && (x.refusee === 0 || x.motif_refus))
+    return { corps: base as { ligne: string; recue: number; refusee: number; motif_refus: string | null }, complet };
+  }).filter((x) => x.corps.recue > 0 || x.corps.refusee > 0) : [];
+  const receptionValide = lignesReceptionServeur.length > 0 && lignesReceptionServeur.every(({ corps: x, complet }) => complet && Number.isInteger(x.recue) && Number.isInteger(x.refusee) && (x.refusee === 0 || x.motif_refus))
     && (detail?.lignes ?? []).every((l) => (Number(reception?.[l.id]?.recue || 0)) <= restantARecevoir(l.quantity, l.quantity_received));
   const receptionner = () => {
     if (!selection) return;
-    executer('receptionner_bon_commande', { p_id: selection.id, p_lignes: lignesReceptionServeur.map(({ complet: _complet, ...x }) => x), p_bon_livraison: bl.trim() || null },
+    executer('receptionner_bon_commande', { p_id: selection.id, p_lignes: lignesReceptionServeur.map((x) => x.corps), p_bon_livraison: bl.trim() || null },
       'Réception enregistrée : les articles sont entrés en stock.').then((ok) => { if (ok) { setReception(null); setBl(''); } });
   };
 
