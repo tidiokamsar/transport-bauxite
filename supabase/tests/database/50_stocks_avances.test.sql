@@ -19,11 +19,11 @@ SELECT plan(52);
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistique.d067@exemple.invalid'),
-  ('00000000-0000-4000-d067-000000000002', 'mecanicien.d067@exemple.invalid'),
+  ('00000000-0000-4000-d067-000000000002', 'comptable.d067@exemple.invalid'),
   ('00000000-0000-4000-d067-000000000003', 'admin.d067@exemple.invalid');
 INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistician', 'Logistique D-067', 'active', NULL),
-  ('00000000-0000-4000-d067-000000000002', 'mechanic', 'Mecanicien D-067', 'active', NULL),
+  ('00000000-0000-4000-d067-000000000002', 'accountant', 'Comptable D-067', 'active', NULL),
   ('00000000-0000-4000-d067-000000000003', 'admin', 'Admin D-067', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 INSERT INTO public.sites (id, name, type) VALUES ('00000000-0000-4000-d067-0000000000a1', 'Site D-067', 'depot');
