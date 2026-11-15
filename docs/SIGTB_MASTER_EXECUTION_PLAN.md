@@ -55,7 +55,7 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 17 | Centre de notifications et boîte de validations (lots T3, W) (D-056 déployé le 2026-11-17, debf876) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
 | 18 | Composants communs | tous | DataTable, filtres, exports, dialogues de décision, historique, au fil des écrans repris (pas de refonte globale) |
 | 19 | Command Center et KPI de référence (D-057 déployé le 2026-11-17, 9cf47cf) | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
-| 20 | Reporting | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
+| 20 | Reporting (D-058 en PR) | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
 | 21 | Moyens généraux (lot G) (D-060 déployé le 2026-11-18, f79e708) | 18 | Patrimoine, affectations, inventaires |
 | 22 | Portails partenaires | 25 | Identité partenaire, cloisonnement strict, dépôt documentaire |
 | 23 | Intelligence (P3) | 26 | Prévisions et recherche avancée sur données réelles suffisantes |
@@ -111,4 +111,6 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-18 | Coupure réseau | Cinq agents interrompus (API injoignable), relancés avec leur contexte ; aucun travail perdu |
 | 2026-11-18 | 21. Moyens généraux (D-060) | PR #72 fusionnée ; déployé (f79e708) : 41 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-18 | Flotte, module 08 (D-062) | PR #73 fusionnée ; déployé (24dd140) : 42 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-18 | 15b. Fournisseurs (D-059) | Agent : branche `lot-15b/fournisseurs` ; pgTAP 42 (42 assertions), 10 unitaires, 2 E2E ; intégration `lot-15b/fournisseurs-integration` ; migration antérieure en horodatage à D-060 et D-062, sans dépendance (le script serveur applique toute version non enregistrée) ; nom du conteneur de rejeu rendu unique |
+| 2026-11-18 | 15b. Fournisseurs (D-059) | PR #74 fusionnée ; déployé (eca55e3) : 43 fichiers pgTAP OK sur la base du serveur, migration `20261118120000` vérifiée appliquée |
+| 2026-11-18 | 20. Reporting et coûts (D-058) | Agent : branche `lot-20/reporting` ; pgTAP 41 (28 assertions), test 05 adapté, 12 unitaires, 4 E2E ; intégration `lot-20/reporting-integration` |
+| 2026-11-18 | 15b (historique d'intégration) | Agent : branche `lot-15b/fournisseurs` ; pgTAP 42 (42 assertions), 10 unitaires, 2 E2E ; intégration `lot-15b/fournisseurs-integration` ; migration antérieure en horodatage à D-060 et D-062, sans dépendance (le script serveur applique toute version non enregistrée) ; nom du conteneur de rejeu rendu unique |

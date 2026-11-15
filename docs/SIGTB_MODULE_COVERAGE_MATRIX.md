@@ -194,8 +194,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Répertoire, fiche | `Suppliers/SuppliersView`, `Suppliers/FicheFournisseur` | `suppliers` écrit par `enregistrer_fournisseur` (FRS attribué, raison sociale et NIF uniques), `fournisseurs_journal` (D-059) | À TESTER | P2 | - |
-| Contacts, documents, catégories, cotations, comparaison, évaluation, historique, suspension | `Suppliers/FicheFournisseur`, `ConsultationsFournisseurs`, `ReferentielsFournisseurs` | `contacts_fournisseurs`, `categories_fournisseurs`, `documents_fournisseurs` + `v_documents_fournisseurs_echeance`, `evaluations_fournisseurs` (append-only), `suspendre_fournisseur`, `consultations_fournisseurs`, `offres_fournisseurs`, `selectionner_offre` puis `enregistrer_bon_commande` (D-059) | À TESTER | P2 | Pièces jointes après stockage de fichiers ; grille et seuils à confirmer |
+| Répertoire, fiche | `Suppliers/SuppliersView`, `Suppliers/FicheFournisseur` | `suppliers` écrit par `enregistrer_fournisseur` (FRS attribué, raison sociale et NIF uniques), `fournisseurs_journal` (D-059) | DÉPLOYÉ | P2 | - |
+| Contacts, documents, catégories, cotations, comparaison, évaluation, historique, suspension | `Suppliers/FicheFournisseur`, `ConsultationsFournisseurs`, `ReferentielsFournisseurs` | `contacts_fournisseurs`, `categories_fournisseurs`, `documents_fournisseurs` + `v_documents_fournisseurs_echeance`, `evaluations_fournisseurs` (append-only), `suspendre_fournisseur`, `consultations_fournisseurs`, `offres_fournisseurs`, `selectionner_offre` puis `enregistrer_bon_commande` (D-059) | DÉPLOYÉ | P2 | Pièces jointes après stockage de fichiers ; grille et seuils à confirmer |
 
 ### 16. Achats et approvisionnements
 
@@ -235,16 +235,16 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Factures Neemba, régularisations | `Contrats/FacturesNeembaView` | D-032, D-033 | DÉPLOYÉ | P1 | - |
 | Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
 | Dettes, budgets, engagements budgétaires | - | - | MANQUANT | P2 | - |
-| Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Analyses` (`tco-analysis`) | `costs` | À CORRIGER | P2 | « Nouvelle dépense » sans action ; jointures sur colonnes inexistantes (`CostsView.tsx:33-38`) |
+| Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Reports/ReportsView` (rapport mensuel), `Analyses` (`tco-analysis`) | `costs` (site, devise, statut), `enregistrer_cout`, `annuler_cout`, coût par tonne livrée dans `indicateurs_exploitation` (D-058) | À TESTER | P2 | Rentabilité (factures CBG moins coûts, même devise) non calculée ; location Neemba hors coûts directs |
 | Export comptable, états de gestion | - | - | MANQUANT | P2 | - |
 
 ### 21. Reporting et BI
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Rapports standard | `Reports/ReportsView` | lecture de 5 tables | À CORRIGER | P2 | Coût maintenance toujours 0 (colonnes inexistantes, `ReportsView.tsx:67-79`) ; 3 boutons Télécharger sans action |
+| Rapports standard | `Reports/ReportsView` | `rapport_journalier`, `rapport_mensuel`, `rapport_mensuel_par_jour`, `rapport_loueur`, `rapport_client`, `rapports_figes`, `figer_rapport` (D-058) | À TESTER | P2 | Export Excel natif et PDF serveur (CSV et impression navigateur) |
 | Rapport de performance mensuel figé | `Contrats/EngagementsView` | `rapports_performance` | DÉPLOYÉ | P2 | - |
-| Générateur, tableaux croisés, envoi planifié, rapports de shift | - | - | MANQUANT | P2-P3 | - |
+| Générateur, tableaux croisés, envoi planifié, rapports de shift | `Reports/ReportsView` | `rapport_shift`, `rapport_mensuel_par_jour` (tableau jour x indicateur) (D-058) | PARTIEL | P2-P3 | Générateur libre et envoi planifié (pas de passerelle de courriel) |
 
 ### 22. Santé, sécurité, environnement
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 65 |
+| DÉPLOYÉ | 67 |
 | À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 22 |
-| À CORRIGER | 8 |
+| PARTIEL | 23 |
+| À CORRIGER | 6 |
 | NON CONFORME | 0 |
-| MANQUANT | 19 |
+| MANQUANT | 18 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
