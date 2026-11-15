@@ -30,6 +30,7 @@ const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeem
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const SecuriteCompte = lazy(() => import('./components/Auth/SecuriteCompte').then(m => ({ default: m.SecuriteCompte })));
 const PostesView = lazy(() => import('./components/Postes/PostesView').then(m => ({ default: m.PostesView })));
+const InterventionsLoueurView = lazy(() => import('./components/Maintenance/InterventionsLoueurView').then(m => ({ default: m.InterventionsLoueurView })));
 const KilometrageView = lazy(() => import('./components/Trips/KilometrageView').then(m => ({ default: m.KilometrageView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
@@ -154,6 +155,8 @@ const MainApp = () => {
         return <StocksCarburantView />;
       case 'fuel-sensors':
         return <FuelSensorsView />;
+      case 'interventions-loueur':
+        return <InterventionsLoueurView />;
       case 'immobilisations':
         return <ImmobilisationsView />;
       case 'maintenance':

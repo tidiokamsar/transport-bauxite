@@ -66,6 +66,7 @@ export const MENU: MenuItem[] = [
     icon: Wrench,
     children: [
       { id: 'immobilisations', label: 'Immobilisations', icon: Timer },
+      { id: 'interventions-loueur', label: 'Interventions Neemba', icon: Wrench },
       { id: 'maintenance', label: 'Ordres de travail', icon: Wrench },
       { id: 'preventive', label: 'Préventif', icon: Cog },
     ],

@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : postes de travail (D-048)
+## À venir : interventions Neemba (D-049)
+
+- Maintenance > Interventions Neemba : demande d'intervention depuis une immobilisation (canal, référence, délai contractuel), prise en charge, fin avec rapport et pièces.
+- Délai de prise en charge affiché ; dépassement du délai contractuel signalé.
+- Remise en service validée par une autre personne : l'immobilisation se clôt et l'engin redevient disponible.
+
+## db7709c (2026-11-15) : postes de travail (D-048, PR #60)
 
 - Exploitation > Postes de travail : ouverture d'un poste par shift et par site, avec les consignes du poste précédent.
 - Équipe et présence (retard, absence motivée), journal des événements du poste.
