@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { libelleVersion, versionEnVigueur, type Version } from './types';
+import { decrireClause, etatEcheance, libelleVersion, versionEnVigueur, type Version } from './types';
 
 const v = (numero: number, date_effet: string): Version => ({
   id: String(numero), contrat_id: 'c', numero, intitule: `v${numero}`, date_effet, date_signature: null, resume: null, document_ref: null,
@@ -16,5 +16,19 @@ describe('dossier contractuel', () => {
   it('libelles de version', () => {
     expect(libelleVersion({ numero: 0, intitule: 'Transport' })).toBe('Contrat initial · Transport');
     expect(libelleVersion({ numero: 2, intitule: 'Révision des taux' })).toBe('Avenant n° 2 · Révision des taux');
+  });
+
+  it('clauses chiffrees (D-065) : base, condition et plafond saisis', () => {
+    expect(decrireClause({ base: 'taux', valeur: 5, plafond: 300, declenchement: 'non_tenu' }, 'USD', 'Disponibilité'))
+      .toBe("5 % de l'assiette facturée si Disponibilité n'est pas tenu · plafond 300 USD");
+    expect(decrireClause({ base: 'montant', valeur: 1000, plafond: null, declenchement: 'tenu' }, 'GNF'))
+      .toBe("1000 GNF si l'engagement est tenu");
+  });
+
+  it('etat des echeances (D-065)', () => {
+    expect(etatEcheance({ echu: true, a_signaler: true, nature_echeance: 'fin', denonce_le: null }).libelle).toBe('Échu');
+    expect(etatEcheance({ echu: false, a_signaler: true, nature_echeance: 'limite_preavis', denonce_le: null }).libelle).toBe('Préavis à décider');
+    expect(etatEcheance({ echu: false, a_signaler: false, nature_echeance: 'fin', denonce_le: '2026-10-01' }).libelle).toBe('Dénoncé');
+    expect(etatEcheance({ echu: false, a_signaler: false, nature_echeance: 'fin', denonce_le: null }).teinte).toBe('vert');
   });
 });

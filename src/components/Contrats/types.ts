@@ -14,6 +14,10 @@ export interface Contrat {
   statut: 'brouillon' | 'actif' | 'suspendu' | 'clos';
   delai_paiement_jours: number | null;
   description: string | null;
+  /** Echeances (D-065) : preavis en jours, mode de renouvellement, duree d'un renouvellement ; null = non renseigne. */
+  preavis_jours?: number | null;
+  renouvellement?: 'tacite' | 'expres' | 'aucun' | null;
+  renouvellement_duree_mois?: number | null;
 }
 
 export interface Version {
@@ -53,6 +57,60 @@ export interface Engagement {
   consequence: string | null;
   ordre: number;
 }
+
+/** Clause chiffree d'une version (D-065) : condition = un engagement mesure de la meme version. */
+export interface Clause {
+  id: string;
+  version_id: string;
+  type_clause: 'penalite' | 'bonus' | 'retenue';
+  libelle: string;
+  engagement_id: string;
+  declenchement: 'non_tenu' | 'tenu';
+  base: 'montant' | 'taux';
+  valeur: number;
+  plafond: number | null;
+  article: string | null;
+  ordre: number;
+  actif: boolean;
+  motif_desactivation: string | null;
+}
+
+/** Echeance calculee par v_echeances_contrats (D-065). */
+export interface Echeance {
+  contrat_id: string;
+  reference: string;
+  contrepartie: string;
+  date_fin: string;
+  preavis_jours: number | null;
+  renouvellement: string | null;
+  denonce_le: string | null;
+  date_limite_preavis: string | null;
+  nature_echeance: 'limite_preavis' | 'fin';
+  date_cle: string;
+  delai_alerte_jours: number;
+  date_alerte: string;
+  jours_restants: number;
+  a_signaler: boolean;
+  echu: boolean;
+  fin_si_tacite: string | null;
+}
+
+export const TYPES_CLAUSE: Record<Clause['type_clause'], string> = { penalite: 'Pénalité', bonus: 'Bonus', retenue: 'Retenue' };
+export const RENOUVELLEMENTS: Record<string, string> = { tacite: 'Tacite', expres: 'Exprès (avenant requis)', aucun: 'Aucun' };
+
+/** Libelle lisible d'une clause : base, condition et plafond, sans valeur supposee. */
+export const decrireClause = (c: Pick<Clause, 'base' | 'valeur' | 'plafond' | 'declenchement'>, devise: string, engagement?: string): string => {
+  const base = c.base === 'taux' ? `${c.valeur} % de l'assiette facturée` : `${c.valeur} ${devise}`;
+  const condition = `si ${engagement ?? "l'engagement"} ${c.declenchement === 'tenu' ? 'est tenu' : "n'est pas tenu"}`;
+  return `${base} ${condition}${c.plafond != null ? ` · plafond ${c.plafond} ${devise}` : ''}`;
+};
+
+/** Etat d'une echeance pour l'affichage. */
+export const etatEcheance = (e: Pick<Echeance, 'echu' | 'a_signaler' | 'nature_echeance' | 'denonce_le'>): { libelle: string; teinte: 'gris' | 'vert' | 'orange' | 'rouge' } =>
+  e.echu ? { libelle: 'Échu', teinte: 'rouge' }
+    : e.a_signaler ? { libelle: e.nature_echeance === 'limite_preavis' ? 'Préavis à décider' : 'Échéance proche', teinte: 'orange' }
+      : e.denonce_le ? { libelle: 'Dénoncé', teinte: 'gris' }
+        : { libelle: 'À venir', teinte: 'vert' };
 
 export interface EntreeJournal {
   id: string;
