@@ -46,7 +46,7 @@ export const SimulationScenarios = ({
       supabase.from('infrastructures_site').select('site_id, type, code, capacite, unite_capacite, actif'),
     ]);
     setErreur(rS.error ? `Statistiques indisponibles : ${rS.error.message}` : '');
-    setStats(rS.error ? [] : ((rS.data ?? []) as StatTrajet[]).map((s) => ({
+    setStats(rS.error || !Array.isArray(rS.data) ? [] : (rS.data as StatTrajet[]).map((s) => ({
       ...s,
       charge_moyenne: s.charge_moyenne === null ? null : Number(s.charge_moyenne),
       rotation_moyenne_min: s.rotation_moyenne_min === null ? null : Number(s.rotation_moyenne_min),

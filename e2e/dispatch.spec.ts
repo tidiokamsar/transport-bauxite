@@ -62,17 +62,21 @@ const capturer = async (page: Page, fonction: string) => {
 test.describe('Dispatch', () => {
   test('recommandations expliquees et acceptation de toutes', async ({ page }) => {
     await simulerApi(page, JEU);
-    const decisions = await capturer(page, 'decider_affectation');
+    // D-066 : « Tout accepter » passe par affecter_en_groupe (une operation,
+    // decider_affectation par voyage cote serveur).
+    const groupes = await capturer(page, 'affecter_en_groupe');
     await ouvrir(page);
     await expect(page.getByText('RC-1001 · Alpha Test · CAT-980L-01')).toHaveCount(2);
     await expect(page.getByText('RC-1002 · Bah Test · CAT-980L-01')).toBeVisible();
     await expect(page.getByText('Bah Test est disponible (sur aucun camion du shift)')).toBeVisible();
     await page.screenshot({ path: 'test-results/dispatch.png', fullPage: true });
     await page.getByRole('button', { name: 'Tout accepter (2)' }).click();
-    await expect.poll(() => decisions.length).toBe(2);
-    expect(decisions[0]).toMatchObject({ p_trip_id: 't1', p_decision: 'acceptee', p_vehicle_id: 'v1', p_driver_id: 'c1', p_loader_vehicle_id: 'l1' });
-    expect(decisions[1]).toMatchObject({ p_trip_id: 't2', p_vehicle_id: 'v2', p_driver_id: 'c2' });
-    expect(decisions[0].p_recommandation).toMatchObject({ camion: 'RC-1001', chauffeur: 'Alpha Test' });
+    await expect.poll(() => groupes.length).toBe(1);
+    const decisions = groupes[0].p_affectations as Record<string, unknown>[];
+    expect(decisions).toHaveLength(2);
+    expect(decisions[0]).toMatchObject({ voyage: 't1', camion: 'v1', chauffeur: 'c1', engin: 'l1' });
+    expect(decisions[1]).toMatchObject({ voyage: 't2', camion: 'v2', chauffeur: 'c2' });
+    expect(decisions[0].recommandation).toMatchObject({ camion: 'RC-1001', chauffeur: 'Alpha Test' });
   });
 
   test('panne : voyage a reaffecter, reaffectation motivee', async ({ page }) => {

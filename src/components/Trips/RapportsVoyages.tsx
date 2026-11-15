@@ -29,7 +29,7 @@ export const RapportsVoyages = () => {
     setLignes(null);
     const { data, error } = await supabase.rpc('rapport_voyages', { p_debut: debut, p_fin: fin, p_axe: axe, p_site: siteId || site || null });
     setErreur(error ? `Rapport indisponible : ${error.message}` : '');
-    setLignes(error ? [] : (data ?? []) as LigneRapportVoyages[]);
+    setLignes(error || !Array.isArray(data) ? [] : (data as LigneRapportVoyages[]));
     setHeure(new Date());
   }, [debut, fin, axe, site, siteId]);
   useEffect(() => { charger(); }, [charger]);

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X, Save, Archive } from 'lucide-react';
+import { InfractionsChauffeur } from './InfractionsChauffeur';
 
 interface Driver {
   id: string;
@@ -383,6 +384,8 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
                   placeholder="Notes additionnelles..."
                 />
               </div>
+
+              {isEditing && driver && <InfractionsChauffeur chauffeurId={driver.id} />}
             </div>
           </div>
 

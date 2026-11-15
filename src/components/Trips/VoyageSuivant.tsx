@@ -31,9 +31,9 @@ export const VoyageSuivant = ({ voyage, onModifie }: { voyage: Voyage; onModifie
     setProposition(recommanderSuivant({
       voyage: voyage as VoyageSimple,
       camion: engins.find((e) => e.id === voyage.vehicle_id) ?? null,
-      chauffeur: ((rC.data ?? []) as ChauffeurEtat[])[0] ?? null,
+      chauffeur: ((rC.data ?? []) as ChauffeurEtat[]).find((c) => c.id === voyage.driver_id) ?? null,
       chargeuse: engins.find((e) => e.id === voyage.loader_vehicle_id) ?? null,
-      voyagesCamion: (rT.data ?? []) as VoyageSimple[],
+      voyagesCamion: ((rT.data ?? []) as VoyageSimple[]).filter((t) => t.vehicle_id === voyage.vehicle_id),
       prepares: (rP.data ?? []) as VoyageSimple[],
     }));
   }, [enchainable, voyage]);

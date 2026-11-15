@@ -229,7 +229,7 @@ export const DispatchView = () => {
     const { data, error } = await supabase.rpc('affecter_en_groupe', { p_affectations: affectations });
     setEnCours(false);
     if (error) setErreur(error.message);
-    else setRapport((data ?? []) as LigneRapport[]);
+    else setRapport(Array.isArray(data) ? (data as LigneRapport[]) : []);
     setSelection(new Set());
     charger();
   };
