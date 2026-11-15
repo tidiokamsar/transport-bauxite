@@ -4,7 +4,7 @@ import {
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
   Cog, FileStack, TrendingUp, Leaf, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
-  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, BadgeCheck, type LucideIcon,
+  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, BadgeCheck, ClipboardCheck, type LucideIcon,
 } from 'lucide-react';
 import { NOM_PRODUIT } from '../Brand/Marque';
 
@@ -108,6 +108,7 @@ export const MENU: MenuItem[] = [
       { id: 'hr-employees', label: 'Employés', icon: Users },
       { id: 'hr-attendance', label: 'Présences', icon: Cog },
       { id: 'hr-payroll', label: 'Paie', icon: Banknote },
+      { id: 'controles-depart', label: 'Contrôles avant départ', icon: ClipboardCheck },
       { id: 'incidents', label: 'Incidents', icon: ShieldAlert },
     ],
   },

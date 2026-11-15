@@ -111,7 +111,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fiches terrain imprimables, numéro de fiche au journal | `Fiches/*` | `fiches_terrain`, `preparer_fiche`, `saisir_*` (D-028) | DÉPLOYÉ | P1 | - |
 | Ticket CBG rattaché, rectification auditée | `Fiches/*`, `Trips/*` | D-037, migrations `20261113*` | DÉPLOYÉ | P1 | Import de tickets (module 14) |
 | Relevés kilométriques sur le parcours | `Trips/KilometrageView` | `releves_compteur`, `distances_voyage`, `distances_reference`, `valider_distance_voyage` (D-043) | DÉPLOYÉ | P0 | Saisie depuis la fiche papier ; à intégrer à la saisie de la fiche rotations |
-| Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels) | `trip_events` | PARTIEL | P1 | Incidents : écran hérité à corriger (module 22) |
+| Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels), `Incidents/IncidentsView` | `trip_events`, `incidents.trip_id` (D-054) | PARTIEL | P1 | Déclaration d'incident depuis la fiche voyage |
 | Dossier numérique du voyage | - | - | MANQUANT | P2 | Après GED |
 | Rapports par camion, chauffeur, site, shift | partiel | - | PARTIEL | P2 | - |
 
@@ -135,7 +135,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Permis, qualifications, habilitations, formations, alertes d'expiration | `Drivers/HabilitationsView` | `habilitations_chauffeur`, `habilitations_requises`, `v_habilitations_a_renouveler` (D-051) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers |
 | Présences, disponibilités | `HR/AttendanceView` (employés) | `employee_attendance` | À CORRIGER | P1 | Suppression d'une présence ; pas de lien chauffeur |
 | Performance, historique des missions | `Analyses/AnalysesFlotte` | `performance_chauffeurs` | DÉPLOYÉ | P2 | - |
-| Incidents, infractions | - | `incidents` (schéma minimal) | MANQUANT | P2 | Module 22 |
+| Incidents, infractions | `Incidents/IncidentsView` | `incidents` rattachés au chauffeur (D-054) | PARTIEL | P2 | Infractions |
 
 ### 10. Gestion Neemba Guinée
 
@@ -201,7 +201,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Bons de commande | `Purchases/PurchasesView` | `purchase_orders`, `purchase_order_items` écrits par `enregistrer_bon_commande`, `soumettre_bon_commande`, `decider_bon_commande`, `annuler_bon_commande`, `solder_bon_commande` ; `achats_journal` (D-053) | À TESTER | P1 | - |
+| Bons de commande | `Purchases/PurchasesView` | `purchase_orders`, `purchase_order_items` écrits par `enregistrer_bon_commande`, `soumettre_bon_commande`, `decider_bon_commande`, `annuler_bon_commande`, `solder_bon_commande` ; `achats_journal` (D-053) | DÉPLOYÉ | P1 | - |
 | Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | `Purchases/PurchasesView` | Brouillon puis approbation par une autre personne ; `receptionner_bon_commande` (réception partielle, refus motivé, entrée en stock), `annuler_reception` (D-053) | PARTIEL | P1 | Consultation de fournisseurs, contrôle budgétaire, factures et avoirs d'achat, relances |
 
 ### 17. Stocks et magasins
@@ -250,9 +250,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Incidents | `Incidents/*` | `incidents` (6 colonnes) | À CORRIGER | P1 | L'écran attend une quinzaine de colonnes absentes : ni lecture ni enregistrement |
+| Incidents | `Incidents/IncidentsView` | `incidents` (numéro, type, rattachement, statut), `declarer_incident`, `analyser_incident`, `cloturer_incident` (D-054) | À TESTER | P1 | Photos et constats après stockage de fichiers |
 | Environnement | `ESG/ESGTrackingView` | `carbon_emissions`, `sustainability_kpis`, `environmental_incidents` (régime B), `waste_management` (C) | PARTIEL | P3 | Aucune source de données ; 4 boutons sans action |
-| Inspections, contrôles avant départ, EPI, accidents, presque-accidents, enquêtes, actions correctives, plans de prévention, risques | - | - | MANQUANT | P1 | Lot H (contrôle avant départ en priorité, lié au dispatch) |
+| Inspections, contrôles avant départ, EPI, accidents, presque-accidents, enquêtes, actions correctives, plans de prévention, risques | `Hse/ControlesDepartView`, `Incidents/IncidentsView` | `points_controle_depart`, `controles_depart`, garde `garde_controle_depart` au départ du voyage, `actions_correctives`, `v_actions_correctives_en_retard` (D-054) | PARTIEL | P1 | EPI, plans de prévention, registre des risques, inspections planifiées |
 
 ### 23. Documents et GED
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 55 |
-| À TESTER | 2 |
+| DÉPLOYÉ | 56 |
+| À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 20 |
-| À CORRIGER | 10 |
+| PARTIEL | 22 |
+| À CORRIGER | 9 |
 | NON CONFORME | 1 |
-| MANQUANT | 28 |
+| MANQUANT | 25 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.

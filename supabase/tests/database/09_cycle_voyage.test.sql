@@ -14,6 +14,8 @@ LANGUAGE sql AS $$
 $$;
 
 SELECT plan(16);
+-- D-054 : controle avant depart non exige pour ce test (annule en fin).
+DELETE FROM public.settings WHERE key = 'controle_depart_exige';
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-8800-000000000001', 'operations.cycle@exemple.invalid'),

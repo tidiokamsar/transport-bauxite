@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : circuit achat (D-053)
+## À venir : HSE (D-054)
+
+- RH & Sécurité > Contrôles avant départ : liste de points fixée par l'administrateur, résultat calculé (conforme, avec réserves, non conforme).
+- Quand l'administrateur l'exige, un camion ne part pas au chargement sans contrôle du jour, ni après un contrôle non conforme.
+- Incidents réécrits : déclaration numérotée, analyse de la cause, actions correctives suivies (retards signalés), clôture.
+
+## 7f11af4 (2026-11-17) : circuit achat (D-053, PR #65)
 
 - Achats : bon de commande en brouillon, soumis, puis approuvé ou rejeté (avec motif) par une autre personne que le demandeur.
 - Réception partielle ou totale par le magasin : quantités reçues et refusées (motif), entrée automatique en stock au prix de la commande.
