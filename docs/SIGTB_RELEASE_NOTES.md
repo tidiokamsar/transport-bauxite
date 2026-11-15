@@ -2,7 +2,12 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : double authentification (D-045)
+## À venir : périmètre site étendu (D-046)
+
+- Un administrateur affecté à un site ne voit plus les données des autres sites.
+- Pleins, maintenance, pneus, documents, incidents, pesées et alertes suivent le périmètre du site.
+
+## d34b10c (2026-11-15) : double authentification (D-045, PR #57)
 
 - Menu du profil > Sécurité du compte : activer la double authentification avec une application (Google Authenticator, Microsoft Authenticator, Authy).
 - À la connexion, le code à 6 chiffres est demandé aux comptes qui l'ont activée.
