@@ -71,6 +71,7 @@ const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/Analy
 const DriverBehaviorAnalyticsView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.PerformanceChauffeursView })));
 const TCOAnalysisView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.CoutTonneView })));
 const FleetHealthDashboard = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.SanteFlotteView })));
+const CentrePilotageView = lazy(() => import('./components/Pilotage/CentrePilotageView').then(m => ({ default: m.CentrePilotageView })));
 const MesValidationsView = lazy(() => import('./components/Notifications/MesValidationsView').then(m => ({ default: m.MesValidationsView })));
 const QuickActionsPanel = lazy(() => import('./components/QuickActions/QuickActionsPanel'));
 
@@ -225,6 +226,8 @@ const MainApp = () => {
         return <FleetHealthDashboard />;
       case 'tco-analysis':
         return <TCOAnalysisView />;
+      case 'centre-pilotage':
+        return <CentrePilotageView />;
       case 'mes-validations':
       case 'notifications':
         return <MesValidationsView onAllerA={setCurrentView} />;

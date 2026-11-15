@@ -18,6 +18,7 @@ export interface MenuItem {
 export const MENU: MenuItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'mes-validations', label: 'Mes validations', icon: Inbox },
+  { id: 'centre-pilotage', label: 'Centre de pilotage', icon: Gauge },
   {
     id: 'exploitation',
     label: 'Exploitation',

@@ -42,11 +42,11 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Tableau de bord exploitation | `Dashboard/*` (menu `dashboard`) | `vehicles`, `trips`, `v_realisation_objectifs`, `fuel_transactions`, `alerts`, `vehicle_tracking`, `work_shifts` (lecture) | EXISTANT À AMÉLIORER | P2 | Métadonnées source / période / fraîcheur par KPI (règle 5 CLAUDE.md) ; centraliser les KPI en vues SQL |
 | Tableau de bord du chargé de contrats | `Contrats/MonPosteView` | `indicateurs_charge_contrats()` | DÉPLOYÉ | P2 | Rattacher au centre de pilotage |
-| Dashboards Direction, Finance, Flotte, Carburant, Maintenance, Performance | - | - | MANQUANT | P2 | Vues de référence par domaine, widgets par profil |
+| Dashboards Direction, Finance, Flotte, Carburant, Maintenance, Performance | `Pilotage/CentrePilotageView` | `indicateurs_pilotage()` : indicateurs par domaine avec source, fiabilité, période, heure (D-057) | À TESTER | P2 | Widgets par profil ; graphiques d'évolution |
 | Centre des décisions, alertes prioritaires | - | `alerts` (aucun écrivain) | MANQUANT | P2 | Après le centre de notifications (lot T3) |
 | Comparaison de périodes, analyse site / shift / véhicule / partenaire | partiel dans Analyses | `fiabilite_engins`, `performance_chauffeurs`, `consommation_carburant` | PARTIEL | P2 | Filtres communs période / site / shift |
 | Prévisions production et financières | - | - | MANQUANT | P3 | Après historique réel suffisant |
-| Export et impression des tableaux de bord | - | `lib/exports.ts` | MANQUANT | P2 | Export par widget |
+| Export et impression des tableaux de bord | `Pilotage/CentrePilotageView` | export CSV des indicateurs avec source et période (D-057) | PARTIEL | P2 | Impression et export par widget |
 
 ### 02. Organisation et administration
 
@@ -268,7 +268,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Mes validations (éléments à décider par l'utilisateur) | dispersé (Stocks carburant, factures à signer) | - | PARTIEL | P2 | Lot W : boîte de réception agrégée sur les files existantes |
 | Mes tâches, échéances, notifications, délégations, circuits paramétrables, relances, escalades | `Notifications/MesValidationsView` | `mes_validations()` calculée selon droits et séparation (D-056) | PARTIEL | P2 | Délégations, escalades, circuits paramétrables |
-| Centre de notifications | `Notifications/MesValidationsView` | `notifications` (lecture personnelle, écrites par déclencheurs serveur), `marquer_notifications_lues` (D-056) | À TESTER | P2 | Courriel et SMS : passerelle à fournir |
+| Centre de notifications | `Notifications/MesValidationsView` | `notifications` (lecture personnelle, écrites par déclencheurs serveur), `marquer_notifications_lues` (D-056) | DÉPLOYÉ | P2 | Courriel et SMS : passerelle à fournir |
 
 ### 25. Portails partenaires
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 58 |
+| DÉPLOYÉ | 59 |
 | À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 23 |
+| PARTIEL | 24 |
 | À CORRIGER | 9 |
 | NON CONFORME | 0 |
-| MANQUANT | 23 |
+| MANQUANT | 21 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.

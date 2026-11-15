@@ -52,9 +52,9 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 
 | # | Lot | Modules | Contenu |
 |---|---|---|---|
-| 17 | Centre de notifications et boîte de validations (lots T3, W) (D-056 en PR) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
+| 17 | Centre de notifications et boîte de validations (lots T3, W) (D-056 déployé le 2026-11-17, debf876) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
 | 18 | Composants communs | tous | DataTable, filtres, exports, dialogues de décision, historique, au fil des écrans repris (pas de refonte globale) |
-| 19 | Command Center et KPI de référence | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
+| 19 | Command Center et KPI de référence (D-057 en PR) | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
 | 20 | Reporting | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
 | 21 | Moyens généraux (lot G) | 18 | Patrimoine, affectations, inventaires |
 | 22 | Portails partenaires | 25 | Identité partenaire, cloisonnement strict, dépôt documentaire |
@@ -104,4 +104,6 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-17 | 14. GED et stockage (lot D) | Reporté : le service Storage n'est pas dans la pile de production (D-016) et `/storage/*` est bloqué au Caddy partagé ; activation soumise à la validation du propriétaire |
 | 2026-11-17 | 15. HSE (D-054) | PR #66 fusionnée ; déployé (04140d7) : 37 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | 16. Paiements fournisseurs (D-055) | PR #67 fusionnée ; déployé (48d2cf0) : 38 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-17 | 17. Mes validations et notifications (D-056) | Branche `lot-17/validations-notifications` ; pgTAP 39 (8 assertions), 1 E2E |
+| 2026-11-17 | 17. Mes validations et notifications (D-056) | PR #68 fusionnée ; déployé (debf876) : 39 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-17 | Organisation multi-agents | Six agents en worktrees isolés : lots 20 (reporting, coûts), 15b (fournisseurs), 21 (moyens généraux), 18 (écrans hérités à corriger), 08 (flotte), guides de la phase 8 ; intégration, CI complète, fusion et déploiement par l'intégrateur, lot par lot |
+| 2026-11-17 | 19. Centre de pilotage (D-057) | Branche `lot-19/centre-pilotage` ; pgTAP 40 (6 assertions), 1 E2E |
