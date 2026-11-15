@@ -29,7 +29,7 @@ const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ 
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
 const FuelDashboard = lazy(() => import('./components/Fuel/AnalyseCarburantView').then(m => ({ default: m.AnalyseCarburantView })));
 const FuelAnomaliesView = lazy(() => import('./components/Fuel/AnomaliesCarburantView').then(m => ({ default: m.AnomaliesCarburantView })));
-const FuelStocksView = lazy(() => import('./components/Fuel/FuelStocksView').then(m => ({ default: m.FuelStocksView })));
+const StocksCarburantView = lazy(() => import('./components/Fuel/StocksCarburantView').then(m => ({ default: m.StocksCarburantView })));
 const MaintenanceView = lazy(() => import('./components/Maintenance/MaintenanceView').then(m => ({ default: m.MaintenanceView })));
 const FacturesView = lazy(() => import('./components/Facturation/FacturesView').then(m => ({ default: m.FacturesView })));
 const ReconciliationView = lazy(() => import('./components/Facturation/ReconciliationView').then(m => ({ default: m.ReconciliationView })));
@@ -127,7 +127,7 @@ const MainApp = () => {
       case 'fuel-anomalies':
         return <FuelAnomaliesView />;
       case 'fuel-stocks':
-        return <FuelStocksView />;
+        return <StocksCarburantView />;
       case 'fuel-sensors':
         return <FuelSensorsView />;
       case 'immobilisations':

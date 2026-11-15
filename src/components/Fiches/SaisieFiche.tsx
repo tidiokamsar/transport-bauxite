@@ -170,10 +170,16 @@ const SaisiePointage = ({ fiche, engins, debutShift }: { fiche: Fiche; engins: R
   );
 };
 
-interface LignePlein { vehicule: string; chauffeur: string; litres: string; compteur: string }
+interface LignePlein { vehicule: string; chauffeur: string; litres: string; compteur: string; stockage: string }
+const LIGNE_PLEIN_VIDE: LignePlein = { vehicule: '', chauffeur: '', litres: '', compteur: '', stockage: '' };
 
 const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; engins: Reference[]; chauffeurs: Reference[]; onFait: () => void }) => {
-  const [lignes, setLignes] = useState<LignePlein[]>([{ vehicule: '', chauffeur: '', litres: '', compteur: '' }]);
+  const [lignes, setLignes] = useState<LignePlein[]>([LIGNE_PLEIN_VIDE]);
+  const [stockages, setStockages] = useState<{ id: string; code: string; libelle: string }[]>([]);
+  useEffect(() => {
+    supabase.from('stockages_carburant').select('id, code, libelle').eq('site_id', fiche.site_id).eq('actif', true).order('code')
+      .then(({ data }) => setStockages(data ?? []));
+  }, [fiche.site_id]);
   const [message, setMessage] = useState<{ ok: boolean; texte: string }>();
   const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
   const maj = (i: number, l: LignePlein) => setLignes(lignes.map((x, j) => (j === i ? l : x)));
@@ -183,7 +189,7 @@ const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; 
     if (remplies.some((l) => !l.vehicule || !(Number(nombre(l.litres)) > 0))) { setMessage({ ok: false, texte: 'Chaque ligne demande un engin et une quantité positive' }); return; }
     const { data, error } = await supabase.rpc('saisir_carburant', {
       p_fiche_id: fiche.id, p_prix_litre: null, p_fournisseur: 'CBG',
-      p_lignes: remplies.map((l) => ({ vehicle_id: l.vehicule, driver_id: l.chauffeur || null, litres: nombre(l.litres), compteur: nombre(l.compteur) })),
+      p_lignes: remplies.map((l) => ({ vehicle_id: l.vehicule, driver_id: l.chauffeur || null, litres: nombre(l.litres), compteur: nombre(l.compteur), stockage_id: l.stockage || null })),
     });
     if (error) setMessage({ ok: false, texte: error.message });
     else { setMessage({ ok: true, texte: `${data} plein(s) enregistré(s)` }); onFait(); }
@@ -191,7 +197,7 @@ const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; 
 
   return (
     <div className="space-y-3 text-xs">
-      <p className="text-stone-500">Le coût sera valorisé avec les prix des livraisons CBG enregistrées pour la période.</p>
+      <p className="text-stone-500">Le coût sera valorisé avec les prix des livraisons CBG enregistrées pour la période. Un plein servi depuis une cuve ou une citerne suivie crée une sortie de stock à valider (D-041).</p>
       {lignes.map((l, i) => (
         <div key={i} className="flex flex-wrap items-end gap-2">
           <label>Engin<select aria-label={`Ligne ${i + 1} engin`} value={l.vehicule} onChange={(e) => maj(i, { ...l, vehicule: e.target.value })} className={`${CHAMP} w-36`}>
@@ -201,12 +207,15 @@ const SaisieCarburant = ({ fiche, engins, chauffeurs, onFait }: { fiche: Fiche; 
             <option value="">—</option>{chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}
           </select></label>
           <label>Litres<input aria-label={`Ligne ${i + 1} litres`} inputMode="decimal" value={l.litres} onChange={(e) => maj(i, { ...l, litres: e.target.value })} className={`${CHAMP} w-20`} /></label>
+          <label>Servi depuis<select aria-label={`Ligne ${i + 1} stockage`} value={l.stockage} onChange={(e) => maj(i, { ...l, stockage: e.target.value })} className={`${CHAMP} w-40`}>
+            <option value="">Hors stockage suivi</option>{stockages.map((s) => <option key={s.id} value={s.id}>{s.code} · {s.libelle}</option>)}
+          </select></label>
           <label>Compteur km ou horamètre<input inputMode="decimal" value={l.compteur} onChange={(e) => maj(i, { ...l, compteur: e.target.value })} className={`${CHAMP} w-28`} /></label>
           <button onClick={() => setLignes(lignes.filter((_, j) => j !== i))} className="rounded p-1 text-stone-400 hover:text-red-600" aria-label={`Retirer la ligne ${i + 1}`}><Trash2 className="h-3.5 w-3.5" /></button>
         </div>
       ))}
       <div className="flex gap-2">
-        <button onClick={() => setLignes([...lignes, { vehicule: '', chauffeur: '', litres: '', compteur: '' }])} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1"><Plus className="h-3 w-3" /> Ligne</button>
+        <button onClick={() => setLignes([...lignes, LIGNE_PLEIN_VIDE])} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1"><Plus className="h-3 w-3" /> Ligne</button>
         <button onClick={enregistrer} className="rounded bg-orange-600 px-3 py-1 font-bold text-white">Enregistrer les pleins</button>
       </div>
       <Message texte={message} />
