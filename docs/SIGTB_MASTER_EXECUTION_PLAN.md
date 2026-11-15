@@ -54,9 +54,9 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 |---|---|---|---|
 | 17 | Centre de notifications et boîte de validations (lots T3, W) (D-056 déployé le 2026-11-17, debf876) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
 | 18 | Composants communs | tous | DataTable, filtres, exports, dialogues de décision, historique, au fil des écrans repris (pas de refonte globale) |
-| 19 | Command Center et KPI de référence (D-057 en PR) | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
+| 19 | Command Center et KPI de référence (D-057 déployé le 2026-11-17, 9cf47cf) | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
 | 20 | Reporting | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
-| 21 | Moyens généraux (lot G) | 18 | Patrimoine, affectations, inventaires |
+| 21 | Moyens généraux (lot G) (D-060 en PR) | 18 | Patrimoine, affectations, inventaires |
 | 22 | Portails partenaires | 25 | Identité partenaire, cloisonnement strict, dépôt documentaire |
 | 23 | Intelligence (P3) | 26 | Prévisions et recherche avancée sur données réelles suffisantes |
 
@@ -106,4 +106,7 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-17 | 16. Paiements fournisseurs (D-055) | PR #67 fusionnée ; déployé (48d2cf0) : 38 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | 17. Mes validations et notifications (D-056) | PR #68 fusionnée ; déployé (debf876) : 39 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | Organisation multi-agents | Six agents en worktrees isolés : lots 20 (reporting, coûts), 15b (fournisseurs), 21 (moyens généraux), 18 (écrans hérités à corriger), 08 (flotte), guides de la phase 8 ; intégration, CI complète, fusion et déploiement par l'intégrateur, lot par lot |
-| 2026-11-17 | 19. Centre de pilotage (D-057) | Branche `lot-19/centre-pilotage` ; pgTAP 40 (6 assertions), 1 E2E |
+| 2026-11-17 | 19. Centre de pilotage (D-057) | PR #70 fusionnée ; déployé (9cf47cf) : 40 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-17 | Phase 8 : guides | PR #71 fusionnée : 11 guides dans `docs/guides/` (agent documentation), avec leurs limites connues |
+| 2026-11-18 | Coupure réseau | Cinq agents interrompus (API injoignable), relancés avec leur contexte ; aucun travail perdu |
+| 2026-11-18 | 21. Moyens généraux (D-060) | Agent : branche `lot-21/moyens-generaux` ; pgTAP 43 (30 assertions), 6 unitaires, 2 E2E ; intégration `lot-21/moyens-generaux-integration` |

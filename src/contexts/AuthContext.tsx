@@ -185,6 +185,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'maintenance': 'maintenance',
       'preventive': 'maintenance',
       'stock': 'stock',
+      'moyens-generaux': 'stock',
       'purchases': 'purchases',
       'suppliers': 'purchases',
       'contrats': 'contracts',
