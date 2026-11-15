@@ -70,6 +70,16 @@ export const REGLAGES: Reglage[] = [
     siAbsent: 'Aucune alerte d\'inspection.', lecteur: 'seuil_pneus, v_pneus_a_surveiller (D-052)',
     ecran: { vue: 'tires', libelle: 'Pneus' },
   },
+  {
+    cle: 'fournisseurs_alerte_documents_jours', libelle: 'Fournisseurs : alerte avant expiration des documents', type: 'nombre', unite: 'jours',
+    effet: 'Un document administratif de fournisseur apparaît « à renouveler » quand il expire dans ce délai (aucun blocage automatique).',
+    siAbsent: '30 jours.', lecteur: 'reglage_entier, v_documents_fournisseurs_echeance (D-059)',
+  },
+  {
+    cle: 'consultation_offres_minimum', libelle: 'Consultations : nombre minimal d\'offres', type: 'nombre', unite: 'offres',
+    effet: 'Une offre ne peut être retenue qu\'après réception de ce nombre d\'offres actives dans la consultation.',
+    siAbsent: '1 offre : aucune mise en concurrence imposée.', lecteur: 'reglage_entier, selectionner_offre (D-059)',
+  },
 ];
 
 export const CLES_REGLAGES = REGLAGES.map((r) => r.cle);

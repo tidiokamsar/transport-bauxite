@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : rapports et coûts directs (D-058)
+## À venir : écrans hérités corrigés (D-061)
+
+- Ordres de travail : numéro attribué par le serveur, annulation motivée, pièces sorties du registre des stocks (plus de second inventaire).
+- Maintenance préventive, présences, recherche globale et géorepérage réécrits sur les colonnes réelles ; plus de suppression ni de valeur par défaut inventée.
+- Paramètres : seuls les réglages réellement lus par le serveur, avec leur effet ; les réglages de séparation des tâches, de tolérance CBG et des fournisseurs deviennent réglables.
+
+## f59a4b0 (2026-11-18) : rapports et coûts directs (D-058, PR #75)
 
 - Rapports : journalier, de shift, mensuel avec tableau jour par jour, loueur (Neemba) et client (CBG), calculés par le serveur sur les données réelles, selon vos droits et votre site. Une donnée absente ou hors droits est signalée, jamais remplacée par 0.
 - Export CSV et impression ; un rapport peut être figé et numéroté (RAP).

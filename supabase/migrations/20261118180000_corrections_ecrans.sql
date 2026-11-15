@@ -483,6 +483,11 @@ BEGIN
     IF v IS NULL OR v !~ '^\d+(\.\d+)?$' THEN
       RAISE EXCEPTION 'Reglage % : nombre positif attendu', NEW.key USING ERRCODE = '22023';
     END IF;
+  ELSIF NEW.key IN ('fournisseurs_alerte_documents_jours', 'consultation_offres_minimum') THEN
+    -- Lus par reglage_entier (D-059) : un entier, sinon la valeur par defaut s'appliquerait en silence.
+    IF v IS NULL OR v !~ '^\d+$' OR (NEW.key = 'consultation_offres_minimum' AND v::integer < 1) THEN
+      RAISE EXCEPTION 'Reglage % : nombre entier attendu (au moins 1 offre)', NEW.key USING ERRCODE = '22023';
+    END IF;
   END IF;
   NEW.updated_at := now();
   RETURN NEW;

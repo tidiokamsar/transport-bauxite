@@ -61,7 +61,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
 | MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | DÉPLOYÉ | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
 | Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
-| Paramètres généraux | `AdminSettingsView` (upsert `settings`) | `settings` (admin) | À CORRIGER | P2 | Paramètres saisis mais lus nulle part, sauf `mfa_exige` et `carburant_validation_separee` ; clé API fictive `sk_xxx` affichée (`AdminSettingsView`) |
+| Paramètres généraux | `AdminSettingsView`, `ReglagesServeur` | `settings` (admin), `valider_reglage` (D-061) | À TESTER | P2 | Séquences de numérotation et devises (ligne suivante) |
 | Séquences de numérotation, devises, unités, modèles | - | numérotations codées par fonction | MANQUANT | P2 | Référentiel des séquences et devises |
 
 ### 03. Sites et infrastructures
@@ -71,7 +71,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Sites | `Sites/SitesView`, `SiteModal` | `sites` (écriture `settings`) | EXISTANT À AMÉLIORER | P1 | Colonnes inexistantes retirées (D-047), désactivation au lieu de suppression (D-042) ; coordonnées GPS sans colonne |
 | Points de chargement, dépôts, ponts-bascules, stations, ateliers | `Sites/InfrastructuresView` | `infrastructures_site` (D-047) | DÉPLOYÉ | P1 | - |
 | Capacités, horaires, fermetures temporaires, files d'attente | `Sites/InfrastructuresView` | capacités avec unité, `fermetures_site`, garde du dispatch (D-047) | PARTIEL | P1 | Horaires d'activité et files d'attente : à mesurer |
-| Géorepérage | `Geofencing/*` | `geofence_zones/violations/alerts` (régime C) | À CORRIGER | P3 | Politiques absentes : écran inutilisable ; suppression de zone ; PostGIS absent |
+| Géorepérage | `Geofencing/*` | `geofence_zones/violations/alerts` (gps_tracking et périmètre, D-061) | PARTIEL | P3 | Aucune détection : PostGIS absent, moniteur non déployé |
 | Cartographie, routes et pistes, import géographique | Leaflet (Tracking) | - | MANQUANT | P3 | - |
 
 ### 04. Production planning
@@ -131,9 +131,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Dossiers chauffeurs | `Drivers/*` | `drivers` (module + `site_permis`) | EXISTANT À AMÉLIORER | P1 | Suppression physique (`DriverModal.tsx:99`) à remplacer par archivage |
+| Dossiers chauffeurs | `Drivers/*` | `drivers` (module + `site_permis`) | EXISTANT | P1 | Archivage par statut, refusé pendant un voyage en cours (D-042, D-061) |
 | Permis, qualifications, habilitations, formations, alertes d'expiration | `Drivers/HabilitationsView` | `habilitations_chauffeur`, `habilitations_requises`, `v_habilitations_a_renouveler` (D-051) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers |
-| Présences, disponibilités | `HR/AttendanceView` (employés) | `employee_attendance` | À CORRIGER | P1 | Suppression d'une présence ; pas de lien chauffeur |
+| Présences, disponibilités | `HR/AttendanceView` (employés) | `employee_attendance`, `v_presences`, `enregistrer_presence`, `annuler_presence` (D-061) | À TESTER | P1 | Disponibilités non traitées |
 | Performance, historique des missions | `Analyses/AnalysesFlotte` | `performance_chauffeurs` | DÉPLOYÉ | P2 | - |
 | Incidents, infractions | `Incidents/IncidentsView` | `incidents` rattachés au chauffeur (D-054) | PARTIEL | P2 | Infractions |
 
@@ -156,8 +156,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Immobilisation, cause, imputation, journal, blocage dispatch | `Maintenance/ImmobilisationsView` | D-022, D-025 | DÉPLOYÉ | P1 | - |
 | MTBF, MTTR, disponibilité, récurrence | `Analyses/AnalysesFlotte` | `fiabilite_engins` | DÉPLOYÉ | P2 | Coût des immobilisations : MANQUANT |
-| Ordres de travail | `Maintenance/MaintenanceView`, `MaintenanceModal` | `maintenance_orders`, `parts_inventory` | À CORRIGER | P2 | Suppression d'ordre (`MaintenanceModal.tsx:105`) ; second inventaire de pièces distinct des stocks ; aucune consommation de stock |
-| Maintenance préventive | `Maintenance/PreventiveMaintenanceView` | `maintenance_schedules` | À CORRIGER | P2 | Colonnes inexistantes à l'enregistrement (`MaintenanceScheduleModal.tsx:123-140`) ; applicable seulement si contractuel (équipements loués) |
+| Ordres de travail | `Maintenance/MaintenanceView` | `maintenance_orders`, `stock_movements` (`annuler_ordre_travail`, `pieces_ordre_travail`) (D-061) | À TESTER | P2 | `parts_inventory` et `maintenance_parts` en lecture seule : suppression à décider |
+| Maintenance préventive | `Maintenance/PreventiveMaintenanceView` | `maintenance_schedules`, `v_releves_compteur` (D-061) | À TESTER | P2 | Applicable aux engins KOGON ; engins loués : Neemba (D-025) |
 | Notification au partenaire, demande d'intervention, suivi | `Maintenance/InterventionsLoueurView` | D-049 (canal, référence, délai, retard) | DÉPLOYÉ | P1 | Notification électronique : après SMTP |
 
 ### 12. Pneumatiques
@@ -235,14 +235,14 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Factures Neemba, régularisations | `Contrats/FacturesNeembaView` | D-032, D-033 | DÉPLOYÉ | P1 | - |
 | Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
 | Dettes, budgets, engagements budgétaires | - | - | MANQUANT | P2 | - |
-| Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Reports/ReportsView` (rapport mensuel), `Analyses` (`tco-analysis`) | `costs` (site, devise, statut), `enregistrer_cout`, `annuler_cout`, coût par tonne livrée dans `indicateurs_exploitation` (D-058) | À TESTER | P2 | Rentabilité (factures CBG moins coûts, même devise) non calculée ; location Neemba hors coûts directs |
+| Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Reports/ReportsView` (rapport mensuel), `Analyses` (`tco-analysis`) | `costs` (site, devise, statut), `enregistrer_cout`, `annuler_cout`, coût par tonne livrée dans `indicateurs_exploitation` (D-058) | DÉPLOYÉ | P2 | Rentabilité (factures CBG moins coûts, même devise) non calculée ; location Neemba hors coûts directs |
 | Export comptable, états de gestion | - | - | MANQUANT | P2 | - |
 
 ### 21. Reporting et BI
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Rapports standard | `Reports/ReportsView` | `rapport_journalier`, `rapport_mensuel`, `rapport_mensuel_par_jour`, `rapport_loueur`, `rapport_client`, `rapports_figes`, `figer_rapport` (D-058) | À TESTER | P2 | Export Excel natif et PDF serveur (CSV et impression navigateur) |
+| Rapports standard | `Reports/ReportsView` | `rapport_journalier`, `rapport_mensuel`, `rapport_mensuel_par_jour`, `rapport_loueur`, `rapport_client`, `rapports_figes`, `figer_rapport` (D-058) | DÉPLOYÉ | P2 | Export Excel natif et PDF serveur (CSV et impression navigateur) |
 | Rapport de performance mensuel figé | `Contrats/EngagementsView` | `rapports_performance` | DÉPLOYÉ | P2 | - |
 | Générateur, tableaux croisés, envoi planifié, rapports de shift | `Reports/ReportsView` | `rapport_shift`, `rapport_mensuel_par_jour` (tableau jour x indicateur) (D-058) | PARTIEL | P2-P3 | Générateur libre et envoi planifié (pas de passerelle de courriel) |
 
@@ -283,18 +283,18 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Recommandation de dispatch expliquée, journal, validation humaine | `Dispatch/*` | `decisions_dispatch` | DÉPLOYÉ | P2 | - |
 | Détection d'anomalies (carburant), analyses de performance et fiabilité | `Fuel/Anomalies*`, `Analyses/*` | règles déterministes | DÉPLOYÉ | P2 | - |
-| Recherche globale | `Search/GlobalSearchModal` | 7 requêtes | À CORRIGER | P2 | Colonnes inexistantes ; 7 requêtes pour 6 résultats, libellés décalés (`:50-86`) |
+| Recherche globale | `Search/GlobalSearchModal` | une requête par type, colonnes réelles, RLS (D-061) | À TESTER | P2 | Recherche documentaire après GED |
 | Recherche en langage naturel, prévisions, détection de risques contractuels, génération de rapports | - | - | MANQUANT | P3 | Après données réelles suffisantes |
 
 ## Synthèse
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 67 |
-| À TESTER | 2 |
+| DÉPLOYÉ | 69 |
+| À TESTER | 5 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 23 |
-| À CORRIGER | 6 |
+| PARTIEL | 24 |
+| À CORRIGER | 0 |
 | NON CONFORME | 0 |
 | MANQUANT | 18 |
 | **Total** | **120** |
