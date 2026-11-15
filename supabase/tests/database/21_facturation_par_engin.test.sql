@@ -46,12 +46,20 @@ INSERT INTO public.fiches_terrain (id, numero, type, date_fiche, site_id, statut
 INSERT INTO public.pointages_engins (fiche_id, vehicle_id, index_debut, index_fin) VALUES
   ('00000000-0000-4000-9400-0000000000f1', '00000000-0000-4000-9400-0000000000b2', 500, 550),
   ('00000000-0000-4000-9400-0000000000f1', '00000000-0000-4000-9400-0000000000b3', 1000, 1010);
--- Releves kilometriques du camion : 200 + 200 = 400 km livres en septembre.
+-- Voyages du camion : 200 + 200 = 400 km valides livres en septembre.
 INSERT INTO public.trips (id, reference, planned_date, vehicle_id, etat, km_start, km_end) VALUES
   ('00000000-0000-4000-9400-000000000011', 'TEST-ENG-T1', '2001-09-05', '00000000-0000-4000-9400-0000000000b1', 'DELIVERED', 100, 300),
   ('00000000-0000-4000-9400-000000000012', 'TEST-ENG-T2', '2001-09-20', '00000000-0000-4000-9400-0000000000b1', 'CLOSED', 300, 500),
   ('00000000-0000-4000-9400-000000000013', 'TEST-ENG-T3', '2001-10-05', '00000000-0000-4000-9400-0000000000b1', 'DELIVERED', 500, 1500),
   ('00000000-0000-4000-9400-000000000014', 'TEST-ENG-T4', '2001-09-25', '00000000-0000-4000-9400-0000000000b1', 'LOADING', 500, 900);
+-- D-043 : le controle au km lit les distances validees (trajet charge
+-- seulement ici) ; km_start / km_end ne servent plus.
+UPDATE public.contrat_tarifs SET km_retour_vide_facturable = false
+ WHERE engin = '00000000-0000-4000-9400-0000000000b1';
+INSERT INTO public.distances_voyage (trip_id, version, validee_charge_km) VALUES
+  ('00000000-0000-4000-9400-000000000011', 1, 200),
+  ('00000000-0000-4000-9400-000000000012', 1, 200),
+  ('00000000-0000-4000-9400-000000000013', 1, 1000);
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-9400-000000000001');
 SET LOCAL ROLE authenticated;

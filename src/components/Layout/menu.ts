@@ -33,6 +33,7 @@ export const MENU: MenuItem[] = [
   { id: 'planification', label: 'Planification', icon: CalendarDays },
   { id: 'dispatch', label: 'Dispatch', icon: Waypoints },
   { id: 'trips', label: 'Voyages & Rotations', icon: Route },
+  { id: 'kilometrage', label: 'Kilométrage', icon: Gauge },
   { id: 'fiches', label: 'Fiches terrain', icon: ClipboardList },
   {
     id: 'flotte',

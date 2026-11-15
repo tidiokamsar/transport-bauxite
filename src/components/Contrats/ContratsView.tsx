@@ -231,7 +231,7 @@ export const ContratsView = () => {
                                 <ul className="space-y-1 text-sm">
                                   {tv.map((t) => (
                                     <li key={t.id} className="flex items-center justify-between gap-2 rounded-lg bg-stone-50 px-2 py-1">
-                                      <span>{t.libelle}{t.engin ? ` · ${immat.get(t.engin) ?? 'engin retiré'}` : t.categorie_materiel ? ` (${t.categorie_materiel})` : ''}</span>
+                                      <span>{t.libelle}{t.engin ? ` · ${immat.get(t.engin) ?? 'engin retiré'}` : t.categorie_materiel ? ` (${t.categorie_materiel})` : ''}{t.unite === 'km' && <span className="ml-1 text-xs text-stone-500">{t.km_retour_vide_facturable == null ? '· retour à vide : à confirmer' : t.km_retour_vide_facturable ? '· retour à vide facturé' : '· trajet chargé seulement'}</span>}</span>
                                       <span className="flex items-center gap-1 font-semibold text-stone-900">
                                         {formatNombre(Number(t.prix), 2)} {contrat.devise} {UNITES_TARIF[t.unite] ?? t.unite}
                                         {peutEcrire && <button onClick={() => setFenetre({ type: 'tarif', versionId: v.id, tarif: t })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier le tarif ${t.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>}

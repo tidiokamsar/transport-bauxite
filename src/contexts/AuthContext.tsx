@@ -163,6 +163,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'documents': 'vehicles',
       'drivers': 'drivers',
       'trips': 'trips',
+      'kilometrage': 'trips',
       'fiches': 'trips',
       'planification': 'planning',
       'dispatch': 'trips',

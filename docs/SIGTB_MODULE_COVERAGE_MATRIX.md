@@ -110,7 +110,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Cycle à 18 états, journal immuable, transitions serveur | `Trips/*` | `trips.etat`, `trip_events`, `creer_voyage`, `avancer_voyage`, garde `trips_garde_cycle` | DÉPLOYÉ | P1 | - |
 | Fiches terrain imprimables, numéro de fiche au journal | `Fiches/*` | `fiches_terrain`, `preparer_fiche`, `saisir_*` (D-028) | DÉPLOYÉ | P1 | - |
 | Ticket CBG rattaché, rectification auditée | `Fiches/*`, `Trips/*` | D-037, migrations `20261113*` | DÉPLOYÉ | P1 | Import de tickets (module 14) |
-| Relevés kilométriques sur le parcours | - | `trips.km_start/km_end` (non saisis par le parcours) | MANQUANT | P0 | Lot K : relevés d'odomètre append-only, distances référence / déclarée / mesurée / validée / facturable |
+| Relevés kilométriques sur le parcours | `Trips/KilometrageView` | `releves_compteur`, `distances_voyage`, `distances_reference`, `valider_distance_voyage` (D-043) | À TESTER | P0 | Saisie depuis la fiche papier ; à intégrer à la saisie de la fiche rotations |
 | Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels) | `trip_events` | PARTIEL | P1 | Incidents : écran hérité à corriger (module 22) |
 | Dossier numérique du voyage | - | - | MANQUANT | P2 | Après GED |
 | Rapports par camion, chauffeur, site, shift | partiel | - | PARTIEL | P2 | - |
@@ -122,7 +122,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Registre des véhicules, création, modification | `Vehicles/*` | `vehicles` (module + `site_permis`, garde D-039 ; `chassis_number` présent) | EXISTANT À AMÉLIORER | P1 | Propriétaire, exploitant, transporteur, contrat associé : MANQUANT |
 | Statuts véhicule | - | enum `vehicle_status` (4 valeurs) | PARTIEL | P1 | Statuts étendus sans casser l'existant |
 | Documents, assurances, visites techniques | `Documents/*` | `vehicle_documents` (métadonnées seulement) | PARTIEL | P1 | Fichier joint impossible (pas de stockage) ; alertes d'expiration |
-| Compteurs kilométriques | - | `vehicles.current_km` (valeur par défaut 0, aucun relevé daté) | MANQUANT | P0 | Lot K : relevés datés, le défaut 0 n'est pas une mesure |
+| Compteurs kilométriques | `Trips/KilometrageView` | `releves_compteur` datés et cohérents (D-043) ; `vehicles.current_km` (défaut 0) n'est pas une mesure | PARTIEL | P1 | Relevés hors voyage (moment « autre ») sans écran dédié |
 | Disponibilité, suspension, remise en service | `Maintenance/Immobilisations*` | D-025 | DÉPLOYÉ | P1 | - |
 | Coût par véhicule, performances | `Analyses/AnalysesFlotte` | `fiabilite_engins`, `consommation_carburant` | PARTIEL | P2 | Coûts directs complets après module 09 du mandat |
 | Distinction équipement KOGON / loué | `Contrats/*` (engins du contrat) | `contrat_tarifs.engin` (D-033) | PARTIEL | P1 | Attribut de propriété sur `vehicles` |
@@ -144,7 +144,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Contrats de location, avenants (versions), historique | `Contrats/ContratsView` | `contrats`, `contrat_versions`, `journal_contrats` (D-026) | DÉPLOYÉ | P1 | Fiche partenaire structurée : MANQUANT |
 | Tarifs par engin, horaire et kilométrique | `Contrats/Formulaires` | `contrat_tarifs` (D-033) | DÉPLOYÉ | P1 | - |
 | Pointages horaires | `Fiches` (pointage engins) | `pointages_engins` | DÉPLOYÉ | P1 | Heures présence / fonctionnement / productives / arrêt / facturables non distinguées (règle 13) |
-| Relevés de compteur km | - | - | MANQUANT | P0 | Lot K |
+| Relevés de compteur km | `Trips/KilometrageView` | D-043 ; contrôle Neemba au km sur distances validées | À TESTER | P0 | Règle du retour à vide à renseigner par tarif |
 | Immobilisations, imputation loueur | `Maintenance/Immobilisations*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | - | - | MANQUANT | P1 | Lot N : interventions Neemba liées à l'immobilisation |
 | Contrôle des factures, écarts, réclamations, régularisations, avoirs | `Contrats/FacturesNeembaView` | `factures_fournisseur*`, `regularisations_fournisseur` (D-032, D-033) | DÉPLOYÉ | P1 | - |
@@ -291,12 +291,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 41 |
-| À TESTER | 0 |
+| À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 17 |
+| PARTIEL | 18 |
 | À CORRIGER | 12 |
 | NON CONFORME | 2 |
-| MANQUANT | 42 |
+| MANQUANT | 40 |
 | **Total** | **120** |
 
-Non-conformités restantes après D-041 et D-042 : stocks magasin (solde modifiable, non atomique), centre de notifications sans politique d'accès ; manque P0 : relevés kilométriques alors que la facturation au km existe.
+Non-conformités restantes après D-041 et D-042 : stocks magasin (solde modifiable, non atomique), centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.

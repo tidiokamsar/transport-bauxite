@@ -25,6 +25,7 @@ const ComitesView = lazy(() => import('./components/Contrats/ComitesView').then(
 const RecouvrementView = lazy(() => import('./components/Facturation/RecouvrementView').then(m => ({ default: m.RecouvrementView })));
 const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeembaView').then(m => ({ default: m.FacturesNeembaView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
+const KilometrageView = lazy(() => import('./components/Trips/KilometrageView').then(m => ({ default: m.KilometrageView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
 const FuelDashboard = lazy(() => import('./components/Fuel/AnalyseCarburantView').then(m => ({ default: m.AnalyseCarburantView })));
@@ -109,6 +110,8 @@ const MainApp = () => {
         return <DriversView />;
       case 'trips':
         return <TripsView />;
+      case 'kilometrage':
+        return <KilometrageView />;
       case 'fleet-intelligence':
         return <FleetIntelligenceView />;
       case 'gps-tracking':
