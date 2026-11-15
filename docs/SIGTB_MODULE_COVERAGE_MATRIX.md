@@ -89,8 +89,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Modèles d'horaires | Paramètres | `work_shifts` (définitions) | EXISTANT | P1 | - |
-| Instances de shift : ouverture, responsable, équipe, affectations, clôture validée | `Postes/PostesView` | `postes`, `postes_equipe`, `ouvrir_poste`, `cloturer_poste`, `valider_cloture_poste` (D-048) | À TESTER | P1 | Affectation des engins au poste depuis l'écran |
-| Passation de consignes, événements, rapport de shift, retards et absences | `Postes/PostesView` | passation automatique, `postes_evenements`, bilan figé, présences (D-048) | À TESTER | P1 | - |
+| Instances de shift : ouverture, responsable, équipe, affectations, clôture validée | `Postes/PostesView` | `postes`, `postes_equipe`, `ouvrir_poste`, `cloturer_poste`, `valider_cloture_poste` (D-048) | DÉPLOYÉ | P1 | Affectation des engins au poste depuis l'écran |
+| Passation de consignes, événements, rapport de shift, retards et absences | `Postes/PostesView` | passation automatique, `postes_evenements`, bilan figé, présences (D-048) | DÉPLOYÉ | P1 | - |
 | Comparaison entre shifts, historique des équipes | - | `trips.shift_id` | PARTIEL | P2 | - |
 
 ### 06. Dispatch et affectation
@@ -146,7 +146,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Pointages horaires | `Fiches` (pointage engins) | `pointages_engins` | DÉPLOYÉ | P1 | Heures présence / fonctionnement / productives / arrêt / facturables non distinguées (règle 13) |
 | Relevés de compteur km | `Trips/KilometrageView` | D-043 ; contrôle Neemba au km sur distances validées | DÉPLOYÉ | P0 | Règle du retour à vide à renseigner par tarif |
 | Immobilisations, imputation loueur | `Maintenance/Immobilisations*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
-| Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | - | - | MANQUANT | P1 | Lot N : interventions Neemba liées à l'immobilisation |
+| Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | `Maintenance/InterventionsLoueurView` | `interventions_loueur`, `interventions_pieces`, `interventions_journal`, `v_interventions_loueur` (D-049) | À TESTER | P1 | Délai contractuel à reprendre du contrat |
 | Contrôle des factures, écarts, réclamations, régularisations, avoirs | `Contrats/FacturesNeembaView` | `factures_fournisseur*`, `regularisations_fournisseur` (D-032, D-033) | DÉPLOYÉ | P1 | - |
 | Évaluation périodique de Neemba | `Contrats/EngagementsView` (rapport) | `rapports_performance` (D-031) | PARTIEL | P2 | Grille d'évaluation dédiée |
 
@@ -158,7 +158,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | MTBF, MTTR, disponibilité, récurrence | `Analyses/AnalysesFlotte` | `fiabilite_engins` | DÉPLOYÉ | P2 | Coût des immobilisations : MANQUANT |
 | Ordres de travail | `Maintenance/MaintenanceView`, `MaintenanceModal` | `maintenance_orders`, `parts_inventory` | À CORRIGER | P2 | Suppression d'ordre (`MaintenanceModal.tsx:105`) ; second inventaire de pièces distinct des stocks ; aucune consommation de stock |
 | Maintenance préventive | `Maintenance/PreventiveMaintenanceView` | `maintenance_schedules` | À CORRIGER | P2 | Colonnes inexistantes à l'enregistrement (`MaintenanceScheduleModal.tsx:123-140`) ; applicable seulement si contractuel (équipements loués) |
-| Notification au partenaire, demande d'intervention, suivi | - | - | MANQUANT | P1 | Lot N |
+| Notification au partenaire, demande d'intervention, suivi | `Maintenance/InterventionsLoueurView` | D-049 (canal, référence, délai, retard) | À TESTER | P1 | Notification électronique : après SMTP |
 
 ### 12. Pneumatiques
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 47 |
+| DÉPLOYÉ | 49 |
 | À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 7 |
 | PARTIEL | 19 |
 | À CORRIGER | 11 |
 | NON CONFORME | 1 |
-| MANQUANT | 34 |
+| MANQUANT | 32 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.

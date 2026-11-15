@@ -177,6 +177,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'fuel-dashboard': 'fuel',
       'fuel-anomalies': 'fuel',
       'immobilisations': 'maintenance',
+      'interventions-loueur': 'maintenance',
       'maintenance': 'maintenance',
       'preventive': 'maintenance',
       'stock': 'stock',

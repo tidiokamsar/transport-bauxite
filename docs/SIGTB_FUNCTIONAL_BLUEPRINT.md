@@ -42,7 +42,7 @@ Un bloc sans sens métier pour un domaine n'est pas créé.
 | Ticket validé vers rapprochement | Opérationnel (mensuel) | Réconciliation D-029 ; journalier : lot 10 |
 | Rapprochement clôturé vers facturation | Opérationnel | Facture CBG préparée depuis la réconciliation close, signée par le DG |
 | Immobilisation vers disponibilité flotte | Opérationnel | D-025, blocage au dispatch |
-| Intervention Neemba vers historique équipement | Manquant | Lot 9 |
+| Intervention Neemba vers historique équipement | Opérationnel (D-049) | Intervention rattachée à l'immobilisation ; remise en service validée clôt l'immobilisation |
 | Distribution carburant vers consommation | Opérationnel | Fiche carburant -> `fuel_transactions` -> `consommation_carburant` ; vers stock : D-041 |
 | Montage de pneu vers historique du pneu | Non opérationnel | Tables d'opérations sans politique d'accès ; lot 12 |
 | Commande réceptionnée vers stock | Manquant | Lot 13 après lot 4 |
