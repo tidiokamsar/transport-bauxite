@@ -45,7 +45,7 @@ Un bloc sans sens métier pour un domaine n'est pas créé.
 | Intervention Neemba vers historique équipement | Opérationnel (D-049) | Intervention rattachée à l'immobilisation ; remise en service validée clôt l'immobilisation |
 | Distribution carburant vers consommation | Opérationnel | Fiche carburant -> `fuel_transactions` -> `consommation_carburant` ; vers stock : D-041 |
 | Montage de pneu vers historique du pneu | Opérationnel (D-052) | Journal `pneus_operations`, état recalculé, km et coût au km dans `v_pneus` |
-| Commande réceptionnée vers stock | Manquant | Lot 13 après lot 4 |
+| Commande réceptionnée vers stock | Opérationnel (D-053) | Approbation par une autre personne, réception partielle, entrée en stock par `mouvement_stock` |
 | Facture validée vers créance | Opérationnel | `v_creances` (D-031) |
 | Paiement validé vers situation financière | Manquant | Lot 16 |
 | Données validées vers tableaux de bord | Partiel | KPI calculés par écran ; vues de référence : lot 19 |

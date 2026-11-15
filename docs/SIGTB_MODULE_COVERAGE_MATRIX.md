@@ -164,7 +164,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Référentiel, montage, démontage, permutation, contrôle | `Pneus/PneusView` | `tires` (cache), `pneus_operations` (journal), `monter_pneu`, `demonter_pneu`, `permuter_pneu`, `inspecter_pneu`, `annuler_operation_pneu` (D-052) | À TESTER | P1 | Anciennes tables `tire_*` à supprimer (décision du propriétaire) |
+| Référentiel, montage, démontage, permutation, contrôle | `Pneus/PneusView` | `tires` (cache), `pneus_operations` (journal), `monter_pneu`, `demonter_pneu`, `permuter_pneu`, `inspecter_pneu`, `annuler_operation_pneu` (D-052) | DÉPLOYÉ | P1 | Anciennes tables `tire_*` à supprimer (décision du propriétaire) |
 | Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | `Pneus/PneusView` | `enregistrer_pneu`, `rechaper_pneu`, `reparer_pneu`, `reformer_pneu`, `v_pneus` (km, coût au km), `v_pneus_a_surveiller` (D-052) | PARTIEL | P1 | Réception depuis un bon de commande (lot 13) ; performance par marque (lot 19) |
 
 ### 13. Fuel intelligence
@@ -201,8 +201,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Bons de commande | `Purchases/*` | `purchase_orders`, `purchase_order_items` ; numéro serveur `numeroter_bon_commande` (D-042) | EXISTANT À AMÉLIORER | P1 | Colonnes réelles, annulation au lieu de suppression (D-042) ; statut librement modifiable, pas de validation ni de réception vers stock (lot 13) |
-| Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | - | - | MANQUANT | P1 | Lot A : circuit achat par fonctions serveur, réception vers stock |
+| Bons de commande | `Purchases/PurchasesView` | `purchase_orders`, `purchase_order_items` écrits par `enregistrer_bon_commande`, `soumettre_bon_commande`, `decider_bon_commande`, `annuler_bon_commande`, `solder_bon_commande` ; `achats_journal` (D-053) | À TESTER | P1 | - |
+| Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | `Purchases/PurchasesView` | Brouillon puis approbation par une autre personne ; `receptionner_bon_commande` (réception partielle, refus motivé, entrée en stock), `annuler_reception` (D-053) | PARTIEL | P1 | Consultation de fournisseurs, contrôle budgétaire, factures et avoirs d'achat, relances |
 
 ### 17. Stocks et magasins
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 54 |
+| DÉPLOYÉ | 55 |
 | À TESTER | 2 |
-| EXISTANT / EXISTANT À AMÉLIORER | 7 |
-| PARTIEL | 19 |
+| EXISTANT / EXISTANT À AMÉLIORER | 6 |
+| PARTIEL | 20 |
 | À CORRIGER | 10 |
 | NON CONFORME | 1 |
-| MANQUANT | 29 |
+| MANQUANT | 28 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
