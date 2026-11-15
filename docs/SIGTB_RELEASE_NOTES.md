@@ -2,7 +2,7 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : registre carburant (D-041)
+## 8144424 (2026-11-15) : registre carburant (D-041, PR #51)
 
 - Stocks et cuves : le stock est calculé à partir des mouvements validés ; plus aucun solde saisi à la main.
 - Réception d'une livraison CBG avec volume mesuré, volume accepté et motif d'écart.

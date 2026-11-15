@@ -172,8 +172,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Livraisons CBG, prix au litre, contrôle des factures | `Fuel/LivraisonsCbgView` | D-034 | DÉPLOYÉ | P1 | - |
-| Registre des mouvements : stockages, réception mesurée et acceptée, transferts, distributions, inventaires, écarts, annulation, séparation saisie / décision | `Fuel/StocksCarburantView` | `stockages_carburant`, `mouvements_carburant`, `receptions_carburant`, `inventaires_carburant`, `v_stocks_carburant` (D-041) | À TESTER | P0 | Branche `lot-10/registre-carburant` ; pgTAP 25, E2E |
-| Ancien solde saisi à la main | (écran retiré) | `fuel_stocks` passe en lecture seule (D-041) | NON CONFORME -> corrigé en branche | P0 | Déploiement du lot |
+| Registre des mouvements : stockages, réception mesurée et acceptée, transferts, distributions, inventaires, écarts, annulation, séparation saisie / décision | `Fuel/StocksCarburantView` | `stockages_carburant`, `mouvements_carburant`, `receptions_carburant`, `inventaires_carburant`, `v_stocks_carburant` (D-041) | DÉPLOYÉ | P0 | Déployé le 2026-11-15 (8144424) ; cuves réelles et inventaires d'ouverture à saisir |
+| Ancien solde saisi à la main | (écran retiré) | `fuel_stocks` en lecture seule (D-041) | DÉPLOYÉ | P0 | Corrigé le 2026-11-15 |
 | Saisie des pleins | `Fuel/PleinsView` (insertion directe), fiche carburant (RPC) | `fuel_transactions` | EXISTANT À AMÉLIORER | P1 | Passer la saisie isolée par fonction serveur |
 | Consommation par engin, L/t, L/h, anomalies | `Fuel/AnalyseCarburantView`, `AnomaliesCarburantView` | `consommation_carburant`, `anomalies_carburant` (D-030) | DÉPLOYÉ | P2 | Valorisation par stockage |
 | Jauges connectées | `Fuel/CapteursCarburantView` | `ingest_fuel_data`, `iot_fuel_readings` | DÉPLOYÉ | P3 | Aucun matériel réel (règle 17) |
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 39 |
-| À TESTER | 1 |
+| DÉPLOYÉ | 41 |
+| À TESTER | 0 |
 | EXISTANT / EXISTANT À AMÉLIORER | 5 |
 | PARTIEL | 17 |
 | À CORRIGER | 11 |
-| NON CONFORME | 6 (dont 1 corrigé en branche D-041) |
+| NON CONFORME | 5 |
 | MANQUANT | 41 |
 | **Total** | **120** |
 
-Les non-conformités P0 restantes après le lot D-041 : stocks magasin (solde modifiable, mouvements supprimables), portail client (données fabriquées, aucun cloisonnement), achats (numéro aléatoire, suppressions), absence de relevés kilométriques alors que la facturation au km existe.
+Les non-conformités P0 restantes après le déploiement du lot D-041 : stocks magasin (solde modifiable, mouvements supprimables), portail client (données fabriquées, aucun cloisonnement), achats (numéro aléatoire, suppressions), absence de relevés kilométriques alors que la facturation au km existe.
