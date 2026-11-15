@@ -93,6 +93,7 @@ SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a1'), 1, 'u
 SELECT is((SELECT (statut, assiette, montant_calcule, montant_propose)::text FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)),
   '(propose,10000,500.00,300)', 'taux applique a l''assiette des factures, ramene au plafond');
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a1'), 0, 'pas de second calcul pour le meme rapport');
+SELECT ok(EXISTS (SELECT 1 FROM public.mes_validations() WHERE objet = 'Clause contractuelle à décider'), 'clause proposee dans mes validations');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, ' ')$$,
   '22023', NULL, 'decision sans motif refusee');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, 'Penalite due')$$,
@@ -136,7 +137,6 @@ SELECT is((SELECT a_signaler FROM public.v_echeances_contrats WHERE contrat_id =
   'alerte dans le delai du reglage');
 SELECT ok(EXISTS (SELECT 1 FROM public.mes_validations() WHERE objet = 'Échéance de contrat' AND reference = 'TEST-D065-CBG'),
   'echeance dans mes validations');
-SELECT ok(EXISTS (SELECT 1 FROM public.mes_validations() WHERE objet = 'Clause contractuelle à décider'), 'clause proposee dans mes validations');
 SELECT throws_ok($$SELECT public.enregistrer_echeance_contrat('00000000-0000-4000-a650-0000000000c1', 'renouvellement', current_date, 'Avenant',
   current_date)$$, '22023', NULL, 'renouvellement : nouvelle fin posterieure exigee');
 SELECT public.enregistrer_echeance_contrat('00000000-0000-4000-a650-0000000000c1', 'renouvellement', current_date, 'Avenant n 1 signe',
