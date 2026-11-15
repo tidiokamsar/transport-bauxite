@@ -45,8 +45,8 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 12 | Pneumatiques (lot P, D-052 déployé le 2026-11-16, 165d2ea) | 12 | 11 | Cycle de vie individuel par fonctions serveur, politiques d'accès, coût par km (après lot K) |
 | 13 | Achats et fournisseurs (lot A, D-053 déployé le 2026-11-17, 7f11af4) | 15, 16 | 11 | Demande, validation, commande, réception vers stock, facture, avoir |
 | 14 | GED et stockage de fichiers (lot D) | 23, 08, 14 | 06 | Bucket privé, table documentaire polymorphe, politiques par module et site, versions ; pièces jointes des modules |
-| 15 | HSE (lot H, D-054 en PR) | 22 | 15 | Contrôle avant départ lié au dispatch, incidents (écran corrigé), actions correctives |
-| 16 | Paiements et contrôle a posteriori (lot F) | 20 | 12 | Paiements exécutés, pièces, validation séparée ; source de données à fournir par le propriétaire |
+| 15 | HSE (lot H, D-054 déployé le 2026-11-17, 04140d7) | 22 | 15 | Contrôle avant départ lié au dispatch, incidents (écran corrigé), actions correctives |
+| 16 | Paiements et contrôle a posteriori (lot F, D-055 en PR) | 20 | 12 | Paiements exécutés, pièces, validation séparée ; source de données à fournir par le propriétaire |
 
 ### Phase 1 (transverse, menée au fil des lots) et phases 5 à 6 (P2-P3)
 
@@ -102,4 +102,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-16 | 12. Pneumatiques (D-052) | PR #64 fusionnée ; déployé (165d2ea) : 35 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | 13. Circuit achat (D-053) | PR #65 fusionnée ; déployé (7f11af4) : 36 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | 14. GED et stockage (lot D) | Reporté : le service Storage n'est pas dans la pile de production (D-016) et `/storage/*` est bloqué au Caddy partagé ; activation soumise à la validation du propriétaire |
-| 2026-11-17 | 15. HSE (D-054) | Branche `lot-15/hse` ; pgTAP 37 (15 assertions), tests 09, 14, 17, 18 neutralisent l'exigence, 3 unitaires, 2 E2E |
+| 2026-11-17 | 15. HSE (D-054) | PR #66 fusionnée ; déployé (04140d7) : 37 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-17 | 16. Paiements fournisseurs (D-055) | Branche `lot-16/paiements-fournisseur` ; pgTAP 38 (14 assertions), 1 E2E |

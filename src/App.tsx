@@ -62,6 +62,7 @@ const ESGTrackingView = lazy(() => import('./components/ESG/ESGTrackingView').th
 const IoTDashboardView = lazy(() => import('./components/IoT/IoTDashboardView').then(m => ({ default: m.IoTDashboardView })));
 const GeofencingView = lazy(() => import('./components/Geofencing/GeofencingView'));
 const ControlesDepartView = lazy(() => import('./components/Hse/ControlesDepartView').then(m => ({ default: m.ControlesDepartView })));
+const PaiementsView = lazy(() => import('./components/Paiements/PaiementsView').then(m => ({ default: m.PaiementsView })));
 const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').then(m => ({ default: m.IncidentsView })));
 const AlertsView = lazy(() => import('./components/Alerts/AlertsView').then(m => ({ default: m.AlertsView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
@@ -206,6 +207,8 @@ const MainApp = () => {
         return <IoTDashboardView />;
       case 'controles-depart':
         return <ControlesDepartView />;
+      case 'paiements':
+        return <PaiementsView />;
       case 'incidents':
         return <IncidentsView />;
       case 'alerts':

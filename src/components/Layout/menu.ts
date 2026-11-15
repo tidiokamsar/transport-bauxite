@@ -97,6 +97,7 @@ export const MENU: MenuItem[] = [
       { id: 'invoices', label: 'Facturation', icon: FileText },
       { id: 'recouvrement', label: 'Recouvrement', icon: Wallet },
       { id: 'factures-neemba', label: 'Contrôle factures Neemba', icon: Receipt },
+      { id: 'paiements', label: 'Paiements fournisseurs', icon: Wallet },
       { id: 'costs', label: 'Coûts', icon: Banknote },
     ],
   },

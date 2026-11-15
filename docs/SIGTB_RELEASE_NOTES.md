@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : HSE (D-054)
+## À venir : paiements fournisseurs (D-055)
+
+- Contrats & Finance > Paiements fournisseurs : pièces payables (factures Neemba contrôlées, bons de commande reçus) avec reste à payer.
+- Bon à payer plafonné au reste, approuvé par une autre personne, puis paiement exécuté saisi avec sa référence bancaire.
+- Contrôle a posteriori par une troisième personne. SIGTB ne déclenche aucun paiement.
+
+## 04140d7 (2026-11-17) : HSE (D-054, PR #66)
 
 - RH & Sécurité > Contrôles avant départ : liste de points fixée par l'administrateur, résultat calculé (conforme, avec réserves, non conforme).
 - Quand l'administrateur l'exige, un camion ne part pas au chargement sans contrôle du jour, ni après un contrôle non conforme.

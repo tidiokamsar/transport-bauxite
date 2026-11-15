@@ -191,6 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'comites': 'contracts',
       'recouvrement': 'invoices',
       'factures-neemba': 'contracts',
+      'paiements': 'invoices',
       'reconciliation': 'invoices',
       'invoices': 'invoices',
       'costs': 'costs',
