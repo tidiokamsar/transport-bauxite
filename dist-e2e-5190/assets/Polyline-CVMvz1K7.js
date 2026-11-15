@@ -1,0 +1,1 @@
+import{ab as i,a8 as s,a9 as l,aa as r}from"./index-CFPQLUeU.js";const p=i(function({positions:t,...e},n){const o=new s.Polyline(t,e);return l(o,r(n,{overlayContainer:o}))},function(t,e,n){e.positions!==n.positions&&t.setLatLngs(e.positions)});export{p as P};
