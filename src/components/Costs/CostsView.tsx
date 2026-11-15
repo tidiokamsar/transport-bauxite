@@ -1,301 +1,173 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Download, Plus, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import {
-  Plus, Search, DollarSign, TrendingUp, TrendingDown, RefreshCw, FileText, BarChart3, Calendar
-} from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { exportToCSV } from '../../lib/exports';
+import { bornesMois, depenseValide, repartitionParCategorie, totauxParDevise } from '../../lib/rapports';
+import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 
-interface Cost {
-  id: string;
-  date: string;
-  description: string;
-  amount: number;
-  reference: string | null;
-  payment_method: string | null;
-  cost_categories: { name: string; type: string } | null;
-  vehicles: { registration_number: string } | null;
+// Couts directs (D-058) : une depense s'enregistre par la fonction serveur
+// enregistrer_cout (droit d'ecriture costs, perimetre du site) ; elle ne se
+// modifie ni ne se supprime, elle s'annule avec un motif (annuler_cout).
+// Les totaux sont donnes par devise, jamais additionnes entre devises. Le
+// cout par tonne et la rentabilite sont dans Rapports (rapport mensuel) et
+// Reporting > Cout direct par tonne.
+
+interface Cout {
+  id: string; numero: string | null; date: string; description: string; amount: number; devise: string | null; reference: string | null;
+  payment_method: string | null; notes: string | null; statut: 'enregistre' | 'annule'; motif_annulation: string | null; site_id: string | null;
+  cost_categories: { name: string; category_type: string } | null; vehicles: { registration: string } | null; sites: { name: string } | null;
 }
+interface Lib { id: string; libelle: string }
+
+const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
+const DEVISES = ['GNF', 'USD', 'EUR'];
+const MODES = ['Virement', 'Chèque', 'Espèces', 'Mobile money', 'Autre'];
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+const moisCourant = () => new Date().toISOString().slice(0, 7);
+const nombre = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
+const SAISIE_VIDE = { date: '', description: '', montant: '', devise: '', categorie: '', site: '', vehicule: '', reference: '', mode: '', notes: '' };
 
 export const CostsView = () => {
-  const [costs, setCosts] = useState<Cost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [periodFilter, setPeriodFilter] = useState('month');
+  const { hasPermission } = useAuth();
+  const peutSaisir = hasPermission('costs', 'create') || hasPermission('costs', 'edit');
+  const [mois, setMois] = useState(moisCourant);
+  const [statut, setStatut] = useState<'enregistre' | 'annule' | 'tous'>('enregistre');
+  const [recherche, setRecherche] = useState('');
+  const [couts, setCouts] = useState<Cout[] | null>(null);
+  const [categories, setCategories] = useState<Lib[]>([]);
+  const [sites, setSites] = useState<Lib[]>([]);
+  const [engins, setEngins] = useState<Lib[]>([]);
+  const [saisie, setSaisie] = useState<typeof SAISIE_VIDE | null>(null);
+  const [heure, setHeure] = useState<Date | null>(null);
+  const [erreur, setErreur] = useState('');
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    fetchCosts();
-  }, []);
+  const charger = useCallback(async () => {
+    const b = bornesMois(mois);
+    if (!b) { setCouts([]); return; }
+    const [c, ca, si, ve] = await Promise.all([
+      supabase.from('costs').select('*, cost_categories(name, category_type), vehicles(registration), sites(name)')
+        .gte('date', b.debut).lte('date', b.fin).order('date', { ascending: false }),
+      supabase.from('cost_categories').select('id, name').eq('active', true).order('name'),
+      supabase.from('sites').select('id, name').order('name'),
+      supabase.from('vehicles').select('id, registration').order('registration'),
+    ]);
+    setErreur(c.error?.message ?? '');
+    setCouts((c.data ?? []) as Cout[]);
+    setCategories((ca.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
+    setSites((si.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
+    setEngins((ve.data ?? []).map((x) => ({ id: x.id as string, libelle: x.registration as string })));
+    setHeure(new Date());
+  }, [mois]);
+  useEffect(() => { charger(); }, [charger]);
 
-  const fetchCosts = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('costs')
-        .select(`
-          *,
-          cost_categories(name, type),
-          vehicles(registration_number)
-        `)
-        .order('date', { ascending: false });
+  const visibles = useMemo(() => (couts ?? []).filter((c) => (statut === 'tous' || c.statut === statut)
+    && (!recherche.trim() || `${c.description} ${c.reference ?? ''} ${c.numero ?? ''}`.toLowerCase().includes(recherche.trim().toLowerCase()))), [couts, statut, recherche]);
+  const pourTotaux = useMemo(() => visibles.map((c) => ({ amount: c.amount, devise: c.devise, statut: c.statut, categorie: c.cost_categories?.name ?? null })), [visibles]);
+  const totaux = totauxParDevise(pourTotaux);
+  const repartition = repartitionParCategorie(pourTotaux);
 
-      if (error) throw error;
-      setCosts(data || []);
-    } catch (error) {
-      console.error('Error fetching costs:', error);
-    } finally {
-      setLoading(false);
-    }
+  const enregistrer = async () => {
+    if (!saisie) return;
+    setBusy(true); setErreur(''); setMessage('');
+    const { error } = await supabase.rpc('enregistrer_cout', {
+      p_date: saisie.date, p_description: saisie.description.trim(), p_montant: Number(saisie.montant.replace(',', '.')), p_devise: saisie.devise,
+      p_categorie: saisie.categorie || null, p_site: saisie.site || null, p_vehicule: saisie.vehicule || null,
+      p_reference: saisie.reference.trim() || null, p_mode_paiement: saisie.mode || null, p_notes: saisie.notes.trim() || null,
+    });
+    setBusy(false);
+    if (error) { setErreur(error.message); return; }
+    setSaisie(null); setMessage('Dépense enregistrée.'); await charger();
   };
-
-  const getDateRange = () => {
-    const now = new Date();
-    const ranges = {
-      today: new Date(now.setHours(0, 0, 0, 0)),
-      week: new Date(now.setDate(now.getDate() - 7)),
-      month: new Date(now.setMonth(now.getMonth() - 1)),
-      year: new Date(now.setFullYear(now.getFullYear() - 1)),
-    };
-    return ranges[periodFilter as keyof typeof ranges] || ranges.month;
+  const annuler = async (c: Cout) => {
+    const motif = window.prompt(`Motif de l'annulation de ${c.numero ?? c.description}`)?.trim();
+    if (!motif) return;
+    setBusy(true); setErreur(''); setMessage('');
+    const { error } = await supabase.rpc('annuler_cout', { p_id: c.id, p_motif: motif });
+    setBusy(false);
+    if (error) { setErreur(error.message); return; }
+    setMessage('Dépense annulée.'); await charger();
   };
+  const exporter = () => exportToCSV(visibles.map((c) => ({
+    Numéro: c.numero ?? '', Date: c.date, Description: c.description, Catégorie: c.cost_categories?.name ?? '', Site: c.sites?.name ?? '',
+    Engin: c.vehicles?.registration ?? '', Montant: c.amount, Devise: c.devise ?? '', Référence: c.reference ?? '', Statut: c.statut,
+    'Motif d\'annulation': c.motif_annulation ?? '',
+  })), `couts_directs_${mois}`);
+  const saisieValide = !!saisie && depenseValide(saisie, aujourdhui());
+  const maj = (champ: keyof typeof SAISIE_VIDE, valeur: string) => saisie && setSaisie({ ...saisie, [champ]: valeur });
 
-  const filteredCosts = costs.filter(cost => {
-    const matchesSearch =
-      cost.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cost.reference?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesCategory = categoryFilter === 'all' || cost.cost_categories?.type === categoryFilter;
-
-    const dateRange = getDateRange();
-    const matchesDate = new Date(cost.date) >= dateRange;
-
-    return matchesSearch && matchesCategory && matchesDate;
-  });
-
-  const totalCosts = filteredCosts.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const fixedCosts = filteredCosts
-    .filter(c => c.cost_categories?.type === 'fixed')
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
-  const variableCosts = filteredCosts
-    .filter(c => c.cost_categories?.type === 'variable')
-    .reduce((sum, c) => sum + (c.amount || 0), 0);
-
-  const categoryBreakdown = filteredCosts.reduce((acc, cost) => {
-    const category = cost.cost_categories?.name || 'Non catégorisé';
-    acc[category] = (acc[category] || 0) + (cost.amount || 0);
-    return acc;
-  }, {} as Record<string, number>);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
+  return <div className="space-y-5">
+    <header className="flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="text-2xl font-black text-stone-900">Coûts directs</h2>
+        <p className="text-sm text-stone-500">Dépenses d'exploitation saisies dans SIGTB (hors location des engins). Une dépense ne se supprime pas : elle s'annule avec un motif.</p></div>
+      <div className="flex gap-2">
+        <button onClick={charger} className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"><RefreshCw className="h-4 w-4" /> Actualiser</button>
+        {peutSaisir && <button onClick={() => setSaisie({ ...SAISIE_VIDE, date: aujourdhui() })} className="flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Nouvelle dépense</button>}
       </div>
-    );
-  }
+    </header>
+    {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+    {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900">Gestion des Coûts</h1>
-          <p className="text-slate-600 mt-1">Suivi des charges et dépenses d'exploitation</p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={fetchCosts}
-            className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw className="w-5 h-5" />
-          </button>
-          <button className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors">
-            <Plus className="w-5 h-5" />
-            Nouvelle dépense
-          </button>
-        </div>
+    {saisie && <Panneau titre="Nouvelle dépense">
+      <div role="form" aria-label="Nouvelle dépense" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="text-sm">Date *<input type="date" max={aujourdhui()} value={saisie.date} onChange={(e) => maj('date', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm lg:col-span-3">Description *<input value={saisie.description} onChange={(e) => maj('description', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm">Montant *<input inputMode="decimal" value={saisie.montant} onChange={(e) => maj('montant', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm">Devise *<select value={saisie.devise} onChange={(e) => maj('devise', e.target.value)} className={CHAMP}>
+          <option value="">Choisir</option>{DEVISES.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
+        <label className="text-sm">Catégorie<select value={saisie.categorie} onChange={(e) => maj('categorie', e.target.value)} className={CHAMP}>
+          <option value="">Sans catégorie</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}</select></label>
+        <label className="text-sm">Site<select value={saisie.site} onChange={(e) => maj('site', e.target.value)} className={CHAMP}>
+          <option value="">Sans site (siège)</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}</select></label>
+        <label className="text-sm">Engin<select value={saisie.vehicule} onChange={(e) => maj('vehicule', e.target.value)} className={CHAMP}>
+          <option value="">Aucun</option>{engins.map((v) => <option key={v.id} value={v.id}>{v.libelle}</option>)}</select></label>
+        <label className="text-sm">Référence de la pièce<input value={saisie.reference} onChange={(e) => maj('reference', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm">Mode de paiement<select value={saisie.mode} onChange={(e) => maj('mode', e.target.value)} className={CHAMP}>
+          <option value="">Non renseigné</option>{MODES.map((m) => <option key={m} value={m}>{m}</option>)}</select></label>
+        <label className="text-sm">Notes<input value={saisie.notes} onChange={(e) => maj('notes', e.target.value)} className={CHAMP} /></label>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-slate-500 to-slate-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Total dépenses</h3>
-            <DollarSign className="w-6 h-6 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold">{(totalCosts / 1000000).toFixed(1)}M</p>
-          <p className="text-sm opacity-90 mt-1">GNF</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Charges fixes</h3>
-            <TrendingUp className="w-6 h-6 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold">{(fixedCosts / 1000000).toFixed(1)}M</p>
-          <p className="text-sm opacity-90 mt-1">
-            {totalCosts > 0 ? ((fixedCosts / totalCosts) * 100).toFixed(0) : 0}% du total
-          </p>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Charges variables</h3>
-            <TrendingDown className="w-6 h-6 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold">{(variableCosts / 1000000).toFixed(1)}M</p>
-          <p className="text-sm opacity-90 mt-1">
-            {totalCosts > 0 ? ((variableCosts / totalCosts) * 100).toFixed(0) : 0}% du total
-          </p>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold">Transactions</h3>
-            <FileText className="w-6 h-6 opacity-80" />
-          </div>
-          <p className="text-4xl font-bold">{filteredCosts.length}</p>
-          <p className="text-sm opacity-90 mt-1">dépenses enregistrées</p>
-        </div>
+      <p className="mt-2 text-xs text-stone-500">Une dépense sans site n'est visible que des profils sans affectation de site.</p>
+      <div className="mt-3 flex gap-2">
+        <button disabled={busy || !saisieValide} onClick={enregistrer} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
+        <button onClick={() => setSaisie(null)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Annuler</button>
       </div>
+    </Panneau>}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
-          <div className="p-6 border-b border-slate-200">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher par description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-                />
-              </div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-              >
-                <option value="all">Toutes catégories</option>
-                <option value="fixed">Charges fixes</option>
-                <option value="variable">Charges variables</option>
-                <option value="operational">Opérationnelles</option>
-              </select>
-              <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-              >
-                <option value="today">Aujourd'hui</option>
-                <option value="week">Cette semaine</option>
-                <option value="month">Ce mois</option>
-                <option value="year">Cette année</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Catégorie</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Véhicule</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Montant</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-200">
-                {filteredCosts.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                      Aucune dépense trouvée
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCosts.map((cost) => (
-                    <tr key={cost.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                        {new Date(cost.date).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-slate-900">{cost.description}</div>
-                        <div className="text-xs text-slate-500">{cost.reference || '-'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs font-medium rounded bg-slate-100 text-slate-700">
-                          {cost.cost_categories?.name || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
-                        {cost.vehicles?.registration_number || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-bold text-red-600">
-                          -{((cost.amount || 0) / 1000000).toFixed(2)}M
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-blue-600" />
-              Répartition par catégorie
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(categoryBreakdown)
-                .sort(([, a], [, b]) => b - a)
-                .slice(0, 5)
-                .map(([category, amount]) => {
-                  const percentage = totalCosts > 0 ? (amount / totalCosts) * 100 : 0;
-                  return (
-                    <div key={category}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-600 truncate">{category}</span>
-                        <span className="font-semibold">{((amount as number) / 1000000).toFixed(1)}M</span>
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-500 h-2 rounded-full"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-orange-600" />
-              Période d'analyse
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Début:</span>
-                <span className="font-medium">{getDateRange().toLocaleDateString('fr-FR')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Fin:</span>
-                <span className="font-medium">{new Date().toLocaleDateString('fr-FR')}</span>
-              </div>
-              <div className="pt-3 border-t border-slate-200">
-                <div className="flex justify-between font-semibold">
-                  <span className="text-slate-900">Total période:</span>
-                  <span className="text-red-600">{(totalCosts / 1000000).toFixed(2)}M</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+    <Panneau titre="Filtres">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="text-sm">Mois<input type="month" value={mois} onChange={(e) => setMois(e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm">Statut<select value={statut} onChange={(e) => setStatut(e.target.value as typeof statut)} className={CHAMP}>
+          <option value="enregistre">Enregistrées</option><option value="annule">Annulées</option><option value="tous">Toutes</option></select></label>
+        <label className="text-sm">Recherche<input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Description, référence, numéro" className={CHAMP} /></label>
       </div>
+    </Panneau>
+
+    <div className="grid gap-5 lg:grid-cols-3">
+      <Panneau titre="Total par devise" className="lg:col-span-1">
+        {totaux.length === 0 ? <SansDonnees message="Aucune dépense enregistrée" /> :
+          <ul className="space-y-2 text-sm">{totaux.map((t) => <li key={t.devise} className="flex justify-between"><span>{t.devise} · {t.nombre} dépense(s)</span><b>{nombre.format(t.montant)} {t.devise}</b></li>)}</ul>}
+        {repartition.length > 0 && <><h3 className="mt-4 text-sm font-bold text-stone-700">Par catégorie</h3>
+          <ul className="mt-1 space-y-1 text-sm">{repartition.map((r) => <li key={`${r.categorie}-${r.devise}`} className="flex justify-between"><span>{r.categorie}</span><span>{nombre.format(r.montant)} {r.devise}</span></li>)}</ul></>}
+        <Provenance source="costs (dépenses non annulées du mois)" heure={heure} />
+      </Panneau>
+
+      <Panneau titre="Dépenses" className="lg:col-span-2" action={<button disabled={visibles.length === 0} onClick={exporter}
+        className="flex items-center gap-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm disabled:opacity-50"><Download className="h-4 w-4" /> Export CSV</button>}>
+        {couts === null ? <p className="text-sm text-stone-500">Chargement…</p> : visibles.length === 0 ? <SansDonnees message="Aucune dépense pour ce mois" /> :
+          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500">
+            <th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Dépense</th><th className="py-2 pr-3">Catégorie</th><th className="py-2 pr-3">Site · engin</th><th className="py-2 pr-3 text-right">Montant</th><th /></tr></thead>
+            <tbody>{visibles.map((c) => <tr key={c.id} className="border-b border-stone-100">
+              <td className="py-2 pr-3">{c.date.split('-').reverse().join('/')}</td>
+              <td className="py-2 pr-3"><b>{c.description}</b><span className="block text-xs text-stone-500">{c.numero ?? 'Sans numéro'}{c.reference ? ` · ${c.reference}` : ''}</span>
+                {c.statut === 'annule' && <span className="block text-xs text-stone-500"><Puce teinte="gris">Annulée</Puce> {c.motif_annulation}</span>}</td>
+              <td className="py-2 pr-3">{c.cost_categories?.name ?? '—'}</td>
+              <td className="py-2 pr-3">{c.sites?.name ?? 'Sans site'}{c.vehicles ? ` · ${c.vehicles.registration}` : ''}</td>
+              <td className={`py-2 pr-3 text-right font-semibold ${c.statut === 'annule' ? 'text-stone-400 line-through' : ''}`}>{nombre.format(c.amount)} {c.devise ?? '(devise non renseignée)'}</td>
+              <td className="py-2">{peutSaisir && c.statut === 'enregistre' && <button disabled={busy} onClick={() => annuler(c)} aria-label={`Annuler ${c.numero ?? c.description}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Annuler</button>}</td>
+            </tr>)}</tbody></table></div>}
+      </Panneau>
     </div>
-  );
+  </div>;
 };

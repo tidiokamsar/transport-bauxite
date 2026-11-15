@@ -1,5 +1,6 @@
 -- Tests RLS (D-017) : tables recreees par 20261109090000_tables_manquantes.
--- Tout est annule en fin de transaction.
+-- Depuis D-058 (20261118090000), un cout s'ecrit par enregistrer_cout et se
+-- lit avec les modules costs ou reports. Tout est annule en fin de transaction.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -35,11 +36,11 @@ ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_n
 INSERT INTO public.user_preferences (user_id, language) VALUES
   ('00000000-0000-4000-e000-000000000001', 'fr');
 
--- Comptable : ecrit un cout (module costs).
+-- Comptable : ecrit un cout (module costs) par la fonction serveur.
 SELECT pg_temp.se_connecter('00000000-0000-4000-e000-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT lives_ok(
-  $$INSERT INTO public.costs (description, amount) VALUES ('Test D-017', 1)$$,
+  $$SELECT public.enregistrer_cout(current_date, 'Test D-017', 1, 'GNF')$$,
   'un comptable peut saisir un cout');
 SELECT is((SELECT count(*)::int FROM public.user_preferences), 1,
   'chacun voit sa preference');
@@ -49,15 +50,15 @@ RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-e000-000000000002');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok(
-  $$INSERT INTO public.costs (description, amount) VALUES ('Test D-017', 1)$$,
+  $$SELECT public.enregistrer_cout(current_date, 'Test D-017', 1, 'GNF')$$,
   '42501', NULL, 'un chauffeur ne peut pas saisir un cout');
 SELECT throws_ok(
   $$INSERT INTO public.departments (name) VALUES ('Test D-017')$$,
   '42501', NULL, 'un chauffeur ne peut pas creer un departement');
 SELECT is((SELECT count(*)::int FROM public.user_preferences), 0,
   'un utilisateur ne voit pas la preference d''un autre');
-SELECT is((SELECT count(*)::int FROM public.costs), 1,
-  'un chauffeur lit les couts (lecture connectee, perimetre au LOT 02)');
+SELECT is((SELECT count(*)::int FROM public.costs), 0,
+  'un chauffeur ne lit pas les couts (modules costs ou reports, D-058)');
 
 RESET ROLE;
 SELECT * FROM finish();
