@@ -110,7 +110,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Cycle à 18 états, journal immuable, transitions serveur | `Trips/*` | `trips.etat`, `trip_events`, `creer_voyage`, `avancer_voyage`, garde `trips_garde_cycle` | DÉPLOYÉ | P1 | - |
 | Fiches terrain imprimables, numéro de fiche au journal | `Fiches/*` | `fiches_terrain`, `preparer_fiche`, `saisir_*` (D-028) | DÉPLOYÉ | P1 | - |
 | Ticket CBG rattaché, rectification auditée | `Fiches/*`, `Trips/*` | D-037, migrations `20261113*` | DÉPLOYÉ | P1 | Import de tickets (module 14) |
-| Relevés kilométriques sur le parcours | `Trips/KilometrageView` | `releves_compteur`, `distances_voyage`, `distances_reference`, `valider_distance_voyage` (D-043) | À TESTER | P0 | Saisie depuis la fiche papier ; à intégrer à la saisie de la fiche rotations |
+| Relevés kilométriques sur le parcours | `Trips/KilometrageView` | `releves_compteur`, `distances_voyage`, `distances_reference`, `valider_distance_voyage` (D-043) | DÉPLOYÉ | P0 | Saisie depuis la fiche papier ; à intégrer à la saisie de la fiche rotations |
 | Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels) | `trip_events` | PARTIEL | P1 | Incidents : écran hérité à corriger (module 22) |
 | Dossier numérique du voyage | - | - | MANQUANT | P2 | Après GED |
 | Rapports par camion, chauffeur, site, shift | partiel | - | PARTIEL | P2 | - |
@@ -144,7 +144,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Contrats de location, avenants (versions), historique | `Contrats/ContratsView` | `contrats`, `contrat_versions`, `journal_contrats` (D-026) | DÉPLOYÉ | P1 | Fiche partenaire structurée : MANQUANT |
 | Tarifs par engin, horaire et kilométrique | `Contrats/Formulaires` | `contrat_tarifs` (D-033) | DÉPLOYÉ | P1 | - |
 | Pointages horaires | `Fiches` (pointage engins) | `pointages_engins` | DÉPLOYÉ | P1 | Heures présence / fonctionnement / productives / arrêt / facturables non distinguées (règle 13) |
-| Relevés de compteur km | `Trips/KilometrageView` | D-043 ; contrôle Neemba au km sur distances validées | À TESTER | P0 | Règle du retour à vide à renseigner par tarif |
+| Relevés de compteur km | `Trips/KilometrageView` | D-043 ; contrôle Neemba au km sur distances validées | DÉPLOYÉ | P0 | Règle du retour à vide à renseigner par tarif |
 | Immobilisations, imputation loueur | `Maintenance/Immobilisations*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | - | - | MANQUANT | P1 | Lot N : interventions Neemba liées à l'immobilisation |
 | Contrôle des factures, écarts, réclamations, régularisations, avoirs | `Contrats/FacturesNeembaView` | `factures_fournisseur*`, `regularisations_fournisseur` (D-032, D-033) | DÉPLOYÉ | P1 | - |
@@ -208,8 +208,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Articles, mouvements | `Stock/*` | `stock_items`, `stock_movements` (DELETE retiré, D-042) | NON CONFORME | P0 | Quantité modifiée directement puis mouvement inséré séparément, non atomique, erreurs ignorées (`StockEntryModal.tsx:92-108`) ; colonnes inexistantes. Lot M : registre de mouvements sur le modèle D-041 |
-| Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | - | `warehouses` | MANQUANT | P1 | Lot M |
+| Articles, mouvements | `Stock/StockView` | `stock_items`, `stock_movements` append-only, `v_stock_depots`, `mouvement_stock`, `inventorier_stock`, `annuler_mouvement_stock` (D-044) | À TESTER | P0 | Écran réécrit ; valorisation au prix saisi |
+| Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | `Stock/StockView` | `warehouses` (+ site, D-044) ; transferts, inventaires, seuils couverts | PARTIEL | P1 | Réservations, lots, séries, coût moyen pondéré |
 
 ### 18. Moyens généraux et patrimoine
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 41 |
-| À TESTER | 2 |
+| DÉPLOYÉ | 43 |
+| À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 18 |
+| PARTIEL | 19 |
 | À CORRIGER | 12 |
-| NON CONFORME | 2 |
-| MANQUANT | 40 |
+| NON CONFORME | 1 |
+| MANQUANT | 39 |
 | **Total** | **120** |
 
-Non-conformités restantes après D-041 et D-042 : stocks magasin (solde modifiable, non atomique), centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
+Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
