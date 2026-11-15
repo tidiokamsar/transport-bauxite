@@ -57,7 +57,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion absent |
 | Rôles et permissions (rôle x module) | Paramètres > Rôles | `role_permissions`, `has_module_view/write` (D-012) | DÉPLOYÉ | P0 | Permission par action et par état de dossier : MANQUANT |
 | Droits par utilisateur | Paramètres > Utilisateurs | `droits_utilisateur`, `definir_droit_module`, `journal_droits_modules` (D-036) | DÉPLOYÉ | P1 | - |
-| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046 | À TESTER | P0 | RH et achats restent hors périmètre |
+| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046 | DÉPLOYÉ | P0 | RH et achats restent hors périmètre |
 | Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
 | MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | DÉPLOYÉ | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
 | Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
@@ -68,9 +68,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Sites | `Sites/SitesView`, `SiteModal` | `sites` (écriture `settings`) | À CORRIGER | P1 | Modal envoie `latitude`/`longitude` inexistants ; liste joint `employees(name)` inexistant ; suppression physique (`SitesView.tsx:88`) |
-| Points de chargement, dépôts, ponts-bascules, stations, ateliers | - | `sites.type` seulement | MANQUANT | P1 | Référentiel d'infrastructures rattachées au site |
-| Capacités, horaires, fermetures temporaires, files d'attente | - | - | MANQUANT | P1 | Prérequis du dispatch (dépôt fermé, saturé) |
+| Sites | `Sites/SitesView`, `SiteModal` | `sites` (écriture `settings`) | EXISTANT À AMÉLIORER | P1 | Colonnes inexistantes retirées (D-047), désactivation au lieu de suppression (D-042) ; coordonnées GPS sans colonne |
+| Points de chargement, dépôts, ponts-bascules, stations, ateliers | `Sites/InfrastructuresView` | `infrastructures_site` (D-047) | À TESTER | P1 | - |
+| Capacités, horaires, fermetures temporaires, files d'attente | `Sites/InfrastructuresView` | capacités avec unité, `fermetures_site`, garde du dispatch (D-047) | PARTIEL | P1 | Horaires d'activité et files d'attente : à mesurer |
 | Géorepérage | `Geofencing/*` | `geofence_zones/violations/alerts` (régime C) | À CORRIGER | P3 | Politiques absentes : écran inutilisable ; suppression de zone ; PostGIS absent |
 | Cartographie, routes et pistes, import géographique | Leaflet (Tracking) | - | MANQUANT | P3 | - |
 
@@ -100,7 +100,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | File des camions, recommandation déterministe expliquée, décision humaine historisée, motif de refus | `Dispatch/*` | `decisions_dispatch`, `decider_affectation` (D-024) | DÉPLOYÉ | P1 | - |
 | Disponibilité engins (immobilisations bloquantes) | `Dispatch/*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Disponibilité et habilitation des chauffeurs | - | `drivers` (sans qualification) | PARTIEL | P1 | Habilitations (module 09) puis contrainte serveur |
-| Fermeture des points de chargement, capacité et files des dépôts | - | - | MANQUANT | P1 | Dépend du module 03 |
+| Fermeture des points de chargement, capacité et files des dépôts | Dispatch (refus serveur) | `site_ferme_le`, garde `garde_site_ferme` (D-047) | À TESTER | P1 | Saturation : pas de donnée observée |
 | Affectation groupée, réaffectation directe, simulation, comparaison de scénarios, optimisation | - | - | MANQUANT | P2-P3 | Réaffectation directe après livraison : à vérifier dans le cycle (module 07) |
 
 ### 07. Voyages et rotations
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 44 |
-| À TESTER | 1 |
-| EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 18 |
-| À CORRIGER | 12 |
+| DÉPLOYÉ | 45 |
+| À TESTER | 2 |
+| EXISTANT / EXISTANT À AMÉLIORER | 7 |
+| PARTIEL | 19 |
+| À CORRIGER | 11 |
 | NON CONFORME | 1 |
-| MANQUANT | 39 |
+| MANQUANT | 36 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.

@@ -31,13 +31,13 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 3 | Relevés kilométriques (lot K) | 06, 07, 08, 10, 20 | 07, 12 | Relevés d'odomètre append-only (source, auteur, heure, justificatif) ; distances référence, déclarée, mesurée, validée, facturable ; contrôle Neemba et facture au km sur la seule distance validée | Déployé le 2026-11-15 (6e88e61) |
 | 4 | Registre des stocks magasin (lot M) | 17 | 11 | Mouvements append-only, solde calculé, entrées, sorties, transferts, inventaires, ajustements autorisés ; correction des colonnes de l'écran | Déployé le 2026-11-15 (7abf1b6) |
 | 5 | MFA côté client | 02 | 01 | Inscription TOTP, écran des facteurs, puis activation de `mfa_exige` par l'administrateur | Déployé le 2026-11-15 (d34b10c) ; activation : décision du propriétaire |
-| 6 | Périmètre site étendu | 02 | 02 | `site_permis` sur les tables restantes porteuses d'un site (stocks, achats, maintenance, RH) | D-046, en PR (correction d'une fuite de lecture administrateur) |
+| 6 | Périmètre site étendu | 02 | 02 | `site_permis` sur les tables restantes porteuses d'un site (stocks, achats, maintenance, RH) | Déployé le 2026-11-15 (c1f4bfe) ; RH et achats hors champ |
 
 ### Phase 3 et 4 : modules opérationnels essentiels (P1)
 
 | # | Lot | Modules | LOT CDC | Contenu |
 |---|---|---|---|---|
-| 7 | Infrastructures de site (lot I) | 03, 06 | 02 | Points de chargement, dépôts, ponts-bascules, stations ; capacités, horaires, fermetures temporaires ; contraintes du dispatch (dépôt fermé, saturé) |
+| 7 | Infrastructures de site (lot I, D-047 en PR) | 03, 06 | 02 | Points de chargement, dépôts, ponts-bascules, stations ; capacités, horaires, fermetures temporaires ; contraintes du dispatch (dépôt fermé, saturé) |
 | 8 | Shifts opérables (lot S) | 05 | 03 | Instance de shift, responsable, équipe, affectations, passation, événements, clôture validée, rapport |
 | 9 | Interventions Neemba (lot N) | 10, 11 | 11 | Déclaration de panne, notification, demande d'intervention, suivi, rapport, pièces, validation de remise en service, calcul d'indisponibilité ; heures présence / productives / arrêt / facturables |
 | 10 | Registre des tickets CBG (lot T) | 14 | 07 | Registre, tickets manquants et orphelins, contrôles immatriculation / date / poids, litiges, réconciliation journalière, export |
@@ -93,4 +93,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-15 | 3. Relevés kilométriques (D-043) | PR #55 fusionnée ; déployé (6e88e61) : 27 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-15 | 4. Registre des stocks (D-044) | PR #56 fusionnée ; déployé (7abf1b6) : 28 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-15 | 5. MFA côté client (D-045) | PR #57 fusionnée ; déployé (d34b10c), aucune migration |
-| 2026-11-15 | 6. Périmètre étendu (D-046) | Branche `lot-02/perimetre-etendu` ; pgTAP 29 (11 assertions) |
+| 2026-11-15 | 6. Périmètre étendu (D-046) | PR #58 fusionnée ; déployé (c1f4bfe) : 29 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-15 | 7. Infrastructures de site (D-047) | Branche `lot-02/infrastructures-sites` ; pgTAP 30 (10 assertions), 2 unitaires, 1 E2E |

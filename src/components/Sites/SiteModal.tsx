@@ -61,8 +61,6 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
     try {
       const siteData = {
         ...formData,
-        latitude: formData.latitude || null,
-        longitude: formData.longitude || null,
         capacity: parseFloat(formData.capacity.toString()) || null,
         current_stock: parseFloat(formData.current_stock.toString()) || null,
         manager_id: formData.manager_id || null,
@@ -226,29 +224,6 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>Latitude GPS</label>
-                <input
-                  type="number"
-                  value={formData.latitude || ''}
-                  onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) || null })}
-                  className={inputClass}
-                  step="0.000001"
-                  placeholder="Ex: 11.1322"
-                />
-              </div>
-
-              <div>
-                <label className={labelClass}>Longitude GPS</label>
-                <input
-                  type="number"
-                  value={formData.longitude || ''}
-                  onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) || null })}
-                  className={inputClass}
-                  step="0.000001"
-                  placeholder="Ex: -13.7456"
-                />
-              </div>
             </div>
           </div>
 

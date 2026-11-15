@@ -60,6 +60,7 @@ const GeofencingView = lazy(() => import('./components/Geofencing/GeofencingView
 const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').then(m => ({ default: m.IncidentsView })));
 const AlertsView = lazy(() => import('./components/Alerts/AlertsView').then(m => ({ default: m.AlertsView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
+const InfrastructuresView = lazy(() => import('./components/Sites/InfrastructuresView').then(m => ({ default: m.InfrastructuresView })));
 const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.FiabiliteEnginsView })));
 const DriverBehaviorAnalyticsView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.PerformanceChauffeursView })));
 const TCOAnalysisView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.CoutTonneView })));
@@ -200,6 +201,8 @@ const MainApp = () => {
         return <AlertsView />;
       case 'sites':
         return <SitesView />;
+      case 'infrastructures':
+        return <InfrastructuresView />;
       case 'predictive-maintenance':
         return <PredictiveMaintenanceView />;
       case 'driver-behavior':
