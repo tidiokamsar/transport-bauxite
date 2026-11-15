@@ -2,7 +2,14 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : habilitations des chauffeurs (D-051)
+## À venir : cycle de vie des pneus (D-052)
+
+- Pneus : registre réécrit ; chaque pneu a son historique (entrée, montage, permutation, inspection, démontage, réparation, rechapage, réforme).
+- Un seul pneu par position d'un engin ; une erreur se corrige en annulant la dernière opération, avec motif.
+- Km parcourus et coût au km affichés seulement quand les compteurs et le prix sont saisis.
+- Alertes de profondeur et d'inspection selon les seuils fixés par l'administrateur.
+
+## 2d5c3cb (2026-11-16) : habilitations des chauffeurs (D-051, PR #63)
 
 - Flotte > Habilitations chauffeurs : visites médicales, formations, habilitations engins, accès sites, avec échéances ; révocation motivée.
 - Alertes des habilitations expirées ou expirant sous 30 jours.
