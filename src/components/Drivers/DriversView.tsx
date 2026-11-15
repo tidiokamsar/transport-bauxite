@@ -86,7 +86,7 @@ export const DriversView = () => {
       'Expire permis': new Date(d.license_expiry).toLocaleDateString('fr-FR'),
       'Type contrat': d.contract_type,
       'Salaire': d.base_salary,
-      'Statut': d.status === 'active' ? 'Actif' : d.status === 'suspended' ? 'Suspendu' : 'Terminé',
+      'Statut': d.status === 'active' ? 'Actif' : d.status === 'suspended' ? 'Suspendu' : 'Archivé',
       'Date embauche': new Date(d.hire_date).toLocaleDateString('fr-FR'),
       'Total KM': d.total_km || 0,
       'Total tonnage': d.total_tonnage || 0
@@ -103,7 +103,7 @@ export const DriversView = () => {
       'Catégorie': d.license_category,
       'Expire': new Date(d.license_expiry).toLocaleDateString('fr-FR'),
       'Contrat': d.contract_type,
-      'Statut': d.status === 'active' ? 'Actif' : d.status === 'suspended' ? 'Suspendu' : 'Terminé'
+      'Statut': d.status === 'active' ? 'Actif' : d.status === 'suspended' ? 'Suspendu' : 'Archivé'
     }));
     exportToPDF('Liste des chauffeurs', formattedData, 'chauffeurs');
   };
@@ -117,7 +117,7 @@ export const DriversView = () => {
     const labels = {
       active: 'Actif',
       suspended: 'Suspendu',
-      terminated: 'Terminé',
+      terminated: 'Archivé',
     };
     return (
       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
@@ -260,7 +260,7 @@ export const DriversView = () => {
               <option value="all">Tous les statuts</option>
               <option value="active">Actifs</option>
               <option value="suspended">Suspendus</option>
-              <option value="terminated">Terminés</option>
+              <option value="terminated">Archivés</option>
             </select>
           </div>
         </div>

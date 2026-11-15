@@ -60,7 +60,7 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
 
         // Récupérer les présences de la période
         const { data: attendanceData } = await supabase
-          .from('employee_attendance')
+          .from('v_presences')
           .select('*')
           .eq('employee_id', payrollData.employee_id)
           .gte('date', payrollData.period_start)
