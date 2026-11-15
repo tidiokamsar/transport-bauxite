@@ -119,13 +119,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Registre des véhicules, création, modification | `Vehicles/VehiclesView`, `VehicleModal`, `FicheVehicule` | `vehicles` (champs descriptifs seuls en direct), `v_vehicules`, `definir_propriete_vehicule`, `journal_flotte` (D-062) | À TESTER | P1 | Saisie de la propriété des engins existants |
-| Statuts véhicule | `Vehicles/*` | `v_vehicules.statut_operationnel` (6 valeurs dérivées), `suspendre_vehicule`, `remettre_en_service_vehicule`, `reformer_vehicule` (D-062) | À TESTER | P1 | Les écrans hérités affichent « Immobilisé » pour un engin suspendu |
+| Registre des véhicules, création, modification | `Vehicles/VehiclesView`, `VehicleModal`, `FicheVehicule` | `vehicles` (champs descriptifs seuls en direct), `v_vehicules`, `definir_propriete_vehicule`, `journal_flotte` (D-062) | DÉPLOYÉ | P1 | Saisie de la propriété des engins existants |
+| Statuts véhicule | `Vehicles/*` | `v_vehicules.statut_operationnel` (6 valeurs dérivées), `suspendre_vehicule`, `remettre_en_service_vehicule`, `reformer_vehicule` (D-062) | DÉPLOYÉ | P1 | Les écrans hérités affichent « Immobilisé » pour un engin suspendu |
 | Documents, assurances, visites techniques | `Documents/*` | `vehicle_documents`, `v_documents_vehicule_a_renouveler` (D-062) | PARTIEL | P1 | Fichier joint après stockage de fichiers |
 | Compteurs kilométriques | `Trips/KilometrageView` | `releves_compteur` datés et cohérents (D-043) ; `vehicles.current_km` (défaut 0) n'est pas une mesure | PARTIEL | P1 | Relevés hors voyage (moment « autre ») sans écran dédié |
 | Disponibilité, suspension, remise en service | `Maintenance/Immobilisations*` | D-025 | DÉPLOYÉ | P1 | - |
 | Coût par véhicule, performances | `Analyses/AnalysesFlotte`, `Vehicles/FicheVehicule` | `fiabilite_engins`, `consommation_carburant`, `v_fiche_vehicule` (D-062) | PARTIEL | P2 | Coûts directs complets (pneus, immobilisations valorisées) |
-| Distinction équipement KOGON / loué | `Vehicles/*`, `Contrats/*` | `vehicles.propriete`, `vehicles.contrat_id` (D-062), `contrat_tarifs.engin` (D-033) | À TESTER | P1 | Saisie de la propriété des engins existants |
+| Distinction équipement KOGON / loué | `Vehicles/*`, `Contrats/*` | `vehicles.propriete`, `vehicles.contrat_id` (D-062), `contrat_tarifs.engin` (D-033) | DÉPLOYÉ | P1 | Saisie de la propriété des engins existants |
 
 ### 09. Chauffeurs
 
@@ -174,7 +174,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Livraisons CBG, prix au litre, contrôle des factures | `Fuel/LivraisonsCbgView` | D-034 | DÉPLOYÉ | P1 | - |
 | Registre des mouvements : stockages, réception mesurée et acceptée, transferts, distributions, inventaires, écarts, annulation, séparation saisie / décision | `Fuel/StocksCarburantView` | `stockages_carburant`, `mouvements_carburant`, `receptions_carburant`, `inventaires_carburant`, `v_stocks_carburant` (D-041) | DÉPLOYÉ | P0 | Déployé le 2026-11-15 (8144424) ; cuves réelles et inventaires d'ouverture à saisir |
 | Ancien solde saisi à la main | (écran retiré) | `fuel_stocks` en lecture seule (D-041) | DÉPLOYÉ | P0 | Corrigé le 2026-11-15 |
-| Saisie des pleins | `Fuel/PleinsView` (`saisir_plein`), fiche carburant (`saisir_carburant`) | `fuel_transactions` (plus d'écriture directe), `mouvements_carburant` si cuve (D-062) | À TESTER | P1 | - |
+| Saisie des pleins | `Fuel/PleinsView` (`saisir_plein`), fiche carburant (`saisir_carburant`) | `fuel_transactions` (plus d'écriture directe), `mouvements_carburant` si cuve (D-062) | DÉPLOYÉ | P1 | - |
 | Consommation par engin, L/t, L/h, anomalies | `Fuel/AnalyseCarburantView`, `AnomaliesCarburantView` | `consommation_carburant`, `anomalies_carburant` (D-030) | DÉPLOYÉ | P2 | Valorisation par stockage |
 | Jauges connectées | `Fuel/CapteursCarburantView` | `ingest_fuel_data`, `iot_fuel_readings` | DÉPLOYÉ | P3 | Aucun matériel réel (règle 17) |
 | Import des documents CBG | - | - | MANQUANT | P2 | Après stockage de fichiers |
@@ -194,15 +194,15 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Répertoire, fiche | `Suppliers/*` | `suppliers` (module `purchases`) | À CORRIGER | P2 | Colonnes inexistantes (`SupplierModal.tsx:70-88`) ; « Voir détails » sans action |
-| Contacts, documents, catégories, cotations, comparaison, évaluation, historique, suspension | - | - | MANQUANT | P2 | Lot A (achats) |
+| Répertoire, fiche | `Suppliers/SuppliersView`, `Suppliers/FicheFournisseur` | `suppliers` écrit par `enregistrer_fournisseur` (FRS attribué, raison sociale et NIF uniques), `fournisseurs_journal` (D-059) | À TESTER | P2 | - |
+| Contacts, documents, catégories, cotations, comparaison, évaluation, historique, suspension | `Suppliers/FicheFournisseur`, `ConsultationsFournisseurs`, `ReferentielsFournisseurs` | `contacts_fournisseurs`, `categories_fournisseurs`, `documents_fournisseurs` + `v_documents_fournisseurs_echeance`, `evaluations_fournisseurs` (append-only), `suspendre_fournisseur`, `consultations_fournisseurs`, `offres_fournisseurs`, `selectionner_offre` puis `enregistrer_bon_commande` (D-059) | À TESTER | P2 | Pièces jointes après stockage de fichiers ; grille et seuils à confirmer |
 
 ### 16. Achats et approvisionnements
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Bons de commande | `Purchases/PurchasesView` | `purchase_orders`, `purchase_order_items` écrits par `enregistrer_bon_commande`, `soumettre_bon_commande`, `decider_bon_commande`, `annuler_bon_commande`, `solder_bon_commande` ; `achats_journal` (D-053) | DÉPLOYÉ | P1 | - |
-| Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | `Purchases/PurchasesView` | Brouillon puis approbation par une autre personne ; `receptionner_bon_commande` (réception partielle, refus motivé, entrée en stock), `annuler_reception` (D-053) | PARTIEL | P1 | Consultation de fournisseurs, contrôle budgétaire, factures et avoirs d'achat, relances |
+| Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | `Purchases/PurchasesView` | Brouillon puis approbation par une autre personne ; `receptionner_bon_commande` (réception partielle, refus motivé, entrée en stock), `annuler_reception` (D-053) | PARTIEL | P1 | Contrôle budgétaire, factures et avoirs d'achat, relances (consultation : D-059) |
 
 ### 17. Stocks et magasins
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 61 |
-| À TESTER | 4 |
+| DÉPLOYÉ | 65 |
+| À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
 | PARTIEL | 22 |
-| À CORRIGER | 9 |
+| À CORRIGER | 8 |
 | NON CONFORME | 0 |
-| MANQUANT | 20 |
+| MANQUANT | 19 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.

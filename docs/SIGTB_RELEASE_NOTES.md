@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : flotte (D-062)
+## À venir : fournisseurs (D-059)
+
+- Fournisseurs : répertoire et fiche détaillée (contacts, catégories, documents administratifs avec alerte d'échéance, évaluations, historique des commandes et des paiements, journal) ; aucune suppression physique.
+- Évaluation périodique sur une grille pondérée définie par l'administrateur ; suspension et réactivation motivées : un fournisseur suspendu ne reçoit plus de bon de commande.
+- Consultations de prix : offres de plusieurs fournisseurs, comparaison, sélection motivée qui prépare le bon de commande brouillon.
+
+## 24dd140 (2026-11-18) : flotte (D-062, PR #73)
 
 - Registre des véhicules réécrit : propriété (KOGON, loué, sous-traitant ; « non renseignée » tant qu'elle n'est pas saisie), loueur, exploitant, transporteur, contrat de location et statut opérationnel calculé.
 - Fiche d'engin consolidée (immobilisations, interventions Neemba, pneus, pleins, contrôles) ; suspension, remise en service et réforme motivées et journalisées. Un engin suspendu est indisponible au dispatch.

@@ -110,4 +110,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-17 | Phase 8 : guides | PR #71 fusionnée : 11 guides dans `docs/guides/` (agent documentation), avec leurs limites connues |
 | 2026-11-18 | Coupure réseau | Cinq agents interrompus (API injoignable), relancés avec leur contexte ; aucun travail perdu |
 | 2026-11-18 | 21. Moyens généraux (D-060) | PR #72 fusionnée ; déployé (f79e708) : 41 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-18 | Flotte, module 08 (D-062) | Agent : branche `lot-08/flotte` ; pgTAP 45 (27 assertions), 6 unitaires, 2 E2E, E2E analyses adapté ; intégration `lot-08/flotte-integration` |
+| 2026-11-18 | Flotte, module 08 (D-062) | PR #73 fusionnée ; déployé (24dd140) : 42 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-18 | 15b. Fournisseurs (D-059) | Agent : branche `lot-15b/fournisseurs` ; pgTAP 42 (42 assertions), 10 unitaires, 2 E2E ; intégration `lot-15b/fournisseurs-integration` ; migration antérieure en horodatage à D-060 et D-062, sans dépendance (le script serveur applique toute version non enregistrée) ; nom du conteneur de rejeu rendu unique |
