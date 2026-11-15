@@ -3,7 +3,7 @@
 // comportement applique quand la cle est absente. Le format est controle
 // par le declencheur `valider_reglage` (migration 20261118180000).
 
-export type TypeReglage = 'booleen' | 'nombre';
+export type TypeReglage = 'booleen' | 'nombre' | 'entier';
 
 export interface Reglage {
   cle: string;
@@ -71,12 +71,12 @@ export const REGLAGES: Reglage[] = [
     ecran: { vue: 'tires', libelle: 'Pneus' },
   },
   {
-    cle: 'fournisseurs_alerte_documents_jours', libelle: 'Fournisseurs : alerte avant expiration des documents', type: 'nombre', unite: 'jours',
+    cle: 'fournisseurs_alerte_documents_jours', libelle: 'Fournisseurs : alerte avant expiration des documents', type: 'entier', unite: 'jours',
     effet: 'Un document administratif de fournisseur apparaît « à renouveler » quand il expire dans ce délai (aucun blocage automatique).',
     siAbsent: '30 jours.', lecteur: 'reglage_entier, v_documents_fournisseurs_echeance (D-059)',
   },
   {
-    cle: 'consultation_offres_minimum', libelle: 'Consultations : nombre minimal d\'offres', type: 'nombre', unite: 'offres',
+    cle: 'consultation_offres_minimum', libelle: 'Consultations : nombre minimal d\'offres', type: 'entier', unite: 'offres',
     effet: 'Une offre ne peut être retenue qu\'après réception de ce nombre d\'offres actives dans la consultation.',
     siAbsent: '1 offre : aucune mise en concurrence imposée.', lecteur: 'reglage_entier, selectionner_offre (D-059)',
   },
@@ -93,4 +93,6 @@ export const valeurAffichee = (r: Reglage, brute: string | undefined): string =>
 
 /** Meme regle que valider_reglage cote serveur. */
 export const valeurValide = (r: Reglage, saisie: string): boolean =>
-  r.type === 'booleen' ? saisie === 'true' || saisie === 'false' : /^\d+(\.\d+)?$/.test(saisie.trim());
+  r.type === 'booleen' ? saisie === 'true' || saisie === 'false'
+    : r.type === 'entier' ? /^\d+$/.test(saisie.trim()) && (r.cle !== 'consultation_offres_minimum' || Number(saisie) >= 1)
+    : /^\d+(\.\d+)?$/.test(saisie.trim());

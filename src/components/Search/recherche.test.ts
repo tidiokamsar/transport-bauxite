@@ -24,8 +24,9 @@ describe('recherche globale (D-061)', () => {
 describe('parametres lus par le serveur (D-061)', () => {
   it('liste fermee des cles lues par les fonctions SQL', () => {
     expect(REGLAGES.map((r) => r.cle).sort()).toEqual([
-      'achats_validation_separee', 'carburant_validation_separee', 'controle_depart_exige', 'kilometrage_validation_separee',
-      'mfa_exige', 'paiements_validation_separee', 'pneu_inspection_max_jours', 'pneu_profondeur_min_mm', 'tolerance_poids_cbg_t',
+      'achats_validation_separee', 'carburant_validation_separee', 'consultation_offres_minimum', 'controle_depart_exige',
+      'fournisseurs_alerte_documents_jours', 'kilometrage_validation_separee', 'mfa_exige', 'paiements_validation_separee',
+      'pneu_inspection_max_jours', 'pneu_profondeur_min_mm', 'tolerance_poids_cbg_t',
     ]);
   });
   it('format controle comme valider_reglage', () => {
@@ -36,6 +37,10 @@ describe('parametres lus par le serveur (D-061)', () => {
     expect(valeurValide(mfa, 'oui')).toBe(false);
     expect(valeurAffichee(tol, undefined)).toBe('Absent : 0 t : tout écart est signalé.');
     expect(valeurAffichee(mfa, 'false')).toBe('Non');
+    const offres = REGLAGES.find((r) => r.cle === 'consultation_offres_minimum')!;
+    expect(valeurValide(offres, '2')).toBe(true);
+    expect(valeurValide(offres, '1.5')).toBe(false);
+    expect(valeurValide(offres, '0')).toBe(false);
   });
 });
 

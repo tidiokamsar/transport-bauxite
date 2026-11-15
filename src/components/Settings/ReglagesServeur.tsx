@@ -31,7 +31,7 @@ export const ReglagesServeur = ({ peutEcrire }: { peutEcrire: boolean }) => {
   const enregistrer = async (r: Reglage) => {
     const saisie = (saisies[r.cle] ?? '').trim();
     setErreur(''); setMessage('');
-    if (!valeurValide(r, saisie)) { setErreur(`${r.libelle} : ${r.type === 'booleen' ? 'choisissez oui ou non' : 'nombre positif attendu'}.`); return; }
+    if (!valeurValide(r, saisie)) { setErreur(`${r.libelle} : ${r.type === 'booleen' ? 'choisissez oui ou non' : r.type === 'entier' ? 'nombre entier attendu' : 'nombre positif attendu'}.`); return; }
     setBusy(true);
     const { error } = await supabase.from('settings').upsert(
       { key: r.cle, value: { value: saisie }, category: 'serveur', description: `${r.libelle} (${r.lecteur})` },
