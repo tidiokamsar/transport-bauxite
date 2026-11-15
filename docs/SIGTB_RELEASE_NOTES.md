@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : interventions Neemba (D-049)
+## À venir : tickets et relevés CBG (D-050)
+
+- Exploitation > Tickets CBG : import du relevé CBG en CSV, conservé tel que reçu.
+- Rapprochement ticket par ticket : écart de poids, autre camion, autre date, ticket inconnu, ticket absent du relevé ; décision motivée (accepté ou litige) sur chaque anomalie.
+- Liste des voyages livrés sans ticket et registre des tickets intégrés.
+
+## b2d81d8 (2026-11-16) : interventions Neemba (D-049, PR #61)
 
 - Maintenance > Interventions Neemba : demande d'intervention depuis une immobilisation (canal, référence, délai contractuel), prise en charge, fin avec rapport et pièces.
 - Délai de prise en charge affiché ; dépassement du délai contractuel signalé.
