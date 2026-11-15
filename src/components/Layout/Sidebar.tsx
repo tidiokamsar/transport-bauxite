@@ -123,7 +123,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
         </label>
       </div>
 
-      <GlobalSearchModal isOpen={recherche} onClose={() => setRecherche(false)} />
+      <GlobalSearchModal isOpen={recherche} onClose={() => setRecherche(false)} onAllerA={onViewChange} />
     </aside>
   );
 };

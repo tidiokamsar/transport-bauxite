@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, Trash2 } from 'lucide-react';
+import { X, Save, Archive } from 'lucide-react';
 
 interface Driver {
   id: string;
@@ -90,21 +90,23 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
     }
   };
 
-  const handleDelete = async () => {
-    // Un chauffeur n'est pas supprime : son dossier passe au statut « terminated » et reste lie a ses voyages (D-042).
-    if (!isEditing || !confirm('Clore le dossier de ce chauffeur ? Il restera consultable avec le statut terminé.')) return;
+  const handleArchive = async () => {
+    // Un chauffeur n'est pas supprime (DELETE retire, D-042) : son dossier est
+    // archive (statut « terminated »), reste lie a ses voyages et se reactive
+    // par le statut. Le serveur refuse l'archivage pendant un voyage en cours (D-061).
+    if (!isEditing || !confirm('Archiver le dossier de ce chauffeur ? Il restera consultable avec le statut « Archivé » et pourra être réactivé.')) return;
 
     setLoading(true);
     try {
-      const { error: deleteError } = await supabase
+      const { error: archiveError } = await supabase
         .from('drivers')
-        .update({ status: 'terminated' })
+        .update({ status: 'terminated', updated_at: new Date().toISOString() })
         .eq('id', driver.id);
 
-      if (deleteError) throw deleteError;
+      if (archiveError) throw archiveError;
       onClose(true);
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de la suppression');
+      setError(err.message || 'Erreur lors de l\'archivage');
     } finally {
       setLoading(false);
     }
@@ -365,7 +367,7 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
                 >
                   <option value="active">Actif</option>
                   <option value="suspended">Suspendu</option>
-                  <option value="terminated">Terminé</option>
+                  <option value="terminated">Archivé</option>
                 </select>
               </div>
 
@@ -389,12 +391,12 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
               {isEditing && (
                 <button
                   type="button"
-                  onClick={handleDelete}
+                  onClick={handleArchive}
                   disabled={loading}
                   className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  <Trash2 className="w-5 h-5" />
-                  Clore le dossier
+                  <Archive className="w-5 h-5" />
+                  Archiver le dossier
                 </button>
               )}
             </div>

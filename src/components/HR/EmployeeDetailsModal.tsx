@@ -92,7 +92,7 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
 
         // Récupérer les présences
         const { data: attendanceData } = await supabase
-          .from('employee_attendance')
+          .from('v_presences')
           .select('*')
           .eq('employee_id', employeeId)
           .order('date', { ascending: false })
