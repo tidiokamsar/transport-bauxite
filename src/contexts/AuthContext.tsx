@@ -206,7 +206,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'sites': 'settings',
       'iot-dashboard': 'reports',
       'esg-tracking': 'reports',
-      'client-portal': 'reports',
       'settings': 'settings',
     };
 

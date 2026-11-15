@@ -81,11 +81,12 @@ export const ScheduleModal = ({ schedule, onClose }: ScheduleModalProps) => {
   };
 
   const handleDelete = async () => {
-    if (!schedule?.id || !confirm('Êtes-vous sûr de vouloir supprimer ce planning ?')) return;
+    // Un planning n'est pas supprime : il est desactive (D-042).
+    if (!schedule?.id || !confirm('Désactiver ce planning ?')) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('maintenance_schedules').delete().eq('id', schedule.id);
+      const { error } = await supabase.from('maintenance_schedules').update({ active: false, is_active: false }).eq('id', schedule.id);
       if (error) throw error;
       onClose(true);
     } catch (err: any) {
@@ -331,7 +332,7 @@ export const ScheduleModal = ({ schedule, onClose }: ScheduleModalProps) => {
                   className="flex items-center gap-2 px-6 py-3 text-red-600 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50 font-semibold border-2 border-red-200 hover:border-red-300"
                 >
                   <Trash2 className="w-5 h-5" />
-                  Supprimer
+                  Désactiver
                 </button>
               )}
             </div>

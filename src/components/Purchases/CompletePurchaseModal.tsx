@@ -19,10 +19,10 @@ interface CompletePurchaseModalProps {
 
 export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: CompletePurchaseModalProps) => {
   const [formData, setFormData] = useState({
-    order_number: '',
+    po_number: '',
     supplier_id: '',
-    order_date: '',
-    expected_delivery: '',
+    po_date: '',
+    expected_delivery_date: '',
     status: 'draft',
     notes: '',
   });
@@ -41,21 +41,22 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
       fetchSuppliers();
       if (order) {
         setFormData({
-          order_number: order.order_number || '',
+          po_number: order.po_number || '',
           supplier_id: order.supplier_id || '',
-          order_date: order.order_date || '',
-          expected_delivery: order.expected_delivery || '',
+          po_date: order.po_date || '',
+          expected_delivery_date: order.expected_delivery_date || '',
           status: order.status || 'draft',
           notes: order.notes || '',
         });
         fetchOrderItems(order.id);
       } else {
-        const newOrderNumber = `BC-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+        // Numero attribue par le serveur a l'enregistrement (D-042), jamais au hasard.
+        const newOrderNumber = '';
         setFormData({
-          order_number: newOrderNumber,
+          po_number: newOrderNumber,
           supplier_id: '',
-          order_date: new Date().toISOString().split('T')[0],
-          expected_delivery: '',
+          po_date: new Date().toISOString().split('T')[0],
+          expected_delivery_date: '',
           status: 'draft',
           notes: '',
         });
@@ -84,7 +85,7 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
     const { data } = await supabase
       .from('purchase_order_items')
       .select('*')
-      .eq('order_id', orderId);
+      .eq('purchase_order_id', orderId);
     if (data && data.length > 0) {
       setItems(data);
     }
@@ -143,14 +144,14 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
         await supabase
           .from('purchase_order_items')
           .delete()
-          .eq('order_id', order.id);
+          .eq('purchase_order_id', order.id);
 
         for (const item of items) {
           if (item.item_description.trim()) {
             await supabase
               .from('purchase_order_items')
               .insert({
-                order_id: order.id,
+                purchase_order_id: order.id,
                 item_description: item.item_description,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
@@ -164,14 +165,13 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
         const { data: newOrder, error: orderError } = await supabase
           .from('purchase_orders')
           .insert({
-            order_number: formData.order_number,
             supplier_id: formData.supplier_id,
-            order_date: formData.order_date,
-            expected_delivery: formData.expected_delivery,
+            po_date: formData.po_date,
+            expected_delivery_date: formData.expected_delivery_date,
             status: formData.status,
             total_amount: totalAmount,
             notes: formData.notes,
-            created_by: user?.user?.id,
+            requested_by: user?.user?.id,
           })
           .select()
           .single();
@@ -183,7 +183,7 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
             await supabase
               .from('purchase_order_items')
               .insert({
-                order_id: newOrder.id,
+                purchase_order_id: newOrder.id,
                 item_description: item.item_description,
                 quantity: item.quantity,
                 unit_price: item.unit_price,
@@ -223,14 +223,14 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  N° Bon de commande *
+                  N° Bon de commande
                 </label>
                 <input
                   type="text"
-                  value={formData.order_number}
-                  onChange={(e) => setFormData({ ...formData, order_number: e.target.value })}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
+                  value={formData.po_number}
+                  readOnly
+                  placeholder="Attribué à l'enregistrement"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-600"
                 />
               </div>
 
@@ -260,8 +260,8 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
                 </label>
                 <input
                   type="date"
-                  value={formData.order_date}
-                  onChange={(e) => setFormData({ ...formData, order_date: e.target.value })}
+                  value={formData.po_date}
+                  onChange={(e) => setFormData({ ...formData, po_date: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />
@@ -273,8 +273,8 @@ export const CompletePurchaseModal = ({ isOpen, onClose, onSuccess, order }: Com
                 </label>
                 <input
                   type="date"
-                  value={formData.expected_delivery}
-                  onChange={(e) => setFormData({ ...formData, expected_delivery: e.target.value })}
+                  value={formData.expected_delivery_date}
+                  onChange={(e) => setFormData({ ...formData, expected_delivery_date: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>

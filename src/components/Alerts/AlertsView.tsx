@@ -129,12 +129,13 @@ export const AlertsView = () => {
   };
 
   const handleDelete = async (alertId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette alerte ?')) return;
+    // Une alerte n'est pas supprimee : elle est marquee resolue (D-042).
+    if (!confirm('Marquer cette alerte comme résolue ?')) return;
 
     try {
       const { error } = await supabase
         .from('alerts')
-        .delete()
+        .update({ status: 'resolved' })
         .eq('id', alertId);
 
       if (error) throw error;
@@ -437,7 +438,7 @@ export const AlertsView = () => {
                         <button
                           onClick={() => handleDelete(alert.id)}
                           className="p-2 hover:bg-red-100 rounded-lg transition-colors"
-                          title="Supprimer"
+                          title="Marquer résolue"
                         >
                           <Trash2 className="w-4 h-4 text-red-600" />
                         </button>

@@ -98,11 +98,12 @@ export const MaintenanceModal = ({ workOrder, onClose }: MaintenanceModalProps) 
   };
 
   const handleDelete = async () => {
-    if (!workOrder?.id || !confirm('Êtes-vous sûr de vouloir supprimer cet ordre de travail ?')) return;
+    // Un ordre de travail n'est pas supprime : il est annule (D-042).
+    if (!workOrder?.id || !confirm('Annuler cet ordre de travail ? Il restera consultable avec le statut annulé.')) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase.from('maintenance_orders').delete().eq('id', workOrder.id);
+      const { error } = await supabase.from('maintenance_orders').update({ status: 'cancelled' }).eq('id', workOrder.id);
       if (error) throw error;
       onClose(true);
     } catch (err: any) {
@@ -354,7 +355,7 @@ export const MaintenanceModal = ({ workOrder, onClose }: MaintenanceModalProps) 
                   className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-5 h-5" />
-                  Supprimer
+                  Annuler l'ordre
                 </button>
               )}
             </div>

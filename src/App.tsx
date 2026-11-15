@@ -49,7 +49,6 @@ const AttendanceView = lazy(() => import('./components/HR/AttendanceView').then(
 const PayrollView = lazy(() => import('./components/HR/PayrollView').then(m => ({ default: m.PayrollView })));
 const CostsView = lazy(() => import('./components/Costs/CostsView').then(m => ({ default: m.CostsView })));
 const VehicleDocumentsView = lazy(() => import('./components/Documents/VehicleDocumentsView').then(m => ({ default: m.VehicleDocumentsView })));
-const ClientPortalView = lazy(() => import('./components/ClientPortal/ClientPortalView').then(m => ({ default: m.ClientPortalView })));
 const ESGTrackingView = lazy(() => import('./components/ESG/ESGTrackingView').then(m => ({ default: m.ESGTrackingView })));
 const IoTDashboardView = lazy(() => import('./components/IoT/IoTDashboardView').then(m => ({ default: m.IoTDashboardView })));
 const GeofencingView = lazy(() => import('./components/Geofencing/GeofencingView'));
@@ -170,8 +169,6 @@ const MainApp = () => {
         return <PayrollView />;
       case 'reports':
         return <ReportsView />;
-      case 'client-portal':
-        return <ClientPortalView />;
       case 'esg-tracking':
         return <ESGTrackingView />;
       case 'iot-dashboard':

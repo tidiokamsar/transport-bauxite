@@ -164,7 +164,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Référentiel, montage, démontage, permutation, contrôle | `TireManagement/*` | `tires` (module `vehicles`), 5 tables `tire_*` en régime C | NON CONFORME | P1 | Opérations refusées par la RLS ; chiffres et « recommandations IA » codés en dur (`CompleteTireManagement.tsx:130, 544-801`) ; suppression de pneu ; colonnes inexistantes. Lot P : cycle de vie individuel par fonctions serveur |
+| Référentiel, montage, démontage, permutation, contrôle | `TireManagement/*` | `tires` (module `vehicles`), 5 tables `tire_*` en régime C | À CORRIGER | P1 | Chiffres et recommandations fabriqués retirés, retrait au lieu de suppression (D-042) ; opérations encore refusées par la RLS, colonnes inexistantes. Lot P : cycle de vie individuel par fonctions serveur |
 | Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | - | - | MANQUANT | P1 | Idem, lié aux stocks et aux relevés km |
 
 ### 13. Fuel intelligence
@@ -201,14 +201,14 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Bons de commande | `Purchases/*` | `purchase_orders`, `purchase_order_items` | NON CONFORME | P1 | Numéro par `Math.random` (`CompletePurchaseModal.tsx:53`) ; colonnes inexistantes ; suppression de commande et réécriture des lignes |
+| Bons de commande | `Purchases/*` | `purchase_orders`, `purchase_order_items` ; numéro serveur `numeroter_bon_commande` (D-042) | EXISTANT À AMÉLIORER | P1 | Colonnes réelles, annulation au lieu de suppression (D-042) ; statut librement modifiable, pas de validation ni de réception vers stock (lot 13) |
 | Demande d'achat, validation hiérarchique, consultation, contrôle budgétaire, réception partielle, contrôle qualité, facture, avoir, relances | - | - | MANQUANT | P1 | Lot A : circuit achat par fonctions serveur, réception vers stock |
 
 ### 17. Stocks et magasins
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Articles, mouvements | `Stock/*` | `stock_items`, `stock_movements` | NON CONFORME | P0 | Quantité modifiée directement puis mouvement inséré séparément, non atomique, erreurs ignorées (`StockEntryModal.tsx:92-108`) ; colonnes inexistantes ; mouvements supprimables (politique FOR ALL). Lot M : registre de mouvements sur le modèle D-041 |
+| Articles, mouvements | `Stock/*` | `stock_items`, `stock_movements` (DELETE retiré, D-042) | NON CONFORME | P0 | Quantité modifiée directement puis mouvement inséré séparément, non atomique, erreurs ignorées (`StockEntryModal.tsx:92-108`) ; colonnes inexistantes. Lot M : registre de mouvements sur le modèle D-041 |
 | Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | - | `warehouses` | MANQUANT | P1 | Lot M |
 
 ### 18. Moyens généraux et patrimoine
@@ -274,7 +274,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Portail client | `ClientPortal/ClientPortalView` | lit tous les `trips` et `invoices` sans cloisonnement | NON CONFORME | P0 | Données fabriquées (expéditions, montants, dates 2025) ; 8 boutons sans action. Retirer du menu jusqu'à un portail réel |
+| Portail client | (retiré, D-042) | - | MANQUANT | P3 | Écran fabriqué supprimé le 2026-11-15 ; portail réel après identité partenaire et GED |
 | Portails Neemba, CBG, fournisseurs ; comptes partenaires ; dépôt documentaire ; soumission de factures | - | - | MANQUANT | P3 | Après GED et identité partenaire |
 
 ### 26. Intelligence opérationnelle et IA
@@ -292,11 +292,11 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|
 | DÉPLOYÉ | 41 |
 | À TESTER | 0 |
-| EXISTANT / EXISTANT À AMÉLIORER | 5 |
+| EXISTANT / EXISTANT À AMÉLIORER | 6 |
 | PARTIEL | 17 |
-| À CORRIGER | 11 |
-| NON CONFORME | 5 |
-| MANQUANT | 41 |
+| À CORRIGER | 12 |
+| NON CONFORME | 2 |
+| MANQUANT | 42 |
 | **Total** | **120** |
 
-Les non-conformités P0 restantes après le déploiement du lot D-041 : stocks magasin (solde modifiable, mouvements supprimables), portail client (données fabriquées, aucun cloisonnement), achats (numéro aléatoire, suppressions), absence de relevés kilométriques alors que la facturation au km existe.
+Non-conformités restantes après D-041 et D-042 : stocks magasin (solde modifiable, non atomique), centre de notifications sans politique d'accès ; manque P0 : relevés kilométriques alors que la facturation au km existe.
