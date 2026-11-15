@@ -41,8 +41,11 @@ export const normaliserDate = (v: string) => {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
 };
 
+// Marque d'ordre des octets (BOM, code 0xFEFF) en tete des exports Excel.
+const retirerBom = (texte: string) => (texte.charCodeAt(0) === 0xfeff ? texte.slice(1) : texte);
+
 export const lireReleveCsv = (texte: string): { lignes: LigneReleve[]; colonnes: (keyof LigneReleve)[]; erreur?: string } => {
-  const brutes = texte.replace(/^﻿/, '').split(/\r?\n/).filter((l) => l.trim() !== '');
+  const brutes = retirerBom(texte).split(/\r?\n/).filter((l) => l.trim() !== '');
   if (brutes.length < 2) return { lignes: [], colonnes: [], erreur: 'Fichier vide ou sans ligne de données' };
   const sep = (brutes[0].match(/;/g)?.length ?? 0) >= (brutes[0].match(/,/g)?.length ?? 0) ? ';' : ',';
   const entetes = decouper(brutes[0], sep).map(cle);
