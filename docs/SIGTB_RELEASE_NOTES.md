@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : cycle de vie des pneus (D-052)
+## À venir : circuit achat (D-053)
+
+- Achats : bon de commande en brouillon, soumis, puis approuvé ou rejeté (avec motif) par une autre personne que le demandeur.
+- Réception partielle ou totale par le magasin : quantités reçues et refusées (motif), entrée automatique en stock au prix de la commande.
+- Une réception erronée s'annule avec motif : le stock est corrigé. Un bon partiellement reçu peut être soldé.
+
+## 165d2ea (2026-11-16) : cycle de vie des pneus (D-052, PR #64)
 
 - Pneus : registre réécrit ; chaque pneu a son historique (entrée, montage, permutation, inspection, démontage, réparation, rechapage, réforme).
 - Un seul pneu par position d'un engin ; une erreur se corrige en annulant la dernière opération, avec motif.
