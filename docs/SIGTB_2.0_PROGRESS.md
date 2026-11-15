@@ -1,5 +1,8 @@
 # SIGTB 2.0 - Suivi de progression et etat de reference
 
+> **Erratum du 2026-11-15 (D-070).** Des entrees de ce document portent les dates du 2026-11-16, du 2026-11-17 ou du 2026-11-18. Ces dates sont fausses : le travail correspondant a ete fait le 2026-11-15. L'horodatage des commits et l'heure du serveur, lus par `date -u`, le confirment. Les entrees sont laissees telles quelles pour la tracabilite ; seul cet erratum les corrige. Les numeros de migration `20261116...` a `20261120...` sont des identifiants de sequence, pas des dates : les versions deja appliquees en production ne sont pas renommees.
+
+
 Reference : [SIGTB_2.0_CAHIER_DES_CHARGES.md](SIGTB_2.0_CAHIER_DES_CHARGES.md) (CDC 2.0).
 Etablissement : 2026-11-06, commit de base `aa67ccc` (branche `main`).
 Ce document est le livrable du LOT 00 (audit et etat de reference) et le

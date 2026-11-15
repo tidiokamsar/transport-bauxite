@@ -1,5 +1,8 @@
 # SIGTB 2.0 - Hebergement sur le VPS du proprietaire
 
+> **Erratum du 2026-11-15 (D-070).** Des entrees de ce document portent les dates du 2026-11-16, du 2026-11-17 ou du 2026-11-18. Ces dates sont fausses : le travail correspondant a ete fait le 2026-11-15. L'horodatage des commits et l'heure du serveur, lus par `date -u`, le confirment. Les entrees sont laissees telles quelles pour la tracabilite ; seul cet erratum les corrige. Les numeros de migration `20261116...` a `20261120...` sont des identifiants de sequence, pas des dates : les versions deja appliquees en production ne sont pas renommees.
+
+
 Decisions D-015 a D-017 (acceptees le 2026-11-08). Etat au 2026-11-09 :
 **deploye** sur le VPS, en service sous https://sigtb.infranetgn.com
 (journal en section 9). Base vide : aucun utilisateur tant que le

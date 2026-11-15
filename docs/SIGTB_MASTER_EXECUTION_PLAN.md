@@ -1,5 +1,8 @@
 # SIGTB : plan maître d'exécution
 
+> **Erratum du 2026-11-15 (D-070).** Des entrees de ce document portent les dates du 2026-11-16, du 2026-11-17 ou du 2026-11-18. Ces dates sont fausses : le travail correspondant a ete fait le 2026-11-15. L'horodatage des commits et l'heure du serveur, lus par `date -u`, le confirment. Les entrees sont laissees telles quelles pour la tracabilite ; seul cet erratum les corrige. Les numeros de migration `20261116...` a `20261120...` sont des identifiants de sequence, pas des dates : les versions deja appliquees en production ne sont pas renommees.
+
+
 **Mandat :** prompt maître global du 2026-11-15 (26 modules, phases 0 à 9). **Point de départ :** production `feda997`, toutes migrations appliquées (vérifié sur le serveur le 2026-11-15) ; comptes administrateur, DG et chargé de contrats créés.
 
 Documents liés : [matrice de couverture](SIGTB_MODULE_COVERAGE_MATRIX.md) (état par fonctionnalité), [architecture cible](SIGTB_ARCHITECTURE_TARGET.md), [blueprint fonctionnel](SIGTB_FUNCTIONAL_BLUEPRINT.md), [porte qualité](SIGTB_QUALITY_GATE.md), [notes de version](SIGTB_RELEASE_NOTES.md), [suivi par LOT](SIGTB_2.0_PROGRESS.md), [décisions](SIGTB_2.0_DECISIONS.md).
@@ -116,4 +119,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-18 | 18. Écrans hérités corrigés (D-061) | PR #76 fusionnée ; déployé (5ef4ab6) : 45 fichiers pgTAP OK sur la base du serveur ; aucune ligne À CORRIGER dans la matrice ; typecheck 37 -> 29, lint 115 -> 68 |
 | 2026-11-15 | Phase 7 : test de restauration | Sauvegarde restaurée dans un conteneur jetable, comptages identiques à la production ; script `deploy/vps/tester-restauration.sh`, guide mis à jour |
 | 2026-11-18 | Deuxième vague d'agents | Six agents : planification avancée (D-063), organisation et délégations (D-064), clauses, budgets et export comptable (D-065), dispatch et voyages (D-066), stocks avancés et pneus (D-067), centre des décisions et HSE (D-068) |
+| 2026-11-15 | Mandat V2 (D-069) et erratum des dates (D-070) | Bloc 1 et décisions permanentes intégrés à `CLAUDE.md` ; mandat archivé sous `docs/specs/` ; ordre retenu : revue a posteriori D-041 à D-062, puis intégration de la deuxième vague branche par branche, chacune après revue indépendante |
 | 2026-11-18 | 15b (historique d'intégration) | Agent : branche `lot-15b/fournisseurs` ; pgTAP 42 (42 assertions), 10 unitaires, 2 E2E ; intégration `lot-15b/fournisseurs-integration` ; migration antérieure en horodatage à D-060 et D-062, sans dépendance (le script serveur applique toute version non enregistrée) ; nom du conteneur de rejeu rendu unique |
