@@ -144,6 +144,33 @@ opération du pneu.
 | `solder_action_corrective(action, realisee, texte, date)` | idem | Preuve ou motif ; date non future |
 | `cloturer_incident(id, conclusion)` | idem | Cause analysée, aucune action ouverte, conclusion |
 
+## Prévention HSE (D-068)
+
+Écriture : W(trips) ou admin et périmètre du site ; aucune écriture directe sur les tables.
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `remettre_epi(site, beneficiaire, type, quantite, remis_le, echeance, designation, taille, chauffeur, employe, remplace)` | W(trips) | Numéro `EPI` ; remise non future ; échéance saisie postérieure ; renouvellement : même type, l'ancienne dotation passe « remplacée » |
+| `restituer_epi(dotation, restitue_le, etat, note)` / `annuler_dotation_epi(dotation, motif)` | W(trips) | Dotation remise seulement ; état ou motif requis |
+| `enregistrer_risque(risque, site, danger, zone, gravite, probabilite, mesures, responsable, revue_le, prochaine_revue, statut, motif)` | W(trips) | Versionné (`risques_versions`) ; cotations saisies 1 à 5 ; révision motivée ; revue non future |
+| `enregistrer_plan_prevention(plan, site, intervenant, perimetre, risques, mesures, du, au, responsable, fournisseur, remplace)` | W(trips) | Brouillon modifiable ; plan signé remplacé par une nouvelle version (même numéro `PDP`) |
+| `signer_plan_prevention(plan)` | A(trips) ou admin, périmètre | Brouillon dont la validité n'est pas dépassée ; signataire figé ; la version remplacée passe « remplacée » |
+| `annuler_plan_prevention(plan, motif)` | W(trips) | Brouillon ou signé ; motif |
+| `definir_programme_inspection(site, libelle, frequence_jours, responsable, premiere, zone)` / `arreter_programme_inspection(programme, motif)` | W(trips) | Fréquence saisie ; une seule occurrence planifiée par programme |
+| `planifier_inspection(site, objet, responsable, prevue_le, zone)` | W(trips) | Inspection ponctuelle, numéro `INS` |
+| `realiser_inspection(inspection, realisee_le, conclusion, constats)` / `annuler_inspection(inspection, motif)` | W(trips) | Constats append-only ; occurrence suivante du programme à date prévue + fréquence |
+| `ajouter_action_inspection(inspection, libelle, responsable, echeance, constat)` | W(trips) | Inspection réalisée ; action corrective D-054 soldée par `solder_action_corrective` |
+
+## Alertes et centre des décisions (D-068)
+
+| Fonction | Type | Contenu |
+|---|---|---|
+| `actualiser_alertes(forcer)` | DEFINER, profil actif | Crée les alertes manquantes depuis les données réelles (une par règle et par objet), signale les conditions levées ; sans effet si un calcul date de moins de 30 s |
+| `regles_alertes()` | DEFINER | Catalogue des règles, réglage, seuil et état (une règle à seuil est inactive sans seuil saisi) |
+| `prendre_en_compte_alerte(alerte)` / `resoudre_alerte(alerte, motif)` | DEFINER, W(module de la règle) ou admin, périmètre | Résolution motivée, tracée ; une alerte résolue ne renaît pas pour le même objet |
+| `centre_decisions()` | INVOKER | Alertes visibles et `mes_validations()` par priorité |
+| `indicateurs_pilotage(debut, fin, site, shift, vehicule, partenaire)` | INVOKER | D-057 avec filtres ; indicateur sans la dimension filtrée : « sans données » et motif ; colonne `nature` (période ou instantané) |
+
 ## Carburant (D-034, D-041, D-030)
 
 Les opérations du registre exigent W(fuel), un stockage actif dans le
