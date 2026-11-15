@@ -65,7 +65,7 @@ export const ControlesDepartView = () => {
   const chauffeur = useMemo(() => new Map(chauffeurs.map((x) => [x.id, x.libelle])), [chauffeurs]);
   const actifs = points.filter((p) => p.actif);
   const attendu = resultatControle(points, reponses);
-  const repondre = (id: string, r: Partial<Reponse>) => setReponses({ ...reponses, [id]: { resultat: '', observation: '', ...reponses[id], ...r } });
+  const repondre = (id: string, r: Partial<Reponse>) => setReponses({ ...reponses, [id]: { ...(reponses[id] ?? { resultat: '', observation: '' }), ...r } });
 
   const executer = async (action: () => PromiseLike<{ error: { message: string } | null }>, succes: string) => {
     setBusy(true); setErreur(''); setMessage('');
