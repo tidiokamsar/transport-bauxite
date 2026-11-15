@@ -46,13 +46,13 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 13 | Achats et fournisseurs (lot A, D-053 déployé le 2026-11-17, 7f11af4) | 15, 16 | 11 | Demande, validation, commande, réception vers stock, facture, avoir |
 | 14 | GED et stockage de fichiers (lot D) | 23, 08, 14 | 06 | Bucket privé, table documentaire polymorphe, politiques par module et site, versions ; pièces jointes des modules |
 | 15 | HSE (lot H, D-054 déployé le 2026-11-17, 04140d7) | 22 | 15 | Contrôle avant départ lié au dispatch, incidents (écran corrigé), actions correctives |
-| 16 | Paiements et contrôle a posteriori (lot F, D-055 en PR) | 20 | 12 | Paiements exécutés, pièces, validation séparée ; source de données à fournir par le propriétaire |
+| 16 | Paiements et contrôle a posteriori (lot F, D-055 déployé le 2026-11-17, 48d2cf0) | 20 | 12 | Paiements exécutés, pièces, validation séparée ; source de données à fournir par le propriétaire |
 
 ### Phase 1 (transverse, menée au fil des lots) et phases 5 à 6 (P2-P3)
 
 | # | Lot | Modules | Contenu |
 |---|---|---|---|
-| 17 | Centre de notifications et boîte de validations (lots T3, W) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
+| 17 | Centre de notifications et boîte de validations (lots T3, W) (D-056 en PR) | 24, 01 | Une table de notifications avec politique par destinataire, générée par les fonctions serveur ; boîte « Mes validations » agrégeant les files existantes |
 | 18 | Composants communs | tous | DataTable, filtres, exports, dialogues de décision, historique, au fil des écrans repris (pas de refonte globale) |
 | 19 | Command Center et KPI de référence | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
 | 20 | Reporting | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
@@ -103,4 +103,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-17 | 13. Circuit achat (D-053) | PR #65 fusionnée ; déployé (7f11af4) : 36 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | 14. GED et stockage (lot D) | Reporté : le service Storage n'est pas dans la pile de production (D-016) et `/storage/*` est bloqué au Caddy partagé ; activation soumise à la validation du propriétaire |
 | 2026-11-17 | 15. HSE (D-054) | PR #66 fusionnée ; déployé (04140d7) : 37 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-17 | 16. Paiements fournisseurs (D-055) | Branche `lot-16/paiements-fournisseur` ; pgTAP 38 (14 assertions), 1 E2E |
+| 2026-11-17 | 16. Paiements fournisseurs (D-055) | PR #67 fusionnée ; déployé (48d2cf0) : 38 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-17 | 17. Mes validations et notifications (D-056) | Branche `lot-17/validations-notifications` ; pgTAP 39 (8 assertions), 1 E2E |

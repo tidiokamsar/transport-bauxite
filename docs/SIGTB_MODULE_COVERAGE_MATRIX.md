@@ -233,7 +233,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Facture CBG préparée, signée par le DG, numérotée, avoirs | `Facturation/FacturesView`, `FactureImprimable` | D-029 | DÉPLOYÉ | P1 | Facture au km sur distance validée : après lot K |
 | Encaissements, créances, relances | `Facturation/RecouvrementView` | `encaissements`, `relances`, `v_creances` (D-031) | DÉPLOYÉ | P1 | - |
 | Factures Neemba, régularisations | `Contrats/FacturesNeembaView` | D-032, D-033 | DÉPLOYÉ | P1 | - |
-| Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | À TESTER | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
+| Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
 | Dettes, budgets, engagements budgétaires | - | - | MANQUANT | P2 | - |
 | Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Analyses` (`tco-analysis`) | `costs` | À CORRIGER | P2 | « Nouvelle dépense » sans action ; jointures sur colonnes inexistantes (`CostsView.tsx:33-38`) |
 | Export comptable, états de gestion | - | - | MANQUANT | P2 | - |
@@ -267,8 +267,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Mes validations (éléments à décider par l'utilisateur) | dispersé (Stocks carburant, factures à signer) | - | PARTIEL | P2 | Lot W : boîte de réception agrégée sur les files existantes |
-| Mes tâches, échéances, notifications, délégations, circuits paramétrables, relances, escalades | - | - | MANQUANT | P2 | Après centre de notifications |
-| Centre de notifications | `Notifications/SmartNotificationCenter` | `smart_notifications` (régime C) | NON CONFORME | P2 | Écran sans politique d'accès, aucune génération ; lot T3 |
+| Mes tâches, échéances, notifications, délégations, circuits paramétrables, relances, escalades | `Notifications/MesValidationsView` | `mes_validations()` calculée selon droits et séparation (D-056) | PARTIEL | P2 | Délégations, escalades, circuits paramétrables |
+| Centre de notifications | `Notifications/MesValidationsView` | `notifications` (lecture personnelle, écrites par déclencheurs serveur), `marquer_notifications_lues` (D-056) | À TESTER | P2 | Courriel et SMS : passerelle à fournir |
 
 ### 25. Portails partenaires
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 57 |
+| DÉPLOYÉ | 58 |
 | À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 22 |
+| PARTIEL | 23 |
 | À CORRIGER | 9 |
-| NON CONFORME | 1 |
-| MANQUANT | 24 |
+| NON CONFORME | 0 |
+| MANQUANT | 23 |
 | **Total** | **120** |
 
-Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
+Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.

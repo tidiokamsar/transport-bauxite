@@ -4,7 +4,7 @@ import {
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
   Cog, FileStack, TrendingUp, Leaf, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
-  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, BadgeCheck, ClipboardCheck, type LucideIcon,
+  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, BadgeCheck, ClipboardCheck, Inbox, type LucideIcon,
 } from 'lucide-react';
 import { NOM_PRODUIT } from '../Brand/Marque';
 
@@ -17,6 +17,7 @@ export interface MenuItem {
 
 export const MENU: MenuItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'mes-validations', label: 'Mes validations', icon: Inbox },
   {
     id: 'exploitation',
     label: 'Exploitation',
@@ -125,7 +126,6 @@ export const MENU: MenuItem[] = [
       { id: 'driver-behavior', label: 'Performance chauffeurs', icon: Target },
       { id: 'iot-dashboard', label: 'Capteurs IoT', icon: Radio },
       { id: 'esg-tracking', label: 'Environnement', icon: Leaf },
-      { id: 'notifications', label: 'Notifications', icon: Bell },
     ],
   },
   { id: 'settings', label: 'Paramètres', icon: Settings },
