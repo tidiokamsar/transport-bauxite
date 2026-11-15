@@ -205,6 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'incidents': 'reports',
       'alerts': 'reports',
       'sites': 'settings',
+      'infrastructures': 'trips',
       'iot-dashboard': 'reports',
       'esg-tracking': 'reports',
       'settings': 'settings',

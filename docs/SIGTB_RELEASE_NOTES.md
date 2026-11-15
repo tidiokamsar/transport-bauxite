@@ -2,7 +2,12 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : périmètre site étendu (D-046)
+## À venir : infrastructures et fermetures de site (D-047)
+
+- Exploitation > Infrastructures et fermetures : points de chargement, dépôts, ponts-bascules, stations, ateliers, avec leur capacité.
+- Fermeture temporaire d'un site, motivée et levée avec motif ; le dispatch refuse les affectations vers ou depuis un site fermé.
+
+## c1f4bfe (2026-11-15) : périmètre site étendu (D-046, PR #58)
 
 - Un administrateur affecté à un site ne voit plus les données des autres sites.
 - Pleins, maintenance, pneus, documents, incidents, pesées et alertes suivent le périmètre du site.

@@ -44,10 +44,7 @@ export const SitesView = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from('sites')
-        .select(`
-          *,
-          employees(name)
-        `)
+        .select('*')
         .order('name');
 
       if (error) throw error;
@@ -68,7 +65,7 @@ export const SitesView = () => {
         current_stock: site.current_stock,
         is_active: site.is_active,
         manager_id: site.manager_id,
-        manager_name: site.employees?.name,
+        manager_name: undefined,
         notes: site.notes
       }));
 
