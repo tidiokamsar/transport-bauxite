@@ -57,9 +57,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion absent |
 | Rôles et permissions (rôle x module) | Paramètres > Rôles | `role_permissions`, `has_module_view/write` (D-012) | DÉPLOYÉ | P0 | Permission par action et par état de dossier : MANQUANT |
 | Droits par utilisateur | Paramètres > Utilisateurs | `droits_utilisateur`, `definir_droit_module`, `journal_droits_modules` (D-036) | DÉPLOYÉ | P1 | - |
-| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039 | DÉPLOYÉ | P0 | Étendre aux tables restantes (stocks, achats, RH, maintenance) |
+| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046 | À TESTER | P0 | RH et achats restent hors périmètre |
 | Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
-| MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | À TESTER | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
+| MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | DÉPLOYÉ | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
 | Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
 | Paramètres généraux | `AdminSettingsView` (upsert `settings`) | `settings` (admin) | À CORRIGER | P2 | Paramètres saisis mais lus nulle part, sauf `mfa_exige` et `carburant_validation_separee` ; clé API fictive `sk_xxx` affichée (`AdminSettingsView`) |
 | Séquences de numérotation, devises, unités, modèles | - | numérotations codées par fonction | MANQUANT | P2 | Référentiel des séquences et devises |
