@@ -2,7 +2,13 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : stocks magasin (D-044)
+## À venir : double authentification (D-045)
+
+- Menu du profil > Sécurité du compte : activer la double authentification avec une application (Google Authenticator, Microsoft Authenticator, Authy).
+- À la connexion, le code à 6 chiffres est demandé aux comptes qui l'ont activée.
+- L'administrateur peut ensuite exiger la double authentification pour les opérations sensibles (droits, rectification de ticket, signature de facture).
+
+## 7abf1b6 (2026-11-15) : stocks magasin (D-044, PR #56)
 
 - Quantités par article et par dépôt calculées depuis les mouvements ; plus aucune quantité saisie à la main.
 - Entrées, sorties (bornées au stock disponible), transferts, retours, inventaires motivés, annulation par contre-mouvement.
