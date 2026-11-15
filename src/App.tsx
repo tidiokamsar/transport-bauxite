@@ -29,6 +29,7 @@ const RecouvrementView = lazy(() => import('./components/Facturation/Recouvremen
 const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeembaView').then(m => ({ default: m.FacturesNeembaView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
 const SecuriteCompte = lazy(() => import('./components/Auth/SecuriteCompte').then(m => ({ default: m.SecuriteCompte })));
+const PostesView = lazy(() => import('./components/Postes/PostesView').then(m => ({ default: m.PostesView })));
 const KilometrageView = lazy(() => import('./components/Trips/KilometrageView').then(m => ({ default: m.KilometrageView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
@@ -129,6 +130,8 @@ const MainApp = () => {
         return <TripsView />;
       case 'securite-compte':
         return <SecuriteCompte />;
+      case 'postes':
+        return <PostesView />;
       case 'kilometrage':
         return <KilometrageView />;
       case 'fleet-intelligence':
