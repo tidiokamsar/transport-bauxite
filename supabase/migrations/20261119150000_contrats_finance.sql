@@ -828,7 +828,8 @@ $$;
 CREATE OR REPLACE VIEW public.v_depenses_budgetaires WITH (security_invoker = true) AS
 SELECT 'engage'::text AS categorie, 'bon_commande'::text AS origine, po.id AS piece_id, po.po_number::text AS piece, po.po_date AS date_operation,
        w.site_id, im.nature_id, 'GNF'::text AS devise,
-       sum((li.quantity - coalesce(li.quantity_received, 0)) * li.unit_price)::numeric AS montant, s.company_name::text AS tiers
+       sum((li.quantity - coalesce(li.quantity_received, 0)) * li.unit_price)::numeric AS montant, s.company_name::text AS tiers,
+       'bon_commande'::text AS source_imputation, po.id AS piece_imputee
   FROM public.purchase_orders po
   JOIN public.purchase_order_items li ON li.purchase_order_id = po.id
   LEFT JOIN public.warehouses w ON w.id = po.warehouse_id
@@ -841,7 +842,9 @@ UNION ALL
 SELECT CASE WHEN p.statut = 'execute' THEN 'realise' ELSE 'engage' END, 'paiement', p.id, p.numero,
        CASE WHEN p.statut = 'execute' THEN p.execute_le ELSE p.propose_le::date END,
        w.site_id, im.nature_id, p.devise,
-       CASE WHEN p.statut = 'execute' THEN p.montant_execute ELSE p.montant_propose END, p.beneficiaire
+       CASE WHEN p.statut = 'execute' THEN p.montant_execute ELSE p.montant_propose END, p.beneficiaire,
+       CASE WHEN p.facture_fournisseur_id IS NOT NULL THEN 'facture_loueur' ELSE 'bon_commande' END,
+       coalesce(p.facture_fournisseur_id, p.purchase_order_id)
   FROM public.paiements_fournisseur p
   LEFT JOIN public.purchase_orders po ON po.id = p.purchase_order_id
   LEFT JOIN public.warehouses w ON w.id = po.warehouse_id
@@ -850,7 +853,8 @@ SELECT CASE WHEN p.statut = 'execute' THEN 'realise' ELSE 'engage' END, 'paiemen
          OR (im.source = 'facture_loueur' AND im.piece_id = p.facture_fournisseur_id)
  WHERE p.statut IN ('propose', 'approuve', 'execute')
 UNION ALL
-SELECT 'realise', 'cout', c.id, c.numero, c.date, c.site_id, coalesce(im.nature_id, cc.nature_depense_id), c.devise, c.amount, NULL::text
+SELECT 'realise', 'cout', c.id, c.numero, c.date, c.site_id, coalesce(im.nature_id, cc.nature_depense_id), c.devise, c.amount, NULL::text,
+       'cout', c.id
   FROM public.costs c
   LEFT JOIN public.cost_categories cc ON cc.id = c.category_id
   LEFT JOIN public.v_imputations_courantes im ON im.source = 'cout' AND im.piece_id = c.id

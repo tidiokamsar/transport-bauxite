@@ -55,7 +55,7 @@ export const FicheFournisseur = ({ fournisseur: f, categories, onModifier, onCha
     const [c, d, cr, ev, b, j, fc, dl] = await Promise.all([
       supabase.from('contacts_fournisseurs').select('*').eq('supplier_id', f.id).order('cree_le'),
       supabase.from('documents_fournisseurs').select('*').eq('supplier_id', f.id).order('enregistre_le', { ascending: false }),
-      supabase.from('criteres_evaluation_fournisseur').select('id, libelle, poids, actif, ordre').order('ordre'),
+      supabase.from('criteres_evaluation_fournisseur').select('id, libelle, poids, actif, ordre').eq('grille', 'fournisseur').order('ordre'),
       supabase.from('evaluations_fournisseurs').select('*').eq('supplier_id', f.id).order('evalue_le', { ascending: false }),
       supabase.from('purchase_orders').select('id, po_number, po_date, supplier_id, status, total_amount').eq('supplier_id', f.id).order('po_date', { ascending: false }),
       supabase.from('fournisseurs_journal').select('id, supplier_id, evenement, motif, le').eq('supplier_id', f.id).order('le', { ascending: false }),
