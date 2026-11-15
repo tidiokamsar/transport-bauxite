@@ -6,6 +6,8 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
 SELECT plan(6);
+-- D-054 : controle avant depart non exige pour ce test (annule en fin).
+DELETE FROM public.settings WHERE key = 'controle_depart_exige';
 
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status) VALUES
   ('00000000-0000-4000-9100-0000000000b1', 'TEST-FIA-1', 'Test', 40, 'tipper', 'active'),

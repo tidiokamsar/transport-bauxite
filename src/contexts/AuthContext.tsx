@@ -207,6 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'fleet-intelligence': 'gps_tracking',
       'fuel-stocks': 'fuel',
       'incidents': 'reports',
+      'controles-depart': 'trips',
       'alerts': 'reports',
       'sites': 'settings',
       'infrastructures': 'trips',
