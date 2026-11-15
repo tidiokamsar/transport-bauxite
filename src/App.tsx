@@ -1,7 +1,10 @@
-import { useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { LoginPage } from './components/Auth/LoginPage';
+import { VerificationMfa } from './components/Auth/VerificationMfa';
+import { verificationRequise, type NiveauAssurance } from './components/Auth/mfa';
+import { supabase } from './lib/supabase';
 import { Sidebar } from './components/Layout/Sidebar';
 import { libelleVue } from './components/Layout/menu';
 import { TopBar } from './components/Layout/TopBar';
@@ -25,6 +28,7 @@ const ComitesView = lazy(() => import('./components/Contrats/ComitesView').then(
 const RecouvrementView = lazy(() => import('./components/Facturation/RecouvrementView').then(m => ({ default: m.RecouvrementView })));
 const FacturesNeembaView = lazy(() => import('./components/Contrats/FacturesNeembaView').then(m => ({ default: m.FacturesNeembaView })));
 const TripsView = lazy(() => import('./components/Trips/TripsView').then(m => ({ default: m.TripsView })));
+const SecuriteCompte = lazy(() => import('./components/Auth/SecuriteCompte').then(m => ({ default: m.SecuriteCompte })));
 const KilometrageView = lazy(() => import('./components/Trips/KilometrageView').then(m => ({ default: m.KilometrageView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
@@ -76,8 +80,16 @@ const LoadingFallback = () => (
 );
 
 const MainApp = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [currentView, setCurrentView] = useState('dashboard');
+  // Double authentification (D-045) : un compte avec facteur verifie passe
+  // par le code TOTP avant d'entrer ; null = niveau pas encore lu.
+  const [niveau, setNiveau] = useState<NiveauAssurance | null>(null);
+  const lireNiveau = useCallback(async () => {
+    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    setNiveau(data ? { currentLevel: data.currentLevel, nextLevel: data.nextLevel } : { currentLevel: null, nextLevel: null });
+  }, []);
+  useEffect(() => { if (user) lireNiveau(); else setNiveau(null); }, [user, lireNiveau]);
 
   if (loading) {
     return (
@@ -90,6 +102,10 @@ const MainApp = () => {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  if (verificationRequise(niveau)) {
+    return <VerificationMfa onVerifie={lireNiveau} onDeconnexion={signOut} />;
   }
 
   const renderView = () => {
@@ -110,6 +126,8 @@ const MainApp = () => {
         return <DriversView />;
       case 'trips':
         return <TripsView />;
+      case 'securite-compte':
+        return <SecuriteCompte />;
       case 'kilometrage':
         return <KilometrageView />;
       case 'fleet-intelligence':
@@ -212,7 +230,7 @@ const MainApp = () => {
         <div className="flex min-w-0 flex-1 flex-col">
         <BandeauDemonstration />
         <TopBar
-          sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : libelleVue(currentView)}
+          sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : currentView === 'securite-compte' ? 'Sécurité du compte' : libelleVue(currentView)}
           onAllerA={setCurrentView}
         />
         <main className="flex-1 overflow-y-auto">

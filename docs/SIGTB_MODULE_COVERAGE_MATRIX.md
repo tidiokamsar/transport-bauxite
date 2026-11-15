@@ -59,7 +59,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Droits par utilisateur | Paramètres > Utilisateurs | `droits_utilisateur`, `definir_droit_module`, `journal_droits_modules` (D-036) | DÉPLOYÉ | P1 | - |
 | Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039 | DÉPLOYÉ | P0 | Étendre aux tables restantes (stocks, achats, RH, maintenance) |
 | Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
-| MFA et politiques d'accès | - | `garde_aal2` (D-040, inactif) | PARTIEL | P0 | Inscription TOTP côté client, puis activation `mfa_exige` |
+| MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | À TESTER | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
 | Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
 | Paramètres généraux | `AdminSettingsView` (upsert `settings`) | `settings` (admin) | À CORRIGER | P2 | Paramètres saisis mais lus nulle part, sauf `mfa_exige` et `carburant_validation_separee` ; clé API fictive `sk_xxx` affichée (`AdminSettingsView`) |
 | Séquences de numérotation, devises, unités, modèles | - | numérotations codées par fonction | MANQUANT | P2 | Référentiel des séquences et devises |
@@ -208,7 +208,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Articles, mouvements | `Stock/StockView` | `stock_items`, `stock_movements` append-only, `v_stock_depots`, `mouvement_stock`, `inventorier_stock`, `annuler_mouvement_stock` (D-044) | À TESTER | P0 | Écran réécrit ; valorisation au prix saisi |
+| Articles, mouvements | `Stock/StockView` | `stock_items`, `stock_movements` append-only, `v_stock_depots`, `mouvement_stock`, `inventorier_stock`, `annuler_mouvement_stock` (D-044) | DÉPLOYÉ | P0 | Écran réécrit ; valorisation au prix saisi |
 | Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | `Stock/StockView` | `warehouses` (+ site, D-044) ; transferts, inventaires, seuils couverts | PARTIEL | P1 | Réservations, lots, séries, coût moyen pondéré |
 
 ### 18. Moyens généraux et patrimoine
@@ -290,10 +290,10 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 43 |
+| DÉPLOYÉ | 44 |
 | À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 19 |
+| PARTIEL | 18 |
 | À CORRIGER | 12 |
 | NON CONFORME | 1 |
 | MANQUANT | 39 |

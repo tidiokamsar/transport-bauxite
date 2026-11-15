@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, CalendarDays, ChevronDown, HelpCircle, Languages, LogOut, Moon, Sun } from 'lucide-react';
+import { Bell, CalendarDays, ChevronDown, HelpCircle, Languages, LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
@@ -183,6 +183,12 @@ export const TopBar = ({
                 {LIBELLES_ROLE[profile?.role ?? ''] ?? profile?.role}
               </p>
             </div>
+            <button
+              onClick={() => { setMenu(null); onAllerA('securite-compte'); }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-stone-700 hover:bg-stone-50"
+            >
+              <ShieldCheck className="h-5 w-5" /> Sécurité du compte
+            </button>
             <button
               onClick={() => setLanguage(language === 'fr' ? 'en' : 'fr')}
               className="flex w-full items-center gap-3 px-4 py-3 text-left text-stone-700 hover:bg-stone-50"
