@@ -222,6 +222,31 @@ périmètre.
 | `controler_paiement(id, conforme, motif)` | A(invoices) ou admin | Paiement exécuté non contrôlé ; autre personne que proposant et exécutant ; anomalie motivée |
 | `reste_a_payer(facture, bon)` | DEFINER | Base moins avoirs et déductions, moins part réclamée, moins engagé et payé |
 
+## Clauses, échéances, budgets, export comptable, évaluation du loueur (D-065)
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `enregistrer_echeance_contrat(contrat, evenement, date, motif, nouvelle_fin, document)` | W(contracts) | Contrat actif ou suspendu avec date de fin ; `renouvellement` (nouvelle fin postérieure, reportée sur le contrat et journalisée) ou `denonciation` (hors préavis signalé) ; date non future ; append-only |
+| `delai_alerte_echeances_contrats()` | DEFINER | Lit `contrats_alerte_echeance_jours` (0 si absent : alerte à la date clé seulement) |
+| `definir_clause(version, type, libelle, engagement, declenchement, base, valeur, plafond, article, ordre, id)` | W(contracts) | Pénalité, bonus ou retenue ; engagement mesuré de la même version (pas « autre ») ; montant positif ou taux de 0 à 100 % saisi ; clause déjà calculée non modifiable ; journalisée |
+| `desactiver_clause(id, motif)` | W(contracts) | Motif obligatoire |
+| `calculer_clauses(rapport)` | W(contracts) | Rapport de performance remis ; une proposition par clause active de la version en vigueur, depuis la mesure figée ; taux appliqué aux factures de la période ; plafond ; rien n'est appliqué |
+| `decider_clause(calcul, appliquer, motif, facture, taux_taxe)` | W(contracts) et W(invoices) | Proposition seulement ; motif ; à facturer : ligne sur un brouillon du contrat ou nouvelle facture brouillon (taux saisi) ; à déduire : `creer_avoir` sur une facture émise ou ligne négative sur un brouillon ; bonus du loueur refusé |
+| `definir_nature_depense(code, libelle, actif, id)`, `definir_compte_comptable(numero, libelle, actif, id)`, `associer_categorie_cout(categorie, nature)`, `definir_compte_tiers(compte, contrat, fournisseur)` | admin | Référentiels saisis : aucun numéro de compte ni nature supposés |
+| `imputer_depense(source, piece, nature, motif)` | W(costs), W(purchases) ou W(contracts) selon la pièce, périmètre | Coût, bon de commande ou facture du loueur ; réimputation motivée, append-only |
+| `definir_budget(debut, fin, nature, devise, montant, site, note, remplace, motif)` | W(costs), périmètre du site | Nature active, devise, montant positif ; pas de chevauchement pour le même centre, la même nature et la même devise ; révision motivée qui remplace ; numéro `BUD` |
+| `annuler_budget(id, motif)` | W(costs), périmètre | Budget courant ; motif |
+| `ecritures_gestion(du, au)` | INVOKER | Factures et avoirs émis, encaissements, paiements exécutés, coûts ; compte de tiers si paramétré |
+| `mesures_loueur(contrat, du, au)` | INVOKER | Disponibilité des engins du contrat, délai de prise en charge, interventions hors délai, écart des factures contrôlées ; NULL sans donnée |
+| `definir_critere_loueur(libelle, poids, indicateur, description, ordre, actif, id)` | admin | Grille « loueur » de `criteres_evaluation_fournisseur` (D-059) |
+| `evaluer_loueur(contrat, debut, fin, notes, commentaire, motif_correction)` | W(contracts) | Contrat de location ; chaque critère actif noté de 1 à 5 ; mesures figées ; correction motivée qui remplace ; journal du contrat |
+| `evaluer_fournisseur(...)` (reprise) | W(purchases) | Ne lit plus que la grille « fournisseur » |
+
+Vues : `v_echeances_contrats`, `v_budgets_courants`, `v_depenses_budgetaires`,
+`v_suivi_budgets`, `v_imputations_courantes`, `v_dettes_fournisseurs`,
+`v_evaluations_loueur_courantes`. `mes_validations()` ajoute les échéances
+de contrat, les clauses à décider et les budgets dépassés.
+
 ## Analyses de flotte (D-030)
 
 | Fonction | Type | Contenu |
