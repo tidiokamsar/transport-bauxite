@@ -7,8 +7,9 @@ import { defineConfig, devices } from '@playwright/test';
 // Le serveur de developpement n'est pas utilise : il transforme chaque
 // module a la premiere requete et le premier chargement depassait 60 s
 // sur le poste de la CI locale (D-015).
-const PORT = 5174;
-const OUT_DIR = 'dist-e2e';
+// E2E_PORT et E2E_OUT_DIR permettent des executions paralleles (une par worktree).
+const PORT = Number(process.env.E2E_PORT ?? 5174);
+const OUT_DIR = process.env.E2E_OUT_DIR ?? 'dist-e2e';
 
 export default defineConfig({
   testDir: './e2e',
