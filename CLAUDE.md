@@ -15,6 +15,11 @@ facture : CBG ; loueur des engins : Neemba. Code initial genere par Bolt, repris
   consignee avant d'etre codee.
 - `docs/PLAN_REVUE_MODULES.md` : LOT 01 (remise a niveau du socle) et
   checklist de re-revision (section 7).
+- Mandat global du 2026-11-15 (26 modules) : `docs/SIGTB_MASTER_EXECUTION_PLAN.md`
+  (ordre des lots, journal), `docs/SIGTB_MODULE_COVERAGE_MATRIX.md` (etat
+  par fonctionnalite), `docs/SIGTB_QUALITY_GATE.md` (porte qualite),
+  `docs/SIGTB_ARCHITECTURE_TARGET.md`, `docs/SIGTB_FUNCTIONAL_BLUEPRINT.md`,
+  `docs/SIGTB_RELEASE_NOTES.md` (a completer a chaque deploiement).
 
 ## Stack et commandes
 
