@@ -99,7 +99,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | File des camions, recommandation déterministe expliquée, décision humaine historisée, motif de refus | `Dispatch/*` | `decisions_dispatch`, `decider_affectation` (D-024) | DÉPLOYÉ | P1 | - |
 | Disponibilité engins (immobilisations bloquantes) | `Dispatch/*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
-| Disponibilité et habilitation des chauffeurs | Dispatch (refus serveur) | `habilitations_manquantes`, garde `garde_habilitations` (D-051) | À TESTER | P1 | - |
+| Disponibilité et habilitation des chauffeurs | Dispatch (refus serveur) | `habilitations_manquantes`, garde `garde_habilitations` (D-051) | DÉPLOYÉ | P1 | - |
 | Fermeture des points de chargement, capacité et files des dépôts | Dispatch (refus serveur) | `site_ferme_le`, garde `garde_site_ferme` (D-047) | DÉPLOYÉ | P1 | Saturation : pas de donnée observée |
 | Affectation groupée, réaffectation directe, simulation, comparaison de scénarios, optimisation | - | - | MANQUANT | P2-P3 | Réaffectation directe après livraison : à vérifier dans le cycle (module 07) |
 
@@ -132,7 +132,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Dossiers chauffeurs | `Drivers/*` | `drivers` (module + `site_permis`) | EXISTANT À AMÉLIORER | P1 | Suppression physique (`DriverModal.tsx:99`) à remplacer par archivage |
-| Permis, qualifications, habilitations, formations, alertes d'expiration | `Drivers/HabilitationsView` | `habilitations_chauffeur`, `habilitations_requises`, `v_habilitations_a_renouveler` (D-051) | À TESTER | P1 | Pièces jointes après stockage de fichiers |
+| Permis, qualifications, habilitations, formations, alertes d'expiration | `Drivers/HabilitationsView` | `habilitations_chauffeur`, `habilitations_requises`, `v_habilitations_a_renouveler` (D-051) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers |
 | Présences, disponibilités | `HR/AttendanceView` (employés) | `employee_attendance` | À CORRIGER | P1 | Suppression d'une présence ; pas de lien chauffeur |
 | Performance, historique des missions | `Analyses/AnalysesFlotte` | `performance_chauffeurs` | DÉPLOYÉ | P2 | - |
 | Incidents, infractions | - | `incidents` (schéma minimal) | MANQUANT | P2 | Module 22 |
@@ -164,8 +164,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Référentiel, montage, démontage, permutation, contrôle | `TireManagement/*` | `tires` (module `vehicles`), 5 tables `tire_*` en régime C | À CORRIGER | P1 | Chiffres et recommandations fabriqués retirés, retrait au lieu de suppression (D-042) ; opérations encore refusées par la RLS, colonnes inexistantes. Lot P : cycle de vie individuel par fonctions serveur |
-| Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | - | - | MANQUANT | P1 | Idem, lié aux stocks et aux relevés km |
+| Référentiel, montage, démontage, permutation, contrôle | `Pneus/PneusView` | `tires` (cache), `pneus_operations` (journal), `monter_pneu`, `demonter_pneu`, `permuter_pneu`, `inspecter_pneu`, `annuler_operation_pneu` (D-052) | À TESTER | P1 | Anciennes tables `tire_*` à supprimer (décision du propriétaire) |
+| Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | `Pneus/PneusView` | `enregistrer_pneu`, `rechaper_pneu`, `reparer_pneu`, `reformer_pneu`, `v_pneus` (km, coût au km), `v_pneus_a_surveiller` (D-052) | PARTIEL | P1 | Réception depuis un bon de commande (lot 13) ; performance par marque (lot 19) |
 
 ### 13. Fuel intelligence
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 52 |
-| À TESTER | 3 |
+| DÉPLOYÉ | 54 |
+| À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 7 |
-| PARTIEL | 18 |
-| À CORRIGER | 11 |
+| PARTIEL | 19 |
+| À CORRIGER | 10 |
 | NON CONFORME | 1 |
-| MANQUANT | 30 |
+| MANQUANT | 29 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.

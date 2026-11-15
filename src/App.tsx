@@ -44,7 +44,7 @@ const FacturesView = lazy(() => import('./components/Facturation/FacturesView').
 const ReconciliationView = lazy(() => import('./components/Facturation/ReconciliationView').then(m => ({ default: m.ReconciliationView })));
 const ReportsView = lazy(() => import('./components/Reports/ReportsView').then(m => ({ default: m.ReportsView })));
 const AdminSettingsView = lazy(() => import('./components/Settings/AdminSettingsView').then(m => ({ default: m.AdminSettingsView })));
-const CompleteTireManagement = lazy(() => import('./components/TireManagement/CompleteTireManagement'));
+const PneusView = lazy(() => import('./components/Pneus/PneusView').then(m => ({ default: m.PneusView })));
 const GPSTrackingView = lazy(() => import('./components/Tracking/GPSTrackingView').then(m => ({ default: m.GPSTrackingView })));
 const RouteHistoryView = lazy(() => import('./components/Tracking/RouteHistoryView').then(m => ({ default: m.RouteHistoryView })));
 const FleetIntelligenceView = lazy(() => import('./components/Tracking/FleetIntelligenceView').then(m => ({ default: m.FleetIntelligenceView })));
@@ -120,11 +120,7 @@ const MainApp = () => {
       case 'vehicles':
         return <VehiclesView />;
       case 'tires':
-        return <CompleteTireManagement />;
-      case 'tire-management':
-        return <CompleteTireManagement />;
-      case 'tire-lifecycle':
-        return <CompleteTireManagement />;
+        return <PneusView />;
       case 'documents':
         return <VehicleDocumentsView />;
       case 'drivers':

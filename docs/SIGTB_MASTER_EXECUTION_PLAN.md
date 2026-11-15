@@ -41,8 +41,8 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 8 | Shifts opérables (lot S, D-048 déployé le 2026-11-15, db7709c) | 05 | 03 | Instance de shift, responsable, équipe, affectations, passation, événements, clôture validée, rapport |
 | 9 | Interventions Neemba (lot N, D-049 déployé le 2026-11-16, b2d81d8) | 10, 11 | 11 | Déclaration de panne, notification, demande d'intervention, suivi, rapport, pièces, validation de remise en service, calcul d'indisponibilité ; heures présence / productives / arrêt / facturables |
 | 10 | Registre des tickets CBG (lot T, D-050 déployé le 2026-11-16, 6b55549) | 14 | 07 | Registre, tickets manquants et orphelins, contrôles immatriculation / date / poids, litiges, réconciliation journalière, export |
-| 11 | Chauffeurs habilités (lot C, D-051 en PR) | 09, 06 | 05 | Permis, qualifications, habilitations, alertes d'expiration ; contrainte serveur au dispatch |
-| 12 | Pneumatiques (lot P) | 12 | 11 | Cycle de vie individuel par fonctions serveur, politiques d'accès, coût par km (après lot K) |
+| 11 | Chauffeurs habilités (lot C, D-051 déployé le 2026-11-16, 2d5c3cb) | 09, 06 | 05 | Permis, qualifications, habilitations, alertes d'expiration ; contrainte serveur au dispatch |
+| 12 | Pneumatiques (lot P, D-052 en PR) | 12 | 11 | Cycle de vie individuel par fonctions serveur, politiques d'accès, coût par km (après lot K) |
 | 13 | Achats et fournisseurs (lot A) | 15, 16 | 11 | Demande, validation, commande, réception vers stock, facture, avoir |
 | 14 | GED et stockage de fichiers (lot D) | 23, 08, 14 | 06 | Bucket privé, table documentaire polymorphe, politiques par module et site, versions ; pièces jointes des modules |
 | 15 | HSE (lot H) | 22 | 15 | Contrôle avant départ lié au dispatch, incidents (écran corrigé), actions correctives |
@@ -98,4 +98,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-16 | 8. Postes de travail (D-048) | PR #60 fusionnée ; déployé (db7709c) : 31 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-16 | 9. Interventions Neemba (D-049) | PR #61 fusionnée ; déployé (b2d81d8) : 32 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-16 | 10. Relevés CBG (D-050) | PR #62 fusionnée ; déployé (6b55549) : 33 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-16 | 11. Habilitations chauffeurs (D-051) | Branche `lot-05/habilitations-chauffeurs` ; pgTAP 34 (10 assertions), 2 unitaires, 1 E2E |
+| 2026-11-16 | 11. Habilitations chauffeurs (D-051) | PR #63 fusionnée ; déployé (2d5c3cb) : 34 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-16 | 12. Pneumatiques (D-052) | Branche `lot-12/pneumatiques` ; pgTAP 35 (17 assertions), 3 unitaires, 1 E2E |
