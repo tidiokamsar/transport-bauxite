@@ -233,7 +233,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Facture CBG préparée, signée par le DG, numérotée, avoirs | `Facturation/FacturesView`, `FactureImprimable` | D-029 | DÉPLOYÉ | P1 | Facture au km sur distance validée : après lot K |
 | Encaissements, créances, relances | `Facturation/RecouvrementView` | `encaissements`, `relances`, `v_creances` (D-031) | DÉPLOYÉ | P1 | - |
 | Factures Neemba, régularisations | `Contrats/FacturesNeembaView` | D-032, D-033 | DÉPLOYÉ | P1 | - |
-| Paiements exécutés et contrôle a posteriori | - | `payments` (hérité, non relu) | MANQUANT | P1 | Lot F : chaîne de paiement, pièces, validation séparée |
+| Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | À TESTER | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
 | Dettes, budgets, engagements budgétaires | - | - | MANQUANT | P2 | - |
 | Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Analyses` (`tco-analysis`) | `costs` | À CORRIGER | P2 | « Nouvelle dépense » sans action ; jointures sur colonnes inexistantes (`CostsView.tsx:33-38`) |
 | Export comptable, états de gestion | - | - | MANQUANT | P2 | - |
@@ -250,7 +250,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Incidents | `Incidents/IncidentsView` | `incidents` (numéro, type, rattachement, statut), `declarer_incident`, `analyser_incident`, `cloturer_incident` (D-054) | À TESTER | P1 | Photos et constats après stockage de fichiers |
+| Incidents | `Incidents/IncidentsView` | `incidents` (numéro, type, rattachement, statut), `declarer_incident`, `analyser_incident`, `cloturer_incident` (D-054) | DÉPLOYÉ | P1 | Photos et constats après stockage de fichiers |
 | Environnement | `ESG/ESGTrackingView` | `carbon_emissions`, `sustainability_kpis`, `environmental_incidents` (régime B), `waste_management` (C) | PARTIEL | P3 | Aucune source de données ; 4 boutons sans action |
 | Inspections, contrôles avant départ, EPI, accidents, presque-accidents, enquêtes, actions correctives, plans de prévention, risques | `Hse/ControlesDepartView`, `Incidents/IncidentsView` | `points_controle_depart`, `controles_depart`, garde `garde_controle_depart` au départ du voyage, `actions_correctives`, `v_actions_correctives_en_retard` (D-054) | PARTIEL | P1 | EPI, plans de prévention, registre des risques, inspections planifiées |
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 56 |
+| DÉPLOYÉ | 57 |
 | À TESTER | 1 |
 | EXISTANT / EXISTANT À AMÉLIORER | 6 |
 | PARTIEL | 22 |
 | À CORRIGER | 9 |
 | NON CONFORME | 1 |
-| MANQUANT | 25 |
+| MANQUANT | 24 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
