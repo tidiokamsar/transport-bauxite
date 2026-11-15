@@ -1,268 +1,126 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Edit2, FileText, Plus, RefreshCw, Search, Table } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Search, Edit2, Eye, FileText, Table } from 'lucide-react';
-import { VehicleModal } from './VehicleModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSite } from '../../contexts/SiteContext';
 import { exportToCSV, exportToPDF } from '../../lib/exports';
-import { Vehicle } from '../../types/vehicle';
+import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import type { Vehicle } from '../../types/vehicle';
+import { VehicleModal } from './VehicleModal';
+import { FicheVehicule } from './FicheVehicule';
+import { PROPRIETES, STATUTS_OPERATIONNELS, TYPES_VEHICULE, libellePropriete, libelleStatut, type StatutOperationnel } from './flotte';
+
+// Registre de la flotte (D-062) : statut operationnel derive par le serveur
+// (v_vehicules), propriete (Kogon, loue, sous-traitant) et contrat, fiche
+// detaillee avec historique. Aucune propriete n'est supposee : un engin non
+// renseigne est affiche comme tel.
+
+const COLONNES = 'id, registration, brand_model, year, vehicle_type, capacity_tonnes, chassis_number, site_id, status, insurance_expiry, technical_inspection_expiry, propriete, proprietaire, exploitant, transporteur, contrat_id, contrat_reference, statut_admin, statut_admin_depuis, statut_admin_motif, voyage_en_cours, statut_operationnel';
 
 export const VehiclesView = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'view' | 'edit' | 'create'>('view');
+  const { hasPermission, profile } = useAuth();
+  const { siteId, sites } = useSite();
+  const peutEcrire = hasPermission('vehicles', 'create') || hasPermission('vehicles', 'edit') || profile?.role === 'admin';
+  const [vehicules, setVehicules] = useState<Vehicle[] | null>(null);
+  const [erreur, setErreur] = useState('');
+  const [recherche, setRecherche] = useState('');
+  const [filtreStatut, setFiltreStatut] = useState('');
+  const [filtrePropriete, setFiltrePropriete] = useState('');
+  const [ficheId, setFicheId] = useState<string | null>(null);
+  const [edition, setEdition] = useState<Vehicle | 'nouveau' | null>(null);
+  const [heure, setHeure] = useState<Date | null>(null);
 
-  useEffect(() => {
-    fetchVehicles();
-  }, []);
+  const charger = useCallback(async () => {
+    let q = supabase.from('v_vehicules').select(COLONNES).order('registration');
+    if (siteId) q = q.eq('site_id', siteId);
+    const { data, error } = await q;
+    setErreur(error ? 'Registre indisponible : ' + error.message : '');
+    setVehicules((data ?? []) as Vehicle[]);
+    setHeure(new Date());
+  }, [siteId]);
+  useEffect(() => { charger(); }, [charger]);
 
-  const fetchVehicles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('vehicles')
-        .select('*')
-        .order('registration');
+  const nomSite = useMemo(() => new Map(sites.map((s) => [s.id, s.name])), [sites]);
+  const liste = useMemo(() => (vehicules ?? []).filter((v) => {
+    const t = recherche.trim().toLowerCase();
+    return (!t || v.registration.toLowerCase().includes(t) || v.brand_model.toLowerCase().includes(t))
+      && (!filtreStatut || v.statut_operationnel === filtreStatut)
+      && (!filtrePropriete || (filtrePropriete === 'non_renseignee' ? v.propriete === null : v.propriete === filtrePropriete));
+  }), [vehicules, recherche, filtreStatut, filtrePropriete]);
+  const compte = (s: StatutOperationnel) => (vehicules ?? []).filter((v) => v.statut_operationnel === s).length;
+  const fiche = ficheId ? (vehicules ?? []).find((v) => v.id === ficheId) ?? null : null;
 
-      if (error) throw error;
-      setVehicles(data || []);
-    } catch (error) {
-      console.error('Error fetching vehicles:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filteredVehicles = vehicles.filter((vehicle) =>
-    vehicle.registration.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    vehicle.brand_model.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      maintenance: 'bg-orange-100 text-orange-800',
-      immobilized: 'bg-red-100 text-red-800',
-      sold: 'bg-slate-100 text-slate-800',
-    };
-    return colors[status as keyof typeof colors] || 'bg-slate-100 text-slate-800';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      active: 'Actif',
-      maintenance: 'En maintenance',
-      immobilized: 'Immobilisé',
-      sold: 'Vendu',
-    };
-    return labels[status as keyof typeof labels] || status;
-  };
-
-  const handleCreateNew = () => {
-    setSelectedVehicle(null);
-    setModalMode('create');
-    setIsModalOpen(true);
-  };
-
-  const handleView = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setModalMode('view');
-    setIsModalOpen(true);
-  };
-
-  const handleEdit = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setModalMode('edit');
-    setIsModalOpen(true);
-  };
-
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setSelectedVehicle(null);
-    fetchVehicles();
-  };
-
-  const handleExportCSV = () => {
-    const formattedData = filteredVehicles.map(v => ({
-      'Immatriculation': v.registration,
-      'Modèle': v.brand_model,
-      'Type': v.vehicle_type,
-      'Capacité (tonnes)': v.capacity_tonnes,
-      'Kilométrage': v.current_km,
-      'Statut': getStatusLabel(v.status),
-      'Assurance expire': v.insurance_expiry ? new Date(v.insurance_expiry).toLocaleDateString('fr-FR') : '-',
-      'Contrôle technique expire': v.technical_inspection_expiry ? new Date(v.technical_inspection_expiry).toLocaleDateString('fr-FR') : '-'
-    }));
-    exportToCSV(formattedData, 'vehicules');
-  };
-
-  const handleExportPDF = () => {
-    const formattedData = filteredVehicles.map(v => ({
-      'Immatriculation': v.registration,
-      'Modèle': v.brand_model,
-      'Type': v.vehicle_type,
-      'Capacité': v.capacity_tonnes + ' T',
-      'KM': v.current_km.toLocaleString(),
-      'Statut': getStatusLabel(v.status)
-    }));
-    exportToPDF('Liste des véhicules', formattedData, 'vehicules');
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
-      </div>
-    );
-  }
+  const lignesExport = () => liste.map((v) => ({
+    Immatriculation: v.registration, Modele: v.brand_model, Type: TYPES_VEHICULE[v.vehicle_type] ?? v.vehicle_type,
+    Capacite_t: v.capacity_tonnes, Site: v.site_id ? nomSite.get(v.site_id) ?? '' : '', Propriete: libellePropriete(v.propriete),
+    Proprietaire: v.proprietaire ?? '', Exploitant: v.exploitant ?? '', Contrat: v.contrat_reference ?? '',
+    Statut: libelleStatut(v.statut_operationnel).libelle, Motif: v.statut_admin_motif ?? '',
+  }));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Parc automobile</h1>
-          <p className="text-slate-600 mt-1">Gestion des véhicules et équipements</p>
+          <h2 className="text-2xl font-black text-stone-900">Véhicules et engins</h2>
+          <p className="text-stone-500">Registre de la flotte : propriété, contrat, statut opérationnel et fiche détaillée</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              title="Exporter en CSV/Excel"
-            >
-              <Table className="w-5 h-5" />
-              CSV
-            </button>
-            <button
-              onClick={handleExportPDF}
-              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-              title="Exporter en PDF"
-            >
-              <FileText className="w-5 h-5" />
-              PDF
-            </button>
-          </div>
-          <button
-            onClick={handleCreateNew}
-            className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Nouveau véhicule
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => exportToCSV(lignesExport(), 'vehicules')} disabled={!liste.length} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm disabled:opacity-50"><Table className="h-4 w-4" /> CSV</button>
+          <button onClick={() => exportToPDF('Registre de la flotte', lignesExport(), 'vehicules')} disabled={!liste.length} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm disabled:opacity-50"><FileText className="h-4 w-4" /> PDF</button>
+          <button onClick={charger} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm"><RefreshCw className="h-4 w-4" /> Actualiser</button>
+          {peutEcrire && <button onClick={() => setEdition('nouveau')} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow"><Plus className="h-4 w-4" /> Nouvel engin</button>}
         </div>
       </div>
+      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        <div className="p-4 border-b border-slate-200">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Rechercher par immatriculation ou modèle..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
-            />
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Synthèse de la flotte">
+        {([
+          ['Disponibles', compte('disponible')],
+          ['En mission', compte('en_mission')],
+          ['Immobilisés ou en maintenance', compte('immobilise') + compte('en_maintenance')],
+          ['Suspendus', compte('suspendu')],
+          ['Propriété non renseignée', (vehicules ?? []).filter((v) => v.propriete === null && v.statut_operationnel !== 'reforme').length],
+        ] as [string, number][]).map(([l, n]) => <div key={l} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-carte"><p className="text-sm text-stone-500">{l}</p><p className="text-2xl font-black text-stone-900">{vehicules ? n : '—'}</p></div>)}
+      </section>
+
+      <Panneau titre={`Registre (${liste.length})`}>
+        <div className="mb-3 flex flex-wrap gap-2">
+          <div className="relative min-w-[220px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+            <input value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Immatriculation ou modèle" aria-label="Rechercher un engin" className="w-full rounded-lg border border-stone-300 py-2 pl-9 pr-3 text-sm" />
           </div>
+          <select value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} aria-label="Filtrer par statut" className="rounded-lg border border-stone-300 px-3 py-2 text-sm">
+            <option value="">Tous les statuts</option>{Object.entries(STATUTS_OPERATIONNELS).map(([k, v]) => <option key={k} value={k}>{v.libelle}</option>)}
+          </select>
+          <select value={filtrePropriete} onChange={(e) => setFiltrePropriete(e.target.value)} aria-label="Filtrer par propriété" className="rounded-lg border border-stone-300 px-3 py-2 text-sm">
+            <option value="">Toutes les propriétés</option>{Object.entries(PROPRIETES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}<option value="non_renseignee">Non renseignée</option>
+          </select>
         </div>
+        {vehicules === null ? <p className="text-sm text-stone-500">Chargement…</p> : liste.length === 0 ? <SansDonnees message="Aucun engin" detail={vehicules.length ? 'Aucun engin ne correspond aux filtres.' : 'Créez le premier engin du registre.'} /> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-stone-200 text-left text-stone-500">
+                <th className="py-2 pr-3 font-medium">Immatriculation</th><th className="py-2 pr-3 font-medium">Modèle</th><th className="py-2 pr-3 font-medium">Type</th>
+                <th className="py-2 pr-3 font-medium">Site</th><th className="py-2 pr-3 font-medium">Propriété</th><th className="py-2 pr-3 font-medium">Statut</th><th />
+              </tr></thead>
+              <tbody>{liste.map((v) => { const s = libelleStatut(v.statut_operationnel); return (
+                <tr key={v.id} className="border-b border-stone-100 last:border-0">
+                  <td className="py-2 pr-3"><button onClick={() => setFicheId(v.id)} className="font-semibold text-orange-800 hover:underline" aria-label={`Fiche ${v.registration}`}>{v.registration}</button></td>
+                  <td className="py-2 pr-3">{v.brand_model}</td>
+                  <td className="py-2 pr-3">{TYPES_VEHICULE[v.vehicle_type] ?? v.vehicle_type} · {v.capacity_tonnes} t</td>
+                  <td className="py-2 pr-3">{v.site_id ? nomSite.get(v.site_id) ?? '—' : 'Global'}</td>
+                  <td className="py-2 pr-3">{v.propriete === null ? <Puce teinte="gris">Non renseignée</Puce> : <>{libellePropriete(v.propriete)}{v.proprietaire && <span className="block text-xs text-stone-500">{v.proprietaire}{v.contrat_reference ? ` · ${v.contrat_reference}` : ''}</span>}</>}</td>
+                  <td className="py-2 pr-3" title={v.statut_admin_motif ?? v.voyage_en_cours ?? undefined}><Puce teinte={s.teinte}>{s.libelle}</Puce></td>
+                  <td className="py-2 text-right">{peutEcrire && v.statut_operationnel !== 'reforme' && <button onClick={() => setEdition(v)} aria-label={`Modifier ${v.registration}`} className="rounded p-1 text-stone-500 hover:bg-stone-100"><Edit2 className="h-4 w-4" /></button>}</td>
+                </tr>); })}</tbody>
+            </table>
+          </div>
+        )}
+        <Provenance source="registre des engins (v_vehicules) ; statut dérivé des immobilisations, des voyages engagés et des décisions de suspension ou de réforme" heure={heure} />
+      </Panneau>
 
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Immatriculation
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Modèle
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Capacité
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Kilométrage
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Statut
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-700 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {filteredVehicles.map((vehicle) => (
-                <tr key={vehicle.id} className="hover:bg-slate-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleView(vehicle)}
-                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                      title="Voir les détails"
-                    >
-                      {vehicle.registration}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                    {vehicle.brand_model}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-slate-700 capitalize">
-                    {vehicle.vehicle_type}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                    {vehicle.capacity_tonnes} T
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                    {vehicle.current_km.toLocaleString()} km
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                        vehicle.status
-                      )}`}
-                    >
-                      {getStatusLabel(vehicle.status)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleView(vehicle)}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Voir détails"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(vehicle)}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="Modifier"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredVehicles.length === 0 && (
-            <div className="text-center py-12 text-slate-500">
-              Aucun véhicule trouvé
-            </div>
-          )}
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <VehicleModal
-          vehicle={selectedVehicle}
-          mode={modalMode}
-          onClose={handleModalClose}
-        />
-      )}
+      {edition && <VehicleModal vehicle={edition === 'nouveau' ? null : edition} onClose={(modifie) => { setEdition(null); if (modifie) charger(); }} />}
+      {fiche && <FicheVehicule key={fiche.id} vehicule={fiche} peutEcrire={peutEcrire} onClose={() => setFicheId(null)} onModifie={charger} />}
     </div>
   );
 };

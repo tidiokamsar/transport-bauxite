@@ -52,12 +52,10 @@ test.describe('Écrans remis à niveau', () => {
   });
 
   test('plein unitaire : enregistre les litres sans inventer le prix', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, vehicles: ENGINS, drivers: [], fuel_transactions: [] });
+    await simulerApi(page, { profiles: PROFIL, vehicles: ENGINS, drivers: [], fuel_transactions: [], stockages_carburant: [] });
+    // Saisie par la fonction serveur saisir_plein (D-062), plus d'insertion directe.
     const envois: Record<string, unknown>[] = [];
-    await page.route('**/rest/v1/fuel_transactions*', (route) => {
-      if (route.request().method() === 'POST') { envois.push(route.request().postDataJSON()); return route.fulfill({ status: 201, body: '' }); }
-      return route.fallback();
-    });
+    await page.route('**/rest/v1/rpc/saisir_plein', (route) => { envois.push(route.request().postDataJSON()); return repondre(route, 'p1'); });
     await aller(page, 'Carburant', 'Pleins et cuves');
     await page.getByRole('button', { name: 'Saisir' }).click();
     const f = page.getByRole('dialog');
@@ -65,6 +63,7 @@ test.describe('Écrans remis à niveau', () => {
     await f.getByLabel('Litres *').fill('250');
     await f.getByRole('button', { name: 'Enregistrer' }).click();
     await expect.poll(() => envois.length).toBe(1);
-    expect(envois[0]).toMatchObject({ vehicle_id: 'v1', volume_liters: 250, unit_price: null, total_cost: null, total_amount: null, supplier: 'CBG', transaction_type: 'refuel' });
+    expect(envois[0]).toMatchObject({ p_vehicle: 'v1', p_litres: 250, p_stockage: null });
+    expect(Object.keys(envois[0])).not.toContain('p_prix');
   });
 });
