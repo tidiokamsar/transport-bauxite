@@ -8,9 +8,12 @@ import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 
 // Pleins et remplissages de cuve (D-030) : liste du mois et saisie
-// unitaire. Le prix est porte par les livraisons CBG, jamais saisi sur un
-// plein individuel. Les pleins des fiches carburant
-// (D-028) arrivent ici avec la reference de leur fiche.
+// unitaire par la fonction serveur saisir_plein (D-062 : droit carburant,
+// perimetre de l'engin, reference attribuee par le serveur, cuve optionnelle
+// qui cree une distribution a valider comme la fiche carburant D-041). Le
+// prix est porte par les livraisons CBG, jamais saisi sur un plein
+// individuel. Les pleins des fiches carburant (D-028) arrivent ici avec la
+// reference de leur fiche.
 
 interface Plein {
   id: string; transaction_date: string; reference: string; vehicle_id: string | null; driver_id: string | null;
@@ -27,10 +30,11 @@ export const PleinsView = () => {
   const peutEcrire = hasPermission('fuel', 'create') || hasPermission('fuel', 'edit');
   const [mois, setMois] = useState(moisCourant);
   const [pleins, setPleins] = useState<Plein[] | null>(null);
-  const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
+  const [engins, setEngins] = useState<{ id: string; registration: string; site_id: string | null }[]>([]);
+  const [cuves, setCuves] = useState<{ id: string; code: string; libelle: string; site_id: string }[]>([]);
   const [chauffeurs, setChauffeurs] = useState<{ id: string; name: string }[]>([]);
   const [saisie, setSaisie] = useState(false);
-  const [f, setF] = useState({ type: 'refuel', date: new Date().toISOString().slice(0, 10), engin: '', chauffeur: '', litres: '', compteur: '', site: '', note: '' });
+  const [f, setF] = useState({ date: new Date().toISOString().slice(0, 10), engin: '', chauffeur: '', litres: '', compteur: '', cuve: '', note: '' });
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
 
@@ -41,14 +45,16 @@ export const PleinsView = () => {
       .gte('transaction_date', `${mois}-01`).lte('transaction_date', `${mois}-${String(new Date(a, m, 0).getDate()).padStart(2, '0')}`)
       .order('transaction_date', { ascending: false });
     if (siteId) q = q.eq('site_id', siteId);
-    const [p, v, d] = await Promise.all([
+    const [p, v, d, c] = await Promise.all([
       q,
-      supabase.from('vehicles').select('id, registration').neq('status', 'sold').order('registration'),
+      supabase.from('vehicles').select('id, registration, site_id').neq('status', 'sold').order('registration'),
       supabase.from('drivers').select('id, name').order('name'),
+      supabase.from('stockages_carburant').select('id, code, libelle, site_id').eq('actif', true).order('code'),
     ]);
     setErreur(p.error ? 'Pleins indisponibles : ' + p.error.message : '');
     setPleins((p.data ?? []) as Plein[]);
-    setEngins((v.data ?? []) as { id: string; registration: string }[]);
+    setEngins((v.data ?? []) as { id: string; registration: string; site_id: string | null }[]);
+    setCuves((c.data ?? []) as { id: string; code: string; libelle: string; site_id: string }[]);
     setChauffeurs((d.data ?? []) as { id: string; name: string }[]);
     setHeure(new Date());
   }, [mois, siteId]);
@@ -70,17 +76,11 @@ export const PleinsView = () => {
   const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
   const enregistrer = async () => {
     const litres = nombre(f.litres);
-    const site = f.site || siteId || null;
     if (!(litres && litres > 0)) { setErreur('La quantité en litres doit être positive'); return; }
-    if (f.type === 'refuel' && !f.engin) { setErreur('Engin requis pour un plein'); return; }
-    if (f.type === 'tank_fill' && !site) { setErreur('Site de la cuve requis pour un remplissage'); return; }
-    const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from('fuel_transactions').insert({
-      transaction_date: f.date, transaction_type: f.type, vehicle_id: f.type === 'refuel' ? f.engin : null,
-      driver_id: f.type === 'refuel' && f.chauffeur ? f.chauffeur : null, volume_liters: litres, quantity: litres,
-      unit_price: null, total_cost: null, total_amount: null,
-      supplier: 'CBG', site_id: site, odometer_reading: nombre(f.compteur), notes: f.note.trim() || 'Saisie unitaire',
-      reference: `PL-${f.date.replace(/-/g, '')}-${Date.now().toString(36).toUpperCase()}`, created_by: u.user?.id ?? null,
+    if (!f.engin) { setErreur('Engin requis pour un plein'); return; }
+    const { error } = await supabase.rpc('saisir_plein', {
+      p_vehicle: f.engin, p_date: f.date, p_litres: litres, p_driver: f.chauffeur || null,
+      p_compteur: nombre(f.compteur), p_stockage: f.cuve || null, p_note: f.note.trim() || null,
     });
     if (error) { setErreur(error.message); return; }
     setSaisie(false);
@@ -154,22 +154,23 @@ export const PleinsView = () => {
 
       {saisie && (
         <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => setSaisie(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Saisir un mouvement de carburant">
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Saisir un plein">
             <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-              <h2 className="text-xl font-black text-stone-900">Saisir un mouvement</h2>
+              <h2 className="text-xl font-black text-stone-900">Saisir un plein</h2>
               <button onClick={() => setSaisie(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
             </header>
             <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
-              <label>Type<select value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })} className={CHAMP}><option value="refuel">Plein d'un engin</option></select></label>
               <label>Date *<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={CHAMP} /></label>
-              {f.type === 'refuel' ? <>
-                <label>Engin *<select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value })} className={CHAMP}><option value="">Choisir</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
-                <label>Chauffeur<select value={f.chauffeur} onChange={(e) => setF({ ...f, chauffeur: e.target.value })} className={CHAMP}><option value="">—</option>{chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-              </> : (
-                <label className="sm:col-span-2">Site de la cuve *<select value={f.site} onChange={(e) => setF({ ...f, site: e.target.value })} className={CHAMP}><option value="">Choisir</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
-              )}
+              <span />
+              <label>Engin *<select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value, cuve: '' })} className={CHAMP}><option value="">Choisir</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
+              <label>Chauffeur<select value={f.chauffeur} onChange={(e) => setF({ ...f, chauffeur: e.target.value })} className={CHAMP}><option value="">—</option>{chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Litres *<input inputMode="decimal" value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} className={CHAMP} /></label>
               <label>Compteur km ou horamètre<input inputMode="decimal" value={f.compteur} onChange={(e) => setF({ ...f, compteur: e.target.value })} className={CHAMP} /></label>
+              <label className="sm:col-span-2">Cuve ou citerne de prélèvement<select value={f.cuve} onChange={(e) => setF({ ...f, cuve: e.target.value })} className={CHAMP}>
+                <option value="">Hors stockage suivi (station, autre)</option>
+                {cuves.filter((c) => { const site = engins.find((x) => x.id === f.engin)?.site_id; return !site || c.site_id === site; })
+                  .map((c) => <option key={c.id} value={c.id}>{c.code} · {c.libelle}</option>)}</select>
+                <span className="mt-1 block text-xs text-stone-500">Un prélèvement en cuve crée une distribution à valider dans le registre des stocks.</span></label>
               <label className="sm:col-span-2">Note<input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={CHAMP} /></label>
               {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
             </div>

@@ -1,253 +1,83 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useState } from 'react';
 import { X } from 'lucide-react';
-import { Vehicle } from '../../types/vehicle';
+import { supabase } from '../../lib/supabase';
+import { useSite } from '../../contexts/SiteContext';
+import type { Vehicle, VehiculeDescriptif } from '../../types/vehicle';
+import { TYPES_VEHICULE } from './flotte';
 
-interface VehicleModalProps {
-  vehicle: Vehicle | null;
-  mode: 'view' | 'edit' | 'create';
-  onClose: () => void;
-}
+// Creation et modification des champs descriptifs d'un engin (D-062). Le
+// statut, la propriete et le contrat passent par la fiche (fonctions
+// serveur, journal) ; le kilometrage par les releves de compteur (D-043).
 
-export const VehicleModal = ({ vehicle, mode, onClose }: VehicleModalProps) => {
-  const [formData, setFormData] = useState<Vehicle>({
-    registration: '',
-    brand_model: '',
-    capacity_tonnes: 0,
-    vehicle_type: 'tipper',
-    current_km: 0,
-    status: 'active',
+const CHAMP = 'mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm';
+
+const vide = (v: string) => (v.trim() === '' ? null : v.trim());
+
+export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; onClose: (modifie: boolean) => void }) => {
+  const { sites } = useSite();
+  const [f, setF] = useState({
+    registration: vehicle?.registration ?? '',
+    brand_model: vehicle?.brand_model ?? '',
+    vehicle_type: vehicle?.vehicle_type ?? '',
+    capacity_tonnes: vehicle ? String(vehicle.capacity_tonnes) : '',
+    year: vehicle?.year ? String(vehicle.year) : '',
+    chassis_number: vehicle?.chassis_number ?? '',
+    site_id: vehicle?.site_id ?? '',
+    insurance_expiry: vehicle?.insurance_expiry ?? '',
+    technical_inspection_expiry: vehicle?.technical_inspection_expiry ?? '',
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [erreur, setErreur] = useState('');
+  const [busy, setBusy] = useState(false);
+  const poser = (k: keyof typeof f, v: string) => setF({ ...f, [k]: v });
 
-  useEffect(() => {
-    if (vehicle) {
-      setFormData(vehicle);
-    }
-  }, [vehicle]);
+  const capacite = Number(f.capacity_tonnes.replace(',', '.'));
+  const pret = f.registration.trim() && f.brand_model.trim() && f.vehicle_type && f.capacity_tonnes.trim() !== '' && capacite >= 0;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      if (mode === 'create') {
-        const { error } = await supabase.from('vehicles').insert([formData]);
-        if (error) throw error;
-      } else if (mode === 'edit' && vehicle?.id) {
-        const { error } = await supabase
-          .from('vehicles')
-          .update(formData)
-          .eq('id', vehicle.id);
-        if (error) throw error;
-      }
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-    } finally {
-      setLoading(false);
-    }
+  const enregistrer = async () => {
+    if (!pret) { setErreur('Immatriculation, modèle, type et capacité sont requis'); return; }
+    const corps: VehiculeDescriptif = {
+      registration: f.registration.trim(), brand_model: f.brand_model.trim(), vehicle_type: f.vehicle_type,
+      capacity_tonnes: capacite, year: f.year ? Number(f.year) : null, chassis_number: vide(f.chassis_number),
+      site_id: f.site_id || null, insurance_expiry: f.insurance_expiry || null,
+      technical_inspection_expiry: f.technical_inspection_expiry || null,
+    };
+    setBusy(true);
+    const { error } = vehicle
+      ? await supabase.from('vehicles').update(corps).eq('id', vehicle.id)
+      : await supabase.from('vehicles').insert(corps);
+    setBusy(false);
+    if (error) { setErreur(error.message); return; }
+    onClose(true);
   };
 
-  const isReadOnly = mode === 'view';
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <h2 className="text-2xl font-bold text-slate-900">
-            {mode === 'create'
-              ? 'Nouveau véhicule'
-              : mode === 'edit'
-              ? 'Modifier véhicule'
-              : 'Détails du véhicule'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => onClose(false)}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={vehicle ? 'Modifier un engin' : 'Nouvel engin'}
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+          <h2 className="text-xl font-black text-stone-900">{vehicle ? `Modifier ${vehicle.registration}` : 'Nouvel engin'}</h2>
+          <button onClick={() => onClose(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
+        </header>
+        <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+          <label>Immatriculation *<input value={f.registration} onChange={(e) => poser('registration', e.target.value)} className={CHAMP} /></label>
+          <label>Marque et modèle *<input value={f.brand_model} onChange={(e) => poser('brand_model', e.target.value)} className={CHAMP} /></label>
+          <label>Type *<select value={f.vehicle_type} onChange={(e) => poser('vehicle_type', e.target.value)} className={CHAMP}>
+            <option value="">Choisir</option>{Object.entries(TYPES_VEHICULE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+          <label>Capacité (t) *<input inputMode="decimal" value={f.capacity_tonnes} onChange={(e) => poser('capacity_tonnes', e.target.value)} className={CHAMP} /></label>
+          <label>Année<input inputMode="numeric" value={f.year} onChange={(e) => poser('year', e.target.value.replace(/\D/g, ''))} className={CHAMP} /></label>
+          <label>Numéro de châssis<input value={f.chassis_number} onChange={(e) => poser('chassis_number', e.target.value)} className={CHAMP} /></label>
+          <label>Site d'affectation<select value={f.site_id} onChange={(e) => poser('site_id', e.target.value)} className={CHAMP}>
+            <option value="">Aucun (engin global)</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <span />
+          <label>Expiration assurance<input type="date" value={f.insurance_expiry} onChange={(e) => poser('insurance_expiry', e.target.value)} className={CHAMP} /></label>
+          <label>Expiration visite technique<input type="date" value={f.technical_inspection_expiry} onChange={(e) => poser('technical_inspection_expiry', e.target.value)} className={CHAMP} /></label>
+          <p className="text-xs text-stone-500 sm:col-span-2">Propriété, contrat et statut se renseignent depuis la fiche de l'engin (journalisés) ; le kilométrage par les relevés de compteur.</p>
+          {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
         </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Immatriculation *
-              </label>
-              <input
-                type="text"
-                value={formData.registration}
-                onChange={(e) => setFormData({ ...formData, registration: e.target.value })}
-                disabled={isReadOnly}
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Marque et modèle *
-              </label>
-              <input
-                type="text"
-                value={formData.brand_model}
-                onChange={(e) => setFormData({ ...formData, brand_model: e.target.value })}
-                disabled={isReadOnly}
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Type de véhicule *
-              </label>
-              <select
-                value={formData.vehicle_type}
-                onChange={(e) => setFormData({ ...formData, vehicle_type: e.target.value })}
-                disabled={isReadOnly}
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              >
-                <option value="tipper">Benne</option>
-                <option value="tanker">Citerne</option>
-                <option value="flatbed">Plateau</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Capacité (tonnes) *
-              </label>
-              <input
-                type="number"
-                value={formData.capacity_tonnes}
-                onChange={(e) =>
-                  setFormData({ ...formData, capacity_tonnes: parseFloat(e.target.value) })
-                }
-                disabled={isReadOnly}
-                required
-                min="0"
-                step="0.1"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Année</label>
-              <input
-                type="number"
-                value={formData.year || ''}
-                onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                disabled={isReadOnly}
-                min="1900"
-                max={new Date().getFullYear()}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Numéro de châssis
-              </label>
-              <input
-                type="text"
-                value={formData.chassis_number || ''}
-                onChange={(e) => setFormData({ ...formData, chassis_number: e.target.value })}
-                disabled={isReadOnly}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Kilométrage actuel *
-              </label>
-              <input
-                type="number"
-                value={formData.current_km}
-                onChange={(e) => setFormData({ ...formData, current_km: parseFloat(e.target.value) })}
-                disabled={isReadOnly}
-                required
-                min="0"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Statut *</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                disabled={isReadOnly}
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              >
-                <option value="active">Actif</option>
-                <option value="maintenance">En maintenance</option>
-                <option value="immobilized">Immobilisé</option>
-                <option value="sold">Vendu</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Expiration assurance
-              </label>
-              <input
-                type="date"
-                value={formData.insurance_expiry || ''}
-                onChange={(e) => setFormData({ ...formData, insurance_expiry: e.target.value })}
-                disabled={isReadOnly}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Expiration visite technique
-              </label>
-              <input
-                type="date"
-                value={formData.technical_inspection_expiry || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, technical_inspection_expiry: e.target.value })
-                }
-                disabled={isReadOnly}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent disabled:bg-slate-100"
-              />
-            </div>
-          </div>
-
-          {!isReadOnly && (
-            <div className="flex gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 bg-slate-900 text-white py-2 px-4 rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 bg-slate-100 text-slate-700 py-2 px-4 rounded-lg hover:bg-slate-200 transition-colors"
-              >
-                Annuler
-              </button>
-            </div>
-          )}
-        </form>
+        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
+          <button onClick={() => onClose(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
+          <button disabled={busy || !pret} onClick={enregistrer} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
+        </footer>
       </div>
     </div>
   );
