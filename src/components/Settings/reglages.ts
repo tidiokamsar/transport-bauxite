@@ -48,6 +48,11 @@ export const REGLAGES: Reglage[] = [
     siAbsent: 'Exigée.', lecteur: 'decider_paiement (D-055)',
   },
   {
+    cle: 'planification_cloture_separee', libelle: 'Planification : clôture par une autre personne', type: 'booleen',
+    effet: 'La clôture de planification d\'une journée et d\'un site revient à une autre personne que l\'auteur des objectifs en vigueur.',
+    siAbsent: 'Non exigée.', lecteur: 'cloturer_planification (D-063)',
+  },
+  {
     cle: 'controle_depart_exige', libelle: 'Contrôle avant départ exigé', type: 'booleen',
     effet: 'Un camion ne passe au chargement qu\'avec un contrôle avant départ du jour qui n\'est pas non conforme.',
     siAbsent: 'Non exigé.', lecteur: 'garde_controle_depart sur trip_events (D-054)',
