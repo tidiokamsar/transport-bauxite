@@ -28,8 +28,8 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 |---|---|---|---|---|---|
 | 1 | Registre carburant (D-041) | 13 | 10 | Stock calculé depuis les mouvements validés, réception mesurée, transferts, distributions, inventaires, annulation, séparation saisie / décision | Déployé le 2026-11-15 (8144424) |
 | 2 | Assainissement des écrans non conformes | 12, 16, 17, 20, 25, divers | 01 | Retirer du menu le portail client fabriqué ; retirer les chiffres et recommandations codés en dur des pneus ; supprimer le numéro aléatoire des achats ; retirer le droit DELETE du navigateur sur les enregistrements métier (commandes, paie, présences, pneus, ordres de travail, mouvements de stock, alertes) | Déployé le 2026-11-15 (94ce255) |
-| 3 | Relevés kilométriques (lot K) | 06, 07, 08, 10, 20 | 07, 12 | Relevés d'odomètre append-only (source, auteur, heure, justificatif) ; distances référence, déclarée, mesurée, validée, facturable ; contrôle Neemba et facture au km sur la seule distance validée | D-043, en PR |
-| 4 | Registre des stocks magasin (lot M) | 17 | 11 | Mouvements append-only, solde calculé, entrées, sorties, transferts, inventaires, ajustements autorisés ; correction des colonnes de l'écran | À faire |
+| 3 | Relevés kilométriques (lot K) | 06, 07, 08, 10, 20 | 07, 12 | Relevés d'odomètre append-only (source, auteur, heure, justificatif) ; distances référence, déclarée, mesurée, validée, facturable ; contrôle Neemba et facture au km sur la seule distance validée | Déployé le 2026-11-15 (6e88e61) |
+| 4 | Registre des stocks magasin (lot M) | 17 | 11 | Mouvements append-only, solde calculé, entrées, sorties, transferts, inventaires, ajustements autorisés ; correction des colonnes de l'écran | D-044, en PR |
 | 5 | MFA côté client | 02 | 01 | Inscription TOTP, écran des facteurs, puis activation de `mfa_exige` par l'administrateur | À faire |
 | 6 | Périmètre site étendu | 02 | 02 | `site_permis` sur les tables restantes porteuses d'un site (stocks, achats, maintenance, RH) | À faire |
 
@@ -90,4 +90,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-15 | Phase 0 | Reprise, audit des écrans hérités, matrice de couverture, ce plan |
 | 2026-11-15 | 1. Registre carburant (D-041) | PR #51 fusionnée ; déployé (8144424) : sauvegarde, migration `20261115090000`, 25 fichiers pgTAP OK sur la base du serveur, release front (précédente feda997) |
 | 2026-11-15 | 2. Assainissement (D-042) | PR #54 fusionnée ; déployé (94ce255) : 26 fichiers pgTAP OK sur la base du serveur |
-| 2026-11-15 | 3. Relevés kilométriques (D-043) | Branche `lot-07/releves-kilometriques` ; pgTAP 27 (19 assertions), test 21 aligné, 4 unitaires, 2 E2E |
+| 2026-11-15 | 3. Relevés kilométriques (D-043) | PR #55 fusionnée ; déployé (6e88e61) : 27 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-15 | 4. Registre des stocks (D-044) | Branche `lot-11/registre-stocks` ; pgTAP 28 (17 assertions), 2 unitaires, 1 E2E |

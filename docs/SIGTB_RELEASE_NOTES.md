@@ -2,7 +2,12 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : kilométrage des voyages (D-043)
+## À venir : stocks magasin (D-044)
+
+- Quantités par article et par dépôt calculées depuis les mouvements ; plus aucune quantité saisie à la main.
+- Entrées, sorties (bornées au stock disponible), transferts, retours, inventaires motivés, annulation par contre-mouvement.
+
+## 6e88e61 (2026-11-15) : kilométrage des voyages (D-043, PR #55)
 
 - Écran Exploitation > Kilométrage : relevés d'odomètre par voyage (départ chargé, arrivée dépôt, fin de rotation), corrections motivées, distance mesurée, distance de référence.
 - Distance validée par une autre personne ; motif obligatoire si elle s'écarte de la mesure ou si la mesure manque.
