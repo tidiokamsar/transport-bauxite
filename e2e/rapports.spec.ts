@@ -52,8 +52,8 @@ test.describe('Rapports', () => {
     await page.route('**/rest/v1/rpc/rapport_journalier', (route) => { appels.push(route.request().postDataJSON()); return repondre(route, journalier); });
     await ouvrirRapports(page);
     const f = page.getByRole('form', { name: 'Paramètres du rapport' });
-    await f.getByLabel('Jour').fill('2026-11-10');
-    await f.getByLabel('Site').selectOption(SITE_MINE);
+    await f.getByLabel('Jour', { exact: true }).fill('2026-11-10');
+    await f.getByRole('combobox', { name: /^Site/ }).selectOption(SITE_MINE);
     await expect(page.getByRole('heading', { name: 'Rapport journalier du 10/11/2026 · Mine de Nimba' })).toBeVisible();
     await expect.poll(() => appels.at(-1)).toEqual({ p_date: '2026-11-10', p_site: SITE_MINE });
     await expect(page.getByText('39 t')).toBeVisible();
@@ -96,9 +96,9 @@ test.describe('Rapports', () => {
     await ouvrirRapports(page);
     await expect(page.getByText('RAP-2026-00001 · Rapport journalier · 10/11/2026')).toBeVisible();
     const f = page.getByRole('form', { name: 'Paramètres du rapport' });
-    await f.getByLabel('Rapport').selectOption('client');
-    await f.getByLabel('Du').fill('2026-11-01');
-    await f.getByLabel('Au').fill('2026-11-30');
+    await f.getByRole('combobox', { name: /^Rapport/ }).selectOption('client');
+    await f.getByLabel('Du', { exact: true }).fill('2026-11-01');
+    await f.getByLabel('Au', { exact: true }).fill('2026-11-30');
     await expect(page.getByText('38 t')).toBeVisible();
     expect(appels.filter((a) => a.fonction === 'rapport_client').at(-1)?.corps).toEqual({ p_debut: '2026-11-01', p_fin: '2026-11-30', p_site: null });
     await page.getByRole('button', { name: 'Figer' }).click();
