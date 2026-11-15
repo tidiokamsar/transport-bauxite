@@ -32,6 +32,7 @@ const SecuriteCompte = lazy(() => import('./components/Auth/SecuriteCompte').the
 const PostesView = lazy(() => import('./components/Postes/PostesView').then(m => ({ default: m.PostesView })));
 const InterventionsLoueurView = lazy(() => import('./components/Maintenance/InterventionsLoueurView').then(m => ({ default: m.InterventionsLoueurView })));
 const TicketsCbgView = lazy(() => import('./components/Fiches/TicketsCbgView').then(m => ({ default: m.TicketsCbgView })));
+const HabilitationsView = lazy(() => import('./components/Drivers/HabilitationsView').then(m => ({ default: m.HabilitationsView })));
 const KilometrageView = lazy(() => import('./components/Trips/KilometrageView').then(m => ({ default: m.KilometrageView })));
 const FuelView = lazy(() => import('./components/Fuel/PleinsView').then(m => ({ default: m.PleinsView })));
 const LivraisonsCbgView = lazy(() => import('./components/Fuel/LivraisonsCbgView').then(m => ({ default: m.LivraisonsCbgView })));
@@ -136,6 +137,8 @@ const MainApp = () => {
         return <PostesView />;
       case 'tickets-cbg':
         return <TicketsCbgView />;
+      case 'habilitations':
+        return <HabilitationsView />;
       case 'kilometrage':
         return <KilometrageView />;
       case 'fleet-intelligence':

@@ -4,7 +4,7 @@ import {
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
   Cog, FileStack, TrendingUp, Leaf, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
-  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, type LucideIcon,
+  ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, Building, BadgeCheck, type LucideIcon,
 } from 'lucide-react';
 import { NOM_PRODUIT } from '../Brand/Marque';
 
@@ -45,6 +45,7 @@ export const MENU: MenuItem[] = [
     children: [
       { id: 'vehicles', label: 'Véhicules et engins', icon: Truck },
       { id: 'drivers', label: 'Chauffeurs', icon: Users },
+      { id: 'habilitations', label: 'Habilitations chauffeurs', icon: BadgeCheck },
       { id: 'documents', label: 'Documents', icon: FileStack },
     ],
   },
