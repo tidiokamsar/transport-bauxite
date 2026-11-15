@@ -2,7 +2,12 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : mes validations et notifications (D-056)
+## À venir : centre de pilotage (D-057)
+
+- Centre de pilotage : indicateurs de production, tickets, flotte, carburant, maintenance, HSE, achats et finance, filtrés par période et site.
+- Chaque indicateur affiche sa source, sa fiabilité (mesuré, partiel, sans données), sa période et son heure de calcul ; export CSV.
+
+## debf876 (2026-11-17) : mes validations et notifications (D-056, PR #68)
 
 - Mes validations : tout ce qui attend votre décision (bons de commande, paiements, carburant, postes, interventions Neemba, écarts CBG, factures à signer, actions en retard), selon vos droits ; compteur dans la barre supérieure.
 - Notifications personnelles quand une décision vous concerne (bon ou paiement approuvé ou rejeté, anomalie au contrôle, clôture de poste validée).
