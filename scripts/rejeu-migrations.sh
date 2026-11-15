@@ -17,7 +17,8 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 IMAGE="${SIGTB_PG_IMAGE:-public.ecr.aws/supabase/postgres:17.6.1.106}"
-NOM="sigtb-rejeu-$$"
+# PID, horodatage et alea : plusieurs rejeux paralleles (worktrees) ne partagent jamais un conteneur.
+NOM="sigtb-rejeu-$$-$(date +%s)-$RANDOM"
 LISTE_CONNUS="supabase/tests/echecs-connus.txt"  # absent depuis D-017 : aucun echec admis
 RAPPORT="test-results/rejeu-migrations.txt"
 TESTS=0
