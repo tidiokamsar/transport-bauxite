@@ -4,8 +4,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import {
-  STATUTS_BON, lignesPourServeur, operationsPossibles, restantARecevoir, totalSaisi, type LigneSaisie, type StatutBon,
+  LIGNE_PNEU, STATUTS_BON, lignesPourServeur, lireNumerosPneus, operationsPossibles, restantARecevoir, totalSaisi, type LigneSaisie, type StatutBon,
 } from './achats';
+import { lotsPourMouvement, type SuiviArticle } from '../Stock/stock';
 
 // Achats (D-053) : bons de commande ecrits par les fonctions serveur.
 // Brouillon, soumission, approbation par une autre personne, reception
@@ -16,7 +17,7 @@ interface Bon {
   subtotal: number | null; tax_amount: number | null; total_amount: number | null; expected_delivery_date: string | null; notes: string | null;
   requested_by: string | null; soumis_par: string | null; motif_decision: string | null; motif_cloture: string | null;
 }
-interface Ligne { id: string; stock_item_id: string | null; item_description: string; quantity: number; unit_price: number; total_price: number; quantity_received: number | null }
+interface Ligne { id: string; stock_item_id: string | null; item_description: string; quantity: number; unit_price: number; total_price: number; quantity_received: number | null; pneu_marque: string | null; pneu_modele: string | null; pneu_dimension: string | null }
 interface Reception { id: string; delivery_number: string; delivery_date: string; bon_livraison: string | null; annule_le: string | null; motif_annulation: string | null }
 interface LigneReception { id: string; delivery_id: string; po_item_id: string; quantite_recue: number; quantite_refusee: number; motif_refus: string | null }
 interface Evenement { id: string; evenement: string; motif: string | null; le: string }
@@ -26,6 +27,8 @@ const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
 const GNF = new Intl.NumberFormat('fr-FR');
 const montant = (v: number | null) => (v === null ? 'Sans données' : `${GNF.format(v)} GNF`);
 const LIGNE_VIDE: LigneSaisie = { article: '', designation: '', quantite: '', prix: '' };
+interface SaisieReception { recue: string; refusee: string; motif: string; lots?: string; pneus?: string }
+const RECEPTION_VIDE: SaisieReception = { recue: '', refusee: '', motif: '' };
 
 export const PurchasesView = () => {
   const { hasPermission, profile } = useAuth();
@@ -36,13 +39,14 @@ export const PurchasesView = () => {
   const [fournisseurs, setFournisseurs] = useState<Lib[]>([]);
   const [depots, setDepots] = useState<Lib[]>([]);
   const [articles, setArticles] = useState<Lib[]>([]);
+  const [suivis, setSuivis] = useState<Map<string, SuiviArticle>>(new Map());
   const [filtre, setFiltre] = useState('');
   const [selection, setSelection] = useState<Bon | null>(null);
   const [detail, setDetail] = useState<{ lignes: Ligne[]; receptions: Reception[]; lignesReception: LigneReception[]; journal: Evenement[] } | null>(null);
   const [edition, setEdition] = useState<{ id: string | null } | null>(null);
   const [entete, setEntete] = useState<Record<string, string>>({});
   const [lignes, setLignes] = useState<LigneSaisie[]>([LIGNE_VIDE]);
-  const [reception, setReception] = useState<Record<string, { recue: string; refusee: string; motif: string }> | null>(null);
+  const [reception, setReception] = useState<Record<string, SaisieReception> | null>(null);
   const [bl, setBl] = useState('');
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
@@ -53,19 +57,20 @@ export const PurchasesView = () => {
       supabase.from('purchase_orders').select('*').order('created_at', { ascending: false }),
       supabase.from('suppliers').select('id, company_name').order('company_name'),
       supabase.from('warehouses').select('id, name, code').order('name'),
-      supabase.from('stock_items').select('id, name, item_code').order('name'),
+      supabase.from('stock_items').select('id, name, item_code, suivi').order('name'),
     ]);
     setErreur(b.error?.message ?? '');
     setBons((b.data ?? []) as Bon[]);
     setFournisseurs((f.data ?? []).map((x) => ({ id: x.id as string, libelle: x.company_name as string })));
     setDepots((d.data ?? []).map((x) => ({ id: x.id as string, libelle: `${x.name as string} (${x.code as string})` })));
     setArticles((a.data ?? []).map((x) => ({ id: x.id as string, libelle: `${x.name as string} · ${x.item_code as string}` })));
+    setSuivis(new Map((a.data ?? []).map((x) => [x.id as string, ((x.suivi as SuiviArticle | null) ?? 'aucun')])));
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
   const chargerDetail = useCallback(async (bon: Bon) => {
     const [l, r, j] = await Promise.all([
-      supabase.from('purchase_order_items').select('id, stock_item_id, item_description, quantity, unit_price, total_price, quantity_received').eq('purchase_order_id', bon.id),
+      supabase.from('purchase_order_items').select('id, stock_item_id, item_description, quantity, unit_price, total_price, quantity_received, pneu_marque, pneu_modele, pneu_dimension').eq('purchase_order_id', bon.id),
       supabase.from('deliveries').select('id, delivery_number, delivery_date, bon_livraison, annule_le, motif_annulation').eq('purchase_order_id', bon.id).order('created_at'),
       supabase.from('achats_journal').select('id, evenement, motif, le').eq('purchase_order_id', bon.id).order('le'),
     ]);
@@ -101,7 +106,9 @@ export const PurchasesView = () => {
     setEdition({ id: selection.id });
     setEntete({ fournisseur: selection.supplier_id, depot: selection.warehouse_id ?? '', livraison: selection.expected_delivery_date ?? '',
       taxes: String(selection.tax_amount ?? 0), note: selection.notes ?? '' });
-    setLignes(detail.lignes.map((l) => ({ article: l.stock_item_id ?? '', designation: l.stock_item_id ? '' : l.item_description, quantite: String(l.quantity), prix: String(l.unit_price) })));
+    setLignes(detail.lignes.map((l) => (l.pneu_marque
+      ? { article: LIGNE_PNEU, designation: '', quantite: String(l.quantity), prix: String(l.unit_price), pneuMarque: l.pneu_marque, pneuModele: l.pneu_modele ?? '', pneuDimension: l.pneu_dimension ?? '' }
+      : { article: l.stock_item_id ?? '', designation: l.stock_item_id ? '' : l.item_description, quantite: String(l.quantity), prix: String(l.unit_price) })));
   };
   const lignesServeur = lignesPourServeur(lignes);
   const total = totalSaisi(lignes, entete.taxes ?? '0');
@@ -120,15 +127,29 @@ export const PurchasesView = () => {
   const rejeter = (bon: Bon) => { const m = motif(`Motif du rejet du bon ${bon.po_number}`); if (m) executer('decider_bon_commande', { p_id: bon.id, p_approuver: false, p_motif: m }, 'Bon rejeté.'); };
   const annulerReception = (r: Reception) => { const m = motif(`Motif de l'annulation de la réception ${r.delivery_number}`); if (m) executer('annuler_reception', { p_livraison: r.id, p_motif: m }, 'Réception annulée : stock corrigé.'); };
 
+  // Detail exige a la reception (D-067) : lots ou series d'un article suivi,
+  // numero de chaque pneu d'une ligne de pneus. null = saisie incomplete.
+  const suiviLigne = (l: Ligne): SuiviArticle => (l.stock_item_id ? suivis.get(l.stock_item_id) ?? 'aucun' : 'aucun');
   const lignesReceptionServeur = reception && detail ? detail.lignes.map((l) => {
-    const s = reception[l.id] ?? { recue: '', refusee: '', motif: '' };
-    return { ligne: l.id, recue: Number(s.recue || 0), refusee: Number(s.refusee || 0), motif_refus: s.motif.trim() || null };
+    const s = reception[l.id] ?? RECEPTION_VIDE;
+    const recue = Number(s.recue || 0);
+    const base: Record<string, unknown> = { ligne: l.id, recue, refusee: Number(s.refusee || 0), motif_refus: s.motif.trim() || null };
+    let complet = true;
+    if (recue > 0 && suiviLigne(l) !== 'aucun') {
+      const lots = lotsPourMouvement(suiviLigne(l), s.lots ?? '', recue);
+      if (lots) base.lots = lots; else complet = false;
+    }
+    if (recue > 0 && l.pneu_marque) {
+      const numeros = lireNumerosPneus(s.pneus ?? '');
+      if (numeros && numeros.length === recue) base.pneus = numeros.map((numero) => ({ numero })); else complet = false;
+    }
+    return { ...base, complet } as { ligne: string; recue: number; refusee: number; motif_refus: string | null; complet: boolean };
   }).filter((x) => x.recue > 0 || x.refusee > 0) : [];
-  const receptionValide = lignesReceptionServeur.length > 0 && lignesReceptionServeur.every((x) => Number.isInteger(x.recue) && Number.isInteger(x.refusee) && (x.refusee === 0 || x.motif_refus))
+  const receptionValide = lignesReceptionServeur.length > 0 && lignesReceptionServeur.every((x) => x.complet && Number.isInteger(x.recue) && Number.isInteger(x.refusee) && (x.refusee === 0 || x.motif_refus))
     && (detail?.lignes ?? []).every((l) => (Number(reception?.[l.id]?.recue || 0)) <= restantARecevoir(l.quantity, l.quantity_received));
   const receptionner = () => {
     if (!selection) return;
-    executer('receptionner_bon_commande', { p_id: selection.id, p_lignes: lignesReceptionServeur, p_bon_livraison: bl.trim() || null },
+    executer('receptionner_bon_commande', { p_id: selection.id, p_lignes: lignesReceptionServeur.map(({ complet: _complet, ...x }) => x), p_bon_livraison: bl.trim() || null },
       'Réception enregistrée : les articles sont entrés en stock.').then((ok) => { if (ok) { setReception(null); setBl(''); } });
   };
 
@@ -158,8 +179,13 @@ export const PurchasesView = () => {
       </div>
       <table className="mt-4 w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-2">Article du magasin</th><th className="py-2 pr-2">ou désignation libre</th><th className="py-2 pr-2">Quantité</th><th className="py-2 pr-2">Prix unitaire (GNF)</th><th /></tr></thead>
         <tbody>{lignes.map((l, i) => <tr key={i} className="border-b border-stone-100">
-          <td className="py-1 pr-2"><select aria-label={`Article ligne ${i + 1}`} value={l.article} onChange={(e) => poserLigne(i, 'article', e.target.value)} className={CHAMP}><option value="">Aucun (hors stock)</option>{articles.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></td>
-          <td className="py-1 pr-2"><input aria-label={`Désignation ligne ${i + 1}`} value={l.designation} onChange={(e) => poserLigne(i, 'designation', e.target.value)} className={CHAMP} /></td>
+          <td className="py-1 pr-2"><select aria-label={`Article ligne ${i + 1}`} value={l.article} onChange={(e) => poserLigne(i, 'article', e.target.value)} className={CHAMP}><option value="">Aucun (hors stock)</option><option value={LIGNE_PNEU}>Pneus (registre des pneus)</option>{articles.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></td>
+          <td className="py-1 pr-2">{l.article === LIGNE_PNEU
+            ? <div className="grid grid-cols-3 gap-1">
+              <input aria-label={`Marque pneu ligne ${i + 1}`} placeholder="Marque *" value={l.pneuMarque ?? ''} onChange={(e) => poserLigne(i, 'pneuMarque', e.target.value)} className={CHAMP} />
+              <input aria-label={`Modèle pneu ligne ${i + 1}`} placeholder="Modèle *" value={l.pneuModele ?? ''} onChange={(e) => poserLigne(i, 'pneuModele', e.target.value)} className={CHAMP} />
+              <input aria-label={`Dimension pneu ligne ${i + 1}`} placeholder="Dimension" value={l.pneuDimension ?? ''} onChange={(e) => poserLigne(i, 'pneuDimension', e.target.value)} className={CHAMP} /></div>
+            : <input aria-label={`Désignation ligne ${i + 1}`} value={l.designation} onChange={(e) => poserLigne(i, 'designation', e.target.value)} className={CHAMP} />}</td>
           <td className="py-1 pr-2"><input aria-label={`Quantité ligne ${i + 1}`} inputMode="numeric" value={l.quantite} onChange={(e) => poserLigne(i, 'quantite', e.target.value)} className={CHAMP} /></td>
           <td className="py-1 pr-2"><input aria-label={`Prix ligne ${i + 1}`} inputMode="numeric" value={l.prix} onChange={(e) => poserLigne(i, 'prix', e.target.value)} className={CHAMP} /></td>
           <td className="py-1">{lignes.length > 1 && <button onClick={() => setLignes(lignes.filter((_, j) => j !== i))} aria-label={`Retirer la ligne ${i + 1}`} className="rounded border border-stone-300 p-2"><Trash2 className="h-3 w-3" /></button>}</td>
@@ -192,16 +218,21 @@ export const PurchasesView = () => {
         {peutAcheter && ops?.solder && <button onClick={() => solder(selection)} className="rounded border border-stone-300 px-3 py-1 text-xs">Solder</button>}
         {peutAcheter && ops?.annuler && <button onClick={() => annuler(selection)} className="rounded border border-stone-300 px-3 py-1 text-xs">Annuler le bon</button>}
       </div>
-      <table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Ligne</th><th className="py-2 pr-3">Commandé</th><th className="py-2 pr-3">Reçu</th><th className="py-2 pr-3">Prix unitaire</th><th className="py-2 pr-3">Montant</th>{reception && <><th className="py-2 pr-3">Reçu maintenant</th><th className="py-2 pr-3">Refusé</th><th className="py-2 pr-3">Motif du refus</th></>}</tr></thead>
-        <tbody>{detail.lignes.map((l) => { const s = reception?.[l.id] ?? { recue: '', refusee: '', motif: '' }; const poser = (k: 'recue' | 'refusee' | 'motif', v: string) => setReception({ ...reception, [l.id]: { ...s, [k]: v } });
+      <table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Ligne</th><th className="py-2 pr-3">Commandé</th><th className="py-2 pr-3">Reçu</th><th className="py-2 pr-3">Prix unitaire</th><th className="py-2 pr-3">Montant</th>{reception && <><th className="py-2 pr-3">Reçu maintenant</th><th className="py-2 pr-3">Refusé</th><th className="py-2 pr-3">Motif du refus</th><th className="py-2 pr-3">Lots, séries ou numéros de pneus</th></>}</tr></thead>
+        <tbody>{detail.lignes.map((l) => { const s = reception?.[l.id] ?? RECEPTION_VIDE; const poser = (k: keyof SaisieReception, v: string) => setReception({ ...reception, [l.id]: { ...s, [k]: v } });
           return <tr key={l.id} className="border-b border-stone-100">
-            <td className="py-2 pr-3">{l.item_description}{!l.stock_item_id && <span className="block text-xs text-stone-500">Hors stock</span>}</td>
+            <td className="py-2 pr-3">{l.item_description}{l.pneu_marque ? <span className="block text-xs text-stone-500">Pneus : un numéro par pneu reçu</span> : !l.stock_item_id ? <span className="block text-xs text-stone-500">Hors stock</span> : suiviLigne(l) !== 'aucun' && <span className="block text-xs text-stone-500">{suiviLigne(l) === 'serie' ? 'Suivi par numéro de série' : 'Suivi par lot'}</span>}</td>
             <td className="py-2 pr-3">{l.quantity}</td><td className="py-2 pr-3">{l.quantity_received ?? 0}</td>
             <td className="py-2 pr-3">{montant(l.unit_price)}</td><td className="py-2 pr-3">{montant(l.total_price)}</td>
             {reception && <>
               <td className="py-1 pr-2"><input aria-label={`Reçu ${l.item_description}`} inputMode="numeric" value={s.recue} onChange={(e) => poser('recue', e.target.value)} placeholder={`max ${restantARecevoir(l.quantity, l.quantity_received)}`} className={CHAMP} /></td>
               <td className="py-1 pr-2"><input aria-label={`Refusé ${l.item_description}`} inputMode="numeric" value={s.refusee} onChange={(e) => poser('refusee', e.target.value)} className={CHAMP} /></td>
               <td className="py-1 pr-2"><input aria-label={`Motif du refus ${l.item_description}`} value={s.motif} onChange={(e) => poser('motif', e.target.value)} className={CHAMP} /></td>
+              <td className="py-1 pr-2">{l.pneu_marque
+                ? <textarea aria-label={`Numéros des pneus ${l.item_description}`} rows={2} placeholder="Un numéro par ligne" value={s.pneus ?? ''} onChange={(e) => poser('pneus', e.target.value)} className={CHAMP} />
+                : suiviLigne(l) !== 'aucun'
+                  ? <textarea aria-label={`Lots ${l.item_description}`} rows={2} placeholder={suiviLigne(l) === 'serie' ? 'Un numéro de série par ligne' : 'CODE QUANTITÉ, un lot par ligne'} value={s.lots ?? ''} onChange={(e) => poser('lots', e.target.value)} className={CHAMP} />
+                  : <span className="text-xs text-stone-400">—</span>}</td>
             </>}
           </tr>; })}</tbody></table>
       {reception && <div className="mt-3 flex flex-wrap items-end gap-2">

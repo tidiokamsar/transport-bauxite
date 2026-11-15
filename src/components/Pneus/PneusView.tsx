@@ -7,6 +7,7 @@ import {
   ETATS_PNEU, LIBELLES_ACTION, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
   type ActionPneu, type EtatPneu,
 } from './pneus';
+import { PerformancePneus } from './PerformancePneus';
 
 // Pneus (D-052) : registre et cycle de vie individuel. Chaque operation
 // passe par une fonction serveur et s'inscrit au journal ; une erreur se
@@ -42,6 +43,7 @@ export const PneusView = () => {
   const [sites, setSites] = useState<Lib[]>([]);
   const [fournisseurs, setFournisseurs] = useState<Lib[]>([]);
   const [seuils, setSeuils] = useState<Record<string, string>>({});
+  const [version, setVersion] = useState(0);
   const [filtre, setFiltre] = useState('');
   const [saisie, setSaisie] = useState(false);
   const [action, setAction] = useState<{ type: ActionPneu; pneu: Pneu } | null>(null);
@@ -65,8 +67,10 @@ export const PneusView = () => {
     setEngins((v.data ?? []).map((x) => ({ id: x.id as string, libelle: x.registration as string })));
     setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
     setFournisseurs((f.data ?? []).map((x) => ({ id: x.id as string, libelle: x.company_name as string })));
+    setVersion((n) => n + 1);
+    setVersion((n) => n + 1);
     if (estAdmin) {
-      const { data } = await supabase.from('settings').select('key, value').in('key', ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours']);
+      const { data } = await supabase.from('settings').select('key, value').in('key', ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']);
       setSeuils(Object.fromEntries((data ?? []).map((x) => [x.key as string, String((x.value as { value?: string })?.value ?? '')])));
     }
   }, [estAdmin]);
@@ -140,7 +144,7 @@ export const PneusView = () => {
   };
   const enregistrerSeuils = async () => {
     setErreur(''); setMessage('');
-    for (const cle of ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours']) {
+    for (const cle of ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']) {
       const v = (seuils[cle] ?? '').trim().replace(',', '.');
       const { error } = v === ''
         ? await supabase.from('settings').delete().eq('key', cle)
@@ -235,10 +239,13 @@ export const PneusView = () => {
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">Profondeur minimale (mm)<input aria-label="Profondeur minimale (mm)" value={seuils.pneu_profondeur_min_mm ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_profondeur_min_mm: e.target.value })} className={CHAMP} /></label>
         <label className="text-sm">Inspection au plus tard tous les (jours)<input aria-label="Inspection maximale (jours)" value={seuils.pneu_inspection_max_jours ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_inspection_max_jours: e.target.value })} className={CHAMP} /></label>
+        <label className="text-sm">Réforme précoce en dessous de (km)<input aria-label="Réforme précoce (km)" value={seuils.pneu_reforme_precoce_km ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_reforme_precoce_km: e.target.value })} className={CHAMP} /></label>
         <div className="flex items-end"><button onClick={enregistrerSeuils} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Enregistrer les seuils</button></div>
       </div>
       <p className="mt-2 text-xs text-stone-500">Vide : pas d'alerte de ce type.</p>
     </Panneau>}
+
+    <PerformancePneus version={version} />
 
     <Panneau titre="Registre">
       <select aria-label="Filtrer par état" value={filtre} onChange={(e) => setFiltre(e.target.value)} className="mb-3 rounded border border-stone-300 px-3 py-2 text-sm">

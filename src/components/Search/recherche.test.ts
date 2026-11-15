@@ -26,7 +26,7 @@ describe('parametres lus par le serveur (D-061)', () => {
     expect(REGLAGES.map((r) => r.cle).sort()).toEqual([
       'achats_validation_separee', 'carburant_validation_separee', 'consultation_offres_minimum', 'controle_depart_exige',
       'fournisseurs_alerte_documents_jours', 'kilometrage_validation_separee', 'mfa_exige', 'paiements_validation_separee',
-      'pneu_inspection_max_jours', 'pneu_profondeur_min_mm', 'tolerance_poids_cbg_t',
+      'pneu_inspection_max_jours', 'pneu_profondeur_min_mm', 'pneu_reforme_precoce_km', 'tolerance_poids_cbg_t',
     ]);
   });
   it('format controle comme valider_reglage', () => {

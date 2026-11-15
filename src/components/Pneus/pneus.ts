@@ -54,3 +54,6 @@ export const texteKm = (km: number | null, incomplet: boolean, nbMontages: numbe
 };
 
 export const texteCoutKm = (cout: number | null) => (cout === null ? 'Sans données' : `${nombre.format(cout)} GNF/km`);
+
+/** Mesure calculee par le serveur (D-067) : absente = sans donnees. */
+export const texteMesure = (valeur: number | null, unite: string) => (valeur === null ? 'Sans données' : `${nombre.format(Number(valeur))} ${unite}`);
