@@ -37,6 +37,7 @@ export const MENU: MenuItem[] = [
   { id: 'trips', label: 'Voyages & Rotations', icon: Route },
   { id: 'kilometrage', label: 'Kilométrage', icon: Gauge },
   { id: 'fiches', label: 'Fiches terrain', icon: ClipboardList },
+  { id: 'tickets-cbg', label: 'Tickets CBG', icon: Scale },
   {
     id: 'flotte',
     label: 'Flotte',

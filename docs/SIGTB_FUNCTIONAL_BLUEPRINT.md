@@ -39,7 +39,7 @@ Un bloc sans sens métier pour un domaine n'est pas créé.
 | Dispatch vers rotation | Opérationnel | `decider_affectation` puis `creer_voyage` / cycle à 18 états |
 | Rotation vers kilomètres | Opérationnel (D-043) | Relevés du voyage, distance validée, contrôle des factures au km sur distance facturable |
 | Rotation vers ticket CBG | Opérationnel | Ticket source rattaché au voyage (D-037) |
-| Ticket validé vers rapprochement | Opérationnel (mensuel) | Réconciliation D-029 ; journalier : lot 10 |
+| Ticket validé vers rapprochement | Opérationnel | Réconciliation mensuelle D-029 ; relevé CBG rapproché ticket par ticket (D-050) |
 | Rapprochement clôturé vers facturation | Opérationnel | Facture CBG préparée depuis la réconciliation close, signée par le DG |
 | Immobilisation vers disponibilité flotte | Opérationnel | D-025, blocage au dispatch |
 | Intervention Neemba vers historique équipement | Opérationnel (D-049) | Intervention rattachée à l'immobilisation ; remise en service validée clôt l'immobilisation |

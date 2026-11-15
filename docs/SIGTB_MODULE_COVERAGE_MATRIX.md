@@ -146,7 +146,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Pointages horaires | `Fiches` (pointage engins) | `pointages_engins` | DÉPLOYÉ | P1 | Heures présence / fonctionnement / productives / arrêt / facturables non distinguées (règle 13) |
 | Relevés de compteur km | `Trips/KilometrageView` | D-043 ; contrôle Neemba au km sur distances validées | DÉPLOYÉ | P0 | Règle du retour à vide à renseigner par tarif |
 | Immobilisations, imputation loueur | `Maintenance/Immobilisations*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
-| Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | `Maintenance/InterventionsLoueurView` | `interventions_loueur`, `interventions_pieces`, `interventions_journal`, `v_interventions_loueur` (D-049) | À TESTER | P1 | Délai contractuel à reprendre du contrat |
+| Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | `Maintenance/InterventionsLoueurView` | `interventions_loueur`, `interventions_pieces`, `interventions_journal`, `v_interventions_loueur` (D-049) | DÉPLOYÉ | P1 | Délai contractuel à reprendre du contrat |
 | Contrôle des factures, écarts, réclamations, régularisations, avoirs | `Contrats/FacturesNeembaView` | `factures_fournisseur*`, `regularisations_fournisseur` (D-032, D-033) | DÉPLOYÉ | P1 | - |
 | Évaluation périodique de Neemba | `Contrats/EngagementsView` (rapport) | `rapports_performance` (D-031) | PARTIEL | P2 | Grille d'évaluation dédiée |
 
@@ -158,7 +158,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | MTBF, MTTR, disponibilité, récurrence | `Analyses/AnalysesFlotte` | `fiabilite_engins` | DÉPLOYÉ | P2 | Coût des immobilisations : MANQUANT |
 | Ordres de travail | `Maintenance/MaintenanceView`, `MaintenanceModal` | `maintenance_orders`, `parts_inventory` | À CORRIGER | P2 | Suppression d'ordre (`MaintenanceModal.tsx:105`) ; second inventaire de pièces distinct des stocks ; aucune consommation de stock |
 | Maintenance préventive | `Maintenance/PreventiveMaintenanceView` | `maintenance_schedules` | À CORRIGER | P2 | Colonnes inexistantes à l'enregistrement (`MaintenanceScheduleModal.tsx:123-140`) ; applicable seulement si contractuel (équipements loués) |
-| Notification au partenaire, demande d'intervention, suivi | `Maintenance/InterventionsLoueurView` | D-049 (canal, référence, délai, retard) | À TESTER | P1 | Notification électronique : après SMTP |
+| Notification au partenaire, demande d'intervention, suivi | `Maintenance/InterventionsLoueurView` | D-049 (canal, référence, délai, retard) | DÉPLOYÉ | P1 | Notification électronique : après SMTP |
 
 ### 12. Pneumatiques
 
@@ -187,8 +187,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Détection de doublons de ticket | serveur | `avancer_voyage` refuse un ticket déjà utilisé | DÉPLOYÉ | P1 | - |
 | Rectification auditée (anciennes valeurs conservées) | serveur | D-037, garde `garde_aal2` | DÉPLOYÉ | P1 | - |
 | Réconciliation mensuelle | `Facturation/ReconciliationView` | `reconciliations` (D-029) | DÉPLOYÉ | P1 | Réconciliation journalière : MANQUANT |
-| Import Excel / CSV / PDF / photos, OCR assistée | - | - | MANQUANT | P2 | Après stockage de fichiers ; OCR en P3 |
-| Registre des tickets, tickets manquants et orphelins, contrôles immatriculation / date / poids, litiges, export des états | - | - | PARTIEL | P1 | Lot T : registre des tickets et contrôles de rapprochement |
+| Import Excel / CSV / PDF / photos, OCR assistée | `Fiches/TicketsCbgView` | import CSV (D-050) | PARTIEL | P2 | PDF et photos après stockage de fichiers ; OCR en P3 |
+| Registre des tickets, tickets manquants et orphelins, contrôles immatriculation / date / poids, litiges, export des états | `Fiches/TicketsCbgView` | `releves_cbg`, `ecarts_releve_cbg`, `rapprocher_releve_cbg`, `v_voyages_livres_sans_ticket` (D-050) | À TESTER | P1 | Relier les litiges à la réconciliation mensuelle |
 
 ### 15. Fournisseurs
 
@@ -290,13 +290,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 49 |
+| DÉPLOYÉ | 51 |
 | À TESTER | 2 |
 | EXISTANT / EXISTANT À AMÉLIORER | 7 |
 | PARTIEL | 19 |
 | À CORRIGER | 11 |
 | NON CONFORME | 1 |
-| MANQUANT | 32 |
+| MANQUANT | 31 |
 | **Total** | **120** |
 
 Non-conformité restante après D-041 à D-044 : centre de notifications sans politique d'accès  ; relevés kilométriques et distances validées : D-043.
