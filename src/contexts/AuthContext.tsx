@@ -212,6 +212,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'fuel-stocks': 'fuel',
       'incidents': 'reports',
       'controles-depart': 'trips',
+      'hse-prevention': 'trips',
       'alerts': 'reports',
       'sites': 'settings',
       'infrastructures': 'trips',
