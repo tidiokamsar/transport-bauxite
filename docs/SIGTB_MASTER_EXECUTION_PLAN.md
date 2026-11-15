@@ -56,7 +56,7 @@ Chaque lot : branche, migration idempotente, pgTAP, unitaires et E2E pertinents,
 | 18 | Composants communs | tous | DataTable, filtres, exports, dialogues de décision, historique, au fil des écrans repris (pas de refonte globale) |
 | 19 | Command Center et KPI de référence (D-057 déployé le 2026-11-17, 9cf47cf) | 01, 21 | Vues SQL de référence avec source, période, fraîcheur ; dashboards par domaine |
 | 20 | Reporting | 21 | Rapports journaliers, de shift, mensuels, partenaires ; exports |
-| 21 | Moyens généraux (lot G) (D-060 en PR) | 18 | Patrimoine, affectations, inventaires |
+| 21 | Moyens généraux (lot G) (D-060 déployé le 2026-11-18, f79e708) | 18 | Patrimoine, affectations, inventaires |
 | 22 | Portails partenaires | 25 | Identité partenaire, cloisonnement strict, dépôt documentaire |
 | 23 | Intelligence (P3) | 26 | Prévisions et recherche avancée sur données réelles suffisantes |
 
@@ -109,4 +109,5 @@ Scénarios obligatoires du mandat (dépôt fermé, odomètre manquant, ticket en
 | 2026-11-17 | 19. Centre de pilotage (D-057) | PR #70 fusionnée ; déployé (9cf47cf) : 40 fichiers pgTAP OK sur la base du serveur |
 | 2026-11-17 | Phase 8 : guides | PR #71 fusionnée : 11 guides dans `docs/guides/` (agent documentation), avec leurs limites connues |
 | 2026-11-18 | Coupure réseau | Cinq agents interrompus (API injoignable), relancés avec leur contexte ; aucun travail perdu |
-| 2026-11-18 | 21. Moyens généraux (D-060) | Agent : branche `lot-21/moyens-generaux` ; pgTAP 43 (30 assertions), 6 unitaires, 2 E2E ; intégration `lot-21/moyens-generaux-integration` |
+| 2026-11-18 | 21. Moyens généraux (D-060) | PR #72 fusionnée ; déployé (f79e708) : 41 fichiers pgTAP OK sur la base du serveur |
+| 2026-11-18 | Flotte, module 08 (D-062) | Agent : branche `lot-08/flotte` ; pgTAP 45 (27 assertions), 6 unitaires, 2 E2E, E2E analyses adapté ; intégration `lot-08/flotte-integration` |

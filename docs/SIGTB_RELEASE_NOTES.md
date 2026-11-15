@@ -2,7 +2,14 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
-## À venir : moyens généraux et patrimoine (D-060)
+## À venir : flotte (D-062)
+
+- Registre des véhicules réécrit : propriété (KOGON, loué, sous-traitant ; « non renseignée » tant qu'elle n'est pas saisie), loueur, exploitant, transporteur, contrat de location et statut opérationnel calculé.
+- Fiche d'engin consolidée (immobilisations, interventions Neemba, pneus, pleins, contrôles) ; suspension, remise en service et réforme motivées et journalisées. Un engin suspendu est indisponible au dispatch.
+- Alertes des documents de véhicule expirés ou expirant sous 30 jours ; archivage au lieu de la suppression.
+- Plein isolé enregistré par le serveur ; le choix d'une cuve suivie crée la sortie à valider au registre carburant.
+
+## f79e708 (2026-11-18) : moyens généraux et patrimoine (D-060, PR #72)
 
 - Stocks & Achats > Moyens généraux et patrimoine : registre des biens (matériel, mobilier, équipements, outillage, véhicules administratifs) et fiche avec tout l'historique.
 - Affectation, remise, restitution, transfert entre sites, constat d'état, réparation, réforme motivée ; la dernière opération s'annule avec motif.

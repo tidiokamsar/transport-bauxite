@@ -119,13 +119,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Registre des véhicules, création, modification | `Vehicles/*` | `vehicles` (module + `site_permis`, garde D-039 ; `chassis_number` présent) | EXISTANT À AMÉLIORER | P1 | Propriétaire, exploitant, transporteur, contrat associé : MANQUANT |
-| Statuts véhicule | - | enum `vehicle_status` (4 valeurs) | PARTIEL | P1 | Statuts étendus sans casser l'existant |
-| Documents, assurances, visites techniques | `Documents/*` | `vehicle_documents` (métadonnées seulement) | PARTIEL | P1 | Fichier joint impossible (pas de stockage) ; alertes d'expiration |
+| Registre des véhicules, création, modification | `Vehicles/VehiclesView`, `VehicleModal`, `FicheVehicule` | `vehicles` (champs descriptifs seuls en direct), `v_vehicules`, `definir_propriete_vehicule`, `journal_flotte` (D-062) | À TESTER | P1 | Saisie de la propriété des engins existants |
+| Statuts véhicule | `Vehicles/*` | `v_vehicules.statut_operationnel` (6 valeurs dérivées), `suspendre_vehicule`, `remettre_en_service_vehicule`, `reformer_vehicule` (D-062) | À TESTER | P1 | Les écrans hérités affichent « Immobilisé » pour un engin suspendu |
+| Documents, assurances, visites techniques | `Documents/*` | `vehicle_documents`, `v_documents_vehicule_a_renouveler` (D-062) | PARTIEL | P1 | Fichier joint après stockage de fichiers |
 | Compteurs kilométriques | `Trips/KilometrageView` | `releves_compteur` datés et cohérents (D-043) ; `vehicles.current_km` (défaut 0) n'est pas une mesure | PARTIEL | P1 | Relevés hors voyage (moment « autre ») sans écran dédié |
 | Disponibilité, suspension, remise en service | `Maintenance/Immobilisations*` | D-025 | DÉPLOYÉ | P1 | - |
-| Coût par véhicule, performances | `Analyses/AnalysesFlotte` | `fiabilite_engins`, `consommation_carburant` | PARTIEL | P2 | Coûts directs complets après module 09 du mandat |
-| Distinction équipement KOGON / loué | `Contrats/*` (engins du contrat) | `contrat_tarifs.engin` (D-033) | PARTIEL | P1 | Attribut de propriété sur `vehicles` |
+| Coût par véhicule, performances | `Analyses/AnalysesFlotte`, `Vehicles/FicheVehicule` | `fiabilite_engins`, `consommation_carburant`, `v_fiche_vehicule` (D-062) | PARTIEL | P2 | Coûts directs complets (pneus, immobilisations valorisées) |
+| Distinction équipement KOGON / loué | `Vehicles/*`, `Contrats/*` | `vehicles.propriete`, `vehicles.contrat_id` (D-062), `contrat_tarifs.engin` (D-033) | À TESTER | P1 | Saisie de la propriété des engins existants |
 
 ### 09. Chauffeurs
 
@@ -174,7 +174,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Livraisons CBG, prix au litre, contrôle des factures | `Fuel/LivraisonsCbgView` | D-034 | DÉPLOYÉ | P1 | - |
 | Registre des mouvements : stockages, réception mesurée et acceptée, transferts, distributions, inventaires, écarts, annulation, séparation saisie / décision | `Fuel/StocksCarburantView` | `stockages_carburant`, `mouvements_carburant`, `receptions_carburant`, `inventaires_carburant`, `v_stocks_carburant` (D-041) | DÉPLOYÉ | P0 | Déployé le 2026-11-15 (8144424) ; cuves réelles et inventaires d'ouverture à saisir |
 | Ancien solde saisi à la main | (écran retiré) | `fuel_stocks` en lecture seule (D-041) | DÉPLOYÉ | P0 | Corrigé le 2026-11-15 |
-| Saisie des pleins | `Fuel/PleinsView` (insertion directe), fiche carburant (RPC) | `fuel_transactions` | EXISTANT À AMÉLIORER | P1 | Passer la saisie isolée par fonction serveur |
+| Saisie des pleins | `Fuel/PleinsView` (`saisir_plein`), fiche carburant (`saisir_carburant`) | `fuel_transactions` (plus d'écriture directe), `mouvements_carburant` si cuve (D-062) | À TESTER | P1 | - |
 | Consommation par engin, L/t, L/h, anomalies | `Fuel/AnalyseCarburantView`, `AnomaliesCarburantView` | `consommation_carburant`, `anomalies_carburant` (D-030) | DÉPLOYÉ | P2 | Valorisation par stockage |
 | Jauges connectées | `Fuel/CapteursCarburantView` | `ingest_fuel_data`, `iot_fuel_readings` | DÉPLOYÉ | P3 | Aucun matériel réel (règle 17) |
 | Import des documents CBG | - | - | MANQUANT | P2 | Après stockage de fichiers |
@@ -215,7 +215,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Matériel, mobilier, équipements, outillage, véhicules administratifs, affectations, inventaires, réformes | `MoyensGeneraux/MoyensGenerauxView` | `biens`, `biens_operations` append-only, `inventaires_biens`, `inventaires_biens_lignes`, `v_biens` (amortissement linéaire si durée saisie), `v_inventaires_biens_ecarts` ; `enregistrer_bien`, `affecter_bien`, `transferer_bien`, `reformer_bien`, `annuler_operation_bien`, `cloturer_inventaire_biens` (D-060) | À TESTER | P2 | Lien bénéficiaire et employé, étiquettes et codes-barres, pièces jointes (PV de remise) |
+| Matériel, mobilier, équipements, outillage, véhicules administratifs, affectations, inventaires, réformes | `MoyensGeneraux/MoyensGenerauxView` | `biens`, `biens_operations` append-only, `inventaires_biens`, `inventaires_biens_lignes`, `v_biens` (amortissement linéaire si durée saisie), `v_inventaires_biens_ecarts` ; `enregistrer_bien`, `affecter_bien`, `transferer_bien`, `reformer_bien`, `annuler_operation_bien`, `cloturer_inventaire_biens` (D-060) | DÉPLOYÉ | P2 | Lien bénéficiaire et employé, étiquettes et codes-barres, pièces jointes (PV de remise) |
 
 ### 19. Contrats et engagements
 
@@ -290,10 +290,10 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Statut | Fonctionnalités (lignes) |
 |---|---|
-| DÉPLOYÉ | 60 |
-| À TESTER | 1 |
-| EXISTANT / EXISTANT À AMÉLIORER | 6 |
-| PARTIEL | 24 |
+| DÉPLOYÉ | 61 |
+| À TESTER | 4 |
+| EXISTANT / EXISTANT À AMÉLIORER | 4 |
+| PARTIEL | 22 |
 | À CORRIGER | 9 |
 | NON CONFORME | 0 |
 | MANQUANT | 20 |
