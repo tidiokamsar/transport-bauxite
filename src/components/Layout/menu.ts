@@ -2,7 +2,7 @@
 import {
   LayoutDashboard, Truck, Users, MapPin, Fuel, Wrench, FileText, BarChart3, Settings,
   CircleDot, Package, ShoppingCart, Banknote, UserCog, Bell, MapPinned, Gauge,
-  Cog, FileStack, TrendingUp, Leaf, ExternalLink, Radio, Brain,
+  Cog, FileStack, TrendingUp, Leaf, Radio, Brain,
   Target, Calculator, Activity, AlertTriangle, CalendarDays, Route, Waypoints,
   ShieldAlert, Briefcase, Timer, ClipboardList, Scale, Wallet, Handshake, Receipt, type LucideIcon,
 } from 'lucide-react';
@@ -118,7 +118,6 @@ export const MENU: MenuItem[] = [
       { id: 'iot-dashboard', label: 'Capteurs IoT', icon: Radio },
       { id: 'esg-tracking', label: 'Environnement', icon: Leaf },
       { id: 'notifications', label: 'Notifications', icon: Bell },
-      { id: 'client-portal', label: 'Portail client', icon: ExternalLink },
     ],
   },
   { id: 'settings', label: 'Paramètres', icon: Settings },

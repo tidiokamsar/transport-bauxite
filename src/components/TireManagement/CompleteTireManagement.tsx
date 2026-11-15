@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  Wrench, Plus, Edit2, Trash2, Search, RefreshCw, Activity, TrendingUp, TrendingDown,
-  AlertTriangle, CheckCircle, Calendar, DollarSign, Award, Target, BarChart3, Package,
-  X, Save, Zap, FileText
+  Wrench, Plus, Edit2, Trash2, Search, RefreshCw, Activity,
+  AlertTriangle, CheckCircle, Calendar, BarChart3, Package,
+  X, Save, FileText
 } from 'lucide-react';
 import { MountingModal, DismountingModal } from './TireActionModals';
 import { RotationModal, QualityControlModal } from './TireActionModalsExtra';
@@ -72,12 +72,12 @@ export default function CompleteTireManagement() {
     inStock: 0,
     maintenance: 0,
     retired: 0,
-    avgLifespan: 0,
+    avgLifespan: null as number | null,
     totalCost: 0
   });
 
   // Onglet actif
-  const [activeTab, setActiveTab] = useState<'inventory' | 'lifecycle' | 'performance' | 'suppliers' | 'recommendations'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'lifecycle'>('inventory');
 
   useEffect(() => {
     loadAllData();
@@ -127,7 +127,8 @@ export default function CompleteTireManagement() {
       inStock: tiresData.filter(t => t.status === 'in_stock').length,
       maintenance: tiresData.filter(t => t.status === 'maintenance').length,
       retired: tiresData.filter(t => t.status === 'retired').length,
-      avgLifespan: 180,
+      // Aucune duree de vie n'est calculee tant que les montages et retraits ne sont pas traces (D-042).
+      avgLifespan: null,
       totalCost: tiresData.reduce((sum, t) => sum + (t.purchase_price || 0), 0)
     };
     setStats(stats);
@@ -162,9 +163,10 @@ export default function CompleteTireManagement() {
     if (!selectedTire) return;
 
     try {
+      // Un pneu n'est pas supprime : il est retire et garde son historique (D-042).
       const { error } = await supabase
         .from('tires')
-        .delete()
+        .update({ status: 'retired' })
         .eq('id', selectedTire.id);
 
       if (error) throw error;
@@ -271,7 +273,7 @@ export default function CompleteTireManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 font-medium">Durée Moy.</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.avgLifespan}</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{stats.avgLifespan ?? '—'}</p>
             </div>
             <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center">
               <Calendar className="w-7 h-7 text-orange-600" />
@@ -365,10 +367,7 @@ export default function CompleteTireManagement() {
           <nav className="flex -mb-px overflow-x-auto">
             {[
               { id: 'inventory', label: 'Inventaire & Stock', icon: Package },
-              { id: 'lifecycle', label: 'Cycle de Vie', icon: Activity },
-              { id: 'performance', label: 'Performance & KPIs', icon: TrendingUp },
-              { id: 'suppliers', label: 'Scoring Fournisseurs', icon: Award },
-              { id: 'recommendations', label: 'Recommandations IA', icon: Zap }
+              { id: 'lifecycle', label: 'Cycle de Vie', icon: Activity }
             ].map((tab) => {
               const Icon = tab.icon;
               return (
@@ -541,15 +540,15 @@ export default function CompleteTireManagement() {
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow">
                     <p className="text-sm text-gray-600 mb-1">Démontages</p>
-                    <p className="text-3xl font-bold text-gray-900">12</p>
+                    <p className="text-3xl font-bold text-gray-400" title="Sans données">—</p>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow">
                     <p className="text-sm text-gray-600 mb-1">Rotations</p>
-                    <p className="text-3xl font-bold text-gray-900">8</p>
+                    <p className="text-3xl font-bold text-gray-400" title="Sans données">—</p>
                   </div>
                   <div className="bg-white rounded-lg p-4 shadow">
                     <p className="text-sm text-gray-600 mb-1">Contrôles</p>
-                    <p className="text-3xl font-bold text-gray-900">35</p>
+                    <p className="text-3xl font-bold text-gray-400" title="Sans données">—</p>
                   </div>
                 </div>
               </div>
@@ -585,231 +584,6 @@ export default function CompleteTireManagement() {
             </div>
           )}
 
-          {activeTab === 'performance' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Calendar className="w-10 h-10 text-blue-600" />
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                  <p className="text-sm text-blue-800 font-medium mb-1">Durée Vie Moyenne</p>
-                  <p className="text-4xl font-bold text-blue-900">{stats.avgLifespan}</p>
-                  <p className="text-sm text-blue-700 mt-1">jours</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <Target className="w-10 h-10 text-purple-600" />
-                    <TrendingUp className="w-6 h-6 text-green-600" />
-                  </div>
-                  <p className="text-sm text-purple-800 font-medium mb-1">Tonnage Moyen</p>
-                  <p className="text-4xl font-bold text-purple-900">12,450</p>
-                  <p className="text-sm text-purple-700 mt-1">tonnes</p>
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <DollarSign className="w-10 h-10 text-green-600" />
-                    <TrendingDown className="w-6 h-6 text-green-600" />
-                  </div>
-                  <p className="text-sm text-green-800 font-medium mb-1">Coût par Tonne</p>
-                  <p className="text-4xl font-bold text-green-900">3,450</p>
-                  <p className="text-sm text-green-700 mt-1">GNF/tonne</p>
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg p-6">
-                <h4 className="font-bold text-lg mb-4">Performance par Terrain</h4>
-                <div className="space-y-4">
-                  {[
-                    { terrain: 'Terre Rouge (Mine)', avg: 165, best: 'Michelin XZY3', color: 'red' },
-                    { terrain: 'Gravier (Route)', avg: 195, best: 'Bridgestone VMTP', color: 'gray' },
-                    { terrain: 'Bitume (Kamsar)', avg: 240, best: 'BKT EARTHMAX', color: 'blue' }
-                  ].map((item) => (
-                    <div key={item.terrain} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-900">{item.terrain}</span>
-                        <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                          {item.avg} jours moy.
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        🏆 Meilleur: <span className="font-semibold text-gray-900">{item.best}</span>
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'suppliers' && (
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg p-6 mb-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                  <Award className="w-6 h-6 text-yellow-600" />
-                  Classement Fournisseurs & Marques
-                </h3>
-                <p className="text-sm text-gray-700">
-                  Basé sur données réelles de performance et durabilité
-                </p>
-              </div>
-
-              {[
-                { rank: 1, brand: 'Bridgestone VMTP', score: 92, stars: 5, days: 210, tonnage: 14500, cost: 3310, recommended: true },
-                { rank: 2, brand: 'Michelin XZY3', score: 85, stars: 4, days: 180, tonnage: 12000, cost: 3750, recommended: false },
-                { rank: 3, brand: 'BKT EARTHMAX', score: 78, stars: 3, days: 160, tonnage: 10800, cost: 3518, recommended: false }
-              ].map((supplier) => (
-                <div
-                  key={supplier.rank}
-                  className={`border-2 rounded-lg p-6 transition-all ${
-                    supplier.recommended ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
-                        supplier.rank === 1 ? 'bg-yellow-500' :
-                        supplier.rank === 2 ? 'bg-gray-400' :
-                        'bg-orange-600'
-                      }`}>
-                        #{supplier.rank}
-                      </div>
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900">{supplier.brand}</h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-lg">
-                            {'⭐'.repeat(supplier.stars)}
-                          </span>
-                          <span className="text-sm text-gray-600">({supplier.score}/100)</span>
-                        </div>
-                      </div>
-                    </div>
-                    {supplier.recommended && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-full font-semibold">
-                        <CheckCircle className="w-5 h-5" />
-                        RECOMMANDÉ
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
-                    <div>
-                      <p className="text-xs text-gray-600 uppercase">Durée Vie</p>
-                      <p className="text-lg font-bold text-gray-900">{supplier.days} jours</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 uppercase">Tonnage</p>
-                      <p className="text-lg font-bold text-gray-900">{supplier.tonnage.toLocaleString()} T</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 uppercase">Coût/Tonne</p>
-                      <p className="text-lg font-bold text-gray-900">{supplier.cost.toLocaleString()} GNF</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 uppercase">Rendement</p>
-                      <div className="flex items-center gap-1 mt-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-2 w-6 rounded ${
-                              i < Math.floor(supplier.score / 20) ? 'bg-green-500' : 'bg-gray-200'
-                            }`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'recommendations' && (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-lg p-6 text-white">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <Zap className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold">Moteur IA de Recommandations</h3>
-                    <p className="text-purple-100">Décisions basées sur données réelles d'utilisation</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white border-2 border-green-500 rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="font-bold text-lg text-gray-900">Achat Recommandé</h4>
-                    <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full">
-                      95% CONFIANCE
-                    </span>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Modèle</p>
-                      <p className="text-2xl font-bold text-gray-900">Bridgestone VMTP</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Quantité</p>
-                        <p className="text-xl font-bold text-gray-900">12 unités</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Coût Total</p>
-                        <p className="text-xl font-bold text-gray-900">576M GNF</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Date Recommandée</p>
-                      <p className="text-lg font-bold text-gray-900">15 novembre 2025</p>
-                    </div>
-                  </div>
-                  <button className="w-full mt-6 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">
-                    Approuver la Recommandation
-                  </button>
-                </div>
-
-                <div className="bg-white border rounded-lg p-6">
-                  <h4 className="font-bold text-lg text-gray-900 mb-4">Justification IA</h4>
-                  <div className="space-y-4">
-                    {[
-                      { label: 'Durabilité', score: 95, color: 'green' },
-                      { label: 'Coût/Performance', score: 88, color: 'blue' },
-                      { label: 'Performance Passée', score: 92, color: 'purple' },
-                      { label: 'Disponibilité', score: 80, color: 'orange' }
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                          <span className="text-sm font-bold text-gray-900">{item.score}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`bg-${item.color}-500 h-2 rounded-full transition-all`}
-                            style={{ width: `${item.score}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h5 className="font-semibold text-blue-900 mb-2">🧠 Analyse IA</h5>
-                    <ul className="space-y-1 text-sm text-blue-800">
-                      <li>✓ Optimal pour terrain rouge mine Simandou</li>
-                      <li>✓ Économie estimée de 15% sur coût/tonne</li>
-                      <li>✓ Durée prévue: 210 jours (+17% vs moyenne)</li>
-                      <li>✓ Stock critique dans 23 jours</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -877,14 +651,14 @@ export default function CompleteTireManagement() {
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Confirmer la suppression</h3>
-                <p className="text-sm text-gray-600">Cette action est irréversible</p>
+                <h3 className="text-xl font-bold text-gray-900">Retirer le pneu</h3>
+                <p className="text-sm text-gray-600">Le pneu reste dans l'historique avec le statut retiré</p>
               </div>
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <p className="text-sm text-gray-700">
-                Êtes-vous sûr de vouloir supprimer le pneu <span className="font-bold">{selectedTire.serial_number}</span> ?
+                Retirer du service le pneu <span className="font-bold">{selectedTire.serial_number}</span> ?
               </p>
             </div>
 
@@ -899,7 +673,7 @@ export default function CompleteTireManagement() {
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
               >
-                Supprimer
+                Retirer
               </button>
             </div>
           </div>

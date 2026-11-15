@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, Download, Mail, Trash2, CheckCircle, Calendar,
+  X, Download, Mail, CheckCircle, Calendar,
   User, Briefcase
 } from 'lucide-react';
 
@@ -122,20 +122,6 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
     if (!error) {
       alert('Paie marquée comme payée');
       fetchPayrollData();
-      onSuccess();
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!confirm('Supprimer définitivement cette fiche de paie?')) return;
-    const { error } = await supabase
-      .from('payroll_records')
-      .delete()
-      .eq('id', payrollId);
-
-    if (!error) {
-      alert('Fiche de paie supprimée');
-      onClose();
       onSuccess();
     }
   };
@@ -692,13 +678,6 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
                   Marquer payé
                 </button>
               )}
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Supprimer
-              </button>
             </div>
           </div>
         </div>

@@ -81,19 +81,20 @@ export const SitesView = () => {
   };
 
   const handleDelete = async (siteId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce site ?')) return;
+    // Un site n'est pas supprime : il est desactive et garde son historique (D-042).
+    if (!confirm("Désactiver ce site ? Il restera dans l'historique des voyages et des fiches.")) return;
 
     try {
       const { error } = await supabase
         .from('sites')
-        .delete()
+        .update({ is_active: false })
         .eq('id', siteId);
 
       if (error) throw error;
       fetchSites();
     } catch (error) {
       console.error('Error deleting site:', error);
-      alert('Erreur lors de la suppression du site');
+      alert('Erreur lors de la désactivation du site');
     }
   };
 

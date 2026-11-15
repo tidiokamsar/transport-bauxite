@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { AttendanceModal } from './AttendanceModal';
-import { Calendar, Plus, Edit, Trash2, Download, Filter, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Calendar, Plus, Edit, Download, Filter, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 
 export const AttendanceView = () => {
   const [attendance, setAttendance] = useState<any[]>([]);
@@ -32,12 +32,6 @@ export const AttendanceView = () => {
     const { data } = await query.limit(100);
     setAttendance(data || []);
     setLoading(false);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer?')) return;
-    await supabase.from('employee_attendance').delete().eq('id', id);
-    fetchData();
   };
 
   const stats = {
@@ -156,7 +150,7 @@ export const AttendanceView = () => {
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
                         <button onClick={() => { setSelectedId(a.id); setIsModalOpen(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(a.id)} className="p-1 text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+
                       </div>
                     </td>
                   </tr>

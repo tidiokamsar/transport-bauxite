@@ -91,13 +91,14 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
   };
 
   const handleDelete = async () => {
-    if (!isEditing || !confirm('Êtes-vous sûr de vouloir supprimer ce chauffeur ?')) return;
+    // Un chauffeur n'est pas supprime : son dossier passe au statut « terminated » et reste lie a ses voyages (D-042).
+    if (!isEditing || !confirm('Clore le dossier de ce chauffeur ? Il restera consultable avec le statut terminé.')) return;
 
     setLoading(true);
     try {
       const { error: deleteError } = await supabase
         .from('drivers')
-        .delete()
+        .update({ status: 'terminated' })
         .eq('id', driver.id);
 
       if (deleteError) throw deleteError;
@@ -393,7 +394,7 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
                   className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-5 h-5" />
-                  Supprimer
+                  Clore le dossier
                 </button>
               )}
             </div>

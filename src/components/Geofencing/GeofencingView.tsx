@@ -531,8 +531,8 @@ export default function GeofencingView() {
                             </button>
                             <button
                               onClick={async () => {
-                                if (confirm('Êtes-vous sûr de vouloir supprimer cette zone ?')) {
-                                  await supabase.from('geofence_zones').delete().eq('id', zone.id);
+                                if (confirm('Désactiver cette zone ?')) {
+                                  await supabase.from('geofence_zones').update({ is_active: false }).eq('id', zone.id);
                                   fetchData();
                                 }
                               }}

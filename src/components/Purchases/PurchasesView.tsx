@@ -2,18 +2,18 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Plus, Search, ShoppingCart, Clock, CheckCircle, RefreshCw,
-  Edit, TrendingUp, Trash2
+  Edit, TrendingUp, Ban
 } from 'lucide-react';
 import { CompletePurchaseModal } from './CompletePurchaseModal';
 
 interface PurchaseOrder {
   id: string;
-  order_number: string;
-  order_date: string;
+  po_number: string;
+  po_date: string;
   status: string;
   supplier: { company_name: string } | null;
   total_amount: number;
-  expected_delivery: string;
+  expected_delivery_date: string;
 }
 
 export const PurchasesView = () => {
@@ -37,7 +37,7 @@ export const PurchasesView = () => {
           *,
           supplier:suppliers(company_name)
         `)
-        .order('order_date', { ascending: false });
+        .order('po_date', { ascending: false });
 
       if (error) throw error;
       setOrders(data || []);
@@ -50,7 +50,7 @@ export const PurchasesView = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch =
-      order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.po_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.supplier?.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -63,17 +63,12 @@ export const PurchasesView = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (orderId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce bon de commande ?')) return;
-
-    try {
-      await supabase.from('purchase_order_items').delete().eq('order_id', orderId);
-      await supabase.from('purchase_orders').delete().eq('id', orderId);
-      fetchOrders();
-    } catch (error) {
-      console.error('Error deleting purchase order:', error);
-      alert('Erreur lors de la suppression');
-    }
+  // Un bon de commande ne se supprime pas : il est annule et reste trace (D-042).
+  const handleCancel = async (orderId: string) => {
+    if (!confirm('Annuler ce bon de commande ? Il restera consultable avec le statut annulé.')) return;
+    const { error } = await supabase.from('purchase_orders').update({ status: 'cancelled' }).eq('id', orderId);
+    if (error) { alert(`Annulation impossible : ${error.message}`); return; }
+    fetchOrders();
   };
 
   const handleModalClose = () => {
@@ -242,11 +237,11 @@ export const PurchasesView = () => {
                         className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors"
                         title="Voir les détails"
                       >
-                        {order.order_number}
+                        {order.po_number}
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                      {new Date(order.order_date).toLocaleDateString('fr-FR')}
+                      {new Date(order.po_date).toLocaleDateString('fr-FR')}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">
@@ -259,8 +254,8 @@ export const PurchasesView = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-slate-700">
-                      {order.expected_delivery
-                        ? new Date(order.expected_delivery).toLocaleDateString('fr-FR')
+                      {order.expected_delivery_date
+                        ? new Date(order.expected_delivery_date).toLocaleDateString('fr-FR')
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -277,13 +272,14 @@ export const PurchasesView = () => {
                         >
                           <Edit className="w-5 h-5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(order.id)}
+                        {order.status !== 'cancelled' && order.status !== 'received' && <button
+                          onClick={() => handleCancel(order.id)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                          title="Supprimer"
+                          title="Annuler le bon de commande"
+                          aria-label={`Annuler ${order.po_number}`}
                         >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                          <Ban className="w-5 h-5" />
+                        </button>}
                       </div>
                     </td>
                   </tr>

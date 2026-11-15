@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PayrollModal } from './PayrollModal';
 import { PayrollDetailsModal } from './PayrollDetailsModal';
-import { DollarSign, Plus, Edit, Trash2, Download, CheckCircle, Clock, XCircle, TrendingUp, Eye, FileText, Send, UserCircle } from 'lucide-react';
+import { DollarSign, Plus, Edit, Download, CheckCircle, Clock, XCircle, TrendingUp, Eye, FileText, Send, UserCircle } from 'lucide-react';
 
 export const PayrollView = () => {
   const [payroll, setPayroll] = useState<any[]>([]);
@@ -32,12 +32,6 @@ export const PayrollView = () => {
     const { data } = await query.limit(50);
     setPayroll(data || []);
     setLoading(false);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette fiche de paie?')) return;
-    await supabase.from('payroll_records').delete().eq('id', id);
-    fetchData();
   };
 
   const handleApprove = async (id: string) => {
@@ -265,13 +259,6 @@ export const PayrollView = () => {
                             <DollarSign className="w-4 h-4" />
                           </button>
                         )}
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
