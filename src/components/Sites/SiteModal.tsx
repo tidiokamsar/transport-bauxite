@@ -19,8 +19,6 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
     address: site?.address || '',
     city: site?.city || '',
     country: site?.country || 'Guinée',
-    latitude: site?.latitude || null,
-    longitude: site?.longitude || null,
     contact_name: site?.contact_name || '',
     contact_phone: site?.contact_phone || '',
     contact_email: site?.contact_email || '',
@@ -84,7 +82,8 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
       onSave();
     } catch (error) {
       console.error('Error saving site:', error);
-      alert('Erreur lors de l\'enregistrement du site');
+      const detail = error && typeof error === 'object' && 'message' in error ? String((error as { message: unknown }).message) : '';
+      alert('Erreur lors de l\'enregistrement du site' + (detail ? ' : ' + detail : ''));
     } finally {
       setLoading(false);
     }
