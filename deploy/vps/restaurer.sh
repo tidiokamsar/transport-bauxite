@@ -64,8 +64,11 @@ echo "droits par defaut releves dans $FICHIER_RETOUR"
 # 1. Neutralisation des droits par defaut du schema public (tous les
 #    beneficiaires autres que le role proprietaire)
 $PSQL <<'SQL' || { echo "ECHEC neutralisation : rejouer $FICHIER_RETOUR"; exit 1; }
--- schema absent d'une image vierge ; pg_restore -n ne le cree pas
+-- schemas absents d'une image vierge ; pg_restore -n ne les cree pas.
+-- archive_bolt (D-071) : des cles etrangeres de public y pointent.
 CREATE SCHEMA IF NOT EXISTS supabase_migrations;
+CREATE SCHEMA IF NOT EXISTS archive_bolt;
+REVOKE ALL ON SCHEMA archive_bolt FROM PUBLIC, anon, authenticated;
 DO $$
 DECLARE x record;
 BEGIN
@@ -84,7 +87,7 @@ SQL
 debut=$(date +%s)
 docker exec -i "$CONTENEUR" pg_restore -U supabase_admin $HOTE -d postgres \
   --clean --if-exists --single-transaction --exit-on-error \
-  -n public -n auth -n supabase_migrations < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
+  -n public -n auth -n supabase_migrations -n archive_bolt < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
 code=$?
 echo "pg_restore : code $code, $(grep -c 'error:' /tmp/sigtb-restauration.log) erreur(s), $(( $(date +%s) - debut )) s"
 grep 'error:' /tmp/sigtb-restauration.log | sort | uniq -c | sort -rn | head -5 | sed 's/^/    /'

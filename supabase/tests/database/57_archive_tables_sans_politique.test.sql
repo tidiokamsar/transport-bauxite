@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(18);
+SELECT plan(24);
 
 -- Archivage -------------------------------------------------------------------
 CREATE TEMP TABLE archivees(nom text) ON COMMIT DROP;
@@ -42,6 +42,10 @@ SELECT ok(NOT has_schema_privilege('authenticated', 'archive_bolt', 'USAGE') AND
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class r ON r.oid = c.confrelid
                    WHERE c.conrelid = 'public.tire_models'::regclass AND c.contype = 'f' AND r.relnamespace = 'archive_bolt'::regnamespace),
   'la cle etrangere de tire_models vers tire_brands archivee reste en place');
+SELECT is((SELECT count(*)::int FROM pg_constraint c JOIN pg_class r ON r.oid = c.confrelid
+            WHERE c.conrelid IN ('public.fatigue_alerts'::regclass, 'public.rest_periods'::regclass) AND c.contype = 'f'
+              AND r.relname = 'driver_work_sessions' AND r.relnamespace = 'archive_bolt'::regnamespace), 2,
+  'les cles etrangeres de fatigue_alerts et rest_periods vers driver_work_sessions archivee restent en place');
 SELECT is((SELECT count(*)::int FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
             AND p.proname IN ('calculate_fatigue_score', 'calculate_tire_cost_per_tonne_km', 'calculate_tire_performance_metrics',
                               'check_alert_conditions', 'check_fatigue_violations', 'optimize_dispatch_assignment')
@@ -58,6 +62,13 @@ SELECT is((SELECT count(*)::int FROM information_schema.role_table_grants
             WHERE table_schema = 'public' AND grantee = 'authenticated' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
               AND table_name IN ('iot_devices', 'iot_gps_readings', 'iot_tire_readings', 'iot_weight_readings', 'trip_waypoints', 'trip_route_tracking')), 0,
   'mesures IoT et trajets : aucune ecriture depuis le navigateur');
+SELECT is((SELECT count(*)::int FROM information_schema.role_table_grants
+            WHERE table_schema = 'public' AND grantee = 'authenticated' AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')
+              AND table_name IN ('geofence_zone_assignments', 'waste_management')), 0,
+  'geofences et dechets : aucune ecriture depuis le navigateur tant qu''aucun ecran n''en a besoin');
+SELECT ok(has_table_privilege('service_role', 'public.iot_gps_readings', 'INSERT')
+          AND has_column_privilege('service_role', 'public.iot_devices', 'api_key', 'SELECT'),
+  'la fonction Edge d''ingestion (service_role) ecrit les mesures et controle la cle');
 SELECT ok(NOT has_column_privilege('authenticated', 'public.iot_devices', 'api_key', 'SELECT'),
   'la cle d''authentification des boitiers n''est pas lisible');
 SELECT ok(has_column_privilege('authenticated', 'public.iot_devices', 'device_id', 'SELECT'),
@@ -90,6 +101,14 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
 INSERT INTO public.iot_devices (device_id, device_type, vehicle_id, api_key, status) VALUES
   ('TEST-D710-B1', 'gps_tracker', '00000000-0000-4000-d710-0000000000b1', 'cle-secrete-test', 'active'),
   ('TEST-D710-B2', 'gps_tracker', '00000000-0000-4000-d710-0000000000b2', 'cle-secrete-test-2', 'active');
+INSERT INTO public.trips (id, reference, planned_date, vehicle_id, departure_site_id, arrival_site_id, etat) VALUES
+  ('00000000-0000-4000-d710-000000000101', 'TEST-D710-V1', '2001-05-10', '00000000-0000-4000-d710-0000000000b1',
+   '00000000-0000-4000-d710-0000000000a1', '00000000-0000-4000-d710-0000000000a1', 'PLANNED'),
+  ('00000000-0000-4000-d710-000000000102', 'TEST-D710-V2', '2001-05-10', '00000000-0000-4000-d710-0000000000b2',
+   '00000000-0000-4000-d710-0000000000a2', '00000000-0000-4000-d710-0000000000a2', 'PLANNED');
+INSERT INTO public.trip_waypoints (trip_id, sequence_number, waypoint_type, location_name, latitude, longitude) VALUES
+  ('00000000-0000-4000-d710-000000000101', 1, 'departure', 'Mine S1 D710', 7.5, -8.5),
+  ('00000000-0000-4000-d710-000000000102', 1, 'departure', 'Mine S2 D710', 7.6, -8.6);
 INSERT INTO public.iot_gps_readings (device_id, vehicle_id, latitude, longitude) VALUES
   ('TEST-D710-B1', '00000000-0000-4000-d710-0000000000b1', 7.5, -8.5),
   ('TEST-D710-B2', '00000000-0000-4000-d710-0000000000b2', 7.6, -8.6);
@@ -100,8 +119,12 @@ SELECT is((SELECT count(*)::int FROM public.iot_gps_readings WHERE device_id LIK
   'lecteur GPS du site S1 : seule la mesure de son site');
 SELECT is((SELECT string_agg(device_id, ',') FROM public.iot_devices WHERE device_id LIKE 'TEST-D710-%'), 'TEST-D710-B1',
   'lecteur GPS du site S1 : seul le boitier de son site');
+SELECT is((SELECT count(*)::int FROM public.trip_waypoints WHERE trip_id::text LIKE '00000000-0000-4000-d710-%'), 1,
+  'lecteur GPS du site S1 : seuls les points de passage des voyages de son site');
 SELECT throws_ok($$SELECT api_key FROM public.iot_devices$$, '42501', NULL,
   'la colonne api_key est refusee');
+SELECT throws_ok($$SELECT device_id FROM public.iot_devices WHERE api_key = 'cle-secrete-test'$$, '42501', NULL,
+  'un filtre sur api_key est refuse : la cle ne se devine pas');
 RESET ROLE;
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-d710-000000000002');
@@ -121,6 +144,11 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-d710-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT count(*)::int FROM public.quick_actions_log WHERE action_name = 'Action D710'), 0,
   'les actions rapides d''un autre ne sont pas lisibles');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d710-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT count(*)::int FROM public.quick_actions_log WHERE action_name = 'Action D710'), 1,
+  'chacun relit ses propres actions rapides');
 RESET ROLE;
 
 SELECT * FROM finish();

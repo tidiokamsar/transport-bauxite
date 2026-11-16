@@ -26,10 +26,16 @@
      - trajets (`trip_waypoints`, `trip_route_tracking`) : lecture `trips`
        ou `gps_tracking` et perimetre du voyage ; aucune ecriture navigateur ;
      - `geofence_zone_assignments` : lecture `gps_tracking` et perimetre de
-       l'engin ; ecriture du module `gps_tracking` ;
+       l'engin ; aucune ecriture navigateur (aucun ecran n'en ecrit ; la
+       fonction Edge `geofence-monitor` lit en service_role) ;
      - `quick_actions_log` : chacun ecrit et lit ses propres lignes ;
-     - `waste_management` : lecture et ecriture du module `esg`, perimetre de
-       l'engin source quand il est renseigne.
+     - `waste_management` : lecture du module `esg`, perimetre de l'engin
+       source quand il est renseigne ; aucune ecriture navigateur tant
+       qu'aucun ecran n'en a besoin (moindre privilege).
+
+  4. Les cles etrangeres de `public` vers `archive_bolt` (`tire_models`,
+     `fatigue_alerts`, `rest_periods`) imposent de restaurer aussi ce schema :
+     `deploy/vps/restaurer.sh` le cree et le restaure.
 
   Idempotent.
 */
@@ -107,19 +113,9 @@ CREATE POLICY lecture ON public.trip_route_tracking FOR SELECT TO authenticated
   USING ((public.has_module_view('trips') OR public.has_module_view('gps_tracking') OR public.is_admin()) AND public.voyage_permis(trip_id));
 CREATE POLICY lecture ON public.geofence_zone_assignments FOR SELECT TO authenticated
   USING ((public.has_module_view('gps_tracking') OR public.is_admin()) AND public.vehicule_permis(vehicle_id));
-GRANT INSERT, UPDATE ON public.geofence_zone_assignments TO authenticated;
-CREATE POLICY ecriture ON public.geofence_zone_assignments FOR ALL TO authenticated
-  USING ((public.has_module_write('gps_tracking') OR public.is_admin()) AND public.vehicule_permis(vehicle_id))
-  WITH CHECK ((public.has_module_write('gps_tracking') OR public.is_admin()) AND public.vehicule_permis(vehicle_id));
 GRANT INSERT ON public.quick_actions_log TO authenticated;
 CREATE POLICY lecture_personnelle ON public.quick_actions_log FOR SELECT TO authenticated USING (user_id = auth.uid());
 CREATE POLICY ecriture_personnelle ON public.quick_actions_log FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-GRANT INSERT, UPDATE ON public.waste_management TO authenticated;
 CREATE POLICY lecture ON public.waste_management FOR SELECT TO authenticated
   USING ((public.has_module_view('esg') OR public.is_admin())
          AND (source_vehicle_id IS NULL OR public.vehicule_permis(source_vehicle_id)));
-CREATE POLICY ecriture ON public.waste_management FOR ALL TO authenticated
-  USING ((public.has_module_write('esg') OR public.is_admin())
-         AND (source_vehicle_id IS NULL OR public.vehicule_permis(source_vehicle_id)))
-  WITH CHECK ((public.has_module_write('esg') OR public.is_admin())
-              AND (source_vehicle_id IS NULL OR public.vehicule_permis(source_vehicle_id)));
