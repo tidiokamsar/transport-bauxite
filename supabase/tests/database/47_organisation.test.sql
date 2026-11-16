@@ -152,7 +152,7 @@ BEGIN
 END;
 $$;
 
-SELECT plan(140);
+SELECT plan(141);
 
 -- 0. Integration : signatures, volatilite, securite, droits d'execution ----
 
@@ -176,7 +176,9 @@ SELECT is((SELECT count(*)::int FROM unnest(ARRAY[
             'public.droit_module_base(uuid, text, text)', 'public.delegation_effective(uuid, uuid, text, text)',
             'public.delegation_en_vigueur(uuid, text, text)', 'public.perimetre_global_de(uuid)',
             'public.sites_permis_de(uuid)', 'public.perimetre_inclus(uuid, uuid)',
-            'public.garde_journal_organisation()', 'public.garde_affectation_site()', 'public.garde_delegation()']) f
+            'public.garde_journal_organisation()', 'public.garde_affectation_site()', 'public.garde_delegation()',
+            'public.affectation_en_cours(uuid, uuid)', 'public.perimetre_affecte_calcule(uuid)',
+            'public.profil_perimetre_affecte()', 'public.rafraichir_perimetre_affecte()']) f
             WHERE has_function_privilege('authenticated', f, 'EXECUTE') OR has_function_privilege('anon', f, 'EXECUTE')), 0,
   'fonctions internes et gardes non executables par les comptes');
 SELECT is((SELECT count(*)::int FROM unnest(ARRAY['affectations_sites', 'journal_affectations_sites', 'retours_perimetre_global',
@@ -197,6 +199,8 @@ SELECT ok(NOT has_table_privilege('anon', 'public.v_affectations_sites', 'SELECT
           AND NOT has_table_privilege('authenticated', 'public.v_journal_connexions', 'UPDATE')
           AND has_table_privilege('authenticated', 'public.v_journal_connexions', 'SELECT'),
   'vues : lecture seule des comptes connectes, rien pour anon');
+SELECT ok((SELECT reloptions @> ARRAY['security_barrier=true'] FROM pg_class WHERE oid = 'public.v_journal_connexions'::regclass),
+  'C6 : v_journal_connexions en security_barrier (filtre is_admin evalue avant les conditions de l''appelant)');
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-b640-000000000001', 'admin.d064@exemple.invalid'),

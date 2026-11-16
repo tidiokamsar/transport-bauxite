@@ -280,10 +280,30 @@ GRANT EXECUTE ON FUNCTION public.perimetre_affecte_calcule(uuid) TO service_role
 UPDATE public.profiles p SET perimetre_affecte = public.perimetre_affecte_calcule(p.id)
  WHERE p.perimetre_affecte IS DISTINCT FROM public.perimetre_affecte_calcule(p.id);
 
+-- Affectation non annulee en cours a ce site (interne : n'est appelee par
+-- site_permis, vehicule_permis et voyage_permis que pour un compte affecte).
+CREATE OR REPLACE FUNCTION public.affectation_en_cours(p_utilisateur uuid, p_site uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (SELECT 1 FROM public.affectations_sites a
+                  WHERE a.utilisateur = p_utilisateur
+                    AND a.annulee_le IS NULL
+                    AND a.site_id = p_site
+                    AND a.debut <= current_date
+                    AND (a.fin IS NULL OR a.fin >= current_date));
+$$;
+REVOKE EXECUTE ON FUNCTION public.affectation_en_cours(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.affectation_en_cours(uuid, uuid) TO service_role;
+
 -- Perimetre : site du profil, profil global (sans site, jamais affecte
 -- depuis son dernier retour), ou affectation en cours. Meme signature,
--- langage, volatilite et droits que D-038 (20261114100000). La sous-requete
--- des affectations n'est evaluee que pour un compte affecte (C2).
+-- langage, volatilite et droits que D-038 (20261114100000). Les affectations
+-- ne sont lues que pour un compte affecte, par un appel (C2 : aucun
+-- sous-plan a initialiser a chaque appel).
 CREATE OR REPLACE FUNCTION public.site_permis(p_site uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -298,13 +318,7 @@ AS $$
        AND pr.status = 'active'
        AND (pr.site_id = p_site
             OR (pr.site_id IS NULL AND NOT pr.perimetre_affecte)
-            OR (pr.perimetre_affecte
-                AND EXISTS (SELECT 1 FROM public.affectations_sites a
-                             WHERE a.utilisateur = pr.id
-                               AND a.annulee_le IS NULL
-                               AND a.site_id = p_site
-                               AND a.debut <= current_date
-                               AND (a.fin IS NULL OR a.fin >= current_date))))
+            OR (pr.perimetre_affecte AND public.affectation_en_cours(pr.id, p_site)))
   );
 $$;
 
@@ -389,12 +403,7 @@ AS $$
             OR EXISTS (SELECT 1 FROM public.vehicles v
                         WHERE v.id = p_vehicle
                           AND (v.site_id = pr.site_id
-                               OR (pr.perimetre_affecte
-                                   AND EXISTS (SELECT 1 FROM public.affectations_sites a
-                                                WHERE a.utilisateur = pr.id AND a.annulee_le IS NULL
-                                                  AND a.site_id = v.site_id
-                                                  AND a.debut <= current_date
-                                                  AND (a.fin IS NULL OR a.fin >= current_date))))))
+                               OR (pr.perimetre_affecte AND public.affectation_en_cours(pr.id, v.site_id)))))
   );
 $$;
 
@@ -415,11 +424,8 @@ AS $$
                         WHERE t.id = p_trip
                           AND (t.departure_site_id = pr.site_id OR t.arrival_site_id = pr.site_id
                                OR (pr.perimetre_affecte
-                                   AND EXISTS (SELECT 1 FROM public.affectations_sites a
-                                                WHERE a.utilisateur = pr.id AND a.annulee_le IS NULL
-                                                  AND a.site_id IN (t.departure_site_id, t.arrival_site_id)
-                                                  AND a.debut <= current_date
-                                                  AND (a.fin IS NULL OR a.fin >= current_date))))))
+                                   AND (public.affectation_en_cours(pr.id, t.departure_site_id)
+                                        OR public.affectation_en_cours(pr.id, t.arrival_site_id))))))
   );
 $$;
 
@@ -824,9 +830,9 @@ AS $$
     SELECT 1 FROM public.delegations_droits g
      WHERE g.delegue = p_utilisateur
        AND g.module = p_module
-       AND (p_niveau IS NULL OR g.niveau = p_niveau)
        AND g.revoquee_le IS NULL
        AND g.debut <= now() AND now() < g.fin
+       AND (p_niveau IS NULL OR g.niveau = p_niveau)
        AND public.delegation_effective(g.delegant, g.delegue, g.module, g.niveau)
        AND (p_niveau IS NOT NULL OR public.droit_module_base(g.delegant, g.module, 'lecture')));
 $$;
@@ -840,8 +846,11 @@ GRANT EXECUTE ON FUNCTION public.delegation_en_vigueur(uuid, text, text) TO serv
 
 -- Fonctions de droits : memes signatures, langage, volatilite et securite
 -- que sur main ; droits d'execution inchanges (CREATE OR REPLACE les garde).
--- Corps de main recopies a l'identique (C2 : pas d'appel imbrique par
--- ligne), puis delegation, lue seulement si une ligne en periode existe.
+-- Corps de main recopies a l'identique (C2 : pas d'appel imbrique pour le
+-- droit propre) ; la delegation n'est lue que si le droit propre est faux et
+-- qu'une ligne de delegation en periode existe (sonde en ligne sur l'index
+-- partiel, moins couteuse qu'un appel de fonction par ligne, mesure du
+-- 2026-11-16).
 CREATE OR REPLACE FUNCTION public.has_module_view(p_module text)
 RETURNS boolean
 LANGUAGE sql
