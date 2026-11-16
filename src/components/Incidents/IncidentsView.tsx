@@ -81,7 +81,14 @@ export const IncidentsView = () => {
     p_lieu: c('lieu').trim() || null, p_cout_estime: c('cout') ? Number(c('cout')) : null,
   }, 'Incident déclaré.').then((ok) => { if (ok) { setSaisie(false); setChamps({}); } });
   const demander = (question: string) => { const m = window.prompt(question); return m?.trim() ? m.trim() : null; };
-  const analyser = (i: Incident) => { const m = demander(`Cause de l'incident ${i.numero ?? ''}`); if (m) executer('analyser_incident', { p_id: i.id, p_cause: m }, 'Analyse enregistrée.'); };
+  // Reviser une cause deja saisie exige un motif, journalise par le serveur (D-072).
+  const analyser = (i: Incident) => {
+    const m = demander(`Cause de l'incident ${i.numero ?? ''}`);
+    if (!m) return;
+    const motif = i.cause && m !== i.cause ? demander('Motif de la révision de la cause') : null;
+    if (i.cause && m !== i.cause && !motif) return;
+    executer('analyser_incident', { p_id: i.id, p_cause: m, p_motif: motif }, 'Analyse enregistrée.');
+  };
   const cloturer = (i: Incident) => { const m = demander(`Conclusion de l'incident ${i.numero ?? ''}`); if (m) executer('cloturer_incident', { p_id: i.id, p_conclusion: m }, 'Incident clos.'); };
   const ajouterAction = () => {
     if (!choisi) return;

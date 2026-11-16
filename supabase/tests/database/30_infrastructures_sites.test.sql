@@ -47,8 +47,12 @@ SELECT throws_ok($$INSERT INTO public.fermetures_site (site_id, debut, motif) VA
 INSERT INTO public.fermetures_site (id, site_id, debut, fin, motif)
 VALUES ('00000000-0000-4000-9c00-0000000000f1', '00000000-0000-4000-9c00-0000000000a2',
         current_date::timestamptz, (current_date + 2)::timestamptz, 'Pont-bascule en panne');
+-- site_ferme_le n'est plus executable par les comptes (D-072, R1-7) : lue
+-- hors role authenticated, comme par la garde du dispatch.
+RESET ROLE;
 SELECT is(public.site_ferme_le('00000000-0000-4000-9c00-0000000000a2', current_date), 'Pont-bascule en panne', 'depot ferme aujourd''hui');
 SELECT is(public.site_ferme_le('00000000-0000-4000-9c00-0000000000a2', current_date + 3), NULL, 'reouvert apres la fin');
+SET LOCAL ROLE authenticated;
 SELECT throws_ok($$DELETE FROM public.fermetures_site WHERE id = '00000000-0000-4000-9c00-0000000000f1'$$,
   '42501', NULL, 'une fermeture ne se supprime pas');
 RESET ROLE;
@@ -71,8 +75,8 @@ UPDATE public.fermetures_site SET levee_le = current_date::timestamptz, motif_le
  WHERE id = '00000000-0000-4000-9c00-0000000000f1';
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-9c00-000000000002');
-SET LOCAL ROLE authenticated;
 SELECT is(public.site_ferme_le('00000000-0000-4000-9c00-0000000000a2', current_date), NULL, 'fermeture levee : depot ouvert');
+SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.decider_affectation((SELECT id FROM v), 'acceptee', '00000000-0000-4000-9c00-0000000000b1',
   '00000000-0000-4000-9c00-0000000000c1', NULL)$$, 'affectation acceptee apres la levee');
 RESET ROLE;

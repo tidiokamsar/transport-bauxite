@@ -4,15 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { CHAMP, type Categorie } from './fournisseurs';
 
-// Referentiels fournisseurs (D-059) : categories (droit d'ecriture des
-// achats) et grille d'evaluation ponderee (administrateur). Aucune grille
+// Referentiels fournisseurs (D-059) : categories et grille d'evaluation
+// ponderee, tenues par l'administrateur (D-072). Aucune grille
 // n'est fournie par defaut : les criteres et leurs poids sont a definir.
 
 interface Critere { id: string; libelle: string; description: string | null; poids: number; ordre: number; actif: boolean }
 
 export const ReferentielsFournisseurs = ({ categories, onChange }: { categories: Categorie[]; onChange: () => Promise<void> }) => {
-  const { hasPermission, profile } = useAuth();
-  const peutEcrire = hasPermission('purchases', 'create') || hasPermission('purchases', 'edit');
+  const { profile } = useAuth();
   const estAdmin = profile?.role === 'admin';
   const [criteres, setCriteres] = useState<Critere[] | null>(null);
   const [categorie, setCategorie] = useState('');
@@ -56,10 +55,10 @@ export const ReferentielsFournisseurs = ({ categories, onChange }: { categories:
       {categories.length === 0 ? <SansDonnees message="Aucune catégorie" /> :
         <ul className="divide-y divide-stone-100 text-sm">{categories.map((c) => <li key={c.id} className="flex items-center justify-between gap-2 py-2">
           <span>{c.libelle} {!c.actif && <Puce teinte="gris">Inactive</Puce>}</span>
-          {peutEcrire && <button onClick={() => executer('definir_categorie_fournisseur', { p_id: c.id, p_libelle: c.libelle, p_actif: !c.actif }, c.actif ? 'Catégorie désactivée.' : 'Catégorie réactivée.')}
+          {estAdmin && <button onClick={() => executer('definir_categorie_fournisseur', { p_id: c.id, p_libelle: c.libelle, p_actif: !c.actif }, c.actif ? 'Catégorie désactivée.' : 'Catégorie réactivée.')}
             className="rounded border border-stone-300 px-2 py-1 text-xs">{c.actif ? 'Désactiver' : 'Réactiver'}</button>}
         </li>)}</ul>}
-      {peutEcrire && <div className="mt-3 flex flex-wrap items-end gap-2">
+      {estAdmin && <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-sm">Nouvelle catégorie<input value={categorie} onChange={(e) => setCategorie(e.target.value)} className={CHAMP} /></label>
         <button disabled={busy || !categorie.trim()} onClick={() => executer('definir_categorie_fournisseur', { p_libelle: categorie.trim() }, 'Catégorie ajoutée.').then((ok) => { if (ok) setCategorie(''); })}
           className="rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ajouter la catégorie</button>

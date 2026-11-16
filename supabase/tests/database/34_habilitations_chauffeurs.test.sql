@@ -36,10 +36,16 @@ DELETE FROM public.habilitations_requises;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a100-000000000001');
 SET LOCAL ROLE authenticated;
 INSERT INTO public.habilitations_requises (type, note) VALUES ('visite_medicale', 'Aptitude annuelle');
+-- habilitations_manquantes n'est plus executable par les comptes (D-072,
+-- R2-C6) : lue hors role authenticated, comme par les gardes.
+RESET ROLE;
 SELECT is(public.habilitations_manquantes('00000000-0000-4000-a100-0000000000c1', current_date), 'visite_medicale', 'visite medicale manquante');
+SET LOCAL ROLE authenticated;
 INSERT INTO public.habilitations_chauffeur (id, driver_id, type, libelle, delivre_le, expire_le) VALUES
   ('00000000-0000-4000-a100-0000000000d1', '00000000-0000-4000-a100-0000000000c1', 'visite_medicale', 'Aptitude 2025', current_date - 400, current_date - 35);
+RESET ROLE;
 SELECT is(public.habilitations_manquantes('00000000-0000-4000-a100-0000000000c1', current_date), 'visite_medicale', 'visite expiree : toujours manquante');
+SET LOCAL ROLE authenticated;
 SELECT throws_ok($$INSERT INTO public.habilitations_chauffeur (driver_id, type, libelle, delivre_le, expire_le)
   VALUES ('00000000-0000-4000-a100-0000000000c1', 'visite_medicale', 'Incoherente', current_date, current_date - 1)$$, '23514', NULL, 'expiration avant delivrance refusee');
 SELECT throws_ok($$DELETE FROM public.habilitations_chauffeur$$, '42501', NULL, 'une habilitation ne se supprime pas');

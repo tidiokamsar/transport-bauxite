@@ -75,7 +75,7 @@ SET LOCAL ROLE authenticated;
 CREATE TEMP TABLE rec AS SELECT public.receptionner_bon_commande((SELECT id FROM bc),
   (SELECT jsonb_agg(jsonb_build_object('ligne', id, 'recue', CASE WHEN stock_item_id IS NULL THEN 1 ELSE 6 END, 'refusee', CASE WHEN stock_item_id IS NULL THEN 0 ELSE 1 END, 'motif_refus', 'Carton abime'))
      FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc)), 'BL-123') AS id;
-SELECT is((SELECT status || ' ' || public.stock_disponible('00000000-0000-4000-a300-0000000000e1', '00000000-0000-4000-a300-0000000000d1')
+SELECT is((SELECT status || ' ' || coalesce((SELECT d.quantite FROM public.v_stock_depots d WHERE d.stock_item_id = '00000000-0000-4000-a300-0000000000e1' AND d.warehouse_id = '00000000-0000-4000-a300-0000000000d1'), 0)
              FROM public.purchase_orders WHERE id = (SELECT id FROM bc)), 'partially_received 6', 'reception partielle : 6 en stock');
 SELECT throws_ok($$SELECT public.receptionner_bon_commande((SELECT id FROM bc),
   (SELECT jsonb_agg(jsonb_build_object('ligne', id, 'recue', 5)) FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc) AND stock_item_id IS NOT NULL))$$,
@@ -83,7 +83,7 @@ SELECT throws_ok($$SELECT public.receptionner_bon_commande((SELECT id FROM bc),
 SELECT throws_ok($$SELECT public.annuler_mouvement_stock((SELECT stock_movement_id FROM public.receptions_achat_lignes WHERE delivery_id = (SELECT id FROM rec) AND stock_movement_id IS NOT NULL), 'Test')$$,
   '22023', NULL, 'mouvement d''une reception : annulation directe refusee');
 SELECT public.annuler_reception((SELECT id FROM rec), 'Mauvais bon de livraison');
-SELECT is((SELECT status || ' ' || public.stock_disponible('00000000-0000-4000-a300-0000000000e1', '00000000-0000-4000-a300-0000000000d1')
+SELECT is((SELECT status || ' ' || coalesce((SELECT d.quantite FROM public.v_stock_depots d WHERE d.stock_item_id = '00000000-0000-4000-a300-0000000000e1' AND d.warehouse_id = '00000000-0000-4000-a300-0000000000d1'), 0)
              FROM public.purchase_orders WHERE id = (SELECT id FROM bc)), 'approved 0', 'reception annulee : stock et statut retablis');
 SELECT public.receptionner_bon_commande((SELECT id FROM bc),
   (SELECT jsonb_agg(jsonb_build_object('ligne', id, 'recue', quantity)) FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc)), 'BL-124');
