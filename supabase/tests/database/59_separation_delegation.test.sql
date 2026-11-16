@@ -257,6 +257,12 @@ CREATE TEMP TABLE mg2 AS SELECT public.affecter_au_poste((SELECT id FROM pg2), '
 GRANT SELECT ON mg2 TO authenticated;
 SELECT public.pointer_presence((SELECT id FROM mg2), true);
 RESET ROLE;
+-- Variante V4 (contre-revue) : le delegue detient l'ecriture planning en droit
+-- propre (D-036) mais l'ecriture trips seulement par delegation ; la cloture
+-- d'un poste releve de trips : la validation par le delegant reste refusee.
+INSERT INTO public.droits_utilisateur (utilisateur, module, niveau) VALUES
+  ('00000000-0000-4000-b659-000000000003', 'planning', 'ecriture')
+ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000003');
 SET LOCAL ROLE authenticated;
 SELECT public.cloturer_poste((SELECT id FROM pg2), 'Consignes du delegue', 'RAS');
@@ -264,8 +270,11 @@ RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.valider_cloture_poste((SELECT id FROM pg2))$$, '42501', NULL,
-  'R1b poste : le delegant ne valide pas le poste clos par son delegue');
+  'R1b poste (V4) : le delegant ne valide pas le poste clos par son delegue, meme si celui-ci a planning en propre');
 RESET ROLE;
+-- Fin de V4 : retrait du droit propre planning, pour ne pas fausser la suite.
+DELETE FROM public.droits_utilisateur
+  WHERE utilisateur = '00000000-0000-4000-b659-000000000003' AND module = 'planning';
 SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000008');
 SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.valider_cloture_poste((SELECT id FROM pg2))$$,

@@ -1434,7 +1434,7 @@ SET search_path = ''
 AS $$
 DECLARE p public.postes := public.poste_ecrivable(p_poste_id, 'planning', 'cloture');
 BEGIN
-  IF public.separation_violee(p.cloture_par, 'planning', 'planning', p.cloture_le) THEN
+  IF public.separation_violee(p.cloture_par, 'planning', 'trips', p.cloture_le) THEN
     RAISE EXCEPTION 'La validation revient a une autre personne que celle qui a clos le poste' USING ERRCODE = '42501';
   END IF;
   UPDATE public.postes SET statut = 'valide', valide_par = auth.uid(), valide_le = now() WHERE id = p.id;
