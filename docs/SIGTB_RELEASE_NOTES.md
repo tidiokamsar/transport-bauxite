@@ -5,6 +5,22 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
+## 75d94bf (2026-11-16) : purge de la démonstration (D-074, PR #85)
+
+- La purge des données de démonstration suit désormais les liens entre tables : elle retire aussi ce qui a été créé sur la démonstration dans l'interface (voyages préparés, fiches, postes, objectifs de test), et s'arrête en listant toute donnée réelle qui y serait rattachée.
+- `demo.sh apercu` montre ce qui serait supprimé, sans rien modifier ; la purge exige la confirmation du nombre de lignes affiché. La purge réelle reste une décision du propriétaire.
+
+## bbf795a (2026-11-16) : planification avancée (D-063, PR #84)
+
+- Planification : ventilation d'un objectif par destination et par contrat, simulation des besoins en camions à partir des durées de cycle observées, clôture de la journée avec causes d'écart, rapport de production, comparaison des shifts.
+- La clôture exige une cause dès que le réalisé est sous l'objectif, ou qu'un objectif a été annulé ou révisé à la baisse ; la séparation des tâches est réglable (`planification_cloture_separee`).
+- Chaque utilisateur ne voit que les objectifs et simulations de son site.
+
+## 833e253 (2026-11-16) : tables héritées archivées (D-071, PR #83)
+
+- 38 tables héritées de l'outil d'origine, vides et sans usage, sont archivées (réversible) ; les 9 tables encore lues (capteurs, trajets, géorepérage, actions rapides, déchets) ont des règles d'accès explicites par site.
+- La clé d'authentification des boîtiers IoT n'est plus lisible depuis le navigateur.
+
 ## 16f149e (2026-11-16) : corrections de sécurité et d'intégrité (D-072, D-073, PR #79 à #81)
 
 - Revue indépendante a posteriori des lots D-041 à D-062 : une quinzaine de défauts majeurs corrigés. Lectures et saisies bornées au site (carburant, stocks, relevés CBG, ordres de travail, rapports figés) ; fonctions internes plus appelables depuis le navigateur ; suppression et vidage de tables retirés aux comptes.

@@ -239,8 +239,8 @@ SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-05', '00000000-
 SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000004');
 SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-05', '00000000-0000-4000-a630-0000000000a1', '[]', NULL)$$,
   '42501', NULL, 'cloture refusee hors perimetre site');
-SELECT throws_ok($$SELECT * FROM public.simuler_objectif((SELECT id FROM o1), NULL)$$, '42501', NULL,
-  'simulation d''un objectif hors perimetre refusee');
+SELECT throws_ok($$SELECT * FROM public.simuler_objectif((SELECT id FROM o1), NULL)$$, 'P0002', NULL,
+  'simulation d''un objectif hors perimetre refusee (objectif invisible hors perimetre depuis D-075)');
 SELECT is((SELECT count(*)::int FROM public.fermetures_site WHERE site_id = '00000000-0000-4000-a630-0000000000a1'), 0,
   'motif d''une fermeture hors perimetre non visible');
 
