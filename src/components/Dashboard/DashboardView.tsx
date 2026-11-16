@@ -187,8 +187,10 @@ export const DashboardView = () => {
       qDerniers,
       kpi(maintenant),
       kpi(hier),
-      // Alertes calculees par le serveur a la lecture (D-068), puis lues.
-      supabase.rpc('actualiser_alertes').then(() => supabase.from('alerts').select('id, title, message, severity, created_at').eq('status', 'active')
+      // Alertes calculees par le serveur a la lecture (D-068), puis lues ; memes
+      // statuts que le compteur de la barre superieure (active, prise en compte).
+      supabase.rpc('actualiser_alertes').then(() => supabase.from('alerts').select('id, title, message, severity, created_at')
+        .in('status', ['active', 'acknowledged'])
         .order('created_at', { ascending: false }).limit(4)),
       supabase.from('vehicle_tracking').select('vehicle_id, latitude, longitude, timestamp, speed')
         .gte('timestamp', ilYa24h.toISOString()).order('timestamp', { ascending: false }).limit(1000),

@@ -116,7 +116,7 @@ export const REGLAGES: Reglage[] = [
   },
   {
     cle: 'alerte_voyage_sans_ticket_h', libelle: 'Alerte : voyage livré sans ticket CBG', type: 'nombre', unite: 'h',
-    effet: 'Un voyage livré depuis plus longtemps que ce seuil sans ticket de pesée CBG crée une alerte (0 : dès la livraison).',
+    effet: 'Un voyage livré depuis plus longtemps que ce seuil sans ticket de pesée CBG crée une alerte (seuil strictement positif).',
     siAbsent: 'Règle inactive : aucune alerte.', lecteur: 'seuil_regle_alerte, actualiser_alertes (D-068)',
   },
   {
@@ -164,4 +164,4 @@ export const valeurAffichee = (r: Reglage, brute: string | undefined): string =>
 export const valeurValide = (r: Reglage, saisie: string): boolean =>
   r.type === 'booleen' ? saisie === 'true' || saisie === 'false'
     : r.type === 'entier' ? /^\d+$/.test(saisie.trim()) && (r.cle !== 'consultation_offres_minimum' || Number(saisie) >= 1)
-    : /^\d+(\.\d+)?$/.test(saisie.trim());
+    : /^\d+(\.\d+)?$/.test(saisie.trim()) && (!r.cle.startsWith('alerte_') || Number(saisie) > 0);

@@ -37,12 +37,15 @@ export const CentreDecisionsView = ({ onAllerA }: { onAllerA: (vue: string) => v
     setBusy(true); setErreur(''); setMessage('');
     const { error } = await supabase.rpc(fn, args);
     setBusy(false);
-    if (error) { setErreur(error.message); return; }
+    if (error) { setErreur(error.message); return false; }
     setMessage(succes); await charger();
+    return true;
   };
   const resoudre = (e: ElementDecision) => {
     const motif = (motifs[e.alerte_id!] ?? '').trim();
-    executer('resoudre_alerte', { p_alerte: e.alerte_id, p_motif: motif }, 'Alerte résolue.').then(() => setMotifs({ ...motifs, [e.alerte_id!]: '' }));
+    // Le motif saisi n'est vide qu'en cas de succes (revue D-068, constat 10).
+    executer('resoudre_alerte', { p_alerte: e.alerte_id, p_motif: motif }, 'Alerte résolue.')
+      .then((ok) => { if (ok) setMotifs((m) => ({ ...m, [e.alerte_id!]: '' })); });
   };
   const lignes = () => (elements ?? []).map((e) => ({
     priorite: PRIORITES[e.priorite]?.texte ?? e.priorite, nature: e.nature === 'alerte' ? 'Alerte' : 'Décision en attente', categorie: e.categorie,

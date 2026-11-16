@@ -36,6 +36,7 @@ export const CentrePilotageView = () => {
   const [indicateurs, setIndicateurs] = useState<Indicateur[] | null>(null);
   const [reference, setReference] = useState<Indicateur[] | null>(null);
   const [erreur, setErreur] = useState('');
+  const [erreurFiltres, setErreurFiltres] = useState('');
 
   const charger = useCallback(async () => {
     setErreur('');
@@ -56,6 +57,9 @@ export const CentrePilotageView = () => {
       supabase.from('work_shifts').select('id, display_name').order('display_name'),
       supabase.from('vehicles').select('id, registration, transporteur, proprietaire, exploitant').order('registration'),
     ]).then(([s, w, v]) => {
+      // Filtres incomplets signales, jamais ignores (revue D-068, constat 10).
+      const erreurFiltres = s.error ?? w.error ?? v.error;
+      if (erreurFiltres) setErreurFiltres(`Filtres incomplets : ${erreurFiltres.message}`);
       setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
       setShifts((w.data ?? []).map((x) => ({ id: x.id as string, libelle: (x.display_name as string) ?? 'Shift' })));
       const liste = (v.data ?? []) as { id: string; registration: string; transporteur: string | null; proprietaire: string | null; exploitant: string | null }[];
@@ -103,6 +107,7 @@ export const CentrePilotageView = () => {
       <select aria-label="Partenaire" value={partenaire} onChange={(e) => setPartenaire(e.target.value)} className="rounded border border-stone-300 px-2 py-1"><option value="">Tous les partenaires</option>{partenaires.map((p) => <option key={p} value={p}>{p}</option>)}</select>
     </div>
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+    {erreurFiltres && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurFiltres}</p>}
     {calcule && <p className="text-xs text-stone-500">Calculé le {new Date(calcule).toLocaleString('fr-FR')} · {mentions[0]} · filtres : {filtresTexte}.</p>}
     {(shift || vehicule || partenaire) && <p className="text-xs text-orange-800">Un indicateur sans la dimension filtrée (shift, véhicule ou partenaire) est rendu « sans données » avec son motif, jamais avec une valeur non filtrée.</p>}
 

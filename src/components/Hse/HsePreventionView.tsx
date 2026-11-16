@@ -72,7 +72,9 @@ export const HsePreventionView = () => {
       supabase.from('programmes_inspection').select('*').order('libelle'),
       supabase.from('inspections').select('*').order('prevue_le', { ascending: false }).limit(300),
     ]);
-    setErreur(e.error?.message ?? r.error?.message ?? p.error?.message ?? i.error?.message ?? '');
+    // Toute erreur de chargement est affichee (revue D-068, constat 10).
+    const premiere = [s, c, e, r, p, pr, i].find((x) => x.error)?.error;
+    setErreur(premiere ? `Chargement incomplet : ${premiere.message}` : '');
     setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
     setChauffeurs((c.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
     setDotations((e.data ?? []) as Dotation[]);
@@ -87,6 +89,8 @@ export const HsePreventionView = () => {
         supabase.from('constats_inspection').select('id, inspection_id, description, gravite, localisation').in('inspection_id', ids),
         supabase.from('actions_correctives').select('id, inspection_id, constat_id, libelle, responsable, echeance, statut, preuve').in('inspection_id', ids),
       ]);
+      const erreurDetail = k.error ?? a.error;
+      if (erreurDetail) setErreur((x) => x || `Chargement incomplet : ${erreurDetail.message}`);
       setConstats((k.data ?? []) as Constat[]);
       setActions((a.data ?? []) as Action[]);
     } else { setConstats([]); setActions([]); }

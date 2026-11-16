@@ -73,6 +73,14 @@
   `alertes_actualisation` recoit une politique explicite (D-071, test 57) ;
   `seuil_regle_alerte` et `regle_alerte_en_service` ne sont plus
   executables par les comptes (lues par `regles_alertes`).
+  Revue independante de l'integration, corrigee en place (migration jamais
+  appliquee) : perimetre d'une alerte = celui de son objet source
+  (`alerte_objet_permis`) ; `actualiser_alertes` ne renvoie rien et seul
+  l'administrateur force ; regle hors service : condition levee ; action
+  corrective retiree du centre seulement si une alerte non resolue et
+  visible la porte (`mes_validations.objet_id`) ; le redacteur ne signe pas
+  son plan ; realisation jamais avant la planification ; beneficiaire d'un
+  renouvellement d'EPI mis a jour ; seuils d'alerte strictement positifs.
   Idempotent.
 */
 
@@ -117,7 +125,8 @@ STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-  SELECT CASE WHEN (s.value ->> 'value') ~ '^\d+(\.\d+)?$' THEN (s.value ->> 'value')::numeric END
+  SELECT CASE WHEN (s.value ->> 'value') ~ '^\d+(\.\d+)?$' AND (s.value ->> 'value')::numeric > 0
+              THEN (s.value ->> 'value')::numeric END
     FROM public.catalogue_regles_alertes() c JOIN public.settings s ON s.key = c.cle
    WHERE c.regle = p_regle AND c.type_reglage = 'seuil';
 $$;
@@ -177,8 +186,12 @@ BEGIN
     IF v IS NULL OR v NOT IN ('true', 'false') THEN
       RAISE EXCEPTION 'Reglage % : valeur true ou false attendue', NEW.key USING ERRCODE = '22023';
     END IF;
-  ELSIF NEW.key IN ('tolerance_poids_cbg_t', 'pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km',
-                    'alerte_immobilisation_longue_h', 'alerte_ecart_carburant_l', 'alerte_voyage_sans_ticket_h') THEN
+  ELSIF NEW.key IN ('alerte_immobilisation_longue_h', 'alerte_ecart_carburant_l', 'alerte_voyage_sans_ticket_h') THEN
+    -- Seuil d'alerte (D-068) : strictement positif ; une regle sans seuil reste inactive.
+    IF v IS NULL OR v !~ '^\d+(\.\d+)?$' OR v::numeric <= 0 THEN
+      RAISE EXCEPTION 'Reglage % : nombre strictement positif attendu', NEW.key USING ERRCODE = '22023';
+    END IF;
+  ELSIF NEW.key IN ('tolerance_poids_cbg_t', 'pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km') THEN
     IF v IS NULL OR v !~ '^\d+(\.\d+)?$' THEN
       RAISE EXCEPTION 'Reglage % : nombre positif attendu', NEW.key USING ERRCODE = '22023';
     END IF;
@@ -229,9 +242,38 @@ ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.alerts FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.alerts TO authenticated;
 GRANT ALL ON public.alerts TO service_role;
+-- Perimetre d'une alerte : celui de son objet source (revue, constat 1) :
+-- voyage (depart ou arrivee, voyage_permis), action corrective (incident ou
+-- inspection d'origine), sinon l'engin, sinon le site. L'engin d'un voyage
+-- ou d'une action ne suffit jamais : un compte du site X ne lit pas l'alerte
+-- d'un voyage du site Y qu'il ne voit pas.
+CREATE OR REPLACE FUNCTION public.alerte_objet_permis(p_reference_type text, p_reference_id uuid, p_vehicle uuid, p_site uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+-- PL/pgSQL : le corps lit inspections et actions_correctives, creees plus bas.
+BEGIN
+  RETURN coalesce(CASE p_reference_type
+    WHEN 'trip' THEN public.voyage_permis(p_reference_id)
+    WHEN 'action_corrective' THEN EXISTS (
+      SELECT 1 FROM public.actions_correctives a
+        LEFT JOIN public.incidents i ON i.id = a.incident_id
+        LEFT JOIN public.inspections s ON s.id = a.inspection_id
+       WHERE a.id = p_reference_id
+         AND CASE WHEN a.incident_id IS NOT NULL THEN public.incident_permis(i.trip_id, i.vehicle_id, i.site_id)
+                  ELSE public.site_permis(s.site_id) END)
+    ELSE CASE WHEN p_vehicle IS NOT NULL THEN public.vehicule_permis(p_vehicle) ELSE public.site_permis(p_site) END
+  END, false);
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.alerte_objet_permis(text, uuid, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.alerte_objet_permis(text, uuid, uuid, uuid) TO authenticated, service_role;
 CREATE POLICY lecture ON public.alerts FOR SELECT TO authenticated
   USING ((public.is_admin() OR public.has_module_view(coalesce(module, 'dashboard')))
-         AND CASE WHEN vehicle_id IS NOT NULL THEN public.vehicule_permis(vehicle_id) ELSE public.site_permis(site_id) END);
+         AND public.alerte_objet_permis(reference_type, reference_id, vehicle_id, site_id));
 
 -- 3. HSE complementaire ------------------------------------------------------
 
@@ -605,6 +647,9 @@ BEGIN
   IF p_realisee_le IS NULL OR p_realisee_le > now() + interval '5 minutes' THEN
     RAISE EXCEPTION 'Date de realisation requise, pas dans le futur' USING ERRCODE = '22023';
   END IF;
+  IF p_realisee_le < i.planifiee_le THEN
+    RAISE EXCEPTION 'Date de realisation anterieure a la planification de l''inspection' USING ERRCODE = '22023';
+  END IF;
   IF p_constats IS NOT NULL AND jsonb_typeof(p_constats) <> 'array' THEN RAISE EXCEPTION 'Constats : liste attendue' USING ERRCODE = '22023'; END IF;
   FOR e IN SELECT x FROM jsonb_array_elements(coalesce(p_constats, '[]'::jsonb)) x LOOP
     IF nullif(btrim(coalesce(e ->> 'description', '')), '') IS NULL OR coalesce(e ->> 'gravite', '') NOT IN ('observation', 'mineur', 'majeur', 'critique') THEN
@@ -768,14 +813,23 @@ BEGIN
   IF coalesce(p_employee, o.employee_id) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = coalesce(p_employee, o.employee_id)) THEN
     RAISE EXCEPTION 'Employe introuvable' USING ERRCODE = '22023';
   END IF;
-  v_nom := public.texte_requis(coalesce(nullif(btrim(coalesce(p_beneficiaire, '')), ''), o.beneficiaire, v_nom), 'Beneficiaire');
+  IF p_employee IS NOT NULL AND p_driver IS NULL THEN
+    SELECT e.full_name INTO v_nom FROM public.employees e WHERE e.id = p_employee;
+  END IF;
+  -- Beneficiaire : nom saisi, sinon celui de la personne designee pour ce
+  -- renouvellement, sinon celui de la dotation remplacee (revue, constat 7).
+  v_nom := public.texte_requis(coalesce(nullif(btrim(coalesce(p_beneficiaire, '')), ''),
+                                        CASE WHEN p_driver IS NOT NULL OR p_employee IS NOT NULL THEN v_nom END,
+                                        o.beneficiaire, v_nom), 'Beneficiaire');
   IF p_remplace IS NOT NULL THEN
     UPDATE public.dotations_epi SET statut = 'remplace', cloture_par = auth.uid(), cloture_le = now() WHERE id = p_remplace;
   END IF;
   INSERT INTO public.dotations_epi (numero, site_id, beneficiaire, driver_id, employee_id, type_epi, designation, taille, quantite,
                                     remis_le, echeance_renouvellement, remplace_dotation_id, remis_par)
   VALUES ('EPI-' || to_char(p_remis_le, 'YYYY') || '-' || lpad(nextval('public.dotations_epi_numero_seq')::text, 5, '0'),
-          p_site, v_nom, coalesce(p_driver, o.driver_id), coalesce(p_employee, o.employee_id), p_type,
+          p_site, v_nom,
+          CASE WHEN p_driver IS NOT NULL OR p_employee IS NOT NULL THEN p_driver ELSE o.driver_id END,
+          CASE WHEN p_driver IS NOT NULL OR p_employee IS NOT NULL THEN p_employee ELSE o.employee_id END, p_type,
           nullif(btrim(coalesce(p_designation, '')), ''), nullif(btrim(coalesce(p_taille, '')), ''),
           p_quantite, p_remis_le, p_echeance, p_remplace, auth.uid())
   RETURNING id INTO v_id;
@@ -973,6 +1027,9 @@ BEGIN
     RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF p.statut <> 'brouillon' THEN RAISE EXCEPTION 'Plan deja signe ou clos' USING ERRCODE = '22023'; END IF;
+  IF p.redige_par IS NOT DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Le redacteur d''un plan ne le signe pas : signature par une autre personne habilitee' USING ERRCODE = '42501';
+  END IF;
   IF p.valide_au < current_date THEN RAISE EXCEPTION 'Periode de validite depassee' USING ERRCODE = '22023'; END IF;
   UPDATE public.plans_prevention SET statut = 'signe', signe_par = auth.uid(), signe_le = now(),
          signataire = (SELECT pr.full_name FROM public.profiles pr WHERE pr.id = auth.uid())
@@ -1047,8 +1104,11 @@ GRANT SELECT ON public.v_actions_correctives_en_retard, public.v_epi_a_renouvele
 -- 4. Mes validations : derniere definition sur main (20261121120000, D-065 :
 -- contrats, clauses, budgets), plus actions correctives d'inspection et
 -- plans de prevention a signer.
+-- Colonne objet_id ajoutee (identifiant de l'objet, renseigne pour les
+-- actions correctives et les plans) : le type de retour change.
+DROP FUNCTION IF EXISTS public.mes_validations();
 CREATE OR REPLACE FUNCTION public.mes_validations()
-RETURNS TABLE (categorie text, objet text, reference text, detail text, depuis timestamptz, ecran text)
+RETURNS TABLE (categorie text, objet text, reference text, detail text, depuis timestamptz, ecran text, objet_id uuid)
 LANGUAGE sql
 STABLE
 SET search_path = ''
@@ -1058,64 +1118,65 @@ AS $$
            (SELECT pr.role::text FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.status = 'active') AS role,
            public.is_admin() AS admin
   )
-  SELECT 'Achats', 'Bon de commande à approuver', po.po_number::text, coalesce(po.total_amount::text || ' GNF', ''), coalesce(po.soumis_le, po.created_at), 'purchases'
+  SELECT 'Achats', 'Bon de commande à approuver', po.po_number::text, coalesce(po.total_amount::text || ' GNF', ''), coalesce(po.soumis_le, po.created_at), 'purchases', po.id
     FROM public.purchase_orders po, moi
    WHERE po.status = 'submitted' AND (public.has_module_approve('purchases') OR moi.admin)
      AND moi.id IS DISTINCT FROM po.requested_by AND moi.id IS DISTINCT FROM po.soumis_par
   UNION ALL
   SELECT 'Achats', 'Bon de commande à réceptionner', po.po_number::text, CASE WHEN po.status = 'partially_received' THEN 'Reçu en partie' ELSE 'Approuvé' END,
-         coalesce(po.approved_at, po.updated_at), 'purchases'
+         coalesce(po.approved_at, po.updated_at), 'purchases', po.id
     FROM public.purchase_orders po, moi
    WHERE po.status IN ('approved', 'partially_received') AND (public.has_module_write('stock') OR moi.admin)
   UNION ALL
-  SELECT 'Paiements', 'Paiement à approuver', p.numero::text, p.beneficiaire || ' · ' || p.montant_propose::text || ' ' || p.devise, p.propose_le, 'paiements'
+  SELECT 'Paiements', 'Paiement à approuver', p.numero::text, p.beneficiaire || ' · ' || p.montant_propose::text || ' ' || p.devise, p.propose_le, 'paiements', p.id
     FROM public.paiements_fournisseur p, moi
    WHERE p.statut = 'propose' AND (public.has_module_approve('invoices') OR moi.admin) AND moi.id IS DISTINCT FROM p.propose_par
   UNION ALL
-  SELECT 'Paiements', 'Paiement approuvé : exécution à saisir', p.numero::text, p.beneficiaire || ' · ' || p.montant_propose::text || ' ' || p.devise, p.decide_le, 'paiements'
+  SELECT 'Paiements', 'Paiement approuvé : exécution à saisir', p.numero::text, p.beneficiaire || ' · ' || p.montant_propose::text || ' ' || p.devise, p.decide_le, 'paiements', p.id
     FROM public.paiements_fournisseur p, moi
    WHERE p.statut = 'approuve' AND (public.has_module_write('invoices') OR moi.admin)
   UNION ALL
   SELECT 'Paiements', 'Paiement à contrôler a posteriori', p.numero::text, p.beneficiaire || ' · ' || p.montant_execute::text || ' ' || p.devise,
-         p.execute_saisi_le, 'paiements'
+         p.execute_saisi_le, 'paiements', p.id
     FROM public.paiements_fournisseur p, moi
    WHERE p.statut = 'execute' AND p.controle_resultat IS NULL AND (public.has_module_approve('invoices') OR moi.admin)
      AND moi.id IS DISTINCT FROM p.propose_par AND moi.id IS DISTINCT FROM p.execute_par
   UNION ALL
-  SELECT 'Carburant', 'Mouvement de carburant à valider', m.numero::text, m.type::text || ' · ' || m.variation::text || ' L', m.saisi_le, 'fuel-stocks'
+  SELECT 'Carburant', 'Mouvement de carburant à valider', m.numero::text, m.type::text || ' · ' || m.variation::text || ' L', m.saisi_le, 'fuel-stocks', m.id
     FROM public.mouvements_carburant m, moi
    WHERE m.statut = 'a_valider' AND (public.has_module_write('fuel') OR moi.admin) AND moi.id IS DISTINCT FROM m.saisi_par
   UNION ALL
-  SELECT 'Carburant', 'Inventaire de cuve à valider', NULL::text, i.volume_mesure::text || ' L mesurés', i.cree_le, 'fuel-stocks'
+  SELECT 'Carburant', 'Inventaire de cuve à valider', NULL::text, i.volume_mesure::text || ' L mesurés', i.cree_le, 'fuel-stocks', i.id
     FROM public.inventaires_carburant i, moi
    WHERE i.statut = 'a_valider' AND (public.has_module_write('fuel') OR moi.admin) AND moi.id IS DISTINCT FROM i.cree_par
   UNION ALL
-  SELECT 'Exploitation', 'Clôture de poste à valider', to_char(p.date_poste, 'DD/MM/YYYY'), NULL::text, p.cloture_le, 'postes'
+  SELECT 'Exploitation', 'Clôture de poste à valider', to_char(p.date_poste, 'DD/MM/YYYY'), NULL::text, p.cloture_le, 'postes', p.id
     FROM public.postes p, moi
    WHERE p.statut = 'cloture' AND (public.has_module_write('planning') OR moi.admin) AND moi.id IS DISTINCT FROM p.cloture_par
   UNION ALL
-  SELECT 'Maintenance', 'Remise en service à valider', i.numero::text, i.description::text, i.fin_le, 'interventions-loueur'
+  SELECT 'Maintenance', 'Remise en service à valider', i.numero::text, i.description::text, i.fin_le, 'interventions-loueur', i.id
     FROM public.interventions_loueur i, moi
    WHERE i.statut = 'terminee' AND (public.has_module_write('maintenance') OR moi.admin) AND moi.id IS DISTINCT FROM i.fin_saisie_par
   UNION ALL
-  SELECT 'Tickets CBG', 'Écart de relevé à décider', r.reference::text, e.nature || coalesce(' · ' || e.detail, ''), r.importe_le, 'tickets-cbg'
+  SELECT 'Tickets CBG', 'Écart de relevé à décider', r.reference::text, e.nature || coalesce(' · ' || e.detail, ''), r.importe_le, 'tickets-cbg', e.id
     FROM public.ecarts_releve_cbg e JOIN public.releves_cbg r ON r.id = e.releve_id, moi
    WHERE e.decision IS NULL AND e.nature <> 'concordant' AND (public.has_module_write('trips') OR moi.admin)
   UNION ALL
-  SELECT 'Facturation', 'Facture à signer', f.numero::text, f.montant_ttc::text || ' ' || f.devise, f.soumise_le, 'invoices'
+  SELECT 'Facturation', 'Facture à signer', f.numero::text, f.montant_ttc::text || ' ' || f.devise, f.soumise_le, 'invoices', f.id
     FROM public.factures f, moi
    WHERE f.statut = 'a_signer' AND moi.role = 'director'
   UNION ALL
   SELECT 'HSE', 'Action corrective en retard', coalesce(i.numero, s.numero)::text, a.libelle || ' · ' || a.responsable, a.echeance::timestamptz,
-         CASE WHEN a.inspection_id IS NOT NULL THEN 'hse-prevention' ELSE 'incidents' END
+         CASE WHEN a.inspection_id IS NOT NULL THEN 'hse-prevention' ELSE 'incidents' END, a.id
     FROM public.actions_correctives a
     LEFT JOIN public.incidents i ON i.id = a.incident_id
     LEFT JOIN public.inspections s ON s.id = a.inspection_id, moi
    WHERE a.statut = 'ouverte' AND a.echeance < current_date AND (public.has_module_write('trips') OR moi.admin)
   UNION ALL
-  SELECT 'HSE', 'Plan de prévention à signer', p.numero || ' v' || p.version, p.intervenant || ' · ' || p.perimetre, p.redige_le, 'hse-prevention'
+  SELECT 'HSE', 'Plan de prévention à signer', p.numero || ' v' || p.version, p.intervenant || ' · ' || p.perimetre, p.redige_le, 'hse-prevention', p.id
     FROM public.plans_prevention p, moi
    WHERE p.statut = 'brouillon' AND p.valide_au >= current_date AND (public.has_module_approve('trips') OR moi.admin)
+     AND moi.id IS DISTINCT FROM p.redige_par
   UNION ALL
   SELECT 'Contrats',
          CASE WHEN e.echu THEN 'Contrat échu : renouvellement ou clôture à décider'
@@ -1124,19 +1185,19 @@ AS $$
          e.reference::text,
          e.contrepartie || ' · ' || CASE WHEN e.nature_echeance = 'limite_preavis' THEN 'préavis jusqu''au ' ELSE 'fin le ' END
            || to_char(e.date_cle, 'DD/MM/YYYY') || CASE WHEN e.denonce_le IS NOT NULL THEN ' · dénoncé' ELSE '' END,
-         e.date_alerte::timestamptz, 'contrats'
+         e.date_alerte::timestamptz, 'contrats', NULL::uuid
     FROM public.v_echeances_contrats e, moi
    WHERE e.a_signaler AND (public.has_module_write('contracts') OR moi.admin)
   UNION ALL
   SELECT 'Contrats', 'Clause contractuelle à décider', k.libelle,
          k.montant_propose_ht::text || ' ' || k.devise || ' HT · ' || to_char(k.periode_debut, 'MM/YYYY'),
-         k.calcule_le, 'engagements'
+         k.calcule_le, 'engagements', k.id
     FROM public.calculs_clauses k, moi
    WHERE k.statut = 'propose'
      AND ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR public.has_module_approve('contracts') OR moi.admin)
   UNION ALL
   SELECT 'Budgets', 'Budget dépassé', b.numero, b.nature || coalesce(' · ' || b.site, '') || ' · ' || b.consommation_pct::text || ' % consommé',
-         b.cree_le, 'budgets'
+         b.cree_le, 'budgets', NULL::uuid
     FROM public.v_suivi_budgets b, moi
    WHERE b.depassement AND (public.has_module_write('costs') OR moi.admin);
 $$;
@@ -1258,22 +1319,28 @@ DROP POLICY IF EXISTS lecture ON public.alertes_actualisation;
 CREATE POLICY lecture ON public.alertes_actualisation FOR SELECT TO authenticated USING (public.is_admin());
 
 -- Cree les alertes manquantes, signale les conditions levees ou revenues.
--- Renvoie le nombre d'alertes creees (0 si un calcul est en cours ou date
--- de moins de 30 s, sauf p_forcer).
+-- Sans effet si un calcul est en cours ou date de moins de 30 s, sauf
+-- p_forcer (administrateur).
+-- Ne renvoie rien (revue, constat 3) : le nombre d'alertes creees tous sites
+-- confondus apprendrait a un compte borne un evenement d'un autre site.
+DROP FUNCTION IF EXISTS public.actualiser_alertes(boolean);
 CREATE OR REPLACE FUNCTION public.actualiser_alertes(p_forcer boolean DEFAULT false)
-RETURNS integer
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE n integer; v_derniere timestamptz;
+DECLARE v_derniere timestamptz;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.status = 'active') THEN
     RAISE EXCEPTION 'Profil actif requis' USING ERRCODE = '42501';
   END IF;
-  IF NOT pg_try_advisory_xact_lock(hashtext('sigtb.actualiser_alertes')) THEN RETURN 0; END IF;
+  IF coalesce(p_forcer, false) AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Actualisation forcee reservee a l''administrateur' USING ERRCODE = '42501';
+  END IF;
+  IF NOT pg_try_advisory_xact_lock(hashtext('sigtb.actualiser_alertes')) THEN RETURN; END IF;
   SELECT a.derniere INTO v_derniere FROM public.alertes_actualisation a WHERE a.id;
-  IF NOT coalesce(p_forcer, false) AND v_derniere > clock_timestamp() - interval '30 seconds' THEN RETURN 0; END IF;
+  IF NOT coalesce(p_forcer, false) AND v_derniere > clock_timestamp() - interval '30 seconds' THEN RETURN; END IF;
   INSERT INTO public.alertes_actualisation (id, derniere) VALUES (true, clock_timestamp())
   ON CONFLICT (id) DO UPDATE SET derniere = EXCLUDED.derniere;
 
@@ -1283,18 +1350,17 @@ BEGIN
          c.site_id, c.module, c.ecran, c.survenu_le, 'active'
     FROM public.v_alertes_candidates c
   ON CONFLICT (regle, reference_type, reference_id) WHERE regle IS NOT NULL DO NOTHING;
-  GET DIAGNOSTICS n = ROW_COUNT;
 
+  -- Condition disparue, ou regle mise hors service (revue, constat 5) :
+  -- l'alerte reste jusqu'a sa resolution, marquee condition levee.
   UPDATE public.alerts a SET condition_levee_le = now()
    WHERE a.regle IS NOT NULL AND a.status <> 'resolved' AND a.condition_levee_le IS NULL
-     AND public.regle_alerte_en_service(a.regle)
      AND NOT EXISTS (SELECT 1 FROM public.v_alertes_candidates c
                       WHERE c.regle = a.regle AND c.reference_type = a.reference_type AND c.reference_id = a.reference_id);
   UPDATE public.alerts a SET condition_levee_le = NULL
    WHERE a.regle IS NOT NULL AND a.status <> 'resolved' AND a.condition_levee_le IS NOT NULL
      AND EXISTS (SELECT 1 FROM public.v_alertes_candidates c
                   WHERE c.regle = a.regle AND c.reference_type = a.reference_type AND c.reference_id = a.reference_id);
-  RETURN n;
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.actualiser_alertes(boolean) FROM PUBLIC, anon;
@@ -1312,7 +1378,7 @@ BEGIN
   -- Meme regle que la lecture (module de la regle et perimetre) avant toute
   -- description, message unique (D-075).
   IF NOT FOUND OR NOT ((public.is_admin() OR public.has_module_view(coalesce(a.module, 'dashboard')))
-                       AND CASE WHEN a.vehicle_id IS NOT NULL THEN public.vehicule_permis(a.vehicle_id) ELSE public.site_permis(a.site_id) END) THEN
+                       AND public.alerte_objet_permis(a.reference_type, a.reference_id, a.vehicle_id, a.site_id)) THEN
     RAISE EXCEPTION 'Alerte introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF NOT (public.is_admin() OR public.has_module_write(coalesce(a.module, 'dashboard'))) THEN
@@ -1381,8 +1447,12 @@ AS $$
     UNION ALL
     SELECT 'validation', 2, NULL, v.categorie, v.objet, v.reference, v.detail, v.depuis, v.ecran, NULL, NULL, NULL, NULL, NULL
       FROM public.mes_validations() v
+     -- Une action corrective en retard ne s'efface de la boite que si une
+     -- alerte non resolue et visible (RLS) la porte deja (revue, constat 2).
      WHERE NOT (v.objet = 'Action corrective en retard'
-                AND EXISTS (SELECT 1 FROM public.regles_alertes() r WHERE r.regle = 'action_corrective_retard' AND r.en_service))
+                AND EXISTS (SELECT 1 FROM public.alerts al
+                             WHERE al.regle = 'action_corrective_retard' AND al.reference_type = 'action_corrective'
+                               AND al.reference_id = v.objet_id AND al.status <> 'resolved'))
   ) x
   ORDER BY x.priorite, x.depuis NULLS LAST;
 $$;

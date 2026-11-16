@@ -21,7 +21,13 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(73);
+SELECT plan(104);
+
+CREATE FUNCTION pg_temp.actualiser() RETURNS void
+LANGUAGE sql SECURITY DEFINER AS $$
+  DELETE FROM public.alertes_actualisation;
+  SELECT public.actualiser_alertes(false);
+$$;
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-a680-000000000001', 'admin.d068@exemple.invalid'),
@@ -41,7 +47,8 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status, site_id, transporteur) VALUES
   ('00000000-0000-4000-a680-0000000000b1', 'TEST-D068-1', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a680-0000000000a1', 'Transports Kaloum'),
-  ('00000000-0000-4000-a680-0000000000b2', 'TEST-D068-2', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a680-0000000000a1', NULL);
+  ('00000000-0000-4000-a680-0000000000b2', 'TEST-D068-2', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a680-0000000000a1', NULL),
+  ('00000000-0000-4000-a680-0000000000b3', 'TEST-D068-3', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a680-0000000000a2', NULL);
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-a680-0000000000c1', 'Chauffeur Mine D-068', 'D068-1', 'C', '2030-01-01', '2020-01-01', 'active', '00000000-0000-4000-a680-0000000000a1');
 DELETE FROM public.settings WHERE key LIKE 'alerte\_%';
@@ -54,6 +61,33 @@ INSERT INTO public.immobilisations (id, vehicle_id, debut, cause, imputation, de
 INSERT INTO public.trips (id, reference, planned_date, vehicle_id, departure_site_id, etat, net_weight) VALUES
   ('00000000-0000-4000-a680-000000000101', 'TD068-1', '2001-04-10', '00000000-0000-4000-a680-0000000000b1', '00000000-0000-4000-a680-0000000000a1', 'DELIVERED', 30),
   ('00000000-0000-4000-a680-000000000102', 'TD068-2', '2001-04-11', '00000000-0000-4000-a680-0000000000b2', '00000000-0000-4000-a680-0000000000a1', 'DELIVERED', 20);
+-- Revue D-068 : une donnee par regle. Voyage du site A avec le camion du site B
+-- livre sans ticket ; incident sur ce voyage et action corrective en retard.
+INSERT INTO public.trips (id, reference, planned_date, vehicle_id, departure_site_id, etat, net_weight) VALUES
+  ('00000000-0000-4000-a680-000000000103', 'TD068-3', current_date, '00000000-0000-4000-a680-0000000000b3', '00000000-0000-4000-a680-0000000000a1', 'DELIVERED', 25);
+INSERT INTO public.trip_events (trip_id, etat_avant, etat_apres, survenu_le) VALUES
+  ('00000000-0000-4000-a680-000000000103', 'IN_TRANSIT', 'DELIVERED', now() - interval '5 hours');
+INSERT INTO public.incidents (id, numero, incident_time, description, severity, type, trip_id, vehicle_id) VALUES
+  ('00000000-0000-4000-a680-0000000000f1', 'INC-TEST-D068', now() - interval '3 days', 'Incident D-068', 'minor', 'materiel',
+   '00000000-0000-4000-a680-000000000103', '00000000-0000-4000-a680-0000000000b3');
+INSERT INTO public.actions_correctives (id, incident_id, libelle, responsable, echeance) VALUES
+  ('00000000-0000-4000-a680-0000000000f2', '00000000-0000-4000-a680-0000000000f1', 'Reparer le hayon', 'Atelier', current_date - 2);
+INSERT INTO public.interventions_loueur (id, numero, immobilisation_id, vehicle_id, statut, demande_le, canal, description, delai_contractuel_heures) VALUES
+  ('00000000-0000-4000-a680-0000000000f3', 'INT-TEST-D068', '00000000-0000-4000-a680-0000000000d1', '00000000-0000-4000-a680-0000000000b1',
+   'demandee', now() - interval '48 hours', 'telephone', 'Boite de vitesses', 24);
+INSERT INTO public.stockages_carburant (id, code, libelle, type, site_id, capacite_litres) VALUES
+  ('00000000-0000-4000-a680-0000000000f4', 'CUVE-D068', 'Cuve D-068', 'cuve_fixe', '00000000-0000-4000-a680-0000000000a1', 10000);
+INSERT INTO public.inventaires_carburant (id, stockage_id, date_mesure, volume_mesure, methode_mesure, solde_theorique, ecart, statut) VALUES
+  ('00000000-0000-4000-a680-0000000000f5', '00000000-0000-4000-a680-0000000000f4', now() - interval '1 hour', 900, 'jauge', 1000, -100, 'valide');
+INSERT INTO public.vehicle_documents (id, vehicle_id, document_type, document_name, expiry_date) VALUES
+  ('00000000-0000-4000-a680-0000000000f6', '00000000-0000-4000-a680-0000000000b1', 'insurance', 'Assurance D-068', current_date - 3);
+INSERT INTO public.habilitations_chauffeur (id, driver_id, type, libelle, delivre_le, expire_le) VALUES
+  ('00000000-0000-4000-a680-0000000000f7', '00000000-0000-4000-a680-0000000000c1', 'visite_medicale', 'Visite D-068', current_date - 400, current_date - 1);
+INSERT INTO public.settings (key, value, category) VALUES
+  ('alerte_voyage_sans_ticket_h', '{"value": "2"}', 'alertes'), ('alerte_ecart_carburant_l', '{"value": "50"}', 'alertes');
+CREATE TEMP TABLE dernier_calcul(t timestamptz);
+GRANT ALL ON dernier_calcul TO authenticated;
+
 -- D-072 R3-2 : immobilisation annulee de l'engin 2 dans la periode filtree
 INSERT INTO public.immobilisations (vehicle_id, debut, fin, cause, imputation, description, statut) VALUES
   ('00000000-0000-4000-a680-0000000000b2', '2001-04-05 06:00+00', '2001-04-06 06:00+00', 'panne', 'loueur', 'Saisie erronee D-068', 'annulee');
@@ -114,19 +148,44 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT en_service FROM public.regles_alertes() WHERE regle = 'immobilisation_longue'), false, 'regle a seuil sans reglage : hors service');
 SELECT is((SELECT en_service FROM public.regles_alertes() WHERE regle = 'controle_non_conforme'), true, 'regle sans seuil : en service si absente');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE reference_id = '00000000-0000-4000-a680-0000000000d1'), 0,
   'sans seuil saisi, aucune alerte d''immobilisation longue');
 SELECT throws_ok($$INSERT INTO public.settings (key, value, category) VALUES ('alerte_immobilisation_longue_h', '{"value": "-3"}', 'alertes')$$,
   '22023', NULL, 'seuil invalide refuse par valider_reglage');
+SELECT throws_ok($$INSERT INTO public.settings (key, value, category) VALUES ('alerte_immobilisation_longue_h', '{"value": "0"}', 'alertes')$$,
+  '22023', NULL, 'seuil nul refuse : un seuil d''alerte est strictement positif');
 INSERT INTO public.settings (key, value, category) VALUES ('alerte_immobilisation_longue_h', '{"value": "48"}', 'alertes');
-SELECT ok(public.actualiser_alertes(true) >= 1, 'seuil saisi : alerte creee');
+SELECT lives_ok($$SELECT public.actualiser_alertes(true)$$, 'administrateur : actualisation forcee');
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'immobilisation_longue' AND reference_id = '00000000-0000-4000-a680-0000000000d1'), 1,
   'une alerte pour l''immobilisation');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'immobilisation_longue' AND reference_id = '00000000-0000-4000-a680-0000000000d1'), 1,
   'pas de doublon a l''actualisation suivante');
-SELECT is(public.actualiser_alertes(false), 0, 'actualisation rapprochee ignoree (intervalle technique)');
+INSERT INTO dernier_calcul SELECT derniere FROM public.alertes_actualisation;
+SELECT public.actualiser_alertes(false);
+SELECT is((SELECT derniere FROM public.alertes_actualisation), (SELECT t FROM dernier_calcul), 'actualisation rapprochee ignoree (intervalle technique)');
+SELECT is(pg_get_function_result('public.actualiser_alertes(boolean)'::regprocedure), 'void',
+  'constat 3 : actualiser_alertes ne renvoie rien (aucun nombre d''alertes tous sites)');
+-- Une alerte par regle
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'intervention_retard' AND reference_id = '00000000-0000-4000-a680-0000000000f3'), 1,
+  'regle intervention Neemba en retard (delai contractuel saisi)');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'ecart_carburant' AND reference_id = '00000000-0000-4000-a680-0000000000f5'), 1,
+  'regle ecart d''inventaire carburant au-dela du seuil');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'document_expire' AND reference_type = 'vehicle_document' AND reference_id = '00000000-0000-4000-a680-0000000000f6'), 1,
+  'regle document d''engin expire');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'document_expire' AND reference_type = 'habilitation_chauffeur' AND reference_id = '00000000-0000-4000-a680-0000000000f7'), 1,
+  'regle habilitation de chauffeur expiree');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'voyage_sans_ticket' AND reference_id = '00000000-0000-4000-a680-000000000103'), 1,
+  'regle voyage livre sans ticket CBG au-dela du seuil');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'action_corrective_retard' AND reference_id = '00000000-0000-4000-a680-0000000000f2'), 1,
+  'regle action corrective en retard');
+-- Constat 5 : une regle mise hors service leve la condition de ses alertes
+INSERT INTO public.settings (key, value, category) VALUES ('alerte_document_expire_active', '{"value": "false"}', 'alertes');
+SELECT pg_temp.actualiser();
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'document_expire' AND condition_levee_le IS NOT NULL AND status = 'active'), 2,
+  'constat 5 : regle hors service, alertes ouvertes marquees condition levee');
+UPDATE public.settings SET value = '{"value": "true"}' WHERE key = 'alerte_document_expire_active';
 SELECT is((SELECT module || ' ' || ecran || ' ' || severity FROM public.alerts WHERE reference_id = '00000000-0000-4000-a680-0000000000d1'),
   'maintenance immobilisations warning', 'alerte rattachee au module, a l''ecran et a la gravite de la regle');
 RESET ROLE;
@@ -141,6 +200,10 @@ SELECT throws_ok($$SELECT public.resoudre_alerte((SELECT id FROM public.alerts W
 RESET ROLE;
 CREATE TEMP TABLE al_autre AS SELECT id FROM public.alerts WHERE reference_id = '00000000-0000-4000-a680-0000000000d1';
 GRANT SELECT ON al_autre TO authenticated;
+CREATE TEMP TABLE al_voyage AS SELECT id FROM public.alerts WHERE regle = 'voyage_sans_ticket' AND reference_id = '00000000-0000-4000-a680-000000000103';
+GRANT SELECT ON al_voyage TO authenticated;
+CREATE TEMP TABLE al_action AS SELECT id FROM public.alerts WHERE regle = 'action_corrective_retard' AND reference_id = '00000000-0000-4000-a680-0000000000f2';
+GRANT SELECT ON al_action TO authenticated;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000005');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE reference_id = '00000000-0000-4000-a680-0000000000d1'), 0,
@@ -149,6 +212,14 @@ SELECT throws_ok($$SELECT public.prendre_en_compte_alerte((SELECT id FROM al_aut
   'alerte hors perimetre : refusee avant toute description');
 SELECT throws_ok($$SELECT public.prendre_en_compte_alerte(gen_random_uuid())$$, '42501', 'Alerte introuvable ou hors de votre perimetre',
   'alerte inexistante : meme message (D-075)');
+SELECT is((SELECT count(*)::integer FROM public.vehicles WHERE id = '00000000-0000-4000-a680-0000000000b3'), 1, 'site B : son camion est visible');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'voyage_sans_ticket' AND reference_id = '00000000-0000-4000-a680-000000000103'), 0,
+  'constat 1 : alerte d''un voyage du site A invisible malgre le camion du site B');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'action_corrective_retard' AND reference_id = '00000000-0000-4000-a680-0000000000f2'), 0,
+  'constat 1 : alerte d''action corrective d''un incident du site A invisible malgre le camion du site B');
+SELECT throws_ok($$SELECT public.prendre_en_compte_alerte((SELECT id FROM al_voyage))$$, '42501', 'Alerte introuvable ou hors de votre perimetre',
+  'constat 1 : alerte du voyage non traitable par le site B');
+SELECT throws_ok($$SELECT public.actualiser_alertes(true)$$, '42501', NULL, 'constat 3 : actualisation forcee reservee a l''administrateur');
 SELECT is((SELECT count(*)::integer FROM public.alertes_actualisation), 0, 'heure d''actualisation illisible hors administration');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
@@ -161,10 +232,21 @@ SELECT lives_ok($$SELECT public.prendre_en_compte_alerte((SELECT id FROM al))$$,
 SELECT lives_ok($$SELECT public.resoudre_alerte((SELECT id FROM al), 'Piece commandee, suivi Neemba')$$, 'alerte resolue avec motif');
 SELECT is((SELECT status || ' ' || (resolue_par = '00000000-0000-4000-a680-000000000002')::text FROM public.alerts WHERE id = (SELECT id FROM al)),
   'resolved true', 'resolution tracee (auteur)');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'immobilisation_longue' AND reference_id = '00000000-0000-4000-a680-0000000000d1'), 1,
   'alerte resolue : pas recreee pour le meme objet');
 SELECT is((SELECT count(*)::integer FROM public.centre_decisions() WHERE alerte_id = (SELECT id FROM al)), 0, 'alerte resolue absente du centre');
+SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'voyage_sans_ticket' AND reference_id = '00000000-0000-4000-a680-000000000103'), 1,
+  'compte global : alerte du voyage visible');
+SELECT is((SELECT count(*)::integer FROM public.centre_decisions() WHERE nature = 'validation' AND objet = 'Action corrective en retard'
+            AND reference = (SELECT numero FROM public.incidents WHERE id = '00000000-0000-4000-a680-0000000000f1')), 0,
+  'alerte ouverte de l''action : la decision n''est pas comptee deux fois');
+SELECT lives_ok($$SELECT public.resoudre_alerte((SELECT id FROM al_action), 'Suivi en comite HSE')$$, 'alerte de l''action resolue');
+SELECT is((SELECT count(*)::integer FROM public.mes_validations() WHERE objet_id = '00000000-0000-4000-a680-0000000000f2'), 1,
+  'mes_validations expose l''identifiant de l''action');
+SELECT is((SELECT count(*)::integer FROM public.centre_decisions() WHERE nature = 'validation' AND objet = 'Action corrective en retard'
+            AND reference = (SELECT numero FROM public.incidents WHERE id = '00000000-0000-4000-a680-0000000000f1')), 1,
+  'constat 2 : alerte resolue, l''action encore ouverte revient dans le centre');
 RESET ROLE;
 
 -- 3. Controle avant depart non conforme, condition levee, regle desactivee
@@ -175,7 +257,7 @@ INSERT INTO public.points_controle_depart (id, libelle, categorie, bloquant, ord
   ('00000000-0000-4000-a680-0000000000e1', 'Freins D-068', 'freinage', true, 1);
 SELECT public.enregistrer_controle_depart('00000000-0000-4000-a680-0000000000b2',
   '[{"point": "00000000-0000-4000-a680-0000000000e1", "resultat": "non_conforme", "observation": "Fuite"}]'::jsonb, p_date => now() - interval '2 hours');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 CREATE TEMP TABLE ac AS SELECT id FROM public.alerts WHERE regle = 'controle_non_conforme' AND vehicle_id = '00000000-0000-4000-a680-0000000000b2';
 GRANT SELECT ON ac TO authenticated;
 SELECT is((SELECT count(*)::integer FROM ac), 1, 'controle non conforme : alerte critique creee');
@@ -183,13 +265,13 @@ SELECT is((SELECT priorite FROM public.centre_decisions() WHERE alerte_id = (SEL
 SELECT ok((SELECT message FROM public.alerts WHERE id = (SELECT id FROM ac)) LIKE '%Freins D-068 : Fuite%', 'message issu des points releves');
 SELECT public.enregistrer_controle_depart('00000000-0000-4000-a680-0000000000b2',
   '[{"point": "00000000-0000-4000-a680-0000000000e1", "resultat": "conforme"}]'::jsonb, p_date => now() - interval '1 hour');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT ok((SELECT condition_levee_le IS NOT NULL AND status = 'active' FROM public.alerts WHERE id = (SELECT id FROM ac)),
   'nouveau controle conforme : condition levee, alerte maintenue jusqu''a resolution');
 INSERT INTO public.settings (key, value, category) VALUES ('alerte_controle_non_conforme_active', '{"value": "false"}', 'alertes');
 SELECT public.enregistrer_controle_depart('00000000-0000-4000-a680-0000000000b1',
   '[{"point": "00000000-0000-4000-a680-0000000000e1", "resultat": "non_conforme", "observation": "Fuite"}]'::jsonb, p_date => now() - interval '30 minutes');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'controle_non_conforme' AND vehicle_id = '00000000-0000-4000-a680-0000000000b1'), 0,
   'regle desactivee par reglage : aucune alerte');
 
@@ -231,10 +313,23 @@ SELECT throws_ok($$SELECT public.remettre_epi('00000000-0000-4000-a680-000000000
 CREATE TEMP TABLE e1 AS SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', 'Ibrahima Sow', 'casque', 1, current_date - 400, current_date - 35) AS id;
 GRANT SELECT ON e1 TO authenticated;
 SELECT matches((SELECT numero FROM public.dotations_epi WHERE id = (SELECT id FROM e1)), '^EPI-[0-9]{4}-[0-9]{5}$', 'dotation numerotee par le serveur');
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts WHERE regle = 'epi_echu' AND reference_id = (SELECT id FROM e1)), 1, 'echeance atteinte : alerte EPI');
 CREATE TEMP TABLE e2 AS SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', '', 'casque', 1, current_date, NULL, p_remplace => (SELECT id FROM e1)) AS id;
 SELECT is((SELECT statut FROM public.dotations_epi WHERE id = (SELECT id FROM e1)), 'remplace', 'renouvellement : ancienne dotation remplacee');
+SELECT is((SELECT beneficiaire FROM public.dotations_epi WHERE remplace_dotation_id = (SELECT id FROM e1)), 'Ibrahima Sow',
+  'renouvellement sans personne designee : beneficiaire repris');
+CREATE TEMP TABLE e3 AS SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', '', 'gilet', 1, current_date - 30, NULL,
+  p_driver => '00000000-0000-4000-a680-0000000000c1') AS id;
+CREATE TEMP TABLE e4 AS SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', 'Mamadou Bah', 'gilet', 1, current_date - 10, NULL,
+  p_driver => '00000000-0000-4000-a680-0000000000c1', p_remplace => (SELECT id FROM e3)) AS id;
+SELECT is((SELECT beneficiaire FROM public.dotations_epi WHERE id = (SELECT id FROM e4)), 'Mamadou Bah',
+  'constat 7 : renouvellement, beneficiaire mis a jour par la saisie');
+SELECT lives_ok($$SELECT public.restituer_epi((SELECT id FROM e4), current_date, 'use', 'Fin de chantier')$$, 'restitution d''un EPI');
+SELECT throws_ok($$SELECT public.restituer_epi((SELECT id FROM e4), current_date, 'bon')$$, '22023', NULL, 'dotation restituee : close');
+CREATE TEMP TABLE e5 AS SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', 'Saisie erronee', 'gants', 2, current_date) AS id;
+SELECT throws_ok($$SELECT public.annuler_dotation_epi((SELECT id FROM e5), '  ')$$, '22023', NULL, 'annulation sans motif refusee');
+SELECT lives_ok($$SELECT public.annuler_dotation_epi((SELECT id FROM e5), 'Doublon de saisie')$$, 'annulation motivee d''une dotation');
 RESET ROLE;
 GRANT SELECT ON e2 TO authenticated;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000005');
@@ -281,6 +376,15 @@ SELECT throws_ok($$SELECT public.enregistrer_plan_prevention((SELECT id FROM p1)
   '22023', NULL, 'plan signe non modifiable');
 CREATE TEMP TABLE p2 AS SELECT public.enregistrer_plan_prevention(NULL, NULL, 'Neemba Guinee', 'Atelier et aire de lavage', 'Levage, glissade',
   'Consignation, balisage, tapis', current_date, current_date + 60, p_remplace => (SELECT id FROM p1)) AS id;
+SELECT throws_ok($$SELECT public.enregistrer_plan_prevention(NULL, NULL, 'Neemba', 'Atelier', 'Levage', 'Balisage', current_date, current_date + 10,
+  p_remplace => (SELECT id FROM p1))$$, '22023', 'Une nouvelle version existe deja', 'une seule nouvelle version d''un plan');
+SELECT is((SELECT count(*)::integer FROM public.mes_validations() WHERE objet_id = (SELECT id FROM p2)), 0,
+  'constat 7 : plan non propose a la signature de son redacteur');
+SELECT throws_ok($$SELECT public.signer_plan_prevention((SELECT id FROM p2))$$, '42501', NULL, 'constat 7 : le redacteur ne signe pas son plan');
+RESET ROLE;
+GRANT SELECT ON p2 TO authenticated;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000001');
+SET LOCAL ROLE authenticated;
 SELECT public.signer_plan_prevention((SELECT id FROM p2));
 SELECT is((SELECT string_agg(version || ':' || etat, ',' ORDER BY version) FROM public.v_plans_prevention WHERE numero = (SELECT numero FROM public.plans_prevention WHERE id = (SELECT id FROM p1))),
   '1:remplace,2:en_vigueur', 'nouvelle version signee : la precedente est remplacee');
@@ -291,10 +395,12 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
 SET LOCAL ROLE authenticated;
 CREATE TEMP TABLE pr AS SELECT public.definir_programme_inspection('00000000-0000-4000-a680-0000000000a1', 'Inspection des pistes', 30, 'Responsable HSE', current_date - 5) AS id;
 GRANT SELECT ON pr TO authenticated;
-SELECT public.actualiser_alertes(true);
+SELECT pg_temp.actualiser();
 SELECT is((SELECT count(*)::integer FROM public.alerts a JOIN public.inspections i ON i.id = a.reference_id
             WHERE a.regle = 'inspection_retard' AND i.programme_id = (SELECT id FROM pr)), 1, 'inspection non realisee a la date prevue : alerte');
-SELECT public.realiser_inspection((SELECT id FROM public.inspections WHERE programme_id = (SELECT id FROM pr) AND statut = 'planifiee'), now() - interval '1 hour',
+SELECT throws_ok($$SELECT public.realiser_inspection((SELECT id FROM public.inspections WHERE programme_id = (SELECT id FROM pr) AND statut = 'planifiee'),
+  now() - interval '10 days', 'Trop tot')$$, '22023', NULL, 'constat 7 : realisation anterieure a la planification refusee');
+SELECT public.realiser_inspection((SELECT id FROM public.inspections WHERE programme_id = (SELECT id FROM pr) AND statut = 'planifiee'), now(),
   'Pistes praticables, un nid de poule', '[{"description": "Nid de poule au PK 3", "gravite": "majeur", "localisation": "PK 3"}]'::jsonb);
 SELECT is((SELECT prevue_le - (current_date - 5) FROM public.inspections WHERE programme_id = (SELECT id FROM pr) AND statut = 'planifiee'), 30,
   'occurrence suivante planifiee a la frequence saisie');
@@ -315,6 +421,10 @@ RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
 SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.solder_action_corrective((SELECT id FROM ai), true, 'Rebouchage fait, photo PH-12')$$, 'action d''inspection soldee avec preuve');
+SELECT throws_ok($$SELECT public.arreter_programme_inspection((SELECT id FROM pr), ' ')$$, '22023', NULL, 'arret de programme sans motif refuse');
+SELECT public.arreter_programme_inspection((SELECT id FROM pr), 'Fin du chantier');
+SELECT is((SELECT count(*)::integer FROM public.inspections WHERE programme_id = (SELECT id FROM pr) AND statut = 'planifiee'), 0,
+  'programme arrete : occurrence planifiee annulee, aucune suivante');
 RESET ROLE;
 -- Garde append-only (declencheur, session ouverte, hors SET ROLE) et droit retire par has_table_privilege
 SELECT throws_ok($$UPDATE public.constats_inspection SET gravite = 'mineur'$$, '42501', NULL, 'constats non modifiables (garde append-only)');

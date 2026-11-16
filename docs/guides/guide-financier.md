@@ -311,12 +311,15 @@ priorité : 1 alerte critique, 2 décision en attente, 3 avertissement,
   document ou habilitation expiré, action corrective en retard, voyage livré
   sans ticket CBG, EPI à renouveler, inspection en retard. Une alerte par
   règle et par objet.
-- Une alerte se voit avec le droit de lecture du module de sa règle, dans
-  votre périmètre ; elle se prend en compte ou se résout (motif
+- Une alerte se voit avec le droit de lecture du module de sa règle, si
+  vous voyez son objet (le voyage, l'incident ou l'inspection d'une action
+  corrective, sinon l'engin ou le site) ; elle se prend en compte ou se résout (motif
   obligatoire) avec le droit d'écriture de ce module. Quand la condition
   disparaît, l'alerte reste affichée, marquée « condition levée », jusqu'à
   sa résolution par une personne ; une alerte résolue ne renaît pas pour le
-  même objet.
+  même objet. Une règle mise hors service lève la condition de ses alertes.
+  Une action corrective en retard reste dans les décisions dès que son
+  alerte est résolue ou invisible pour vous.
 - Règles et seuils : réglages de l'administrateur (voir le guide
   administrateur, section 8). Une règle à seuil (immobilisation, carburant,
   ticket) ne produit rien tant que le seuil n'est pas saisi ; les six
