@@ -106,6 +106,14 @@ annulé.
 | Annuler le bon | `annuler_bon_commande` | Droit d'écriture `purchases` | Motif requis ; avant toute réception. |
 | Solder le bon | `solder_bon_commande` | Droit d'écriture `purchases` | Seul un bon reçu en partie se solde ; motif requis (reliquat non livré). |
 
+Bon issu d'une consultation de fournisseurs (D-059, D-072) : le
+fournisseur est celui de l'offre retenue et ne change pas. À la
+soumission, le montant des lignes doit égaler le montant de l'offre
+retenue, et le bon ne porte aucune taxe séparée : le prix d'une offre est
+saisi toutes taxes comprises (l'offre n'a pas de champ taxes). Sinon la
+soumission est refusée ; corriger le brouillon suffit. L'approbateur ne
+peut pas être une personne ayant créé, modifié ou soumis le bon.
+
 Les bons soumis à approuver et les bons approuvés à réceptionner
 apparaissent dans **Mes validations** ; le demandeur reçoit une
 notification quand son bon est approuvé ou rejeté.
@@ -120,5 +128,6 @@ dépôt.
   branchées au registre (D-041).
 - Stocks magasin : pas de séparation saisie / validation des mouvements ;
   valorisation au prix unitaire saisi, pas de coût moyen pondéré (D-044).
-- Achats : pas de consultation de fournisseurs, de contrôle budgétaire, de
-  factures fournisseurs ni d'avoirs d'achat (D-053).
+- Achats : pas de contrôle budgétaire ni d'avoirs d'achat (D-053) ; la
+  consultation de fournisseurs existe depuis D-059. Taxes des offres :
+  saisie toutes taxes comprises, à confirmer par le propriétaire (D-072).

@@ -12,8 +12,11 @@
 # apres restauration, 65 en production).
 #
 # Methode : les droits par defaut du schema public sont neutralises avant la
-# restauration, puis retablis a l'identique ensuite. Les droits restaures sont
-# alors exactement ceux du dump (empreinte identique a la production).
+# restauration. Le dump contient ses propres droits par defaut du schema
+# public ; pg_restore les applique en fin de restauration. Les droits des
+# objets et les droits par defaut sont alors exactement ceux du dump. En cas
+# d'echec (transaction annulee), les droits par defaut releves avant la
+# restauration sont reappliques.
 #
 # Usage :
 #   restaurer.sh <conteneur> <fichier.dump>
@@ -37,17 +40,42 @@ DEFAUTS="select md5(string_agg(pg_get_userbyid(defaclrole)::text || defaclobjtyp
 avant=$($PSQL -tA -c "$DEFAUTS")
 echo "droits par defaut du schema public avant : $avant"
 
-# 1. Neutralisation des droits par defaut du schema public
-$PSQL <<'SQL' || { echo "ECHEC neutralisation"; exit 1; }
+# Les droits par defaut valables pour tous les schemas (defaclnamespace = 0)
+# ne sont pas traites par ce script : leur presence l'arrete.
+globaux=$($PSQL -tA -c "select count(*) from pg_default_acl where defaclnamespace = 0 and pg_get_userbyid(defaclrole) in ('postgres', 'supabase_admin')")
+[ "$globaux" = 0 ] || { echo "ECHEC : $globaux droit(s) par defaut global(aux) pour postgres ou supabase_admin, non pris en charge"; exit 1; }
+
+# Releve des droits par defaut actuels, sous forme d'instructions rejouables
+RETOUR=$($PSQL -tA -c "select string_agg(format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT %s ON %s TO %s%s;',
+    pg_get_userbyid(d.defaclrole), a.privilege_type,
+    CASE d.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' WHEN 'f' THEN 'FUNCTIONS' WHEN 'T' THEN 'TYPES' END,
+    CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END,
+    CASE WHEN a.is_grantable THEN ' WITH GRANT OPTION' ELSE '' END), E'
+')
+  from pg_default_acl d, aclexplode(d.defaclacl) a
+ where d.defaclnamespace = 'public'::regnamespace and d.defaclobjtype in ('r', 'S', 'f', 'T')") || { echo "ECHEC releve des droits par defaut"; exit 1; }
+
+# Le releve est ecrit sur disque avant la neutralisation : en cas
+# d'interruption, il se rejoue a la main (psql -1 -f <fichier>).
+FICHIER_RETOUR=/root/sigtb-droits-par-defaut-$(date -u +%Y%m%dT%H%M%SZ).sql
+printf '%s\n' "$RETOUR" > "$FICHIER_RETOUR" || { echo "ECHEC ecriture de $FICHIER_RETOUR"; exit 1; }
+echo "droits par defaut releves dans $FICHIER_RETOUR"
+
+# 1. Neutralisation des droits par defaut du schema public (tous les
+#    beneficiaires autres que le role proprietaire)
+$PSQL <<'SQL' || { echo "ECHEC neutralisation : rejouer $FICHIER_RETOUR"; exit 1; }
 -- schema absent d'une image vierge ; pg_restore -n ne le cree pas
 CREATE SCHEMA IF NOT EXISTS supabase_migrations;
 DO $$
-DECLARE r text;
+DECLARE x record;
 BEGIN
-  FOREACH r IN ARRAY ARRAY['postgres', 'supabase_admin'] LOOP
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated, service_role', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated, service_role', r);
+  FOR x IN SELECT DISTINCT pg_get_userbyid(d.defaclrole) AS proprietaire,
+                  CASE d.defaclobjtype WHEN 'r' THEN 'TABLES' WHEN 'S' THEN 'SEQUENCES' WHEN 'f' THEN 'FUNCTIONS' WHEN 'T' THEN 'TYPES' END AS type,
+                  CASE WHEN a.grantee = 0 THEN 'PUBLIC' ELSE quote_ident(pg_get_userbyid(a.grantee)) END AS beneficiaire
+             FROM pg_default_acl d, aclexplode(d.defaclacl) a
+            WHERE d.defaclnamespace = 'public'::regnamespace AND d.defaclobjtype IN ('r', 'S', 'f', 'T')
+              AND a.grantee <> d.defaclrole LOOP
+    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public REVOKE ALL ON %s FROM %s', x.proprietaire, x.type, x.beneficiaire);
   END LOOP;
 END $$;
 SQL
@@ -62,21 +90,18 @@ echo "pg_restore : code $code, $(grep -c 'error:' /tmp/sigtb-restauration.log) e
 grep 'error:' /tmp/sigtb-restauration.log | sort | uniq -c | sort -rn | head -5 | sed 's/^/    /'
 rm -f /tmp/sigtb-restauration.log
 
-# 3. Retablissement des droits par defaut, dans tous les cas (succes ou echec)
-$PSQL <<'SQL' || { echo "ECHEC retablissement des droits par defaut : a refaire a la main"; exit 1; }
-DO $$
-DECLARE r text;
-BEGIN
-  FOREACH r IN ARRAY ARRAY['postgres', 'supabase_admin'] LOOP
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres, anon, authenticated, service_role', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT ALL ON TABLES TO postgres, anon, authenticated, service_role', r);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres, anon, authenticated, service_role', r);
-  END LOOP;
-END $$;
-NOTIFY pgrst, 'reload schema';
-SQL
+# 3. En cas d'echec, retour aux droits par defaut releves avant ; en cas de
+#    succes, ceux du dump sont deja en place.
+if [ "$code" -ne 0 ]; then
+  $PSQL -1 < "$FICHIER_RETOUR" || { echo "ECHEC retour des droits par defaut : rejouer $FICHIER_RETOUR (psql -1)"; exit 1; }
+fi
+$PSQL -c "NOTIFY pgrst, 'reload schema'"
 apres=$($PSQL -tA -c "$DEFAUTS")
 echo "droits par defaut du schema public apres : $apres"
-[ "$avant" = "$apres" ] || echo "ECART : droits par defaut differents de l'etat initial"
-[ "$code" -eq 0 ] || { echo "ECHEC restauration (aucune modification, transaction annulee)"; exit "$code"; }
+if [ "$code" -ne 0 ]; then
+  [ "$avant" = "$apres" ] || echo "ECART : droits par defaut differents de l'etat initial"
+  echo "ECHEC restauration (aucune modification, transaction annulee)"; exit "$code"
+fi
+rm -f "$FICHIER_RETOUR"
+[ -n "$apres" ] || { echo "RESTAURATION TERMINEE (validee, ne pas relancer) mais ECART : aucun droit par defaut dans le schema public ; rejouer les droits attendus avant toute migration"; exit 2; }
 echo "RESTAURATION TERMINEE"
