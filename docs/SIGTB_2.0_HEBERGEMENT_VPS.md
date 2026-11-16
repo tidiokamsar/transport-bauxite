@@ -185,8 +185,9 @@ Commandes, en root sur le serveur, depuis `/opt/sigtb/depot/courant` :
 | Commande | Effet |
 |---|---|
 | `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refuse s'il est deja present) et active le bandeau |
-| `bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge : les dates suivent le jour courant |
-| `bash deploy/vps/demo/demo.sh purger` | Supprime tout le jeu et retire le bandeau |
+| `bash deploy/vps/demo/demo.sh apercu` | Liste ce qu'une purge supprimerait, sans rien modifier (D-074) |
+| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge : les dates suivent le jour courant |
+| `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et les <n> lignes rattachees listees par l'apercu ; refusee en cas de blocage (D-074) |
 | `bash deploy/vps/demo/demo.sh etat` | Nombre de lignes de demonstration par table |
 
 Contenu : 4 sites, 2 shifts (06:00-18:00, 18:00-06:00), 24 semi-remorques
