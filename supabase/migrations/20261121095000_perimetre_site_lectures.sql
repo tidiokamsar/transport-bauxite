@@ -20,8 +20,15 @@
   immobilisations et positions des autres sites.
 
   Correction : chaque politique de lecture garde son droit de module et
-  ajoute le perimetre (`site_permis`, `vehicule_permis`, `voyage_permis`) ;
-  un profil sans site reste global (D-038). Les ecritures navigateur
+  ajoute le perimetre ; un profil sans site reste global, une ligne sans site
+  n'est visible que des profils globaux (D-038). Rattachements retenus apres
+  revue independante : journal, decisions et tickets par le voyage (le site
+  de depart comme celui d'arrivee voit le ticket, dont `site_id` est le site
+  d'arrivee) ; pointages par la fiche terrain (comme la garde D-039 et les
+  rapports) ; immobilisations par l'engin ; positions par l'engin ou par le
+  voyage visible ; objectifs, livraisons et stocks par le site. Les tables
+  filles `immobilisations_journal` et `rectifications_tickets_pesee_cbg`
+  suivent la RLS de leur parent. Les ecritures navigateur
   heritees sur `vehicle_tracking` et `fuel_stocks` (aucun ecran n'y ecrit ;
   les positions arrivent par `ingest_gps_data` en service_role) et sur
   `trip_events` (journal immuable, ecrit par les fonctions du cycle) sont
@@ -41,26 +48,36 @@
 DROP POLICY IF EXISTS lecture_module ON public.trip_events;
 CREATE POLICY lecture_module ON public.trip_events FOR SELECT TO authenticated
   USING ((public.has_module_view('trips') OR public.is_admin()) AND public.voyage_permis(trip_id));
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.trip_events FROM anon, authenticated;
+REVOKE ALL ON public.trip_events FROM anon, authenticated;
+GRANT SELECT ON public.trip_events TO authenticated;
 
 DROP POLICY IF EXISTS lecture_module ON public.decisions_dispatch;
 CREATE POLICY lecture_module ON public.decisions_dispatch FOR SELECT TO authenticated
-  USING ((public.has_module_view('trips') OR public.is_admin()) AND public.voyage_permis(trip_id)
-         AND (vehicle_id IS NULL OR public.vehicule_permis(vehicle_id)));
+  USING ((public.has_module_view('trips') OR public.is_admin()) AND public.voyage_permis(trip_id));
 
 DROP POLICY IF EXISTS lecture_metier ON public.tickets_pesee_cbg;
 CREATE POLICY lecture_metier ON public.tickets_pesee_cbg FOR SELECT TO authenticated
   USING ((public.has_module_view('trips') OR public.has_module_view('invoices') OR public.is_admin())
-         AND public.voyage_permis(trip_id) AND (site_id IS NULL OR public.site_permis(site_id)));
+         AND public.voyage_permis(trip_id));
+-- Rectifications des tickets : celles des tickets visibles seulement (RLS du ticket)
+DROP POLICY IF EXISTS lecture_metier ON public.rectifications_tickets_pesee_cbg;
+CREATE POLICY lecture_metier ON public.rectifications_tickets_pesee_cbg FOR SELECT TO authenticated
+  USING ((public.has_module_view('trips') OR public.has_module_view('invoices') OR public.is_admin())
+         AND EXISTS (SELECT 1 FROM public.tickets_pesee_cbg t WHERE t.id = ticket_id));
 
 DROP POLICY IF EXISTS lecture_module ON public.immobilisations;
 CREATE POLICY lecture_module ON public.immobilisations FOR SELECT TO authenticated
   USING ((public.has_module_view('maintenance') OR public.is_admin()) AND public.vehicule_permis(vehicle_id));
+-- Journal des immobilisations : celui des immobilisations visibles (RLS du parent)
+DROP POLICY IF EXISTS lecture_module ON public.immobilisations_journal;
+CREATE POLICY lecture_module ON public.immobilisations_journal FOR SELECT TO authenticated
+  USING ((public.has_module_view('maintenance') OR public.is_admin())
+         AND EXISTS (SELECT 1 FROM public.immobilisations i WHERE i.id = immobilisation_id));
 
 DROP POLICY IF EXISTS lecture_module ON public.pointages_engins;
 CREATE POLICY lecture_module ON public.pointages_engins FOR SELECT TO authenticated
   USING ((public.has_module_view('maintenance') OR public.has_module_view('contracts') OR public.is_admin())
-         AND public.vehicule_permis(vehicle_id));
+         AND EXISTS (SELECT 1 FROM public.fiches_terrain f WHERE f.id = fiche_id AND public.site_permis(f.site_id)));
 
 DROP POLICY IF EXISTS lecture_module ON public.objectifs_production;
 CREATE POLICY lecture_module ON public.objectifs_production FOR SELECT TO authenticated
@@ -74,15 +91,18 @@ DROP POLICY IF EXISTS lecture_module ON public.fuel_stocks;
 DROP POLICY IF EXISTS ecriture_module ON public.fuel_stocks;
 DROP POLICY IF EXISTS "Admins full access" ON public.fuel_stocks;
 CREATE POLICY lecture_module ON public.fuel_stocks FOR SELECT TO authenticated
-  USING ((public.has_module_view('fuel') OR public.is_admin()) AND (site_id IS NULL OR public.site_permis(site_id)));
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.fuel_stocks FROM anon, authenticated;
+  USING ((public.has_module_view('fuel') OR public.is_admin()) AND public.site_permis(site_id));
+REVOKE ALL ON public.fuel_stocks FROM anon, authenticated;
+GRANT SELECT ON public.fuel_stocks TO authenticated;
 
 DROP POLICY IF EXISTS lecture_module ON public.vehicle_tracking;
 DROP POLICY IF EXISTS ecriture_module ON public.vehicle_tracking;
 DROP POLICY IF EXISTS "Admins full access" ON public.vehicle_tracking;
 CREATE POLICY lecture_module ON public.vehicle_tracking FOR SELECT TO authenticated
-  USING ((public.has_module_view('gps_tracking') OR public.is_admin()) AND public.vehicule_permis(vehicle_id));
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.vehicle_tracking FROM anon, authenticated;
+  USING ((public.has_module_view('gps_tracking') OR public.is_admin())
+         AND (public.vehicule_permis(vehicle_id) OR (trip_id IS NOT NULL AND public.voyage_permis(trip_id))));
+REVOKE ALL ON public.vehicle_tracking FROM anon, authenticated;
+GRANT SELECT ON public.vehicle_tracking TO authenticated;
 
 
 -- Affectation d'un camion, d'un engin ou d'un chauffeur d'un autre site
@@ -229,5 +249,8 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.garde_trips_ressources_perimetre() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS garde_trips_ressources_perimetre ON public.trips;
-CREATE TRIGGER garde_trips_ressources_perimetre BEFORE INSERT OR UPDATE OF vehicle_id, loader_vehicle_id, driver_id ON public.trips
+-- Nom choisi pour passer avant `garde_habilitations_voyage` (ordre alphabetique) :
+-- aucun message sur un chauffeur d'un autre site.
+DROP TRIGGER IF EXISTS garde_a_ressources_perimetre ON public.trips;
+CREATE TRIGGER garde_a_ressources_perimetre BEFORE INSERT OR UPDATE OF vehicle_id, loader_vehicle_id, driver_id ON public.trips
   FOR EACH ROW EXECUTE FUNCTION public.garde_trips_ressources_perimetre();
