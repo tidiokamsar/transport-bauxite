@@ -1,20 +1,38 @@
 /*
   # Organisation et administration (D-064, lot 02, module 02)
 
+  Developpee avant D-071 a D-075, integree sur `main` apres elles et
+  renumerotee au-dessus de la derniere migration (D-070). Les fonctions de
+  droits et de perimetre redefinies ici reprennent a l'identique leur
+  derniere definition sur `main` (site_permis : 20261114100000, D-038 ;
+  has_module_view et has_module_write : 20261112060000, D-036 ;
+  has_module_approve : 20261117090000, D-053) ; memes signatures, meme
+  langage, STABLE, SECURITY DEFINER, search_path vide, memes droits
+  d'execution. is_admin() n'est pas touchee.
+
   1. Affectations multisites (`affectations_sites`) : un profil peut etre
      affecte a plusieurs sites, chacun pour une periode datee (debut, fin
      incluse ; fin NULL = sans terme). `site_permis(site)` devient :
      compte actif ET (
-       - profil global : profiles.site_id NULL et aucune affectation non
-         annulee (comportement inchange tant qu'aucune affectation n'existe) ;
-       - ou site du profil (profiles.site_id, compatibilite D-038) ;
+       - profil global : profiles.site_id NULL et aucune affectation (meme
+         annulee, meme expiree) creee depuis son dernier retour au
+         perimetre global (comportement D-038 inchange tant qu'aucune
+         affectation n'existe) ;
+       - ou site du profil (profiles.site_id, D-038) ;
        - ou affectation non annulee a ce site, en cours a la date du jour).
-     Une affectation expiree ne rend PAS le compte global (strict plutot que
-     permissif) : il ne voit plus que le site de son profil s'il en a un.
-     Une affectation annulee (erreur de saisie) est reputee n'avoir jamais
-     existe. Ecriture par l'administrateur seulement (`affecter_site`,
-     `cloturer_affectation_site`, `annuler_affectation_site`), journal
-     append-only `journal_affectations_sites`.
+     Un compte qui a recu une affectation ne redevient jamais global de
+     lui-meme : ni a l'expiration, ni a l'annulation de toutes ses
+     affectations (il est alors sans acces site). Le retour au perimetre
+     global est une decision explicite de l'administrateur, motivee et
+     journalisee (`retablir_perimetre_global`, table append-only
+     `retours_perimetre_global`), refusee tant qu'une affectation est en
+     cours ou a venir ou que le profil porte un site. Une affectation
+     anterieure au retour ne compte plus et ne se prolonge plus.
+     Ecriture par l'administrateur seulement (`affecter_site`,
+     `cloturer_affectation_site`, `annuler_affectation_site`), sous un
+     verrou consultatif par compte ; journal append-only
+     `journal_affectations_sites`. `perimetres_comptes()` donne a
+     l'administrateur le perimetre calcule par le serveur.
 
   2. Delegations temporaires (`delegations_droits`) : un utilisateur delegue
      son droit d'ecriture ou d'approbation sur un module a un autre compte,
@@ -22,44 +40,40 @@
      le delegant ou l'administrateur (`revoquer_delegation`, motif). Journal
      append-only `journal_delegations`. Interdits : deleguer un droit qu'on
      n'a pas (les droits recus par delegation ne se redeleguent pas),
-     deleguer a soi-meme, deleguer le module d'administration (settings) ;
-     is_admin() ne lit jamais les delegations (le role administrateur ne se
-     delegue pas). Une delegation ne vaut que pendant sa periode, tant
-     qu'elle n'est pas revoquee, que le delegue est actif, que le delegant
-     garde le droit delegue et qu'aucune restriction administrateur (D-036,
-     niveau lecture ou aucun sur ce module) ne vise le delegue. Elle donne
-     aussi la lecture du module (necessaire pour agir), jamais le
-     perimetre : le delegue reste borne par son propre site_permis. Le
-     delegue reste l'auteur de ses actes (auth.uid()) : les controles de
-     separation des taches s'appliquent a lui.
-     `has_module_view`, `has_module_write`, `has_module_approve` gardent
-     exactement leur regle (D-012, D-036, D-053) via `droit_module_base`
-     et y ajoutent la delegation en vigueur.
+     deleguer a soi-meme, deleguer le module d'administration (settings),
+     deleguer a un compte dont le perimetre site depasse celui du delegant ;
+     is_admin() ne lit jamais les delegations. Une delegation ne vaut que
+     pendant sa periode (debut inclus, fin exclue), tant qu'elle n'est pas
+     revoquee, que le delegue est actif, que le delegant garde le droit
+     delegue, que le perimetre du delegue reste inclus dans celui du
+     delegant et qu'aucune restriction administrateur (D-036, niveau
+     lecture ou aucun sur ce module) ne vise le delegue. Elle donne la
+     lecture du module seulement si le delegant la detient. Le delegue
+     reste borne par son propre site_permis et reste l'auteur de ses actes
+     (auth.uid()) : les controles de separation des taches s'appliquent a
+     lui. `has_module_view`, `has_module_write`, `has_module_approve`
+     gardent exactement leur regle via `droit_module_base` et y ajoutent la
+     delegation en vigueur ; sans delegation, resultat identique.
 
   3. Journal de connexion : `v_journal_connexions`, vue au proprietaire
-     (lecture de auth.audit_log_entries, ecrite par GoTrue v2.197.0 :
-     reglage GOTRUE_AUDIT_LOG_DISABLE_POSTGRES absent du kit, defaut false)
-     limitee a is_admin(). Colonnes : date, compte (actor_id,
-     actor_username), evenement (action), categorie (log_type), methode
-     (traits.provider) et adresse IP si la colonne existe. Ni jeton ni
-     payload brut. Rien n'est invente : la vue ne montre que ce que GoTrue a
-     ecrit (les tentatives de connexion echouees n'y figurent pas, GoTrue
-     n'a pas d'action d'audit pour elles). `sessions_ouvertes()` liste
-     auth.sessions (sans cle ni jeton) pour l'administrateur.
-     `user_activity_logs` (heritage Bolt) ne contient que les actions
-     ecrites par l'ecran utilisateurs (user_created, user_updated) : ce
-     n'est pas un journal de connexion, il n'est pas repris.
+     (lecture de auth.audit_log_entries, ecrite par GoTrue) limitee a
+     is_admin(). Ni jeton ni payload brut. Les tentatives echouees n'y
+     figurent pas (GoTrue n'a pas d'action d'audit pour elles).
+     `sessions_ouvertes()` liste auth.sessions (sans cle ni jeton) pour
+     l'administrateur. `user_activity_logs` (heritage Bolt) n'est pas un
+     journal de connexion et n'est pas repris.
 
   4. Referentiels : `devises` (code ISO a trois lettres) reprises des codes
-     reellement presents dans contrats, factures, factures fournisseur,
-     paiements fournisseur et couts ; `unites_mesure` reprises de la liste
-     fermee des tarifs de contrat (contrat_tarifs, factures_fournisseur_lignes).
-     Ecriture par l'administrateur (`enregistrer_devise`,
+     reellement presents ; `unites_mesure` reprises de la liste fermee des
+     tarifs de contrat. Ecriture par l'administrateur (`enregistrer_devise`,
      `enregistrer_unite`). Aucune contrainte nouvelle sur les saisies
      existantes. `codes_utilises()` confronte les codes saisis au
      referentiel. `sequences_numerotation()` (administrateur) liste les
-     numerotations existantes, leur format, leur compteur et leur dernier
-     numero attribue, en lecture : aucun format n'est change.
+     numerotations existantes, en lecture : aucun format n'est change.
+
+  Tables nouvelles : RLS active avec politique de lecture explicite, aucune
+  ecriture directe des comptes (ni INSERT, ni UPDATE, ni DELETE, ni
+  TRUNCATE) ; ecriture par fonctions SECURITY DEFINER.
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -74,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.affectations_sites (
   fin date,
   motif text,
   cree_par uuid REFERENCES auth.users(id),
-  cree_le timestamptz NOT NULL DEFAULT now(),
+  cree_le timestamptz NOT NULL DEFAULT clock_timestamp(),
   annulee_le timestamptz,
   annulee_par uuid REFERENCES auth.users(id),
   motif_annulation text,
@@ -83,6 +97,8 @@ CREATE TABLE IF NOT EXISTS public.affectations_sites (
 );
 CREATE INDEX IF NOT EXISTS idx_affectations_sites_utilisateur
   ON public.affectations_sites (utilisateur, site_id) WHERE annulee_le IS NULL;
+CREATE INDEX IF NOT EXISTS idx_affectations_sites_creation
+  ON public.affectations_sites (utilisateur, cree_le);
 
 CREATE TABLE IF NOT EXISTS public.journal_affectations_sites (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -99,11 +115,27 @@ CREATE TABLE IF NOT EXISTS public.journal_affectations_sites (
 CREATE INDEX IF NOT EXISTS idx_journal_affectations_sites_utilisateur
   ON public.journal_affectations_sites (utilisateur, le);
 
+-- Retours au perimetre global : decision de l'administrateur, motivee,
+-- append-only (la ligne est son propre journal).
+CREATE TABLE IF NOT EXISTS public.retours_perimetre_global (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  utilisateur uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  le timestamptz NOT NULL DEFAULT clock_timestamp(),
+  motif text NOT NULL CHECK (btrim(motif) <> ''),
+  auteur uuid
+);
+CREATE INDEX IF NOT EXISTS idx_retours_perimetre_global_utilisateur
+  ON public.retours_perimetre_global (utilisateur, le);
+
 ALTER TABLE public.affectations_sites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_affectations_sites ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.affectations_sites, public.journal_affectations_sites FROM anon, authenticated;
-GRANT SELECT ON public.affectations_sites, public.journal_affectations_sites TO authenticated;
-GRANT ALL ON public.affectations_sites, public.journal_affectations_sites TO service_role;
+ALTER TABLE public.retours_perimetre_global ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.affectations_sites, public.journal_affectations_sites, public.retours_perimetre_global
+  FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.affectations_sites, public.journal_affectations_sites, public.retours_perimetre_global
+  TO authenticated;
+GRANT ALL ON public.affectations_sites, public.journal_affectations_sites, public.retours_perimetre_global
+  TO service_role;
 
 DROP POLICY IF EXISTS lecture ON public.affectations_sites;
 CREATE POLICY lecture ON public.affectations_sites FOR SELECT TO authenticated
@@ -111,8 +143,11 @@ CREATE POLICY lecture ON public.affectations_sites FOR SELECT TO authenticated
 DROP POLICY IF EXISTS lecture ON public.journal_affectations_sites;
 CREATE POLICY lecture ON public.journal_affectations_sites FOR SELECT TO authenticated
   USING (public.is_admin());
+DROP POLICY IF EXISTS lecture ON public.retours_perimetre_global;
+CREATE POLICY lecture ON public.retours_perimetre_global FOR SELECT TO authenticated
+  USING (utilisateur = auth.uid() OR public.is_admin());
 
--- Gardes : journal append-only ; une affectation ne se supprime pas, ses
+-- Gardes : journaux append-only ; une affectation ne se supprime pas, ses
 -- colonnes d'identite ne changent pas, une affectation annulee est figee.
 CREATE OR REPLACE FUNCTION public.garde_journal_organisation()
 RETURNS trigger
@@ -127,6 +162,9 @@ $$;
 
 DROP TRIGGER IF EXISTS garde_append_only ON public.journal_affectations_sites;
 CREATE TRIGGER garde_append_only BEFORE UPDATE OR DELETE ON public.journal_affectations_sites
+  FOR EACH ROW EXECUTE FUNCTION public.garde_journal_organisation();
+DROP TRIGGER IF EXISTS garde_append_only ON public.retours_perimetre_global;
+CREATE TRIGGER garde_append_only BEFORE UPDATE OR DELETE ON public.retours_perimetre_global
   FOR EACH ROW EXECUTE FUNCTION public.garde_journal_organisation();
 
 CREATE OR REPLACE FUNCTION public.garde_affectation_site()
@@ -155,7 +193,11 @@ DROP TRIGGER IF EXISTS garde_affectation ON public.affectations_sites;
 CREATE TRIGGER garde_affectation BEFORE UPDATE OR DELETE ON public.affectations_sites
   FOR EACH ROW EXECUTE FUNCTION public.garde_affectation_site();
 
+REVOKE EXECUTE ON FUNCTION public.garde_journal_organisation() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.garde_affectation_site() FROM PUBLIC, anon, authenticated;
+
 -- Perimetre : profil global, site du profil, ou affectation en cours.
+-- Meme signature, langage, volatilite et droits que D-038 (20261114100000).
 CREATE OR REPLACE FUNCTION public.site_permis(p_site uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -169,8 +211,11 @@ AS $$
      WHERE pr.id = auth.uid()
        AND pr.status = 'active'
        AND ((pr.site_id IS NULL
-             AND NOT EXISTS (SELECT 1 FROM public.affectations_sites a
-                              WHERE a.utilisateur = pr.id AND a.annulee_le IS NULL))
+             AND NOT EXISTS (
+               SELECT 1 FROM public.affectations_sites a
+                WHERE a.utilisateur = pr.id
+                  AND a.cree_le >= coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                                              WHERE r.utilisateur = pr.id), '-infinity'::timestamptz)))
             OR pr.site_id = p_site
             OR EXISTS (SELECT 1 FROM public.affectations_sites a
                         WHERE a.utilisateur = pr.id
@@ -183,6 +228,72 @@ $$;
 
 REVOKE EXECUTE ON FUNCTION public.site_permis(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.site_permis(uuid) TO authenticated, service_role;
+
+-- Meme regle pour un compte quelconque (controle des delegations). Interne :
+-- non executable par les comptes.
+CREATE OR REPLACE FUNCTION public.perimetre_global_de(p_utilisateur uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+      FROM public.profiles pr
+     WHERE pr.id = p_utilisateur
+       AND pr.status = 'active'
+       AND pr.site_id IS NULL
+       AND NOT EXISTS (
+         SELECT 1 FROM public.affectations_sites a
+          WHERE a.utilisateur = pr.id
+            AND a.cree_le >= coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                                        WHERE r.utilisateur = pr.id), '-infinity'::timestamptz))
+  );
+$$;
+
+-- Sites permis a la date du jour d'un compte borne (vide pour un compte
+-- global, inactif ou sans acces site).
+CREATE OR REPLACE FUNCTION public.sites_permis_de(p_utilisateur uuid)
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT pr.site_id FROM public.profiles pr
+   WHERE pr.id = p_utilisateur AND pr.status = 'active' AND pr.site_id IS NOT NULL
+  UNION
+  SELECT a.site_id FROM public.affectations_sites a
+    JOIN public.profiles pr ON pr.id = a.utilisateur AND pr.status = 'active'
+   WHERE a.utilisateur = p_utilisateur
+     AND a.annulee_le IS NULL
+     AND a.debut <= current_date
+     AND (a.fin IS NULL OR a.fin >= current_date);
+$$;
+
+-- Le perimetre du delegue est inclus dans celui du delegant : delegant
+-- global, ou delegue borne dont chaque site permis l'est aussi au delegant.
+CREATE OR REPLACE FUNCTION public.perimetre_inclus(p_delegue uuid, p_delegant uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT public.perimetre_global_de(p_delegant)
+      OR (NOT public.perimetre_global_de(p_delegue)
+          AND NOT EXISTS (SELECT s FROM public.sites_permis_de(p_delegue) s
+                          EXCEPT
+                          SELECT s FROM public.sites_permis_de(p_delegant) s));
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.perimetre_global_de(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.sites_permis_de(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.perimetre_inclus(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.perimetre_global_de(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sites_permis_de(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.perimetre_inclus(uuid, uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.affecter_site(
   p_utilisateur uuid, p_site uuid, p_debut date, p_fin date DEFAULT NULL, p_motif text DEFAULT NULL
@@ -211,15 +322,20 @@ BEGIN
   IF p_fin IS NOT NULL AND p_fin < p_debut THEN
     RAISE EXCEPTION 'La fin precede le debut' USING ERRCODE = '22023';
   END IF;
+  -- Meme verrou que la cloture et le retour au perimetre global : l'horodatage
+  -- de creation est pris apres le verrou (clock_timestamp), donc toujours
+  -- posterieur a un retour deja valide.
   PERFORM pg_advisory_xact_lock(hashtext('sigtb.affectation.' || p_utilisateur::text));
   IF EXISTS (SELECT 1 FROM public.affectations_sites a
               WHERE a.utilisateur = p_utilisateur AND a.site_id = p_site AND a.annulee_le IS NULL
                 AND a.debut <= coalesce(p_fin, 'infinity'::date)
-                AND coalesce(a.fin, 'infinity'::date) >= p_debut) THEN
+                AND coalesce(a.fin, 'infinity'::date) >= p_debut
+                AND a.cree_le >= coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                                            WHERE r.utilisateur = p_utilisateur), '-infinity'::timestamptz)) THEN
     RAISE EXCEPTION 'Une affectation a ce site couvre deja tout ou partie de la periode' USING ERRCODE = '22023';
   END IF;
-  INSERT INTO public.affectations_sites (utilisateur, site_id, debut, fin, motif, cree_par)
-  VALUES (p_utilisateur, p_site, p_debut, p_fin, v_motif, auth.uid())
+  INSERT INTO public.affectations_sites (utilisateur, site_id, debut, fin, motif, cree_par, cree_le)
+  VALUES (p_utilisateur, p_site, p_debut, p_fin, v_motif, auth.uid(), clock_timestamp())
   RETURNING id INTO v_id;
   INSERT INTO public.journal_affectations_sites (affectation_id, utilisateur, site_id, evenement, avant, apres, motif, auteur)
   VALUES (v_id, p_utilisateur, p_site, 'creation', NULL,
@@ -241,9 +357,19 @@ BEGIN
   IF NOT public.is_admin() THEN
     RAISE EXCEPTION 'Affectation des sites reservee a l''administrateur' USING ERRCODE = '42501';
   END IF;
-  SELECT * INTO a FROM public.affectations_sites WHERE id = p_id FOR UPDATE;
-  IF NOT FOUND OR a.annulee_le IS NOT NULL THEN
+  SELECT * INTO a FROM public.affectations_sites WHERE id = p_id;
+  IF NOT FOUND THEN
     RAISE EXCEPTION 'Affectation inconnue ou annulee' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('sigtb.affectation.' || a.utilisateur::text));
+  SELECT * INTO a FROM public.affectations_sites WHERE id = p_id FOR UPDATE;
+  IF a.annulee_le IS NOT NULL THEN
+    RAISE EXCEPTION 'Affectation inconnue ou annulee' USING ERRCODE = '22023';
+  END IF;
+  IF a.cree_le < coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                            WHERE r.utilisateur = a.utilisateur), '-infinity'::timestamptz) THEN
+    RAISE EXCEPTION 'Affectation anterieure au retour du compte au perimetre global : creez une nouvelle affectation'
+      USING ERRCODE = '22023';
   END IF;
   IF p_fin IS NULL OR p_fin < a.debut THEN
     RAISE EXCEPTION 'Date de fin requise, au plus tot le debut (sinon annulez l''affectation)' USING ERRCODE = '22023';
@@ -253,7 +379,9 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM public.affectations_sites x
               WHERE x.utilisateur = a.utilisateur AND x.site_id = a.site_id AND x.annulee_le IS NULL
-                AND x.id <> a.id AND x.debut <= p_fin AND coalesce(x.fin, 'infinity'::date) >= a.debut) THEN
+                AND x.id <> a.id AND x.debut <= p_fin AND coalesce(x.fin, 'infinity'::date) >= a.debut
+                AND x.cree_le >= coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                                            WHERE r.utilisateur = a.utilisateur), '-infinity'::timestamptz)) THEN
     RAISE EXCEPTION 'Une autre affectation a ce site couvre deja la periode' USING ERRCODE = '22023';
   END IF;
   UPDATE public.affectations_sites SET fin = p_fin WHERE id = p_id;
@@ -263,6 +391,8 @@ BEGIN
 END;
 $$;
 
+-- Annulation (erreur de saisie) : l'affectation ne donne plus aucun site.
+-- Le compte ne redevient pas global pour autant (voir retablir_perimetre_global).
 CREATE OR REPLACE FUNCTION public.annuler_affectation_site(p_id uuid, p_motif text)
 RETURNS void
 LANGUAGE plpgsql
@@ -279,8 +409,13 @@ BEGIN
   IF v_motif IS NULL THEN
     RAISE EXCEPTION 'Motif d''annulation requis' USING ERRCODE = '22023';
   END IF;
+  SELECT * INTO a FROM public.affectations_sites WHERE id = p_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Affectation inconnue ou deja annulee' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('sigtb.affectation.' || a.utilisateur::text));
   SELECT * INTO a FROM public.affectations_sites WHERE id = p_id FOR UPDATE;
-  IF NOT FOUND OR a.annulee_le IS NOT NULL THEN
+  IF a.annulee_le IS NOT NULL THEN
     RAISE EXCEPTION 'Affectation inconnue ou deja annulee' USING ERRCODE = '22023';
   END IF;
   UPDATE public.affectations_sites
@@ -292,12 +427,83 @@ BEGIN
 END;
 $$;
 
+-- Retour explicite au perimetre global (decision consignee, motivee) :
+-- profil sans site, aucune affectation en cours ou a venir.
+CREATE OR REPLACE FUNCTION public.retablir_perimetre_global(p_utilisateur uuid, p_motif text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
+  v_site uuid;
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Perimetre des comptes reserve a l''administrateur' USING ERRCODE = '42501';
+  END IF;
+  IF v_motif IS NULL THEN
+    RAISE EXCEPTION 'Motif requis' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('sigtb.affectation.' || coalesce(p_utilisateur::text, '')));
+  SELECT site_id INTO v_site FROM public.profiles WHERE id = p_utilisateur;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Utilisateur inconnu' USING ERRCODE = '23503';
+  END IF;
+  IF v_site IS NOT NULL THEN
+    RAISE EXCEPTION 'Le profil porte un site : retirez-le de la fiche utilisateur' USING ERRCODE = '22023';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.affectations_sites a
+                  WHERE a.utilisateur = p_utilisateur
+                    AND a.cree_le >= coalesce((SELECT max(r.le) FROM public.retours_perimetre_global r
+                                                WHERE r.utilisateur = p_utilisateur), '-infinity'::timestamptz)) THEN
+    RAISE EXCEPTION 'Le compte a deja le perimetre global' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.affectations_sites a
+              WHERE a.utilisateur = p_utilisateur AND a.annulee_le IS NULL
+                AND (a.fin IS NULL OR a.fin >= current_date)) THEN
+    RAISE EXCEPTION 'Affectation en cours ou a venir : closez-la ou annulez-la d''abord' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.retours_perimetre_global (utilisateur, le, motif, auteur)
+  VALUES (p_utilisateur, clock_timestamp(), v_motif, auth.uid());
+END;
+$$;
+
+-- Perimetre calcule par le serveur, pour l'ecran d'administration.
+CREATE OR REPLACE FUNCTION public.perimetres_comptes()
+RETURNS TABLE (utilisateur uuid, nom text, statut text, site_profil uuid, global boolean, sites uuid[],
+               retour_possible boolean, dernier_retour timestamptz)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Perimetre des comptes reserve a l''administrateur' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT p.id, p.full_name::text, p.status::text, p.site_id,
+         public.perimetre_global_de(p.id),
+         coalesce((SELECT array_agg(s ORDER BY s) FROM public.sites_permis_de(p.id) s), ARRAY[]::uuid[]),
+         p.status = 'active' AND p.site_id IS NULL AND NOT public.perimetre_global_de(p.id)
+           AND NOT EXISTS (SELECT 1 FROM public.affectations_sites a
+                            WHERE a.utilisateur = p.id AND a.annulee_le IS NULL
+                              AND (a.fin IS NULL OR a.fin >= current_date)),
+         (SELECT max(r.le) FROM public.retours_perimetre_global r WHERE r.utilisateur = p.id)
+    FROM public.profiles p
+   ORDER BY p.full_name;
+END;
+$$;
+
 DO $$
 DECLARE f text;
 BEGIN
   FOREACH f IN ARRAY ARRAY['affecter_site(uuid, uuid, date, date, text)',
                            'cloturer_affectation_site(uuid, date, text)',
-                           'annuler_affectation_site(uuid, text)'] LOOP
+                           'annuler_affectation_site(uuid, text)',
+                           'retablir_perimetre_global(uuid, text)',
+                           'perimetres_comptes()'] LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated, service_role', f);
   END LOOP;
@@ -315,7 +521,8 @@ SELECT a.id, a.utilisateur, p.full_name AS utilisateur_nom, a.site_id, s.name AS
   FROM public.affectations_sites a
   LEFT JOIN public.profiles p ON p.id = a.utilisateur
   LEFT JOIN public.sites s ON s.id = a.site_id;
-GRANT SELECT ON public.v_affectations_sites TO authenticated;
+REVOKE ALL ON public.v_affectations_sites FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.v_affectations_sites TO authenticated, service_role;
 
 -- 2. Delegations temporaires ------------------------------------------------
 
@@ -334,6 +541,7 @@ CREATE TABLE IF NOT EXISTS public.delegations_droits (
   motif_revocation text,
   CONSTRAINT delegations_droits_periode CHECK (fin > debut),
   CONSTRAINT delegations_droits_soi CHECK (delegant <> delegue),
+  CONSTRAINT delegations_droits_module CHECK (module <> 'settings'),
   CONSTRAINT delegations_droits_revocation CHECK (revoquee_le IS NULL OR motif_revocation IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_delegations_droits_delegue
@@ -358,7 +566,7 @@ CREATE INDEX IF NOT EXISTS idx_journal_delegations_delegation ON public.journal_
 
 ALTER TABLE public.delegations_droits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_delegations ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.delegations_droits, public.journal_delegations FROM anon, authenticated;
+REVOKE ALL ON public.delegations_droits, public.journal_delegations FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.delegations_droits, public.journal_delegations TO authenticated;
 GRANT ALL ON public.delegations_droits, public.journal_delegations TO service_role;
 
@@ -399,17 +607,24 @@ $$;
 DROP TRIGGER IF EXISTS garde_delegation ON public.delegations_droits;
 CREATE TRIGGER garde_delegation BEFORE UPDATE OR DELETE ON public.delegations_droits
   FOR EACH ROW EXECUTE FUNCTION public.garde_delegation();
+REVOKE EXECUTE ON FUNCTION public.garde_delegation() FROM PUBLIC, anon, authenticated;
 
--- MFA (D-040) : les delegations et les affectations sont des droits.
+-- MFA (D-040) : les delegations, les affectations et les retours au
+-- perimetre global sont des droits.
 DROP TRIGGER IF EXISTS garde_aal2 ON public.delegations_droits;
 CREATE TRIGGER garde_aal2 BEFORE INSERT OR UPDATE OR DELETE ON public.delegations_droits
   FOR EACH ROW EXECUTE FUNCTION public.garde_aal2();
 DROP TRIGGER IF EXISTS garde_aal2 ON public.affectations_sites;
 CREATE TRIGGER garde_aal2 BEFORE INSERT OR UPDATE OR DELETE ON public.affectations_sites
   FOR EACH ROW EXECUTE FUNCTION public.garde_aal2();
+DROP TRIGGER IF EXISTS garde_aal2 ON public.retours_perimetre_global;
+CREATE TRIGGER garde_aal2 BEFORE INSERT OR UPDATE OR DELETE ON public.retours_perimetre_global
+  FOR EACH ROW EXECUTE FUNCTION public.garde_aal2();
 
--- Droit propre d'un compte (sans delegation), regles inchangees :
--- lecture et ecriture (D-012, D-036), approbation (D-053).
+-- Droit propre d'un compte (sans delegation). Corps repris a l'identique de
+-- has_module_view et has_module_write (20261112060000, D-036) et de
+-- has_module_approve (20261117090000, D-053), auth.uid() remplace par le
+-- compte passe en parametre. Interne : non executable par les comptes.
 CREATE OR REPLACE FUNCTION public.droit_module_base(p_utilisateur uuid, p_module text, p_niveau text)
 RETURNS boolean
 LANGUAGE sql
@@ -445,9 +660,10 @@ AS $$
     END;
 $$;
 
--- Delegation en vigueur pour un compte (niveau NULL : toute delegation,
--- pour la lecture du module).
-CREATE OR REPLACE FUNCTION public.delegation_en_vigueur(p_utilisateur uuid, p_module text, p_niveau text)
+-- Effet d'une delegation hors periode et revocation : delegue actif et non
+-- restreint (D-036), delegant detenant encore le droit delegue (jamais par
+-- delegation), perimetre du delegue inclus dans celui du delegant.
+CREATE OR REPLACE FUNCTION public.delegation_effective(p_delegant uuid, p_delegue uuid, p_module text, p_niveau text)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -455,23 +671,44 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT
-    EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = p_utilisateur AND pr.status = 'active')
+    p_module <> 'settings'
+    AND p_delegant <> p_delegue
+    AND EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = p_delegue AND pr.status = 'active')
     AND NOT EXISTS (SELECT 1 FROM public.droits_utilisateur d
-                     WHERE d.utilisateur = p_utilisateur AND d.module = p_module AND d.niveau <> 'ecriture')
-    AND EXISTS (SELECT 1 FROM public.delegations_droits g
-                 WHERE g.delegue = p_utilisateur
-                   AND g.module = p_module
-                   AND (p_niveau IS NULL OR g.niveau = p_niveau)
-                   AND g.revoquee_le IS NULL
-                   AND g.debut <= now() AND now() < g.fin
-                   AND public.droit_module_base(g.delegant, g.module, g.niveau));
+                     WHERE d.utilisateur = p_delegue AND d.module = p_module AND d.niveau <> 'ecriture')
+    AND public.droit_module_base(p_delegant, p_module, p_niveau)
+    AND public.perimetre_inclus(p_delegue, p_delegant);
+$$;
+
+-- Delegation en vigueur pour un compte. Niveau NULL : lecture du module,
+-- accordee seulement si le delegant lit lui-meme le module.
+CREATE OR REPLACE FUNCTION public.delegation_en_vigueur(p_utilisateur uuid, p_module text, p_niveau text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.delegations_droits g
+     WHERE g.delegue = p_utilisateur
+       AND g.module = p_module
+       AND (p_niveau IS NULL OR g.niveau = p_niveau)
+       AND g.revoquee_le IS NULL
+       AND g.debut <= now() AND now() < g.fin
+       AND public.delegation_effective(g.delegant, g.delegue, g.module, g.niveau)
+       AND (p_niveau IS NOT NULL OR public.droit_module_base(g.delegant, g.module, 'lecture')));
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.droit_module_base(uuid, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delegation_effective(uuid, uuid, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.delegation_en_vigueur(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.droit_module_base(uuid, text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.delegation_effective(uuid, uuid, text, text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.delegation_en_vigueur(uuid, text, text) TO service_role;
 
+-- Fonctions de droits : memes signatures, langage, volatilite et securite
+-- que sur main ; droits d'execution inchanges (CREATE OR REPLACE les garde).
 CREATE OR REPLACE FUNCTION public.has_module_view(p_module text)
 RETURNS boolean
 LANGUAGE sql
@@ -504,15 +741,6 @@ AS $$
   SELECT public.droit_module_base(auth.uid(), p_module, 'approbation')
       OR public.delegation_en_vigueur(auth.uid(), p_module, 'approbation');
 $$;
-
-DO $$
-DECLARE f text;
-BEGIN
-  FOREACH f IN ARRAY ARRAY['has_module_view(text)', 'has_module_write(text)', 'has_module_approve(text)'] LOOP
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', f);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated, service_role', f);
-  END LOOP;
-END $$;
 
 CREATE OR REPLACE FUNCTION public.deleguer_droit(
   p_delegue uuid, p_module text, p_niveau text, p_debut timestamptz, p_fin timestamptz, p_motif text
@@ -558,6 +786,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.droits_utilisateur d
               WHERE d.utilisateur = p_delegue AND d.module = p_module AND d.niveau <> 'ecriture') THEN
     RAISE EXCEPTION 'Le delegue fait l''objet d''une restriction administrateur sur ce module' USING ERRCODE = '22023';
+  END IF;
+  IF NOT public.perimetre_inclus(p_delegue, auth.uid()) THEN
+    RAISE EXCEPTION 'Le perimetre site du delegue depasse le votre : delegation refusee' USING ERRCODE = '22023';
   END IF;
   IF EXISTS (SELECT 1 FROM public.delegations_droits g
               WHERE g.delegant = auth.uid() AND g.delegue = p_delegue AND g.module = p_module
@@ -612,11 +843,14 @@ $$;
 
 -- Delegations visibles de l'appelant (parties ou administrateur), noms et
 -- statut calcule : revoquee, expiree, a_venir, active, sans_effet (periode
--- en cours mais delegant sans le droit, delegue inactif ou restreint).
+-- en cours mais delegant sans le droit, delegue inactif ou restreint,
+-- perimetre du delegue hors de celui du delegant). Meme regle que
+-- delegation_en_vigueur (delegation_effective). `donne_lecture` : la
+-- delegation donne aussi la lecture du module (le delegant la detient).
 CREATE OR REPLACE FUNCTION public.mes_delegations()
 RETURNS TABLE (id uuid, delegant uuid, delegant_nom text, delegue uuid, delegue_nom text, module text, niveau text,
                debut timestamptz, fin timestamptz, motif text, cree_le timestamptz, revoquee_le timestamptz,
-               revoquee_par_nom text, motif_revocation text, statut text)
+               revoquee_par_nom text, motif_revocation text, statut text, donne_lecture boolean)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
@@ -627,12 +861,9 @@ AS $$
          CASE WHEN g.revoquee_le IS NOT NULL THEN 'revoquee'
               WHEN g.fin <= now() THEN 'expiree'
               WHEN g.debut > now() THEN 'a_venir'
-              WHEN public.droit_module_base(g.delegant, g.module, g.niveau)
-                   AND EXISTS (SELECT 1 FROM public.profiles x WHERE x.id = g.delegue AND x.status = 'active')
-                   AND NOT EXISTS (SELECT 1 FROM public.droits_utilisateur d
-                                    WHERE d.utilisateur = g.delegue AND d.module = g.module AND d.niveau <> 'ecriture')
-                THEN 'active'
-              ELSE 'sans_effet' END
+              WHEN public.delegation_effective(g.delegant, g.delegue, g.module, g.niveau) THEN 'active'
+              ELSE 'sans_effet' END,
+         public.droit_module_base(g.delegant, g.module, 'lecture')
     FROM public.delegations_droits g
     LEFT JOIN public.profiles pa ON pa.id = g.delegant
     LEFT JOIN public.profiles pb ON pb.id = g.delegue
@@ -642,7 +873,9 @@ AS $$
    ORDER BY g.debut DESC;
 $$;
 
--- Comptes actifs a qui deleguer (nom et role seulement, sans courriel).
+-- Comptes actifs a qui l'appelant peut deleguer (nom et role seulement,
+-- sans courriel) : ceux dont le perimetre est inclus dans le sien. Un compte
+-- borne ne voit donc que les comptes de ses sites.
 CREATE OR REPLACE FUNCTION public.comptes_delegables()
 RETURNS TABLE (id uuid, full_name text, role text)
 LANGUAGE sql
@@ -654,6 +887,7 @@ AS $$
     FROM public.profiles p
    WHERE p.status = 'active' AND p.id <> auth.uid()
      AND EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.status = 'active')
+     AND public.perimetre_inclus(p.id, auth.uid())
    ORDER BY p.full_name;
 $$;
 
@@ -689,7 +923,7 @@ SELECT a.id,
     ON p.id::text = (a.payload ->> 'actor_id')
  WHERE public.is_admin();
 
-REVOKE ALL ON public.v_journal_connexions FROM PUBLIC, anon;
+REVOKE ALL ON public.v_journal_connexions FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.v_journal_connexions TO authenticated, service_role;
 
 -- Sessions GoTrue ouvertes (sans cle ni jeton). La table auth.sessions est
