@@ -68,10 +68,12 @@ CREATE TEMP TABLE r AS SELECT public.ouvrir_reconciliation('00000000-0000-4000-8
   'accepte', 2, '00000000-0000-4000-8f00-0000000000a1') AS id;
 SELECT is((SELECT count(*)::int FROM public.reconciliation_lignes WHERE reconciliation_id = (SELECT id FROM r)), 4,
   'voyages livres de la periode et du trajet seulement');
-SELECT is((SELECT anomalies FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), ARRAY['ecart_hors_tolerance', 'sans_fiche'],
+-- D-081 : sans releve officiel CBG importe, tonnage_cbg reste vide et la ligne
+-- porte sans_releve_cbg ; tonnage_kogon est le releve KOGON du ticket.
+SELECT is((SELECT anomalies FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), ARRAY['ecart_hors_tolerance', 'sans_fiche', 'sans_releve_cbg'],
   'ecart charge / recu au-dela de la tolerance signale');
-SELECT is((SELECT (tonnage_kogon, tonnage_cbg)::text FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), '(40,40)',
-  'le tonnage de chargement et le ticket CBG sont repris dans l''instantane');
+SELECT is((SELECT (tonnage_charge, tonnage_kogon, tonnage_cbg)::text FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), '(40,40,)',
+  'chargement et releve KOGON repris ; sans releve CBG, aucun tonnage CBG');
 SELECT ok((SELECT anomalies @> ARRAY['litige', 'base_absente'] FROM public.reconciliation_lignes WHERE reference = 'TREC-3'), 'litige signale');
 SELECT ok((SELECT anomalies @> ARRAY['non_accepte'] FROM public.reconciliation_lignes WHERE reference = 'TREC-4'), 'livre non accepte signale');
 SELECT ok((SELECT anomalies @> ARRAY['sans_ticket_cbg'] FROM public.reconciliation_lignes WHERE reference = 'TREC-4'), 'absence de ticket CBG bloquante avant facturation');

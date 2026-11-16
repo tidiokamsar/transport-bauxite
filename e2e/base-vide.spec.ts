@@ -107,7 +107,7 @@ test.describe('Base vide (référentiels non saisis)', () => {
     await expect(page.getByRole('button', { name: /Préparer la fiche/ })).toHaveCount(0);
     await sansErreurNiChargement(page);
 
-    await ouvrir(page, null, 'Tickets CBG', 'Tickets et relevés CBG');
+    await ouvrir(page, null, 'Pesée CBG', 'Pesée CBG');
     await expect(page.getByText('Aucun relevé importé')).toBeVisible();
     await sansErreurNiChargement(page);
 
