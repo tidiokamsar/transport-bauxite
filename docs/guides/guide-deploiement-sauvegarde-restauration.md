@@ -85,8 +85,17 @@ Procédure suivie à chaque déploiement du journal (section 11 de
    npm run build
    mkdir -p /opt/sigtb/web/releases/<sha>
    cp -r dist/. /opt/sigtb/web/releases/<sha>/
+   # Fichiers des versions precedentes conserves (sans ecraser) : un onglet
+   # ouvert avant le deploiement continue de charger ses modules.
+   cp -n "$(readlink /opt/sigtb/web/current)"/assets/* /opt/sigtb/web/releases/<sha>/assets/
    ln -sfn /opt/sigtb/web/releases/<sha> /opt/sigtb/web/current
    ```
+
+   Sans cette copie, un utilisateur dont l'onglet date d'avant le
+   déploiement voit « Failed to fetch dynamically imported module » (le
+   serveur renvoie la page d'accueil à la place du fichier disparu).
+   L'application recharge alors la page une fois d'elle-même ; constaté et
+   corrigé le 2026-11-16.
 
    Seule la clé publique (`ANON_KEY`, `role: anon`) entre dans le bundle ;
    ne jamais utiliser une autre clé du `.env`.
