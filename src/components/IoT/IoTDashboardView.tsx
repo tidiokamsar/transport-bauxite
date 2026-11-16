@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { COLONNES_BOITIER } from './boitiers';
 import {
   Radio, Droplet, MapPin, Activity, AlertTriangle,
   Battery, Signal, RefreshCw, Clock, TrendingUp
@@ -26,9 +27,9 @@ export const IoTDashboardView = () => {
       setLoading(true);
 
       const [devicesRes, fuelRes, gpsRes] = await Promise.all([
-        supabase.from('iot_devices').select('*').eq('status', 'active'),
-        supabase.from('iot_fuel_readings').select('*, iot_devices(*)').order('reading_timestamp', { ascending: false }).limit(50),
-        supabase.from('iot_gps_readings').select('*, iot_devices(*)').order('reading_timestamp', { ascending: false }).limit(50),
+        supabase.from('iot_devices').select(COLONNES_BOITIER).eq('status', 'active'),
+        supabase.from('iot_fuel_readings').select(`*, iot_devices(${COLONNES_BOITIER})`).order('reading_timestamp', { ascending: false }).limit(50),
+        supabase.from('iot_gps_readings').select(`*, iot_devices(${COLONNES_BOITIER})`).order('reading_timestamp', { ascending: false }).limit(50),
       ]);
 
       setDevices(devicesRes.data || []);
