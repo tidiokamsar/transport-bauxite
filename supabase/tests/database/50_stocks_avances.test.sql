@@ -19,7 +19,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(95);
+SELECT plan(96);
 
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
@@ -73,7 +73,8 @@ INSERT INTO public.stock_items (id, item_code, name, unit_of_measure, suivi) VAL
   ('00000000-0000-4000-d067-0000000000ee', 'TEST-C3-D067', 'C3 D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000ef', 'TEST-C7-D067', 'C7 D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000f0', 'TEST-RES-D067', 'Reservation D-067', 'piece', 'aucun'),
-  ('00000000-0000-4000-d067-0000000000f2', 'TEST-R1-D067', 'R1 D-067', 'piece', 'aucun');
+  ('00000000-0000-4000-d067-0000000000f2', 'TEST-R1-D067', 'R1 D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000f3', 'TEST-V3-D067', 'V3 D-067', 'piece', 'aucun');
 DELETE FROM public.settings WHERE key IN ('pneu_reforme_precoce_km', 'achats_validation_separee');
 INSERT INTO public.settings (key, value, category) VALUES ('pneu_reforme_precoce_km', '{"value": "10000"}', 'pneus');
 SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('pneu_reforme_precoce_km', '{"value": "abc"}')
@@ -461,6 +462,17 @@ SELECT public.annuler_mouvement_stock((SELECT id FROM r1), 'Sortie saisie par er
 SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
             WHERE stock_item_id = '00000000-0000-4000-d067-0000000000f2'),
   'complete 20 300.00 6000', 'R1 : 10 a 100, sortie 10, 10 a 500, annulation de la sortie : reintegree a 100, 6000 pour 6000 d''achats');
+-- V3 : sortie faite pendant un etat « a verifier », reintegree apres un retour a stock nul.
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f3', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100);
+CREATE TEMP TABLE v3e AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f3', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 500) AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f3', 'exit', 5, '00000000-0000-4000-d067-0000000000c1');
+SELECT public.annuler_mouvement_stock((SELECT id FROM v3e), 'Erreur de prix');
+CREATE TEMP TABLE v3s AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f3', 'exit', 5, '00000000-0000-4000-d067-0000000000c1') AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f3', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 200);
+SELECT public.annuler_mouvement_stock((SELECT id FROM v3s), 'Sortie saisie par erreur');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000f3'),
+  'a_verifier 15 233.33 3500', 'V3 : sortie faite pendant un etat a verifier, reintegree apres retour a stock nul : a verifier');
 RESET ROLE;
 
 -- C2 : ordre d'enregistrement (enregistre_le), pas created_at (debut de transaction).

@@ -910,17 +910,19 @@ BEGIN
     -- memorises, pour reintegrer une annulation au cout de la sortie (R1).
     IF v_action = 'sortie_cmp' AND e.type_mvt IN ('exit', 'adjustment') AND q > 0 THEN
       v_memo := v_memo || jsonb_build_object(e.id::text,
-        jsonb_build_array(CASE WHEN q - qnv > 0 THEN v / (q - qnv) END, qnv / q));
+        jsonb_build_array(CASE WHEN q - qnv > 0 THEN v / (q - qnv) END, qnv / q, v_verif));
     END IF;
     -- Annulation d'une sortie : reintegree au cout et dans la composition de
     -- la sortie d'origine (contre-revue R1) ; origine inconnue : au cmp du
-    -- moment et « a verifier ».
+    -- moment et « a verifier ». Une sortie faite pendant un etat « a
+    -- verifier » rend l'article « a verifier » a sa reintegration (V3).
     IF v_action = 'reprise_sortie' THEN
       v_orig := v_memo -> e.origine::text;
       IF v_orig IS NULL THEN
         v_action := 'entree_cmp';
         v_verif := true;
       ELSE
+        IF coalesce((v_orig ->> 2)::boolean, false) THEN v_verif := true; END IF;
         v_cmp_o := (v_orig ->> 0)::numeric;
         v_part_o := (v_orig ->> 1)::numeric;
         IF v_cmp_o IS NULL THEN qnv := qnv + abs(e.qte);
