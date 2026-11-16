@@ -142,7 +142,7 @@ test.describe('Planification avancée', () => {
     await expect.poll(() => corps).not.toBeNull();
     expect(corps).toMatchObject({ p_site_id: SITE_MINE, p_causes: [{ categorie: 'panne_camion', description: 'Deux camions en panne', tonnes: 300 }] });
     await expect(page.locator('#rapport-production')).toContainText('Non clos');
-    await expect(page.locator('#rapport-production')).toContainText('20 %');
+    await expect(page.locator('#rapport-production')).toContainText('20,0');
   });
 
   test('comparaison des shifts : mesures, sans shift a part, historique des equipes', async ({ page }) => {
