@@ -77,7 +77,7 @@ conforme, ne peut pas partir au chargement.
 
 ## 3. Plein isolé
 
-Écran **Carburant > Pleins et cuves**, bouton **« Saisir »** : date, engin,
+Écran **Carburant > Distribution aux engins**, bouton **« Saisir »** : date, engin,
 chauffeur, site de la cuve, litres, compteur, note. Ce formulaire ne
 choisit pas de cuve suivie : il ne crée pas de sortie dans le registre des
 stockages. Pour un plein servi depuis une cuve ou une citerne suivie,

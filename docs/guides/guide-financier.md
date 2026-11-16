@@ -2,12 +2,13 @@
 
 Public : chargé de contrats et facturation (`contract_manager`), comptable
 (`accountant`), Directeur Général (`director`). Sources : D-013, D-014,
-D-026, D-029, D-031 à D-033, D-037, D-043, D-055, D-056, D-065,
+D-026, D-029, D-031 à D-033, D-037, D-043, D-055, D-056, D-057, D-065, D-068,
 `docs/SIGTB_2.0_LOCATION_MODEL.md` ; migrations `20261110230000`,
 `20261111120000`, `20261111180000`, `20261111200000`, `20261112100000`,
 `20261113100000`, `20261115150000`, `20261117150000`, `20261117180000`,
-`20261121120000` ; écrans `Contrats`, `Facturation`, `Paiements`,
-`Notifications`, `Finance` (budgets et comptabilité).
+`20261121120000`, `20261121150000` ; écrans `Contrats`, `Facturation`, `Paiements`,
+`Notifications`, `Finance` (budgets et comptabilité), `Dashboard`, `Pilotage`,
+`Decisions`.
 
 Droits utiles : `contracts` pour le dossier contractuel, les engagements,
 le rapport de performance, les comités et le contrôle des factures Neemba ;
@@ -197,7 +198,8 @@ fonction serveur de cet écran reste seule juge.
 | Maintenance | Remise en service à valider | Écriture `maintenance`, hors auteur de la fin |
 | Tickets CBG | Écart de relevé à décider | Écriture `trips` |
 | Facturation | Facture à signer | Rôle `director` |
-| HSE | Action corrective en retard | Écriture `trips` ou administrateur |
+| HSE | Action corrective en retard (incident ou inspection, D-068) | Écriture `trips` ou administrateur |
+| HSE | Plan de prévention à signer (D-068) | Approbation `trips` ou administrateur, brouillon encore valide |
 | Contrats | Échéance de contrat, préavis à décider, contrat échu | Écriture `contracts`, à partir de la date clé moins `contrats_alerte_echeance_jours` |
 | Contrats | Clause contractuelle à décider | Écriture `contracts` et `invoices`, ou approbation `contracts` |
 | Budgets | Budget dépassé | Écriture `costs` |
@@ -276,8 +278,61 @@ comptes et comptes de tiers ; clauses chiffrées et leurs valeurs (contrats
 signés) ; préavis et renouvellement des contrats ; budgets ; grille
 d'évaluation du loueur ; rattachement des engins au contrat Neemba.
 
+## 11. Pilotage : tableau de bord, centre de pilotage, centre des décisions (D-057, D-068)
+
+**Tableau de bord** et **Centre de pilotage** lisent les indicateurs
+calculés par le serveur (`indicateurs_pilotage`), jamais recalculés dans le
+navigateur. Chaque indicateur porte sa source, sa fiabilité (mesure,
+partielle, sans données), sa période et l'heure du calcul ; sa nature dit
+s'il porte sur la période ou sur l'instant du calcul (engins en service,
+immobilisations en cours, retards). Un domaine que vos droits ne permettent
+pas de lire s'affiche « Non visible avec vos droits de lecture », jamais 0.
+
+- Filtres : site, shift, véhicule, partenaire (transporteur, propriétaire
+  ou exploitant saisi sur l'engin, sans tenir compte de la casse). Un
+  indicateur qui n'a pas la dimension filtrée (par exemple les engins en
+  service avec un filtre shift, ou les bons de commande avec un filtre
+  véhicule) est rendu « sans données » avec le motif, jamais avec une valeur
+  non filtrée.
+- Comparaison : une seconde période s'affiche à côté, avec l'écart.
+- Export CSV et impression : la période, les filtres, la source et l'heure
+  de calcul sont repris en tête du document.
+
+**Centre des décisions** (menu Exploitation, et compteur d'alertes de la
+barre supérieure) : alertes et décisions en attente (Mes validations), par
+priorité : 1 alerte critique, 2 décision en attente, 3 avertissement,
+4 information, puis de la plus ancienne à la plus récente.
+
+- Les alertes sont écrites par le serveur seulement
+  (`actualiser_alertes`, appelée à l'ouverture de l'écran et de la barre
+  supérieure, au plus une fois toutes les 30 secondes) depuis les données
+  déjà enregistrées : immobilisation longue, intervention Neemba en retard,
+  contrôle avant départ non conforme, écart d'inventaire carburant,
+  document ou habilitation expiré, action corrective en retard, voyage livré
+  sans ticket CBG, EPI à renouveler, inspection en retard. Une alerte par
+  règle et par objet.
+- Une alerte se voit avec le droit de lecture du module de sa règle, si
+  vous voyez son objet (le voyage, l'incident ou l'inspection d'une action
+  corrective, sinon l'engin ou le site) ; elle se prend en compte ou se résout (motif
+  obligatoire) avec le droit d'écriture de ce module. Quand la condition
+  disparaît, l'alerte reste affichée, marquée « condition levée », jusqu'à
+  sa résolution par une personne ; une alerte résolue ne renaît pas pour le
+  même objet. Une règle mise hors service lève la condition de ses alertes.
+  Une action corrective en retard reste dans les décisions dès que son
+  alerte est résolue ou invisible pour vous.
+- Règles et seuils : réglages de l'administrateur (voir le guide
+  administrateur, section 8). Une règle à seuil (immobilisation, carburant,
+  ticket) ne produit rien tant que le seuil n'est pas saisi ; les six
+  autres règles sont actives sauf si l'administrateur les met hors service
+  (dérogation D-068).
+
 ## Limites connues
 
+- Pilotage et alertes (D-068) : les seuils d'alerte ne sont pas fixés (à
+  saisir par l'administrateur) ; pas d'envoi d'alerte par courriel ou SMS ;
+  le calcul des alertes se déclenche à la lecture, sans planificateur : un
+  seuil franchi la nuit n'apparaît qu'à la première ouverture suivante ; pas
+  de prévision ni de graphique d'évolution.
 - Moteur de décompte de location (D-013) non branché : franchise, arrondi,
   plafond, minimum et majorations ne sont pas appliqués au contrôle des
   factures Neemba (D-032).

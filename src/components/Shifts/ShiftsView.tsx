@@ -23,6 +23,7 @@ export const ShiftsView = () => {
   const [shifts, setShifts] = useState<Shift[] | null>(null);
   const [journal, setJournal] = useState<Ligne[]>([]);
   const [erreur, setErreur] = useState('');
+  const [erreurJournal, setErreurJournal] = useState('');
   const [message, setMessage] = useState('');
   const [edition, setEdition] = useState<{ id: string | null; saisie: SaisieShift; motif: string } | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -35,7 +36,8 @@ export const ShiftsView = () => {
     ]);
     if (rS.error) { setErreur(`Shifts indisponibles : ${rS.error.message}`); setShifts([]); }
     else setShifts((rS.data ?? []) as Shift[]);
-    setJournal(rJ.error ? [] : (rJ.data ?? []) as Ligne[]);
+    if (rJ.error) { setErreurJournal(`Journal des shifts indisponible : ${rJ.error.message}`); setJournal([]); }
+    else { setErreurJournal(''); setJournal((rJ.data ?? []) as Ligne[]); }
     setHeure(new Date());
   }, []);
   useEffect(() => { charger(); }, [charger]);
@@ -164,6 +166,9 @@ export const ShiftsView = () => {
         )}
       </Panneau>
 
+      {erreurJournal && (
+        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erreurJournal}</p>
+      )}
       {journal.length > 0 && (
         <Panneau titre="Historique">
           <ul className="divide-y divide-stone-100 text-sm">

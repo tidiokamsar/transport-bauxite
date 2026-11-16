@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ParcoursCarburant } from './ParcoursCarburant';
 import { Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Provenance, SansDonnees } from '../ui/Panneau';
@@ -67,6 +68,7 @@ export const AnalyseCarburantView = () => {
 
   return (
     <div className="space-y-6">
+      <ParcoursCarburant vue="fuel-dashboard" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-stone-900">Analyse carburant</h2>

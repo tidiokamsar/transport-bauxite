@@ -100,26 +100,37 @@ export const FicheVoyage = ({
   // Pesee a l'arrivee = ticket CBG (D-037, D-078) : saisie du ticket dans le
   // meme geste, ou rattachement motive a un voyage livre sans ticket.
   const enregistrerTicket = async (tardif: boolean) => {
-    setEnCours(true);
-    setErreur('');
-    const { error } = await supabase.rpc('rattacher_ticket_cbg', {
-      p_trip_id: voyage.id,
-      p_ticket: ticket.trim(),
-      p_brut: Number(brut.replace(',', '.')),
-      p_tare: Number(tare.replace(',', '.')),
-      p_mesure_le: new Date(quand).toISOString(),
-      p_document_ref: documentRef.trim() || null,
-      p_motif: motif.trim() || null,
-    });
-    setEnCours(false);
-    if (error) {
-      setErreur(error.message);
+    // Heure de pesee obligatoire et lisible : jamais d'heure supposee.
+    const mesure = quand ? new Date(quand) : null;
+    if (!mesure || Number.isNaN(mesure.getTime())) {
+      setErreur('Heure de la pesée CBG requise');
       return;
     }
-    if (tardif) setRattachement(false);
-    else setAction(null);
-    await charger();
-    onModifie();
+    setEnCours(true);
+    setErreur('');
+    try {
+      const { error } = await supabase.rpc('rattacher_ticket_cbg', {
+        p_trip_id: voyage.id,
+        p_ticket: ticket.trim(),
+        p_brut: Number(brut.replace(',', '.')),
+        p_tare: Number(tare.replace(',', '.')),
+        p_mesure_le: mesure.toISOString(),
+        p_document_ref: documentRef.trim() || null,
+        p_motif: motif.trim() || null,
+      });
+      if (error) {
+        setErreur(error.message);
+        return;
+      }
+      if (tardif) setRattachement(false);
+      else setAction(null);
+      await charger();
+      onModifie();
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Enregistrement du ticket impossible');
+    } finally {
+      setEnCours(false);
+    }
   };
 
   const valider = async () => {
@@ -274,7 +285,7 @@ export const FicheVoyage = ({
                   <button onClick={() => setAction(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
                   <button
                     onClick={valider}
-                    disabled={enCours || (action === 'WEIGHED_IN' && !ticket.trim())}
+                    disabled={enCours || (action === 'WEIGHED_IN' && (!ticket.trim() || !quand))}
                     className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                   >
                     {enCours ? 'Enregistrement...' : `Enregistrer : ${ETATS[action].libelle}`}
@@ -313,7 +324,7 @@ export const FicheVoyage = ({
                 {erreur && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setRattachement(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-                  <button onClick={() => enregistrerTicket(true)} disabled={enCours || !ticket.trim() || !brut.trim() || !tare.trim() || !motif.trim()} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                  <button onClick={() => enregistrerTicket(true)} disabled={enCours || !quand || !ticket.trim() || !brut.trim() || !tare.trim() || !motif.trim()} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
                     {enCours ? 'Enregistrement...' : 'Rattacher le ticket'}
                   </button>
                 </div>

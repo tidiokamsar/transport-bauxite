@@ -40,13 +40,13 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
-| Tableau de bord exploitation | `Dashboard/*` (menu `dashboard`) | `vehicles`, `trips`, `v_realisation_objectifs`, `fuel_transactions`, `alerts`, `vehicle_tracking`, `work_shifts` (lecture) | EXISTANT À AMÉLIORER | P2 | Métadonnées source / période / fraîcheur par KPI (règle 5 CLAUDE.md) ; centraliser les KPI en vues SQL |
+| Tableau de bord exploitation | `Dashboard/*` (menu `dashboard`) | indicateurs du jour et de la veille par `indicateurs_pilotage()` (source, fiabilité, période, heure), alertes par `actualiser_alertes()` puis `alerts`, export CSV et impression (D-068, branche d'intégration) ; `vehicles`, `trips`, `v_realisation_objectifs`, `vehicle_tracking`, `work_shifts` (lecture) | À TESTER | P2 | Graphiques d'évolution |
 | Tableau de bord du chargé de contrats | `Contrats/MonPosteView` | `indicateurs_charge_contrats()` | DÉPLOYÉ | P2 | Rattacher au centre de pilotage |
 | Dashboards Direction, Finance, Flotte, Carburant, Maintenance, Performance | `Pilotage/CentrePilotageView` | `indicateurs_pilotage()` : indicateurs par domaine avec source, fiabilité, période, heure (D-057) | DÉPLOYÉ | P2 | Widgets par profil ; graphiques d'évolution |
-| Centre des décisions, alertes prioritaires | - | `alerts` (aucun écrivain) | MANQUANT | P2 | Après le centre de notifications (lot T3) |
-| Comparaison de périodes, analyse site / shift / véhicule / partenaire | partiel dans Analyses | `fiabilite_engins`, `performance_chauffeurs`, `consommation_carburant` | PARTIEL | P2 | Filtres communs période / site / shift |
+| Centre des décisions, alertes prioritaires | `Decisions/CentreDecisionsView` (menu « Centre des décisions », compteur de la barre supérieure) ; `AlertsView` supprimé | `alerts` écrite par `actualiser_alertes()` seulement (9 règles de `catalogue_regles_alertes`, une alerte par règle et par objet, condition levée signalée), `prendre_en_compte_alerte`, `resoudre_alerte` (motif), `regles_alertes()`, `centre_decisions()` (alertes et `mes_validations()` par priorité) (D-068, branche d'intégration) | À TESTER | P2 | Seuils à saisir par l'administrateur ; 6 règles sans seuil actives par défaut (dérogation D-068) ; pas d'envoi par courriel ou SMS |
+| Comparaison de périodes, analyse site / shift / véhicule / partenaire | `Pilotage/CentrePilotageView` (période comparée, filtres) ; Analyses | `indicateurs_pilotage(debut, fin, site, shift, vehicule, partenaire)` : indicateur sans la dimension filtrée « sans données » avec le motif, colonne `nature` (D-068, branche d'intégration) ; `fiabilite_engins`, `performance_chauffeurs`, `consommation_carburant` | À TESTER | P2 | Partenaire = transporteur, propriétaire ou exploitant saisi sur l'engin (D-062) |
 | Prévisions production et financières | - | - | MANQUANT | P3 | Après historique réel suffisant |
-| Export et impression des tableaux de bord | `Pilotage/CentrePilotageView` | export CSV des indicateurs avec source et période (D-057) | PARTIEL | P2 | Impression et export par widget |
+| Export et impression des tableaux de bord | `Pilotage/CentrePilotageView`, `Dashboard/DashboardView`, `Decisions/CentreDecisionsView` | export CSV et impression (`documentImpression`, `imprimerTableau`) avec période, filtres, source et heure de calcul (D-057, D-068, branche d'intégration) | À TESTER | P2 | Pas de PDF serveur ni d'Excel natif |
 
 ### 02. Organisation et administration
 
@@ -54,15 +54,15 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Société exploitante | `Settings/FicheSociete` | `societe` | DÉPLOYÉ | P1 | Compléter RCCM, NIF, signataire (données propriétaire) |
 | Organisations (référentiel) | `Settings/AdminSettingsView` | `organisations` (D-038, admin) | DÉPLOYÉ | P2 | Filiales, directions, départements, centres de coûts : MANQUANT |
-| Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion absent |
+| Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion : ligne « Gestion des sessions » (D-064) |
 | Rôles et permissions (rôle x module) | Paramètres > Rôles | `role_permissions`, `has_module_view/write` (D-012) | DÉPLOYÉ | P0 | Permission par action et par état de dossier : MANQUANT |
 | Droits par utilisateur | Paramètres > Utilisateurs | `droits_utilisateur`, `definir_droit_module`, `journal_droits_modules` (D-036) | DÉPLOYÉ | P1 | - |
-| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046 | DÉPLOYÉ | P0 | RH et achats restent hors périmètre |
-| Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
+| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046, lectures J1/J2 D-075 | DÉPLOYÉ | P0 | RH et achats restent hors périmètre ; `site_permis` étendu aux affectations datées par D-064 (À TESTER, ligne suivante) |
+| Affectations multisites, délégations temporaires | `Settings/AffectationsSites`, `Settings/Delegations` (Paramètres et Sécurité du compte > Mes délégations) | `affectations_sites`, `affecter_site`, `cloturer_affectation_site`, `annuler_affectation_site`, `retablir_perimetre_global`, `perimetres_comptes`, `site_permis` ; `delegations_droits`, `deleguer_droit`, `revoquer_delegation`, `mes_delegations`, `has_module_*` via `droit_module_base` (D-064, migration `20261121140000`, test 47, E2E `organisation`) | À TESTER | P2 | Branche `lot-02/organisation-integration`, revue indépendante puis fusion ; durée maximale de délégation et `v_droits_modules` avec délégations : à décider |
 | MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | DÉPLOYÉ | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
-| Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
+| Gestion des sessions, journal de connexion | `Settings/JournalConnexions` | `v_journal_connexions` (auth.audit_log_entries, administrateur), `sessions_ouvertes()` (D-064) | À TESTER | P1 | Tentatives échouées absentes (GoTrue ne les journalise pas) ; `auth.sessions` non vérifiée hors production |
 | Paramètres généraux | `AdminSettingsView`, `ReglagesServeur` | `settings` (admin), `valider_reglage` (D-061) | À TESTER | P2 | Séquences de numérotation et devises (ligne suivante) |
-| Séquences de numérotation, devises, unités, modèles | - | numérotations codées par fonction | MANQUANT | P2 | Référentiel des séquences et devises |
+| Séquences de numérotation, devises, unités, modèles | `Settings/Referentiels` | `devises`, `unites_mesure`, `enregistrer_devise`, `enregistrer_unite`, `codes_utilises()`, `sequences_numerotation()` en lecture (D-064) | À TESTER | P2 | Formats de numérotation non paramétrables ; modèles de documents : MANQUANT ; libellés des devises à saisir |
 
 ### 03. Sites et infrastructures
 
@@ -255,7 +255,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Incidents | `Incidents/IncidentsView` | `incidents` (numéro, type, rattachement, statut), `declarer_incident`, `analyser_incident`, `cloturer_incident` (D-054) | DÉPLOYÉ | P1 | Photos et constats après stockage de fichiers |
 | Environnement | `ESG/ESGTrackingView` | `carbon_emissions`, `sustainability_kpis`, `environmental_incidents` (régime B), `waste_management` (C) | PARTIEL | P3 | Aucune source de données ; 4 boutons sans action |
-| Inspections, contrôles avant départ, EPI, accidents, presque-accidents, enquêtes, actions correctives, plans de prévention, risques | `Hse/ControlesDepartView`, `Incidents/IncidentsView` | `points_controle_depart`, `controles_depart`, garde `garde_controle_depart` au départ du voyage, `actions_correctives`, `v_actions_correctives_en_retard` (D-054) | PARTIEL | P1 | EPI, plans de prévention, registre des risques, inspections planifiées |
+| Inspections, contrôles avant départ, EPI, accidents, presque-accidents, enquêtes, actions correctives, plans de prévention, risques | `Hse/ControlesDepartView`, `Incidents/IncidentsView`, `Hse/HsePreventionView` (menu « Prévention HSE ») | `points_controle_depart`, `controles_depart`, garde `garde_controle_depart` au départ du voyage, `actions_correctives`, `v_actions_correctives_en_retard` (D-054) ; `dotations_epi` (`remettre_epi`, `restituer_epi`, `annuler_dotation_epi`, `v_epi_a_renouveler`), `risques` et `risques_versions` (`enregistrer_risque`, `v_risques_courants`), `plans_prevention` (`enregistrer_plan_prevention`, `signer_plan_prevention`, `annuler_plan_prevention`, `v_plans_prevention`), `programmes_inspection`, `inspections`, `constats_inspection` (`definir_programme_inspection`, `realiser_inspection`, `ajouter_action_inspection`) (D-068, branche d'intégration) | À TESTER | P1 | Échelles de cotation, fréquences et types d'EPI à confirmer par le responsable HSE ; photos après stockage de fichiers |
 
 ### 23. Documents et GED
 
@@ -294,12 +294,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 21 |
-| EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 16 |
+| À TESTER | 26 |
+| EXISTANT / EXISTANT À AMÉLIORER | 3 |
+| PARTIEL | 13 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
-| MANQUANT | 13 |
+| MANQUANT | 12 |
 | **Total** | **123** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ParcoursCarburant } from './ParcoursCarburant';
 import { Download, Plus, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -104,10 +105,11 @@ export const PleinsView = () => {
 
   return (
     <div className="space-y-6">
+      <ParcoursCarburant vue="fuel" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-stone-900">Pleins et cuves</h2>
-          <p className="text-stone-500">Distributions aux engins ; prix et factures suivis dans « Livraisons et factures CBG »</p>
+          <h2 className="text-2xl font-black text-stone-900">Distribution aux engins</h2>
+          <p className="text-stone-500">Pleins saisis un par un ou par fiche carburant FC ; prix et factures suivis dans « Livraisons et factures CBG »</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <input type="month" value={mois} onChange={(e) => setMois(e.target.value)} aria-label="Mois" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />

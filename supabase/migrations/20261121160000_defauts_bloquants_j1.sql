@@ -17,14 +17,36 @@
      `net_superieur_capacite` de la reconciliation (a examiner, decision
      motivee ; jamais un refus silencieux, jamais une correction).
   4. Voyage pese a l'arrivee sans ticket : la pesee a l'arrivee
-     (WEIGHED_IN) n'existe plus sans ticket CBG (garde sur `trip_events`) ;
+     (WEIGHED_IN) n'existe plus sans ticket CBG (declencheur de contrainte
+     differe sur `trip_events` : le ticket du voyage doit exister au
+     COMMIT ; aucun parametre de session ne le contourne) ;
      `rattacher_ticket_cbg` integre le ticket a la reception (en
      dechargement) ou le rattache, avec motif, a un voyage deja livre sans
      ticket ; le ticket garde son origine et son motif (journal immuable).
+     Controle de doublon de numero commun (`controler_ticket_cbg_libre`).
+     Refus si une reconciliation cloturee couvre le voyage (periode et
+     sites), meme si le voyage n'y figure pas.
   6. `definir_objectif` et `annuler_objectif` controlent le perimetre de
      site avant toute lecture (message unique).
-  7. (non modifie) `decider_ligne_reconciliation` refuse toujours
-     « facturable » avec `ticket_rectifie` : question au proprietaire, D-078.
+  7. `decider_ligne_reconciliation` refuse toujours « facturable » avec
+     `ticket_rectifie` (question au proprietaire, D-078) et desormais avec
+     `net_superieur_capacite` (rectification du ticket ou exclusion).
+  8. `ouvrir_reconciliation` : chevauchement refuse des que les ensembles
+     de sites se recoupent (NULL = tous les sites).
+  9. Facture du loueur : `saisir_facture_fournisseur` seule voie
+     d'ecriture (INSERT, UPDATE, DELETE directs retires) ; montants GNF
+     entiers, jamais arrondis.
+  10. `definir_shift` : heures d'un shift deja reference non modifiables.
+  11. Decision « facturable » perimee : `actualiser_reconciliation` l'invalide
+     des qu'une anomalie non forcable apparait (`ligne_non_forcable`) ;
+     `cloturer_reconciliation` la refuse aussi. `saisir_rotation` refuse un
+     voyage couvert par une reconciliation cloturee ; `rectifier_ticket_pesee_cbg`
+     utilise le controle de numero commun.
+
+  Avant deploiement : verifier l'absence de doublons qui empecheraient les
+  index uniques de shifts :
+    SELECT lower(btrim(display_name)), count(*) FROM work_shifts GROUP BY 1 HAVING count(*) > 1;
+    SELECT lower(btrim(name)), count(*) FROM work_shifts GROUP BY 1 HAVING count(*) > 1;
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -167,6 +189,16 @@ BEGIN
     IF v_motif IS NULL THEN
       RAISE EXCEPTION 'Motif obligatoire pour modifier un shift' USING ERRCODE = '22023';
     END IF;
+    -- Un shift deja utilise garde ses heures : les postes, objectifs,
+    -- voyages et fiches qui le citent restent lus avec leur horaire.
+    IF (p_debut IS DISTINCT FROM s.start_time OR p_fin IS DISTINCT FROM s.end_time)
+       AND (EXISTS (SELECT 1 FROM public.postes x WHERE x.shift_id = p_id)
+            OR EXISTS (SELECT 1 FROM public.objectifs_production x WHERE x.shift_id = p_id)
+            OR EXISTS (SELECT 1 FROM public.trips x WHERE x.shift_id = p_id)
+            OR EXISTS (SELECT 1 FROM public.fiches_terrain x WHERE x.shift_id = p_id)) THEN
+      RAISE EXCEPTION 'Shift deja utilise (postes, objectifs, voyages ou fiches) : ses heures ne changent plus. Desactiver ce shift puis creer un nouveau shift avec le nouvel horaire'
+        USING ERRCODE = '22023';
+    END IF;
   END IF;
   PERFORM public.controler_shift(p_id, v_nom, v_libelle, p_debut, p_fin, p_ordre, v_actif);
   IF p_id IS NULL THEN
@@ -241,23 +273,53 @@ BEGIN
 END $$;
 
 -- 4b. La pesee a l'arrivee est la pesee CBG (D-037) : un evenement
--- WEIGHED_IN n'est ecrit qu'avec son ticket, par saisir_rotation ou
--- rattacher_ticket_cbg (qui creent le ticket dans la meme transaction).
+-- WEIGHED_IN n'existe qu'avec son ticket. Declencheur de contrainte
+-- differe : au COMMIT, le ticket cite par l'evenement doit exister dans
+-- tickets_pesee_cbg pour ce voyage (saisir_rotation et rattacher_ticket_cbg
+-- le creent dans la meme transaction, avant l'evenement). Aucun parametre
+-- de session ne le contourne. Les triggers sont recrees apres les donnees
+-- par pg_restore (section post-data) : la restauration n'est pas genee.
 CREATE OR REPLACE FUNCTION public.garde_reception_cbg()
-RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_ticket text := nullif(btrim(coalesce(NEW.donnees ->> 'ticket', '')), '');
 BEGIN
-  IF NEW.etat_apres = 'WEIGHED_IN'
-     AND (coalesce(current_setting('sigtb.reception_cbg', true), '') <> 'on'
-          OR nullif(btrim(coalesce(NEW.donnees ->> 'ticket', '')), '') IS NULL) THEN
+  IF NEW.etat_apres = 'WEIGHED_IN' AND (v_ticket IS NULL OR NOT EXISTS (
+       SELECT 1 FROM public.tickets_pesee_cbg t
+        WHERE t.trip_id = NEW.trip_id AND upper(btrim(t.ticket)) = upper(v_ticket))) THEN
     RAISE EXCEPTION 'La pesee a l''arrivee se saisit avec le ticket CBG (fiche de rotations ou fiche du voyage)'
       USING ERRCODE = '22023';
   END IF;
-  RETURN NEW;
+  RETURN NULL;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.garde_reception_cbg() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS garde_reception_cbg ON public.trip_events;
-CREATE TRIGGER garde_reception_cbg BEFORE INSERT ON public.trip_events
-  FOR EACH ROW EXECUTE FUNCTION public.garde_reception_cbg();
+CREATE CONSTRAINT TRIGGER garde_reception_cbg AFTER INSERT ON public.trip_events
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW WHEN (NEW.etat_apres = 'WEIGHED_IN') EXECUTE FUNCTION public.garde_reception_cbg();
+
+-- 4c'. Numero de ticket libre : controle commun a saisir_rotation et
+-- rattacher_ticket_cbg (verrou sur le numero normalise ; numero effectif
+-- apres rectification, numero source, evenements des autres voyages).
+CREATE OR REPLACE FUNCTION public.controler_ticket_cbg_libre(p_ticket text, p_trip_id uuid)
+RETURNS void LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE v_ticket text := upper(btrim(coalesce(p_ticket, '')));
+BEGIN
+  IF v_ticket = '' THEN
+    RAISE EXCEPTION 'Numero de ticket CBG requis' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_ticket, 0));
+  IF EXISTS (SELECT 1 FROM public.v_tickets_pesee_cbg_effectifs x
+             WHERE upper(btrim(x.ticket)) = v_ticket AND x.trip_id <> p_trip_id)
+     OR EXISTS (SELECT 1 FROM public.tickets_pesee_cbg x
+                WHERE upper(btrim(x.ticket)) = v_ticket AND x.trip_id <> p_trip_id)
+     OR EXISTS (SELECT 1 FROM public.trip_events e2 WHERE e2.donnees ? 'ticket'
+                AND upper(btrim(e2.donnees ->> 'ticket')) = v_ticket AND e2.trip_id <> p_trip_id) THEN
+    RAISE EXCEPTION 'Ticket de pesee % deja utilise sur un autre voyage', btrim(p_ticket) USING ERRCODE = '23505';
+  END IF;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.controler_ticket_cbg_libre(text, uuid) FROM PUBLIC, anon, authenticated;
 
 -- ===================================================================
 -- 2. saisir_rotation : fiche du site de depart ou d'arrivee
@@ -312,12 +374,21 @@ BEGIN
       IF f.site_id IS DISTINCT FROM v.departure_site_id AND f.site_id IS DISTINCT FROM v.arrival_site_id THEN
         RAISE EXCEPTION 'Le ticket CBG ne se rattache que depuis une fiche du site de depart ou du depot d''arrivee du voyage' USING ERRCODE = '22023';
       END IF;
-      PERFORM set_config('sigtb.reception_cbg', 'on', true);
-    END IF;
-    PERFORM public.avancer_voyage(p_trip_id, e ->> 'etat', (e ->> 'quand')::timestamptz,
-      'Fiche ' || f.numero, coalesce(e -> 'donnees', '{}'::jsonb) || jsonb_build_object('fiche', f.numero));
-    IF e ->> 'etat' = 'WEIGHED_IN' THEN
-      PERFORM set_config('sigtb.reception_cbg', 'off', true);
+      -- Controles de la pesee avant le ticket, avec les messages
+      -- d'avancer_voyage ; puis numero libre (y compris numero attribue par
+      -- rectification) et ticket cree avant l'evenement (garde_reception_cbg).
+      IF (e -> 'donnees' ->> 'brut')::numeric IS NULL OR (e -> 'donnees' ->> 'tare')::numeric IS NULL
+         OR (e -> 'donnees' ->> 'tare')::numeric < 0
+         OR (e -> 'donnees' ->> 'brut')::numeric <= (e -> 'donnees' ->> 'tare')::numeric THEN
+        RAISE EXCEPTION 'Pesee incoherente : brut et tare requis, brut superieur a la tare' USING ERRCODE = '22023';
+      END IF;
+      IF (e ->> 'quand')::timestamptz IS NULL OR (e ->> 'quand')::timestamptz > now() + interval '5 minutes' THEN
+        RAISE EXCEPTION 'Heure de l''evenement absente ou dans le futur' USING ERRCODE = '22023';
+      END IF;
+      IF public.voyage_couvert_cloture(p_trip_id) THEN
+        RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir' USING ERRCODE = '22023';
+      END IF;
+      PERFORM public.controler_ticket_cbg_libre(v_ticket, p_trip_id);
       INSERT INTO public.tickets_pesee_cbg
         (trip_id, fiche_id, site_id, ticket, brut, tare, mesure_le, document_ref, saisi_par, origine)
       VALUES (p_trip_id, p_fiche_id, v.arrival_site_id, v_ticket,
@@ -325,6 +396,8 @@ BEGIN
         (e ->> 'quand')::timestamptz,
         nullif(btrim(coalesce(e -> 'donnees' ->> 'document_ref', '')), ''), auth.uid(), 'fiche');
     END IF;
+    PERFORM public.avancer_voyage(p_trip_id, e ->> 'etat', (e ->> 'quand')::timestamptz,
+      'Fiche ' || f.numero, coalesce(e -> 'donnees', '{}'::jsonb) || jsonb_build_object('fiche', f.numero));
   END LOOP;
   SELECT etat INTO v_etat FROM public.trips WHERE id = p_trip_id;
   RETURN v_etat;
@@ -365,8 +438,9 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.tickets_pesee_cbg WHERE trip_id = p_trip_id) THEN
     RAISE EXCEPTION 'Ce voyage a deja un ticket CBG : utiliser la rectification motivee' USING ERRCODE = '22023';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.reconciliations r JOIN public.reconciliation_lignes l ON l.reconciliation_id = r.id
-             WHERE l.trip_id = p_trip_id AND r.statut = 'cloturee') THEN
+  -- Une reconciliation cloturee qui porte le voyage, ou dont la periode et
+  -- les sites le couvrent (voyage absent de ses lignes), est figee.
+  IF public.voyage_couvert_cloture(p_trip_id) THEN
     RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir' USING ERRCODE = '22023';
   END IF;
   IF v.etat = 'UNLOADING' THEN
@@ -379,25 +453,20 @@ BEGIN
   ELSE
     RAISE EXCEPTION 'Le ticket CBG se saisit en dechargement, ou se rattache a un voyage livre sans ticket' USING ERRCODE = '22023';
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended(upper(v_ticket), 0));
-  IF EXISTS (SELECT 1 FROM public.v_tickets_pesee_cbg_effectifs x
-             WHERE upper(btrim(x.ticket)) = upper(v_ticket) AND x.trip_id <> p_trip_id)
-     OR EXISTS (SELECT 1 FROM public.tickets_pesee_cbg x WHERE upper(btrim(x.ticket)) = upper(v_ticket))
-     OR EXISTS (SELECT 1 FROM public.trip_events e2 WHERE e2.donnees ? 'ticket'
-                AND upper(btrim(e2.donnees ->> 'ticket')) = upper(v_ticket) AND e2.trip_id <> p_trip_id) THEN
-    RAISE EXCEPTION 'Ticket de pesee % deja utilise sur un autre voyage', v_ticket USING ERRCODE = '23505';
-  END IF;
-  IF v_origine = 'reception' THEN
-    PERFORM set_config('sigtb.reception_cbg', 'on', true);
-    PERFORM public.avancer_voyage(p_trip_id, 'WEIGHED_IN', p_mesure_le, coalesce(v_motif, 'Ticket CBG ' || v_ticket),
-      jsonb_build_object('brut', p_brut, 'tare', p_tare, 'ticket', v_ticket));
-    PERFORM set_config('sigtb.reception_cbg', 'off', true);
-  END IF;
+  PERFORM public.controler_ticket_cbg_libre(v_ticket, p_trip_id);
+  -- Ticket cree avant l'evenement de reception (garde_reception_cbg).
+  -- Rattachement tardif : la trace est le ticket lui-meme (origine, motif,
+  -- auteur, heure de saisie ; immuable) ; aucun evenement n'est ajoute au
+  -- journal du voyage, dont les etats et heures restent ceux du terrain.
   INSERT INTO public.tickets_pesee_cbg
     (trip_id, fiche_id, site_id, ticket, brut, tare, mesure_le, document_ref, saisi_par, origine, motif_rattachement)
   VALUES (p_trip_id, NULL, v.arrival_site_id, v_ticket, p_brut, p_tare, p_mesure_le,
     nullif(btrim(coalesce(p_document_ref, '')), ''), auth.uid(), v_origine, v_motif)
   RETURNING id INTO v_id;
+  IF v_origine = 'reception' THEN
+    PERFORM public.avancer_voyage(p_trip_id, 'WEIGHED_IN', p_mesure_le, coalesce(v_motif, 'Ticket CBG ' || v_ticket),
+      jsonb_build_object('brut', p_brut, 'tare', p_tare, 'ticket', v_ticket));
+  END IF;
   RETURN v_id;
 END;
 $$;
@@ -414,6 +483,30 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
     'ecart_double_pesee', 'sans_double_pesee', 'sans_ticket_cbg', 'ticket_rectifie',
     'ticket_double', 'non_accepte', 'net_superieur_capacite'];
 $$;
+
+-- Anomalies qu'aucune decision ne rend facturables (liste unique pour la
+-- decision, l'actualisation et la cloture).
+CREATE OR REPLACE FUNCTION public.ligne_non_forcable(p_anomalies text[])
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
+  SELECT coalesce(p_anomalies && ARRAY['base_absente', 'litige', 'rejet', 'sans_ticket_cbg', 'ticket_rectifie',
+    'ticket_double', 'non_accepte', 'net_superieur_capacite'], false);
+$$;
+REVOKE EXECUTE ON FUNCTION public.ligne_non_forcable(text[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.ligne_non_forcable(text[]) TO authenticated;
+
+-- Voyage fige par une reconciliation cloturee : il figure dans ses lignes,
+-- ou sa date et ses sites tombent dans son perimetre.
+CREATE OR REPLACE FUNCTION public.voyage_couvert_cloture(p_trip_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SET search_path = '' AS $$
+  SELECT EXISTS (SELECT 1 FROM public.reconciliations r JOIN public.reconciliation_lignes l ON l.reconciliation_id = r.id
+                 WHERE l.trip_id = p_trip_id AND r.statut = 'cloturee')
+      OR EXISTS (SELECT 1 FROM public.trips v JOIN public.reconciliations r
+                   ON r.statut = 'cloturee' AND v.planned_date BETWEEN r.periode_debut AND r.periode_fin
+                  AND (r.site_depart_id IS NULL OR r.site_depart_id = v.departure_site_id)
+                  AND (r.site_arrivee_id IS NULL OR r.site_arrivee_id = v.arrival_site_id)
+                 WHERE v.id = p_trip_id);
+$$;
+REVOKE EXECUTE ON FUNCTION public.voyage_couvert_cloture(uuid) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.actualiser_reconciliation(p_id uuid)
 RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -485,7 +578,17 @@ BEGIN
     tonnage_accepte = EXCLUDED.tonnage_accepte, tonnage_kogon = EXCLUDED.tonnage_kogon, tonnage_cbg = EXCLUDED.tonnage_cbg,
     tonnage_base = EXCLUDED.tonnage_base, ticket = EXCLUDED.ticket, fiche = EXCLUDED.fiche, anomalies = EXCLUDED.anomalies,
     ticket_brut = EXCLUDED.ticket_brut, ticket_tare = EXCLUDED.ticket_tare,
-    ticket_document_ref = EXCLUDED.ticket_document_ref, ticket_rectifie = EXCLUDED.ticket_rectifie;
+    ticket_document_ref = EXCLUDED.ticket_document_ref, ticket_rectifie = EXCLUDED.ticket_rectifie,
+    -- Une decision « facturable » devenue impossible (ticket rectifie,
+    -- capacite abaissee...) est invalidee : la ligne repasse a examiner.
+    decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decision END,
+    motif_decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.motif_decision END,
+    decide_par = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decide_par END,
+    decide_le = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decide_le END;
   SELECT count(*) INTO n FROM public.reconciliation_lignes WHERE reconciliation_id = r.id;
   UPDATE public.reconciliations SET actualisee_le = now() WHERE id = r.id;
   RETURN n;
@@ -493,6 +596,172 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.actualiser_reconciliation(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.actualiser_reconciliation(uuid) TO authenticated;
+
+-- 7. Decision sur une ligne (rebase a l'identique sur 20261113100000) :
+-- un net superieur a la capacite n'est jamais declare facturable ; il se
+-- corrige par rectification motivee du ticket ou par exclusion.
+CREATE OR REPLACE FUNCTION public.decider_ligne_reconciliation(p_ligne_id uuid, p_decision text, p_motif text)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE l public.reconciliation_lignes;
+BEGIN
+  IF NOT public.has_module_write('invoices') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur la facturation requis' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO l FROM public.reconciliation_lignes WHERE id = p_ligne_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Ligne introuvable' USING ERRCODE = 'P0002'; END IF;
+  IF (SELECT statut FROM public.reconciliations WHERE id = l.reconciliation_id) <> 'ouverte' THEN
+    RAISE EXCEPTION 'Reconciliation cloturee' USING ERRCODE = '22023';
+  END IF;
+  IF p_decision IS NOT NULL AND nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Motif obligatoire pour une decision' USING ERRCODE = '22023';
+  END IF;
+  IF p_decision = 'facturable' AND l.tonnage_base IS NULL THEN
+    RAISE EXCEPTION 'Tonnage de base absent : corriger le voyage puis actualiser' USING ERRCODE = '22023';
+  END IF;
+  IF p_decision = 'facturable' AND public.ligne_non_forcable(l.anomalies) THEN
+    RAISE EXCEPTION 'Anomalies a examiner avant de declarer la ligne facturable' USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.reconciliation_lignes SET decision = p_decision,
+    motif_decision = CASE WHEN p_decision IS NULL THEN NULL ELSE btrim(p_motif) END,
+    decide_par = auth.uid(), decide_le = now() WHERE id = p_ligne_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.decider_ligne_reconciliation(uuid, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.decider_ligne_reconciliation(uuid, text, text) TO authenticated;
+
+-- Cloture (rebase a l'identique sur 20261111120000, seule definition) :
+-- defense en profondeur, aucune ligne « facturable » ne porte une anomalie
+-- non forcable (l'actualisation invalide deja ces decisions).
+CREATE OR REPLACE FUNCTION public.cloturer_reconciliation(p_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_attente integer;
+  v_interdites integer;
+BEGIN
+  PERFORM public.actualiser_reconciliation(p_id);
+  SELECT count(*) INTO v_attente FROM public.reconciliation_lignes
+  WHERE reconciliation_id = p_id AND public.statut_ligne(decision, anomalies) = 'a_examiner';
+  IF v_attente > 0 THEN
+    RAISE EXCEPTION '% ligne(s) a examiner : decider avant de cloturer', v_attente USING ERRCODE = '22023';
+  END IF;
+  SELECT count(*) INTO v_interdites FROM public.reconciliation_lignes
+  WHERE reconciliation_id = p_id AND public.statut_ligne(decision, anomalies) = 'facturable'
+    AND public.ligne_non_forcable(anomalies);
+  IF v_interdites > 0 THEN
+    RAISE EXCEPTION '% ligne(s) facturable(s) avec une anomalie non forcable : rectifier ou exclure avant de cloturer', v_interdites
+      USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.reconciliations r SET statut = 'cloturee', cloturee_par = auth.uid(), cloturee_le = now(),
+    tonnage_facturable = (SELECT coalesce(sum(tonnage_base), 0) FROM public.reconciliation_lignes
+                          WHERE reconciliation_id = p_id AND public.statut_ligne(decision, anomalies) = 'facturable'),
+    voyages_facturables = (SELECT count(*) FROM public.reconciliation_lignes
+                           WHERE reconciliation_id = p_id AND public.statut_ligne(decision, anomalies) = 'facturable')
+  WHERE r.id = p_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.cloturer_reconciliation(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cloturer_reconciliation(uuid) TO authenticated;
+
+-- Rectification d'un ticket (rebase a l'identique sur 20261113100000) :
+-- controle de numero commun controler_ticket_cbg_libre.
+CREATE OR REPLACE FUNCTION public.rectifier_ticket_pesee_cbg(
+  p_trip_id uuid, p_ticket text, p_brut numeric, p_tare numeric,
+  p_document_ref text, p_motif text
+)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  t public.tickets_pesee_cbg;
+  e public.v_tickets_pesee_cbg_effectifs;
+  v_id uuid;
+BEGIN
+  IF NOT (public.has_module_write('trips') AND public.has_module_write('invoices')) THEN
+    RAISE EXCEPTION 'Droits voyages et facturation requis pour rectifier une pesee' USING ERRCODE = '42501';
+  END IF;
+  IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Motif de rectification obligatoire' USING ERRCODE = '22023';
+  END IF;
+  IF nullif(btrim(coalesce(p_ticket, '')), '') IS NULL OR p_brut IS NULL OR p_tare IS NULL
+     OR p_brut <= p_tare OR p_tare < 0 THEN
+    RAISE EXCEPTION 'Ticket, poids brut et tare coherents requis' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO t FROM public.tickets_pesee_cbg WHERE trip_id = p_trip_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Ticket CBG introuvable pour ce voyage' USING ERRCODE = 'P0002'; END IF;
+  IF EXISTS (SELECT 1 FROM public.reconciliations r JOIN public.reconciliation_lignes l ON l.reconciliation_id = r.id
+    WHERE l.trip_id = p_trip_id AND r.statut = 'cloturee') THEN
+    RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir, pas une rectification retroactive' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO e FROM public.v_tickets_pesee_cbg_effectifs WHERE id = t.id;
+  -- Separation etendue aux delegants (D-064, 20261121140000), conservee ici.
+  IF e.saisi_par IS NULL OR public.separation_violee(e.saisi_par, 'trips', 'trips', e.cree_le)
+     OR public.separation_violee(e.saisi_par, 'invoices', 'trips', e.cree_le) THEN
+    RAISE EXCEPTION 'La rectification doit etre saisie par une autre personne que l''auteur du ticket' USING ERRCODE = '42501';
+  END IF;
+  PERFORM public.controler_ticket_cbg_libre(p_ticket, p_trip_id);
+  INSERT INTO public.rectifications_tickets_pesee_cbg
+    (ticket_id, ancien_ticket, ancien_brut, ancienne_tare, ancien_net, ancien_document_ref,
+     nouveau_ticket, nouveau_brut, nouvelle_tare, nouveau_document_ref, motif, corrige_par)
+  VALUES (t.id, e.ticket, e.brut, e.tare, e.net, e.document_ref,
+    btrim(p_ticket), p_brut, p_tare, nullif(btrim(coalesce(p_document_ref, '')), ''), btrim(p_motif), auth.uid())
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.rectifier_ticket_pesee_cbg(uuid, text, numeric, numeric, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.rectifier_ticket_pesee_cbg(uuid, text, numeric, numeric, text, text) TO authenticated;
+
+-- 8. Ouverture (rebase sur 20261111120000, seule definition) : deux
+-- reconciliations d'un contrat ne se chevauchent pas des que leurs
+-- ensembles de sites se recoupent (NULL = tous les sites) ; sinon un meme
+-- voyage pourrait etre facture deux fois.
+CREATE OR REPLACE FUNCTION public.ouvrir_reconciliation(
+  p_contrat_id uuid,
+  p_debut date,
+  p_fin date,
+  p_base text,
+  p_tolerance numeric,
+  p_site_depart uuid DEFAULT NULL,
+  p_site_arrivee uuid DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  c public.contrats;
+  v_id uuid;
+BEGIN
+  IF NOT public.has_module_write('invoices') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur la facturation requis' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO c FROM public.contrats WHERE id = p_contrat_id;
+  IF NOT FOUND OR c.nature <> 'client' THEN
+    RAISE EXCEPTION 'Contrat client introuvable' USING ERRCODE = '22023';
+  END IF;
+  IF p_base IS NULL OR p_tolerance IS NULL THEN
+    RAISE EXCEPTION 'Base de tonnage et tolerance d''ecart requises' USING ERRCODE = '22023';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('sigtb.reconciliation.' || p_contrat_id::text));
+  IF EXISTS (SELECT 1 FROM public.reconciliations r WHERE r.contrat_id = p_contrat_id
+             AND daterange(r.periode_debut, r.periode_fin, '[]') && daterange(p_debut, p_fin, '[]')
+             AND (r.site_depart_id IS NULL OR p_site_depart IS NULL OR r.site_depart_id = p_site_depart)
+             AND (r.site_arrivee_id IS NULL OR p_site_arrivee IS NULL OR r.site_arrivee_id = p_site_arrivee)) THEN
+    RAISE EXCEPTION 'Une reconciliation couvre deja tout ou partie de cette periode et de ces sites pour ce contrat' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.reconciliations (contrat_id, periode_debut, periode_fin, base_tonnage, tolerance_ecart_pct,
+    site_depart_id, site_arrivee_id, ouverte_par)
+  VALUES (p_contrat_id, p_debut, p_fin, p_base, p_tolerance, p_site_depart, p_site_arrivee, auth.uid())
+  RETURNING id INTO v_id;
+  PERFORM public.actualiser_reconciliation(v_id);
+  RETURN v_id;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.ouvrir_reconciliation(uuid, date, date, text, numeric, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.ouvrir_reconciliation(uuid, date, date, text, numeric, uuid, uuid) TO authenticated;
 
 -- ===================================================================
 -- 6. Planification : perimetre de site (rebase sur 20261110150000, seule
@@ -640,6 +909,11 @@ BEGIN
   IF jsonb_typeof(p_lignes) IS DISTINCT FROM 'array' OR jsonb_array_length(p_lignes) = 0 THEN
     RAISE EXCEPTION 'Au moins une ligne de facture requise' USING ERRCODE = '22023';
   END IF;
+  -- Le franc guineen n'a pas de subdivision : montant decimal refuse,
+  -- jamais arrondi.
+  IF c.devise = 'GNF' AND (p_montant_ht <> trunc(p_montant_ht) OR p_montant_ttc <> trunc(p_montant_ttc)) THEN
+    RAISE EXCEPTION 'Montant en GNF sans decimales attendu (en-tete HT ou TTC) : aucun arrondi n''est applique' USING ERRCODE = '22023';
+  END IF;
   IF EXISTS (SELECT 1 FROM public.factures_fournisseur f WHERE f.contrat_id = p_contrat_id
                AND upper(btrim(f.numero_fournisseur)) = upper(v_numero)) THEN
     RAISE EXCEPTION 'Ce numero de facture existe deja pour ce contrat' USING ERRCODE = '23505';
@@ -653,6 +927,9 @@ BEGIN
     v_montant := (l ->> 'montant_facture')::numeric;
     IF v_montant IS NULL OR v_montant < 0 THEN
       RAISE EXCEPTION 'Chaque ligne demande un montant positif' USING ERRCODE = '22023';
+    END IF;
+    IF c.devise = 'GNF' AND v_montant <> trunc(v_montant) THEN
+      RAISE EXCEPTION 'Montant de ligne en GNF sans decimales attendu (%) : aucun arrondi n''est applique', v_montant USING ERRCODE = '22023';
     END IF;
     IF nullif(btrim(coalesce(l ->> 'libelle', '')), '') IS NULL AND nullif(l ->> 'vehicle_id', '') IS NULL THEN
       RAISE EXCEPTION 'Chaque ligne demande un engin ou un libelle' USING ERRCODE = '22023';
@@ -675,3 +952,10 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.saisir_facture_fournisseur(uuid, text, date, date, date, numeric, jsonb, numeric, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.saisir_facture_fournisseur(uuid, text, date, date, date, numeric, jsonb, numeric, text) TO authenticated;
+
+-- Seule voie d'ecriture de la facture du loueur : la fonction ci-dessus
+-- (saisie) et les fonctions de controle, notification et regularisation.
+-- Aucun ecran n'insere, ne modifie ni ne supprime en direct (verifie dans
+-- src/ le 2026-11-16) : INSERT, UPDATE et DELETE directs retires (les
+-- droits par colonne de 20261111200000 tombent avec eux).
+REVOKE INSERT, UPDATE, DELETE ON public.factures_fournisseur, public.factures_fournisseur_lignes FROM anon, authenticated;

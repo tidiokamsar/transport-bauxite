@@ -101,6 +101,54 @@ export const REGLAGES: Reglage[] = [
     effet: 'Une échéance de contrat (limite de préavis, puis date de fin) apparaît dans Mes validations ce nombre de jours avant la date clé (aucun blocage, aucun renouvellement automatique).',
     siAbsent: '0 jour : alerte à la date clé seulement.', lecteur: 'delai_alerte_echeances_contrats, v_echeances_contrats (D-065)',
   },
+  // Regles d'alerte du centre des decisions (D-068) : une regle a seuil ne
+  // s'active pas sans seuil saisi ; une regle sans seuil est active sauf false.
+  {
+    cle: 'alerte_immobilisation_longue_h', libelle: 'Alerte : immobilisation longue', type: 'nombre', unite: 'h',
+    effet: 'Une immobilisation ouverte depuis plus longtemps que ce seuil crée une alerte (maintenance).',
+    siAbsent: 'Règle inactive : aucune alerte.', lecteur: 'seuil_regle_alerte, actualiser_alertes (D-068)',
+    ecran: { vue: 'alerts', libelle: 'Exploitation > Centre des décisions' },
+  },
+  {
+    cle: 'alerte_ecart_carburant_l', libelle: 'Alerte : écart d\'inventaire carburant', type: 'nombre', unite: 'L',
+    effet: 'Un dernier inventaire de cuve dont l\'écart au solde théorique dépasse ce seuil crée une alerte (carburant).',
+    siAbsent: 'Règle inactive : aucune alerte.', lecteur: 'seuil_regle_alerte, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_voyage_sans_ticket_h', libelle: 'Alerte : voyage livré sans ticket CBG', type: 'nombre', unite: 'h',
+    effet: 'Un voyage livré depuis plus longtemps que ce seuil sans ticket de pesée CBG crée une alerte (seuil strictement positif).',
+    siAbsent: 'Règle inactive : aucune alerte.', lecteur: 'seuil_regle_alerte, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_intervention_retard_active', libelle: 'Alerte : intervention Neemba en retard', type: 'booleen',
+    effet: 'Une intervention demandée et non prise en charge au-delà du délai contractuel saisi crée une alerte critique.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_controle_non_conforme_active', libelle: 'Alerte : contrôle avant départ non conforme', type: 'booleen',
+    effet: 'Un camion dont le dernier contrôle avant départ est non conforme crée une alerte critique.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_document_expire_active', libelle: 'Alerte : document ou habilitation expiré', type: 'booleen',
+    effet: 'Un document d\'engin ou une habilitation de chauffeur expiré et non renouvelé crée une alerte.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_action_corrective_retard_active', libelle: 'Alerte : action corrective en retard', type: 'booleen',
+    effet: 'Une action corrective ouverte dont l\'échéance est dépassée crée une alerte.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_epi_echu_active', libelle: 'Alerte : EPI à renouveler', type: 'booleen',
+    effet: 'Un équipement de protection remis dont l\'échéance de renouvellement est atteinte crée une alerte.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
+  {
+    cle: 'alerte_inspection_retard_active', libelle: 'Alerte : inspection en retard', type: 'booleen',
+    effet: 'Une inspection planifiée non réalisée à la date prévue crée une alerte.',
+    siAbsent: 'Active.', lecteur: 'regle_alerte_en_service, actualiser_alertes (D-068)',
+  },
 ];
 
 export const CLES_REGLAGES = REGLAGES.map((r) => r.cle);
@@ -116,4 +164,4 @@ export const valeurAffichee = (r: Reglage, brute: string | undefined): string =>
 export const valeurValide = (r: Reglage, saisie: string): boolean =>
   r.type === 'booleen' ? saisie === 'true' || saisie === 'false'
     : r.type === 'entier' ? /^\d+$/.test(saisie.trim()) && (r.cle !== 'consultation_offres_minimum' || Number(saisie) >= 1)
-    : /^\d+(\.\d+)?$/.test(saisie.trim());
+    : /^\d+(\.\d+)?$/.test(saisie.trim()) && (!r.cle.startsWith('alerte_') || Number(saisie) > 0);

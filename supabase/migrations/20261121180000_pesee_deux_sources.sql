@@ -304,18 +304,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- Voyage porte par une reconciliation cloturee : plus aucune correction (circuit d'avoir).
-CREATE OR REPLACE FUNCTION public.voyage_reconcilie_clos(p_trip uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-  SELECT p_trip IS NOT NULL AND EXISTS (
-    SELECT 1 FROM public.reconciliation_lignes l JOIN public.reconciliations r ON r.id = l.reconciliation_id
-     WHERE l.trip_id = p_trip AND r.statut = 'cloturee');
-$$;
+-- Voyage fige par une reconciliation cloturee : public.voyage_couvert_cloture (J1, 20261121160000).
 
 CREATE OR REPLACE FUNCTION public.saisir_releve_terrain_kogon(
   p_client_id uuid, p_site_id uuid, p_trip_id uuid, p_donnees jsonb
@@ -358,7 +347,7 @@ BEGIN
     IF p_site_id IS DISTINCT FROM v.departure_site_id AND p_site_id IS DISTINCT FROM v.arrival_site_id THEN
       RAISE EXCEPTION 'Le site du releve n''est ni le depart ni l''arrivee du voyage %', v.reference USING ERRCODE = '22023';
     END IF;
-    IF public.voyage_reconcilie_clos(p_trip_id) THEN
+    IF public.voyage_couvert_cloture(p_trip_id) THEN
       RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir' USING ERRCODE = '22023';
     END IF;
   END IF;
@@ -414,7 +403,7 @@ BEGIN
     IF ancien.origine = 'rotation' THEN
       RAISE EXCEPTION 'Releve saisi avec la rotation : utiliser la rectification du ticket' USING ERRCODE = '22023';
     END IF;
-    IF public.voyage_reconcilie_clos(ancien.trip_id) OR public.voyage_reconcilie_clos(p_trip_id) THEN
+    IF public.voyage_couvert_cloture(ancien.trip_id) OR public.voyage_couvert_cloture(p_trip_id) THEN
       RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir' USING ERRCODE = '22023';
     END IF;
     IF nullif(btrim(coalesce(d ->> 'motif_remplacement', '')), '') IS NULL THEN
@@ -862,7 +851,7 @@ BEGIN
     RAISE EXCEPTION 'Anomalie introuvable' USING ERRCODE = 'P0002';
   END IF;
   IF a.statut = 'cloturee' THEN RAISE EXCEPTION 'Anomalie cloturee : elle ne change plus' USING ERRCODE = '22023'; END IF;
-  IF public.voyage_reconcilie_clos(a.trip_id) THEN
+  IF public.voyage_couvert_cloture(a.trip_id) THEN
     RAISE EXCEPTION 'Anomalie liee a une reconciliation cloturee : correction par avoir' USING ERRCODE = '22023';
   END IF;
   v_statut := a.statut; v_decision := a.decision; v_responsable := a.responsable_id;
@@ -902,7 +891,8 @@ BEGIN
     WHEN 'cloturer' THEN
       IF a.statut <> 'soumise_validation' THEN RAISE EXCEPTION 'Seule une anomalie soumise a validation se cloture' USING ERRCODE = '22023'; END IF;
       -- Separation des taches : celui qui soumet un ecart de poids ne le valide pas.
-      IF a.categorie = 'ecart_poids' AND a.soumis_par IS NOT DISTINCT FROM auth.uid() THEN
+      -- (D-064 : delegants compris, public.separation_violee).
+      IF a.categorie = 'ecart_poids' AND (a.soumis_par IS NULL OR public.separation_violee(a.soumis_par, 'invoices', 'trips', a.soumis_le)) THEN
         RAISE EXCEPTION 'La cloture d''un ecart de poids revient a une autre personne que celle qui l''a soumis' USING ERRCODE = '42501';
       END IF;
       v_statut := 'cloturee';
@@ -1021,7 +1011,7 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', sig);
   END LOOP;
   -- Fonctions internes (appelees par les fonctions serveur) : fermees aux comptes.
-  FOREACH sig IN ARRAY ARRAY['releve_cbg_engage(uuid)', 'voyage_reconcilie_clos(uuid)'] LOOP
+  FOREACH sig IN ARRAY ARRAY['releve_cbg_engage(uuid)'] LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', sig);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', sig);
   END LOOP;
@@ -1029,7 +1019,7 @@ END $$;
 
 -- ===================================================================
 -- 7. Reconciliation : tonnage CBG officiel, releve KOGON distinct
---    (rebase sur 20261121160000_defauts_bloquants_j1)
+--    (rebase sur la definition finale de 20261121160000_defauts_bloquants_j1, main 8dec42c)
 -- ===================================================================
 ALTER TABLE public.reconciliation_lignes ADD COLUMN IF NOT EXISTS releve_cbg_ligne_id uuid REFERENCES public.releves_cbg_lignes(id);
 COMMENT ON COLUMN public.reconciliation_lignes.tonnage_cbg IS
@@ -1134,7 +1124,17 @@ BEGIN
     tonnage_base = EXCLUDED.tonnage_base, ticket = EXCLUDED.ticket, fiche = EXCLUDED.fiche, anomalies = EXCLUDED.anomalies,
     ticket_brut = EXCLUDED.ticket_brut, ticket_tare = EXCLUDED.ticket_tare,
     ticket_document_ref = EXCLUDED.ticket_document_ref, ticket_rectifie = EXCLUDED.ticket_rectifie,
-    releve_cbg_ligne_id = EXCLUDED.releve_cbg_ligne_id;
+    releve_cbg_ligne_id = EXCLUDED.releve_cbg_ligne_id,
+    -- Repris de J1 final (20261121160000) : une decision « facturable »
+    -- devenue impossible est invalidee, la ligne repasse a examiner.
+    decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decision END,
+    motif_decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.motif_decision END,
+    decide_par = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decide_par END,
+    decide_le = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+      THEN NULL ELSE reconciliation_lignes.decide_le END;
   SELECT count(*) INTO n FROM public.reconciliation_lignes WHERE reconciliation_id = r.id;
   UPDATE public.reconciliations SET actualisee_le = now() WHERE id = r.id;
   RETURN n;

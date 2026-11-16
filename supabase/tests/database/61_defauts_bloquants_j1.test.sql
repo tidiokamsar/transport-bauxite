@@ -16,7 +16,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(58);
+SELECT plan(80);
 
 -- Droits : aucune ecriture directe, fonctions fermees a anon
 SELECT is((SELECT count(*)::int FROM unnest(ARRAY['anon', 'authenticated']) u,
@@ -38,6 +38,15 @@ SELECT is((SELECT count(*)::int FROM unnest(ARRAY[
   'fonctions d''ecriture : executables par authenticated seulement');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.controler_shift(uuid, text, text, time, time, integer, boolean)', 'EXECUTE'),
   'controle interne des shifts ferme aux comptes');
+SELECT is((SELECT count(*)::int FROM unnest(ARRAY['public.controler_ticket_cbg_libre(text, uuid)', 'public.garde_reception_cbg()']) f,
+                 unnest(ARRAY['anon', 'authenticated']) u
+            WHERE has_function_privilege(u, f, 'EXECUTE')), 0,
+  'controle du numero de ticket et garde de reception fermes aux comptes');
+SELECT is((SELECT count(*)::int FROM unnest(ARRAY['anon', 'authenticated']) u,
+                 unnest(ARRAY['public.factures_fournisseur', 'public.factures_fournisseur_lignes']) t,
+                 unnest(ARRAY['INSERT', 'UPDATE', 'DELETE']) p
+            WHERE has_table_privilege(u, t, p) OR (p <> 'DELETE' AND has_any_column_privilege(u, t, p))), 0,
+  'facture du loueur : aucune ecriture directe (table ni colonne), saisie par fonction');
 
 -- Donnees
 DELETE FROM public.settings WHERE key = 'controle_depart_exige';
@@ -60,11 +69,14 @@ SELECT u, m, 'ecriture' FROM unnest(ARRAY['00000000-0000-4000-d780-000000000001'
        unnest(ARRAY['settings', 'trips', 'planning', 'contracts', 'invoices']) m
 ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 INSERT INTO public.droits_utilisateur (utilisateur, module, niveau) VALUES
-  ('00000000-0000-4000-d780-000000000003', 'settings', 'aucun')
+  ('00000000-0000-4000-d780-000000000003', 'settings', 'aucun'),
+  ('00000000-0000-4000-d780-000000000003', 'trips', 'aucun'),
+  ('00000000-0000-4000-d780-000000000003', 'contracts', 'aucun')
 ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status, site_id) VALUES
   ('00000000-0000-4000-d780-0000000000b1', 'TEST-D780-1', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-d780-0000000000a1'),
-  ('00000000-0000-4000-d780-0000000000b3', 'TEST-D780-3', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-d780-0000000000a3');
+  ('00000000-0000-4000-d780-0000000000b3', 'TEST-D780-3', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-d780-0000000000a3'),
+  ('00000000-0000-4000-d780-0000000000b4', 'TEST-D780-4', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-d780-0000000000a1');
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-d780-0000000000c1', 'Chauffeur D780', 'D780-1', 'C', current_date + 400, '2020-01-01', 'active', '00000000-0000-4000-d780-0000000000a1'),
   ('00000000-0000-4000-d780-0000000000c3', 'Chauffeur D780 S3', 'D780-3', 'C', current_date + 400, '2020-01-01', 'active', '00000000-0000-4000-d780-0000000000a3');
@@ -80,12 +92,30 @@ INSERT INTO public.trips (id, reference, planned_date, vehicle_id, departure_sit
   ('00000000-0000-4000-d780-000000000204', 'TEST-D780-KG', '2001-05-12', '00000000-0000-4000-d780-0000000000b1',
    '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'DELIVERED', 40),
   ('00000000-0000-4000-d780-000000000205', 'TEST-D780-DECH2', '2001-05-11', '00000000-0000-4000-d780-0000000000b1',
-   '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'UNLOADING', 40);
+   '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'UNLOADING', 40),
+  ('00000000-0000-4000-d780-000000000206', 'TEST-D780-CLOS', '2001-04-10', '00000000-0000-4000-d780-0000000000b1',
+   '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'DELIVERED', 40),
+  -- Juillet 2001 : decisions « facturable » rendues perimees (rectification,
+  -- capacite abaissee).
+  ('00000000-0000-4000-d780-000000000207', 'TEST-D780-RECT', '2001-07-05', '00000000-0000-4000-d780-0000000000b1',
+   '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'DELIVERED', 30),
+  ('00000000-0000-4000-d780-000000000208', 'TEST-D780-CAPA', '2001-07-06', '00000000-0000-4000-d780-0000000000b4',
+   '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2', 'DELIVERED', 30);
 INSERT INTO public.tickets_pesee_cbg (trip_id, site_id, ticket, brut, tare, mesure_le) VALUES
   ('00000000-0000-4000-d780-000000000204', '00000000-0000-4000-d780-0000000000a2', 'TEST-D780-TKG', 55000, 14300, '2001-05-12 10:00+00');
+INSERT INTO public.tickets_pesee_cbg (trip_id, site_id, ticket, brut, tare, mesure_le, saisi_par) VALUES
+  ('00000000-0000-4000-d780-000000000207', '00000000-0000-4000-d780-0000000000a2', 'TEST-D780-TR7', 50, 14, '2001-07-05 10:00+00', '00000000-0000-4000-d780-000000000002'),
+  ('00000000-0000-4000-d780-000000000208', '00000000-0000-4000-d780-0000000000a2', 'TEST-D780-TR8', 50, 14, '2001-07-06 10:00+00', '00000000-0000-4000-d780-000000000002');
 INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devise, date_debut, statut, delai_paiement_jours) VALUES
   ('00000000-0000-4000-d780-0000000000e1', 'TEST-D780-CBG', 'Transport D780', 'client', 'CBG', 'USD', '2001-01-01', 'actif', 30),
-  ('00000000-0000-4000-d780-0000000000e2', 'TEST-D780-LOC', 'Location D780', 'location', 'Neemba', 'USD', '2001-01-01', 'actif', 30);
+  ('00000000-0000-4000-d780-0000000000e2', 'TEST-D780-LOC', 'Location D780', 'location', 'Neemba', 'USD', '2001-01-01', 'actif', 30),
+  ('00000000-0000-4000-d780-0000000000e3', 'TEST-D780-CBG2', 'Transport D780 bis', 'client', 'CBG', 'USD', '2001-01-01', 'actif', 30),
+  ('00000000-0000-4000-d780-0000000000e4', 'TEST-D780-GNF', 'Location D780 GNF', 'location', 'Neemba', 'GNF', '2001-01-01', 'actif', 30),
+  ('00000000-0000-4000-d780-0000000000e5', 'TEST-D780-CBG3', 'Transport D780 ter', 'client', 'CBG', 'USD', '2001-01-01', 'actif', 30);
+-- Reconciliation cloturee d'avril 2001 au depart de la mine : elle couvre le
+-- voyage TEST-D780-CLOS sans le porter dans ses lignes.
+INSERT INTO public.reconciliations (contrat_id, periode_debut, periode_fin, base_tonnage, tolerance_ecart_pct, site_depart_id, statut) VALUES
+  ('00000000-0000-4000-d780-0000000000e3', '2001-04-01', '2001-04-30', 'charge', 5, '00000000-0000-4000-d780-0000000000a1', 'cloturee');
 INSERT INTO public.contrat_versions (id, contrat_id, numero, intitule, date_effet) VALUES
   ('00000000-0000-4000-d780-0000000000f1', '00000000-0000-4000-d780-0000000000e1', 0, 'Initial', '2001-01-01');
 
@@ -97,8 +127,6 @@ SELECT throws_ok($$SELECT public.definir_shift(NULL, 'jour-d780', 'Jour D780', '
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000002');
 SELECT throws_ok($$SELECT public.definir_shift(NULL, 'jour-d780', 'Jour D780', '06:00', '18:00', 91)$$, '42501', NULL,
   'profil borne a un site : les shifts communs lui sont refuses');
-SELECT throws_ok($$INSERT INTO public.work_shifts (name, display_name, start_time, end_time, shift_order) VALUES ('x', 'x', '01:00', '02:00', 99)$$,
-  '42501', NULL, 'ecriture directe des shifts refusee');
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000001');
 CREATE TEMP TABLE sj AS SELECT public.definir_shift(NULL, 'jour-d780', 'Jour D780', '06:00', '18:00', 91) AS id;
@@ -112,6 +140,10 @@ SELECT throws_ok($$SELECT public.definir_shift(NULL, 'ordre-d780', 'Ordre D780',
   'ordre deja pris refuse');
 CREATE TEMP TABLE sn AS SELECT public.definir_shift(NULL, 'nuit-d780', 'Nuit D780', '18:00', '06:00', 92) AS id;
 SELECT ok((SELECT is_active FROM public.work_shifts WHERE id = (SELECT id FROM sn)), 'shift de nuit (fin le lendemain) accepte sans chevauchement');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000002');
+SELECT throws_ok($$SELECT public.desactiver_shift((SELECT id FROM sn), 'Essai')$$, '42501',
+  'Les shifts sont communs a tous les sites : reserve aux profils sans site', 'profil borne : desactivation d''un shift commun refusee');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000001');
 SELECT throws_ok($$SELECT public.definir_shift(NULL, 'renfort-d780', 'Renfort D780', '04:00', '07:00', 93)$$, '22023', NULL,
   'chevauchement avec un shift actif, de part et d''autre de minuit, refuse');
 SELECT lives_ok($$SELECT public.definir_shift(NULL, 'renfort-d780', 'Renfort D780', '04:00', '07:00', 93, false)$$,
@@ -131,6 +163,10 @@ SELECT is((SELECT apres ->> 'end_time' FROM public.journal_shifts WHERE shift_id
 SELECT throws_ok($$SELECT public.desactiver_shift((SELECT id FROM sj), 'deux fois')$$, '22023', NULL, 'shift deja inactif');
 RESET ROLE;
 SELECT throws_ok($$UPDATE public.journal_shifts SET motif = 'x'$$, '42501', NULL, 'journal des shifts immuable');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT count(*)::int FROM public.journal_shifts), 0, 'sans droit parametres : journal des shifts non lisible');
+RESET ROLE;
 
 -- 2. Fiche de rotations sur un trajet inter-sites -------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000002');
@@ -171,17 +207,27 @@ SELECT throws_ok($$SELECT public.saisir_rotation((SELECT id FROM f3), (SELECT id
     'donnees', jsonb_build_object('brut', 54, 'tare', 14, 'ticket', 'TEST-D780-T2'))))$$, '22023', NULL,
   'fiche d''un site etranger au trajet : ticket refuse');
 SELECT is((SELECT etat FROM public.trips WHERE id = (SELECT id FROM vi2)), 'ASSIGNED', 'refus : aucune etape appliquee');
+SELECT throws_ok($$SELECT public.definir_shift((SELECT id FROM sn), 'nuit-d780', 'Nuit D780', '18:00', '05:00', 92, true, 'Horaire d''hiver')$$,
+  '22023', 'Shift deja utilise (postes, objectifs, voyages ou fiches) : ses heures ne changent plus. Desactiver ce shift puis creer un nouveau shift avec le nouvel horaire',
+  'shift deja cite par une fiche : ses heures ne changent plus');
 
 -- 4. Pesee a l'arrivee = ticket CBG ---------------------------------------
+-- Le declencheur est differe (controle au COMMIT) : SET CONSTRAINTS ...
+-- IMMEDIATE le declenche dans l'instruction pour le test.
+SET CONSTRAINTS public.garde_reception_cbg IMMEDIATE;
 SELECT throws_ok($$SELECT public.avancer_voyage('00000000-0000-4000-d780-000000000205', 'WEIGHED_IN', now() - interval '1 minute', NULL,
-  '{"brut": 50, "tare": 12, "ticket": "TEST-D780-DIRECT"}')$$, '22023', NULL,
+  '{"brut": 50, "tare": 12, "ticket": "TEST-D780-DIRECT"}')$$, '22023', 'La pesee a l''arrivee se saisit avec le ticket CBG (fiche de rotations ou fiche du voyage)',
   'pesee a l''arrivee sans creation du ticket (appel direct) refusee');
 SELECT throws_ok($$SELECT public.avancer_voyage('00000000-0000-4000-d780-000000000205', 'WEIGHED_IN', now() - interval '1 minute', NULL,
-  '{"brut": 50, "tare": 12}')$$, '22023', NULL, 'pesee a l''arrivee sans ticket refusee');
+  '{"brut": 50, "tare": 12}')$$, '22023', 'La pesee a l''arrivee se saisit avec le ticket CBG (fiche de rotations ou fiche du voyage)', 'pesee a l''arrivee sans ticket refusee');
+SELECT throws_ok($$SELECT set_config('sigtb.reception_cbg', 'on', true), public.avancer_voyage('00000000-0000-4000-d780-000000000205',
+  'WEIGHED_IN', now() - interval '1 minute', NULL, '{"brut": 50, "tare": 12, "ticket": "TEST-D780-GUC"}')$$, '22023', 'La pesee a l''arrivee se saisit avec le ticket CBG (fiche de rotations ou fiche du voyage)',
+  'parametre de session pose par le compte : la garde ne se contourne pas');
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000002');
 SELECT lives_ok($$SELECT public.rattacher_ticket_cbg('00000000-0000-4000-d780-000000000202', 'TEST-D780-T3', 52, 13,
   '2001-05-11 11:00+00', 'BL-D780-3')$$, 'ticket saisi a la reception dans le meme geste');
+SET CONSTRAINTS public.garde_reception_cbg DEFERRED;
 SELECT is((SELECT etat FROM public.trips WHERE id = '00000000-0000-4000-d780-000000000202'), 'WEIGHED_IN', 'voyage pese a l''arrivee');
 SELECT is((SELECT (origine, net, document_ref)::text FROM public.tickets_pesee_cbg WHERE trip_id = '00000000-0000-4000-d780-000000000202'),
   '(reception,39,BL-D780-3)', 'ticket de reception cree');
@@ -202,6 +248,41 @@ SELECT throws_ok($$SELECT public.rattacher_ticket_cbg('00000000-0000-4000-d780-0
   'P0002', 'Voyage introuvable', 'voyage hors perimetre : indiscernable d''un voyage inexistant');
 SELECT throws_ok($$SELECT public.rattacher_ticket_cbg('00000000-0000-4000-d780-000000000205', 'TEST-D780-T7', 13, 52, '2001-05-11 12:00+00')$$,
   '22023', NULL, 'tare superieure au brut refusee');
+SELECT throws_ok($$SELECT public.rattacher_ticket_cbg('00000000-0000-4000-d780-000000000206', 'TEST-D780-T8', 52, 13, '2001-04-10 12:00+00',
+  NULL, 'Ticket remis apres cloture')$$, '22023', 'Reconciliation cloturee : utiliser le circuit d''avoir',
+  'periode et sites couverts par une reconciliation cloturee (voyage hors de ses lignes) : rattachement refuse');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000003');
+SELECT throws_ok($$SELECT public.rattacher_ticket_cbg('00000000-0000-4000-d780-000000000205', 'TEST-D780-T9', 52, 13, '2001-05-11 12:00+00')$$,
+  '42501', 'Droit d''ecriture sur les voyages requis', 'sans droit voyages : rattachement refuse');
+-- Numero attribue par rectification au voyage A : refuse sur B par la fiche.
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000001');
+SELECT public.rectifier_ticket_pesee_cbg('00000000-0000-4000-d780-000000000202', 'TEST-D780-R1', 52, 13, NULL, 'Numero mal recopie');
+SELECT throws_ok($$SELECT public.saisir_rotation((SELECT id FROM fi), (SELECT id FROM vi2), jsonb_build_array(
+  jsonb_build_object('etat', 'AT_LOADING', 'quand', now() - interval '40 minutes'),
+  jsonb_build_object('etat', 'LOADING', 'quand', now() - interval '35 minutes'),
+  jsonb_build_object('etat', 'LOADED', 'quand', now() - interval '30 minutes'),
+  jsonb_build_object('etat', 'IN_TRANSIT', 'quand', now() - interval '25 minutes'),
+  jsonb_build_object('etat', 'AT_DESTINATION', 'quand', now() - interval '20 minutes'),
+  jsonb_build_object('etat', 'UNLOADING', 'quand', now() - interval '15 minutes'),
+  jsonb_build_object('etat', 'WEIGHED_IN', 'quand', now() - interval '10 minutes',
+    'donnees', jsonb_build_object('brut', 54, 'tare', 14, 'ticket', 'test-d780-r1 '))))$$, '23505',
+  'Ticket de pesee test-d780-r1 deja utilise sur un autre voyage', 'numero attribue par rectification a un autre voyage : refuse par la fiche');
+-- Meme refus que le rattachement : une reconciliation cloturee couvre la date
+-- et le site du voyage.
+RESET ROLE;
+INSERT INTO public.reconciliations (contrat_id, periode_debut, periode_fin, base_tonnage, tolerance_ecart_pct, site_depart_id, statut) VALUES
+  ('00000000-0000-4000-d780-0000000000e3', current_date, current_date, 'charge', 5, '00000000-0000-4000-d780-0000000000a1', 'cloturee');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.saisir_rotation((SELECT id FROM fi), (SELECT id FROM vi2), jsonb_build_array(
+  jsonb_build_object('etat', 'AT_LOADING', 'quand', now() - interval '40 minutes'),
+  jsonb_build_object('etat', 'LOADING', 'quand', now() - interval '35 minutes'),
+  jsonb_build_object('etat', 'LOADED', 'quand', now() - interval '30 minutes'),
+  jsonb_build_object('etat', 'IN_TRANSIT', 'quand', now() - interval '25 minutes'),
+  jsonb_build_object('etat', 'AT_DESTINATION', 'quand', now() - interval '20 minutes'),
+  jsonb_build_object('etat', 'UNLOADING', 'quand', now() - interval '15 minutes'),
+  jsonb_build_object('etat', 'WEIGHED_IN', 'quand', now() - interval '10 minutes',
+    'donnees', jsonb_build_object('brut', 54, 'tare', 14, 'ticket', 'TEST-D780-T10'))))$$, '22023',
+  'Reconciliation cloturee : utiliser le circuit d''avoir', 'fiche : voyage couvert par une reconciliation cloturee, ticket refuse');
 
 -- 3. Vraisemblance : net superieur a la capacite du camion -----------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000001');
@@ -214,17 +295,48 @@ SELECT ok(NOT (SELECT anomalies @> ARRAY['net_superieur_capacite'] FROM public.r
             WHERE reconciliation_id = (SELECT id FROM rc) AND reference = 'TEST-D780-LIV'),
   'net vraisemblable : pas d''anomalie de capacite');
 SELECT ok(public.ligne_bloquee(ARRAY['net_superieur_capacite']), 'la ligne attend une decision');
+SELECT throws_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes
+  WHERE reconciliation_id = (SELECT id FROM rc) AND reference = 'TEST-D780-KG'), 'facturable', 'Accepte tel quel')$$,
+  '22023', 'Anomalies a examiner avant de declarer la ligne facturable', 'net superieur a la capacite : jamais facturable');
 SELECT lives_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes
   WHERE reconciliation_id = (SELECT id FROM rc) AND reference = 'TEST-D780-KG'), 'exclue', 'Ticket en kg : a rectifier')$$,
-  'decision motivee possible (aucun refus silencieux)');
+  'exclusion motivee possible (aucun refus silencieux)');
+SELECT throws_ok($$SELECT public.ouvrir_reconciliation('00000000-0000-4000-d780-0000000000e1', '2001-05-10', '2001-05-20',
+  'charge', 5, '00000000-0000-4000-d780-0000000000a1', '00000000-0000-4000-d780-0000000000a2')$$, '22023', NULL,
+  'trajet A -> B dans une periode deja couverte pour A vers tous les sites : refuse (double facturation)');
+SELECT lives_ok($$SELECT public.ouvrir_reconciliation('00000000-0000-4000-d780-0000000000e1', '2001-05-01', '2001-05-31',
+  'charge', 5, '00000000-0000-4000-d780-0000000000a3', NULL)$$, 'sites disjoints sur la meme periode : accepte');
+-- Decision « facturable » perimee : ecart hors tolerance accepte, puis le
+-- ticket est rectifie (voyage 207) ou la capacite du camion abaissee (208).
+CREATE TEMP TABLE rc2 AS SELECT public.ouvrir_reconciliation('00000000-0000-4000-d780-0000000000e5', '2001-07-01', '2001-07-31',
+  'charge', 5, '00000000-0000-4000-d780-0000000000a1', NULL) AS id;
+SELECT public.decider_ligne_reconciliation(l.id, 'facturable', 'Ecart explique par CBG')
+  FROM public.reconciliation_lignes l WHERE l.reconciliation_id = (SELECT id FROM rc2);
+SELECT public.rectifier_ticket_pesee_cbg('00000000-0000-4000-d780-000000000207', 'TEST-D780-TR7B', 50, 14, NULL, 'Numero corrige');
+RESET ROLE;
+UPDATE public.vehicles SET capacity_tonnes = 30 WHERE id = '00000000-0000-4000-d780-0000000000b4';
+SET LOCAL ROLE authenticated;
+SELECT public.actualiser_reconciliation((SELECT id FROM rc2));
+SELECT is((SELECT (decision, motif_decision, decide_par)::text FROM public.reconciliation_lignes
+            WHERE reconciliation_id = (SELECT id FROM rc2) AND reference = 'TEST-D780-RECT'), '(,,)',
+  'ticket rectifie apres la decision : « facturable » invalide, la ligne repasse a examiner');
+SELECT is((SELECT (decision, public.statut_ligne(decision, anomalies))::text FROM public.reconciliation_lignes
+            WHERE reconciliation_id = (SELECT id FROM rc2) AND reference = 'TEST-D780-CAPA'), '(,a_examiner)',
+  'capacite abaissee sous le net apres la decision : « facturable » invalide');
+SELECT throws_ok($$SELECT public.cloturer_reconciliation((SELECT id FROM rc2))$$, '22023',
+  '2 ligne(s) a examiner : decider avant de cloturer', 'cloture refusee : les decisions perimees ne facturent rien');
+SELECT ok(pg_get_functiondef('public.cloturer_reconciliation(uuid)'::regprocedure) ~ 'ligne_non_forcable',
+  'cloture : refus d''une ligne facturable a anomalie non forcable (defense en profondeur)');
 
 -- 6. Planification : perimetre de site -------------------------------------
 CREATE TEMP TABLE o3 AS SELECT public.definir_objectif('2001-06-01', '00000000-0000-4000-d780-0000000000a3', NULL, 500) AS id;
 SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000002');
 SELECT throws_ok($$SELECT public.definir_objectif('2001-06-01', '00000000-0000-4000-d780-0000000000a3', NULL, 600, NULL, NULL, NULL, 'x')$$,
   '42501', NULL, 'compte borne : objectif d''un autre site refuse');
-SELECT lives_ok($$SELECT public.definir_objectif('2001-06-01', '00000000-0000-4000-d780-0000000000a1', NULL, 600)$$,
-  'compte borne : objectif de son site');
+CREATE TEMP TABLE o1 AS SELECT public.definir_objectif('2001-06-01', '00000000-0000-4000-d780-0000000000a1', NULL, 600) AS id;
+SELECT lives_ok($$SELECT public.annuler_objectif((SELECT id FROM o1), 'Arret programme du site')$$, 'compte borne : annulation de son objectif');
+SELECT is((SELECT (statut, motif_annulation)::text FROM public.objectifs_production WHERE id = (SELECT id FROM o1)),
+  '(annule,"Arret programme du site")', 'objectif annule avec son motif, jamais supprime');
 SELECT throws_ok($$SELECT public.annuler_objectif((SELECT id FROM o3), 'x')$$, 'P0002', 'Objectif actif introuvable',
   'compte borne : annulation d''un objectif d''un autre site refusee');
 SELECT throws_ok($$SELECT public.annuler_objectif(gen_random_uuid(), 'x')$$, 'P0002', 'Objectif actif introuvable',
@@ -248,6 +360,21 @@ SELECT is((SELECT jsonb_array_length(apres -> 'lignes') FROM public.journal_cont
   'saisie journalisee au dossier contractuel');
 SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e1', 'NB-D780-2', '2001-06-30', '2001-06-01', '2001-06-30',
   1, '[{"libelle": "x", "montant_facture": 1}]')$$, '22023', NULL, 'contrat client refuse pour une facture de loueur');
+SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e2', ' nb-d780-1', '2001-06-30', '2001-06-01', '2001-06-30',
+  1, '[{"libelle": "x", "montant_facture": 1}]')$$, '23505', 'Ce numero de facture existe deja pour ce contrat',
+  'numero de facture du loueur deja saisi (casse et espaces ignores)');
+SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e4', 'NB-GNF-1', '2001-06-30', '2001-06-01', '2001-06-30',
+  1000.5, '[{"libelle": "x", "montant_facture": 1000}]')$$, '22023',
+  'Montant en GNF sans decimales attendu (en-tete HT ou TTC) : aucun arrondi n''est applique', 'GNF : montant HT decimal refuse, jamais arrondi');
+SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e4', 'NB-GNF-1', '2001-06-30', '2001-06-01', '2001-06-30',
+  1000, '[{"libelle": "x", "montant_facture": 1000}]', 1180.25)$$, '22023',
+  'Montant en GNF sans decimales attendu (en-tete HT ou TTC) : aucun arrondi n''est applique', 'GNF : montant TTC decimal refuse');
+SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e4', 'NB-GNF-1', '2001-06-30', '2001-06-01', '2001-06-30',
+  1000, '[{"libelle": "x", "montant_facture": 999.5}]')$$, '22023',
+  'Montant de ligne en GNF sans decimales attendu (999.5) : aucun arrondi n''est applique', 'GNF : montant de ligne decimal refuse');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d780-000000000003');
+SELECT throws_ok($$SELECT public.saisir_facture_fournisseur('00000000-0000-4000-d780-0000000000e2', 'NB-D780-3', '2001-06-30', '2001-06-01', '2001-06-30',
+  1, '[{"libelle": "x", "montant_facture": 1}]')$$, '42501', 'Droit d''ecriture sur les contrats requis', 'sans droit contrats : saisie refusee');
 
 SELECT * FROM finish();
 ROLLBACK;

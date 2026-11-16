@@ -62,8 +62,8 @@ INSERT INTO public.distances_voyage (trip_id, version, validee_charge_km) VALUES
   ('00000000-0000-4000-9400-000000000013', 1, 1000);
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-9400-000000000001');
-SET LOCAL ROLE authenticated;
-
+-- D-078 : facture du loueur ecrite par saisir_facture_fournisseur seulement ;
+-- le jeu d'essai est pose hors role authenticated.
 INSERT INTO public.factures_fournisseur (id, contrat_id, numero_fournisseur, date_facture, periode_debut, periode_fin, devise, montant_ht_facture)
 VALUES ('00000000-0000-4000-9400-000000000101', '00000000-0000-4000-9400-0000000000c1', 'NB-ENG-2001-09', '2001-10-02', '2001-09-01', '2001-09-30', 'GNF', 2171250);
 INSERT INTO public.factures_fournisseur_lignes
@@ -76,6 +76,7 @@ INSERT INTO public.factures_fournisseur_lignes
 INSERT INTO public.factures_fournisseur_lignes
   (facture_id, vehicle_id, libelle, categorie_materiel, heures_facturees, taux_facture, montant_facture) VALUES
   ('00000000-0000-4000-9400-000000000101', '00000000-0000-4000-9400-0000000000b2', 'TEST-H-CHG ligne v1', 'Chargeuse', 5, 150, 750);
+SET LOCAL ROLE authenticated;
 
 SELECT is(public.controler_facture_fournisseur('00000000-0000-4000-9400-000000000101'), 100000::numeric,
   'montant reclame : kilometres factures au-dela des kilometres releves');

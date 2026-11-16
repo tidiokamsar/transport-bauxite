@@ -16,6 +16,22 @@
   Execution : psql -v ON_ERROR_STOP=1 -1 -f charger.sql (supabase_admin).
 */
 
+/*
+  HORS SERVICE depuis D-078 (migration 20261121160000). La section 5b
+  ecrit des evenements WEIGHED_IN sans ticket CBG : le declencheur de
+  contrainte `garde_reception_cbg` les refuse au COMMIT. Creer les tickets
+  ne suffit pas : un ticket CBG est une preuve immuable
+  (`refuser_mutation_ticket_cbg`), que purger.sql ne pourrait plus
+  supprimer. La demonstration est purgee depuis D-076 et la production
+  porte des donnees reelles : ce chargeur ne doit plus etre execute. Le
+  refus ci-dessous est explicite ; une reprise exigerait une decision
+  (tickets de demonstration purgeables) consignee avant tout code.
+*/
+DO $$
+BEGIN
+  RAISE EXCEPTION 'charger.sql hors service (D-078) : pesee a l''arrivee indissociable d''un ticket CBG immuable, demonstration purgee (D-076)';
+END $$;
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM public.sites WHERE id::text LIKE 'dec0de00-%') THEN

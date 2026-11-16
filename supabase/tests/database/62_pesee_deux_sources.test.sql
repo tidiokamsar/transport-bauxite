@@ -30,7 +30,7 @@ SELECT is((SELECT count(*)::int FROM unnest(ARRAY[
     'public.agir_anomalie_pesee(uuid, text, text, text, uuid)']) f
   WHERE has_function_privilege('anon', f, 'EXECUTE') OR NOT has_function_privilege('authenticated', f, 'EXECUTE')), 0,
   'fonctions de pesee : executables par authenticated seulement');
-SELECT is((SELECT count(*)::int FROM unnest(ARRAY['public.releve_cbg_engage(uuid)', 'public.voyage_reconcilie_clos(uuid)',
+SELECT is((SELECT count(*)::int FROM unnest(ARRAY['public.releve_cbg_engage(uuid)',
     'public.recopier_ticket_kogon()', 'public.recopier_rectification_kogon()']) f
   WHERE has_function_privilege('authenticated', f, 'EXECUTE') OR has_function_privilege('anon', f, 'EXECUTE')), 0,
   'fonctions internes fermees aux comptes');

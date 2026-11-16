@@ -1,4 +1,4 @@
-import { dateOuNull, nombreOuNull, texteOuNull } from '../../lib/formulaires';
+import { dateOuNull, entierOuNull, texteOuNull } from '../../lib/formulaires';
 
 // Corps envoye a la table drivers (D-078) : dates et champs facultatifs
 // vides -> null ; site impose pour un profil borne a un site.
@@ -29,8 +29,10 @@ export const siteChauffeur = (choix: string, siteProfil: string | null | undefin
   siteProfil ? siteProfil : (choix.trim() === '' ? null : choix);
 
 export const corpsChauffeur = (f: SaisieChauffeur, siteProfil: string | null | undefined) => {
-  const salaire = nombreOuNull(f.base_salary);
-  if (salaire !== null && (Number.isNaN(salaire) || salaire < 0)) {
+  // Salaire en GNF : entier, jamais arrondi (D-078).
+  const { valeur: salaire, erreur: erreurSalaire } = entierOuNull(f.base_salary, 'Salaire de base (GNF)');
+  if (erreurSalaire) return { corps: null, erreur: erreurSalaire };
+  if (salaire !== null && salaire < 0) {
     return { corps: null, erreur: 'Salaire de base : nombre positif attendu' };
   }
   if (!f.name.trim() || !f.license_number.trim() || !dateOuNull(f.license_expiry) || !dateOuNull(f.hire_date)) {

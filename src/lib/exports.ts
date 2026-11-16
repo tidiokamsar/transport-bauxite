@@ -43,6 +43,36 @@ export const exportToCSV = (data: any[], filename: string) => {
   document.body.removeChild(link);
 };
 
+const echapper = (v: unknown) => String(v ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * Document HTML imprimable d'un tableau (D-068) : titre, mentions (periode,
+ * source, heure de calcul) et lignes, valeurs echappees. Une valeur absente
+ * reste vide, jamais remplacee. Fonction pure, testee dans exports.test.ts.
+ */
+export const documentImpression = (titre: string, mentions: string[], lignes: Record<string, unknown>[]): string => {
+  const entetes = lignes.length > 0 ? Object.keys(lignes[0]) : [];
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${echapper(titre)}</title>
+<style>body{font-family:Arial,sans-serif;padding:16px;color:#1c1917}h1{font-size:18px;margin:0 0 6px}p{margin:2px 0;font-size:11px;color:#57534e}
+table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #d6d3d1;padding:4px 6px;font-size:10px;text-align:left;vertical-align:top}
+th{background:#f5f5f4}</style></head><body><h1>${echapper(titre)}</h1>
+${mentions.map((m) => `<p>${echapper(m)}</p>`).join('')}
+${lignes.length === 0 ? '<p>Sans données</p>' : `<table><thead><tr>${entetes.map((h) => `<th>${echapper(h)}</th>`).join('')}</tr></thead><tbody>
+${lignes.map((l) => `<tr>${entetes.map((h) => `<td>${echapper(l[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>`}
+</body></html>`;
+};
+
+export const imprimerTableau = (titre: string, mentions: string[], lignes: Record<string, unknown>[]) => {
+  const fenetre = window.open('', '_blank');
+  if (!fenetre) return false;
+  fenetre.document.write(documentImpression(titre, mentions, lignes));
+  fenetre.document.close();
+  fenetre.focus();
+  fenetre.print();
+  return true;
+};
+
 export const exportToExcel = (data: any[], filename: string) => {
   exportToCSV(data, filename);
 };
