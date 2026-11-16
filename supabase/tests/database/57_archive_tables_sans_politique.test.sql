@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(24);
+SELECT plan(25);
 
 -- Archivage -------------------------------------------------------------------
 CREATE TEMP TABLE archivees(nom text) ON COMMIT DROP;
@@ -39,6 +39,9 @@ SELECT is((SELECT count(*)::int FROM pg_class c
   'plus aucune table publique a RLS active sans politique');
 SELECT ok(NOT has_schema_privilege('authenticated', 'archive_bolt', 'USAGE') AND NOT has_schema_privilege('anon', 'archive_bolt', 'USAGE'),
   'schema archive_bolt ferme aux comptes');
+SELECT is((SELECT count(*)::int FROM information_schema.role_table_grants
+            WHERE table_schema = 'archive_bolt' AND grantee IN ('anon', 'authenticated', 'PUBLIC')), 0,
+  'aucun droit des comptes sur les tables archivees');
 SELECT ok(EXISTS (SELECT 1 FROM pg_constraint c JOIN pg_class r ON r.oid = c.confrelid
                    WHERE c.conrelid = 'public.tire_models'::regclass AND c.contype = 'f' AND r.relnamespace = 'archive_bolt'::regnamespace),
   'la cle etrangere de tire_models vers tire_brands archivee reste en place');
