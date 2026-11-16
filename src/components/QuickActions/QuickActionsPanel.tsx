@@ -71,8 +71,8 @@ export default function QuickActionsPanel({ onNavigate }: QuickActionsPanelProps
       'Ouvrir le module Rapports', 'bg-green-500 hover:bg-green-600', 'reports'),
     raccourci('schedule-maintenance', <Calendar className="h-6 w-6" />, 'Planifier une maintenance',
       'Ouvrir le module Maintenance', 'bg-yellow-500 hover:bg-yellow-600', 'maintenance'),
-    raccourci('alerts', <AlertTriangle className="h-6 w-6" />, 'Alertes',
-      'Ouvrir le module Alertes', 'bg-red-500 hover:bg-red-600', 'alerts'),
+    raccourci('alerts', <AlertTriangle className="h-6 w-6" />, 'Centre des décisions',
+      'Ouvrir le centre des décisions (alertes et validations)', 'bg-red-500 hover:bg-red-600', 'alerts'),
     raccourci('add-expense', <DollarSign className="h-6 w-6" />, 'Saisir un coût',
       'Ouvrir le module Coûts', 'bg-purple-500 hover:bg-purple-600', 'costs'),
     {

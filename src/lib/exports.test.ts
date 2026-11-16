@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { buildCSV, formatDataForExport } from './exports';
+import { buildCSV, documentImpression, formatDataForExport } from './exports';
+
+describe('documentImpression (D-068)', () => {
+  it('echappe titre, mentions, en-tetes et valeurs ; valeur absente laissee vide', () => {
+    const html = documentImpression('Pilotage <b>', ['Période du 2026-11-01 au 2026-11-15'], [{ 'ind<1>': '<script>x</script>', valeur: null }]);
+    expect(html).toContain('<title>Pilotage &lt;b&gt;</title>');
+    expect(html).toContain('<th>ind&lt;1&gt;</th>');
+    expect(html).toContain('<td>&lt;script&gt;x&lt;/script&gt;</td><td></td>');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('<p>Période du 2026-11-01 au 2026-11-15</p>');
+  });
+
+  it('sans ligne : « Sans données », aucun tableau', () => {
+    const html = documentImpression('Vide', [], []);
+    expect(html).toContain('<p>Sans données</p>');
+    expect(html).not.toContain('<table>');
+  });
+});
 
 describe('buildCSV', () => {
   it('renvoie une chaine vide sans donnees', () => {
