@@ -3,8 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { EmployeeDetailsModal } from './EmployeeDetailsModal';
 import {
   Plus, Search, Users, UserCheck, Briefcase, RefreshCw,
-  Edit, Eye, Phone, Mail, Calendar, DollarSign, X,
-  FileText, TrendingUp, Award, Download
+  Edit, Eye, Phone, Mail, Calendar, DollarSign, Download
 } from 'lucide-react';
 
 interface Employee {
@@ -24,19 +23,12 @@ interface Employee {
   emergency_phone?: string;
 }
 
-interface EmployeeDetails extends Employee {
-  recent_payroll?: any[];
-  attendance_stats?: any;
-  total_trips?: number;
-}
-
 export const EmployeesView = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedEmployee] = useState<EmployeeDetails | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
@@ -365,177 +357,6 @@ export const EmployeesView = () => {
         employeeId={selectedEmployeeId}
       />
 
-      {/* OLD MODAL COMMENTED - TO REMOVE */}
-      {/* eslint-disable-next-line no-constant-binary-expression -- bloc desactive, a supprimer en Vague B (HR) */}
-      {false && showDetailModal && selectedEmployee && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-slate-600 to-slate-800 text-white p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                  <Users className="w-8 h-8" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h2>
-                  <p className="text-slate-200 text-sm flex items-center gap-2 mt-1">
-                    <span className="font-medium">{selectedEmployee.employee_number}</span>
-                    <span>•</span>
-                    <span>{selectedEmployee.position}</span>
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {/* Status */}
-              <div className="flex items-center justify-between mb-6 pb-4 border-b">
-                <div className="flex items-center gap-3">
-                  <UserCheck className="w-6 h-6 text-green-600" />
-                  <div>
-                    <p className="text-sm text-slate-600">Statut: <span className="font-semibold text-slate-900">{getStatusLabel(selectedEmployee.status)}</span></p>
-                    <p className="text-sm text-slate-500">
-                      Embauché le {new Date(selectedEmployee.hire_date).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-                <span className={`px-4 py-2 rounded-lg font-bold ${getStatusColor(selectedEmployee.status)}`}>
-                  {getStatusLabel(selectedEmployee.status)}
-                </span>
-              </div>
-
-              {/* Stats Cards */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                {/* Salary Card */}
-                <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-6">
-                  <DollarSign className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-sm opacity-90 mb-1">Salaire de base</p>
-                  <p className="text-3xl font-bold">{(selectedEmployee.base_salary / 1000000).toFixed(2)}M</p>
-                  <p className="text-sm opacity-75">GNF/mois</p>
-                </div>
-
-                {/* Trips Card */}
-                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl p-6">
-                  <TrendingUp className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-sm opacity-90 mb-1">Missions effectuées</p>
-                  <p className="text-3xl font-bold">{selectedEmployee.total_trips || 0}</p>
-                  <p className="text-sm opacity-75">trajets</p>
-                </div>
-
-                {/* Attendance Card */}
-                <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-6">
-                  <Calendar className="w-8 h-8 mb-2 opacity-80" />
-                  <p className="text-sm opacity-90 mb-1">Présence (30j)</p>
-                  <p className="text-3xl font-bold">
-                    {selectedEmployee.attendance_stats?.present || 0}
-                  </p>
-                  <p className="text-sm opacity-75">
-                    {selectedEmployee.attendance_stats?.total > 0
-                      ? `${((selectedEmployee.attendance_stats.present / selectedEmployee.attendance_stats.total) * 100).toFixed(0)}%`
-                      : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-6">
-                {/* Personal Info */}
-                <div className="bg-slate-50 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    Informations personnelles
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-slate-500 mb-1">Matricule</p>
-                      <p className="font-semibold text-slate-900">{selectedEmployee.employee_number}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 mb-1">Département</p>
-                      <p className="font-medium text-slate-800">{selectedEmployee.department || '-'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 mb-1">Poste</p>
-                      <p className="font-medium text-slate-800">{selectedEmployee.position}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Info */}
-                <div className="bg-slate-50 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-                    <Phone className="w-5 h-5 text-green-600" />
-                    Contact
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-slate-500 mb-1 flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        Téléphone
-                      </p>
-                      <p className="font-medium text-slate-900">{selectedEmployee.phone || '-'}</p>
-                    </div>
-                    {selectedEmployee.email && (
-                      <div>
-                        <p className="text-xs text-slate-500 mb-1 flex items-center gap-1">
-                          <Mail className="w-3 h-3" />
-                          Email
-                        </p>
-                        <p className="font-medium text-slate-900 text-sm">{selectedEmployee.email}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Payroll History */}
-              {selectedEmployee.recent_payroll && selectedEmployee.recent_payroll.length > 0 && (
-                <div className="mt-6 bg-white rounded-xl border border-slate-200">
-                  <div className="p-4 border-b border-slate-200">
-                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                      <Award className="w-5 h-5 text-yellow-600" />
-                      Historique de paie récent
-                    </h3>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {selectedEmployee.recent_payroll.map((payroll: any, index: number) => (
-                      <div
-                        key={payroll.id}
-                        className={`flex items-center justify-between p-4 hover:bg-slate-50 transition-colors ${
-                          index !== selectedEmployee.recent_payroll.length - 1 ? 'border-b border-slate-100' : ''
-                        }`}
-                      >
-                        <div>
-                          <p className="font-medium text-slate-900 capitalize">
-                            {new Date(payroll.period_start).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">
-                            {(payroll.net_salary / 1000000).toFixed(2)}M GNF
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {selectedEmployee.recent_payroll.length === 0 && (
-                    <div className="p-8 text-center text-slate-500">
-                      <p>Aucun historique de paie disponible</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
