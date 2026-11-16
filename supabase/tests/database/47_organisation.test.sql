@@ -5,6 +5,10 @@
 -- delegation identiques aux corps de main (D-036, D-053), compte sans
 -- affectation apres annulation non global, retour explicite au perimetre
 -- global, delegation bornee aux droits et au perimetre du delegant.
+-- Revue independante : C1 (approbation non delegable), C3 (pas de debut
+-- passe), C4 (comptes delegables), C5 (compte inactif), equivalence elargie
+-- (chaque role x variantes, anon, role absent de la matrice, raccourcis de
+-- vehicule_permis et voyage_permis).
 -- Regle D-072 : un droit retire se verifie par has_*_privilege, jamais par
 -- un appel sous SET ROLE.
 -- Tout est annule en fin de transaction.
@@ -88,7 +92,67 @@ BEGIN
 END;
 $$;
 
-SELECT plan(128);
+-- Equivalence elargie (sonde du relecteur) : comptes de chaque role x
+-- variantes (global actif, borne au site 1, inactif, statut NULL, suspendu,
+-- global avec droits specifiques), plus anon ; reference : corps de main.
+CREATE FUNCTION pg_temp.ecarts_elargis() RETURNS integer
+LANGUAGE plpgsql AS $$
+DECLARE u uuid; m text; s uuid; n integer := 0; attendu boolean;
+BEGIN
+  FOR u IN SELECT id FROM comptes_eq UNION ALL SELECT NULL::uuid LOOP
+    PERFORM pg_temp.se_connecter(u);
+    FOR m IN SELECT DISTINCT module FROM public.role_permissions UNION SELECT 'module_inconnu' UNION SELECT NULL LOOP
+      IF public.has_module_view(m) IS DISTINCT FROM pg_temp.droit_main(u, m, 'lecture') THEN n := n + 1; END IF;
+      IF public.has_module_write(m) IS DISTINCT FROM pg_temp.droit_main(u, m, 'ecriture') THEN n := n + 1; END IF;
+      IF public.has_module_approve(m) IS DISTINCT FROM pg_temp.droit_main(u, m, 'approbation') THEN n := n + 1; END IF;
+    END LOOP;
+    FOR s IN SELECT x FROM unnest(ARRAY['00000000-0000-4000-b640-0000000000a1'::uuid,
+                                        '00000000-0000-4000-b640-0000000000a2'::uuid, NULL]) x LOOP
+      attendu := EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = u AND pr.status = 'active'
+                                                           AND (pr.site_id IS NULL OR pr.site_id = s));
+      IF public.site_permis(s) IS DISTINCT FROM attendu THEN n := n + 1; END IF;
+    END LOOP;
+    IF public.is_admin() IS DISTINCT FROM EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = u AND pr.role = 'admin'
+                                                    AND pr.status = 'active') THEN n := n + 1; END IF;
+  END LOOP;
+  PERFORM pg_temp.se_connecter(NULL);
+  RETURN n;
+END;
+$$;
+
+-- vehicule_permis et voyage_permis (raccourci des comptes globaux) contre
+-- leur definition D-046, pour tous les comptes de test, les engins et
+-- voyages existants, NULL et un identifiant inconnu.
+CREATE FUNCTION pg_temp.ecarts_permis_derives() RETURNS integer
+LANGUAGE plpgsql AS $$
+DECLARE u uuid; x uuid; n integer := 0;
+BEGIN
+  FOR u IN SELECT id FROM public.profiles WHERE id::text LIKE '00000000-0000-4000-b64%' UNION ALL SELECT NULL::uuid LOOP
+    PERFORM pg_temp.se_connecter(u);
+    -- Echantillon borne (la base du serveur porte la demonstration) : engins
+    -- et voyages de test, 200 autres au plus, NULL et un identifiant inconnu.
+    FOR x IN SELECT id FROM public.vehicles WHERE registration LIKE 'TEST-D064-%'
+             UNION SELECT id FROM (SELECT id FROM public.vehicles ORDER BY id LIMIT 200) v
+             UNION ALL SELECT NULL UNION ALL SELECT gen_random_uuid() LOOP
+      IF public.vehicule_permis(x) IS DISTINCT FROM public.site_permis((SELECT v.site_id FROM public.vehicles v WHERE v.id = x)) THEN
+        n := n + 1;
+      END IF;
+    END LOOP;
+    FOR x IN SELECT id FROM voyage
+             UNION SELECT id FROM (SELECT id FROM public.trips ORDER BY id LIMIT 200) t
+             UNION ALL SELECT NULL UNION ALL SELECT gen_random_uuid() LOOP
+      IF public.voyage_permis(x) IS DISTINCT FROM coalesce((SELECT public.site_permis(t.departure_site_id) OR public.site_permis(t.arrival_site_id)
+                                                             FROM public.trips t WHERE t.id = x), public.site_permis(NULL)) THEN
+        n := n + 1;
+      END IF;
+    END LOOP;
+  END LOOP;
+  PERFORM pg_temp.se_connecter(NULL);
+  RETURN n;
+END;
+$$;
+
+SELECT plan(140);
 
 -- 0. Integration : signatures, volatilite, securite, droits d'execution ----
 
@@ -145,7 +209,10 @@ INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-b640-000000000008', 'logistique-1.d064@exemple.invalid'),
   ('00000000-0000-4000-b640-000000000009', 'logistique-2.d064@exemple.invalid'),
   ('00000000-0000-4000-b640-00000000000a', 'chauffeur-w.d064@exemple.invalid'),
-  ('00000000-0000-4000-b640-00000000000b', 'flotte-k.d064@exemple.invalid');
+  ('00000000-0000-4000-b640-00000000000b', 'flotte-k.d064@exemple.invalid'),
+  ('00000000-0000-4000-b640-00000000000c', 'directeur.d064@exemple.invalid'),
+  ('00000000-0000-4000-b640-00000000000d', 'chauffeur-v.d064@exemple.invalid'),
+  ('00000000-0000-4000-b640-00000000000e', 'flotte-e.d064@exemple.invalid');
 INSERT INTO public.sites (id, name, type) VALUES
   ('00000000-0000-4000-b640-0000000000a1', 'Site 1 D-064', 'mine'),
   ('00000000-0000-4000-b640-0000000000a2', 'Site 2 D-064', 'depot'),
@@ -161,7 +228,10 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-b640-000000000008', 'logistician', 'Logistique 1 D-064', 'active', NULL),
   ('00000000-0000-4000-b640-000000000009', 'logistician', 'Logistique 2 D-064', 'active', NULL),
   ('00000000-0000-4000-b640-00000000000a', 'driver', 'Chauffeur W D-064', 'active', NULL),
-  ('00000000-0000-4000-b640-00000000000b', 'fleet_manager', 'Flotte K D-064', 'active', NULL)
+  ('00000000-0000-4000-b640-00000000000b', 'fleet_manager', 'Flotte K D-064', 'active', NULL),
+  ('00000000-0000-4000-b640-00000000000c', 'director', 'Directeur D-064', 'active', NULL),
+  ('00000000-0000-4000-b640-00000000000d', 'driver', 'Chauffeur V D-064', 'active', NULL),
+  ('00000000-0000-4000-b640-00000000000e', 'fleet_manager', 'Flotte E D-064', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, status = EXCLUDED.status,
   site_id = EXCLUDED.site_id;
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, site_id) VALUES
@@ -169,6 +239,27 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
   ('00000000-0000-4000-b640-0000000000b2', 'TEST-D064-2', 'Test', 40, 'tipper', '00000000-0000-4000-b640-0000000000a2');
 
 SELECT is(pg_temp.ecarts_droits(), 0, 'sans delegation : has_module_* identiques aux definitions de main pour tous les comptes');
+
+CREATE TEMP TABLE comptes_eq AS
+SELECT ('00000000-0000-4000-b641-' || lpad(to_hex(r.n * 16 + v), 12, '0'))::uuid AS id, r.role, v
+  FROM (SELECT e AS role, row_number() OVER () AS n FROM unnest(enum_range(NULL::public.user_role)) e) r
+  CROSS JOIN generate_series(1, 6) v;
+INSERT INTO auth.users (id, email) SELECT id, id::text || '@exemple.invalid' FROM comptes_eq;
+INSERT INTO public.profiles (id, role, full_name, status, site_id)
+SELECT id, role, 'Equivalence ' || role || ' ' || v,
+       CASE v WHEN 3 THEN 'inactive' WHEN 5 THEN 'suspended' ELSE 'active' END,
+       CASE v WHEN 2 THEN '00000000-0000-4000-b640-0000000000a1'::uuid END
+  FROM comptes_eq
+ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, status = EXCLUDED.status,
+  site_id = EXCLUDED.site_id;
+UPDATE public.profiles SET status = NULL WHERE id IN (SELECT id FROM comptes_eq WHERE v = 4);
+INSERT INTO public.droits_utilisateur (utilisateur, module, niveau)
+SELECT c.id, x.module, x.niveau FROM comptes_eq c
+  CROSS JOIN (VALUES ('trips', 'aucun'), ('fuel', 'lecture'), ('invoices', 'ecriture'), ('purchases', 'lecture'),
+                     ('reports', 'ecriture'), ('drivers', 'aucun'), ('module_inconnu', 'ecriture')) x(module, niveau)
+ WHERE c.v = 6;
+SELECT is(pg_temp.ecarts_elargis(), 0,
+  'equivalence elargie : has_module_*, site_permis et is_admin identiques a main (chaque role x variantes, anon)');
 SELECT is(pg_temp.ecarts_perimetre(), 0, 'sans affectation : site_permis identique a la regle D-038 (et a perimetre_global_de)');
 
 -- 1. Affectations multisites ----------------------------------------------
@@ -570,26 +661,53 @@ SELECT throws_ok($$INSERT INTO public.delegations_droits (delegant, delegue, mod
   VALUES ('00000000-0000-4000-b640-000000000005', '00000000-0000-4000-b640-000000000005', 'trips', 'ecriture',
           now(), now() + interval '1 day', 'x')$$, '23514', NULL, 'contrainte : pas de delegation a soi-meme, meme hors fonction');
 
--- Approbation deleguee : la separation des taches reste appliquee.
+-- C1 : l'approbation ne se delegue pas (separation des taches, sonde A0 a A4).
 DELETE FROM public.settings WHERE key = 'achats_validation_separee';
 INSERT INTO public.warehouses (id, name, code, warehouse_type, site_id) VALUES
   ('00000000-0000-4000-b640-0000000000d1', 'Magasin D-064', 'TEST-MAG-D064', 'main', '00000000-0000-4000-b640-0000000000a1');
 INSERT INTO public.suppliers (id, supplier_number, supplier_type, company_name) VALUES
   ('00000000-0000-4000-b640-0000000000f1', 'TEST-F-D064', 'parts', 'Fournisseur D-064');
-SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000008');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-00000000000c');
 SET LOCAL ROLE authenticated;
-SELECT is(public.has_module_approve('purchases'), false, 'etat initial : la logistique n''approuve pas');
+CREATE TEMP TABLE bc AS SELECT public.enregistrer_bon_commande(
+  p_fournisseur => '00000000-0000-4000-b640-0000000000f1', p_depot => '00000000-0000-4000-b640-0000000000d1',
+  p_lignes => '[{"designation": "Prestation D-064", "quantite": 1, "prix_unitaire": 25000000}]'::jsonb) AS id;
+SELECT public.soumettre_bon_commande((SELECT id FROM bc));
+SELECT throws_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, '42501',
+  'L''approbation revient a une autre personne que le demandeur',
+  'separation des taches : le directeur n''approuve pas son propre bon');
+SELECT throws_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'purchases', 'approbation',
+  now(), now() + interval '1 hour', 'Approbation de mon bon')$$, '22023', NULL,
+  'C1 : l''approbation ne se delegue pas (directeur vers chauffeur)');
 RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000008', 'purchases', 'approbation',
+  now(), now() + interval '3 days', 'Absence du valideur')$$, '22023', NULL,
+  'C1 : l''approbation ne se delegue pas, meme par l''administrateur');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT is(public.has_module_approve('purchases'), false, 'C1 : le chauffeur n''a aucune approbation');
+SELECT throws_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, '42501', NULL,
+  'C1 : le chauffeur n''approuve pas le bon redige par le directeur');
+RESET ROLE;
+SELECT is((SELECT approved_by FROM public.purchase_orders WHERE id = (SELECT id FROM bc)), NULL::uuid,
+  'C1 : le bon reste sans approbation');
+SELECT pg_temp.se_connecter(NULL);
+SELECT throws_ok($$INSERT INTO public.delegations_droits (delegant, delegue, module, niveau, debut, fin, motif)
+  VALUES ('00000000-0000-4000-b640-00000000000c', '00000000-0000-4000-b640-000000000007', 'purchases', 'approbation',
+          now(), now() + interval '1 day', 'x')$$, '23514', NULL, 'C1 : contrainte, aucune delegation d''approbation meme hors fonction');
+SELECT ok((SELECT prosrc NOT LIKE '%delegation%' FROM pg_proc WHERE oid = 'public.has_module_approve(text)'::regprocedure),
+  'C1 : has_module_approve ne lit pas les delegations');
+
+-- Une delegation d'ecriture donne la lecture du module.
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
 SET LOCAL ROLE authenticated;
 SELECT is(public.has_module_view('hr'), false, 'etat initial : le chauffeur ne lit pas les RH');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
 SET LOCAL ROLE authenticated;
-SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000008', 'purchases', 'approbation',
-  now(), now() + interval '3 days', 'Absence du valideur');
-SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000009', 'purchases', 'approbation',
-  now(), now() + interval '3 days', 'Absence du valideur');
 SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'hr', 'ecriture',
   now(), now() + interval '3 days', 'Remplacement RH');
 RESET ROLE;
@@ -597,36 +715,54 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
 SET LOCAL ROLE authenticated;
 SELECT is(public.has_module_view('hr'), true, 'une delegation d''ecriture donne aussi la lecture du module');
 RESET ROLE;
-SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000008');
-SET LOCAL ROLE authenticated;
-SELECT is(public.has_module_approve('purchases'), true, 'approbation deleguee en vigueur');
-CREATE TEMP TABLE bc AS SELECT public.enregistrer_bon_commande(
-  p_fournisseur => '00000000-0000-4000-b640-0000000000f1', p_depot => '00000000-0000-4000-b640-0000000000d1',
-  p_lignes => '[{"designation": "Prestation D-064", "quantite": 1, "prix_unitaire": 1000}]'::jsonb) AS id;
-SELECT public.soumettre_bon_commande((SELECT id FROM bc));
-SELECT throws_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, '42501',
-  'L''approbation revient a une autre personne que le demandeur',
-  'separation des taches : le delegue n''approuve pas son propre bon');
-RESET ROLE;
-SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000009');
-SET LOCAL ROLE authenticated;
-SELECT lives_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, 'un autre delegue approuve le bon');
-RESET ROLE;
-SELECT is((SELECT approved_by FROM public.purchase_orders WHERE id = (SELECT id FROM bc)),
-  '00000000-0000-4000-b640-000000000009'::uuid, 'l''approbation est au nom du delegue');
 
 -- Journal des delegations.
 SELECT is((SELECT count(*)::int FROM public.journal_delegations WHERE delegue IN (
   '00000000-0000-4000-b640-000000000006', '00000000-0000-4000-b640-000000000007',
-  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009', '00000000-0000-4000-b640-00000000000a')), 8,
-  'journal : 7 creations et 1 revocation');
+  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009', '00000000-0000-4000-b640-00000000000a')), 6,
+  'journal : 5 creations et 1 revocation');
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000005');
 SELECT throws_ok($$UPDATE public.journal_delegations SET motif = 'x'$$, '42501', NULL,
   'journal des delegations non modifiable, meme hors navigateur (garde)');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT count(*)::int FROM public.comptes_delegables() WHERE id = '00000000-0000-4000-b640-000000000005'), 0,
   'comptes delegables : sans soi-meme');
+-- C3 : une delegation ne commence jamais dans le passe.
+CREATE TEMP TABLE dlg_retro AS SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000006', 'fuel', 'ecriture',
+  '2020-01-01'::timestamptz, now() + interval '1 hour', 'Retroactif') AS id;
+SELECT is((SELECT debut FROM public.delegations_droits WHERE id = (SELECT id FROM dlg_retro)), now(),
+  'C3 : un debut passe est ramene a l''instant present');
+SELECT is((SELECT debut FROM public.journal_delegations WHERE delegation_id = (SELECT id FROM dlg_retro)), now(),
+  'C3 : le journal consigne le debut effectif');
 RESET ROLE;
+SELECT ok((SELECT prosrc LIKE '%pg_advisory_xact_lock%' FROM pg_proc
+            WHERE oid = 'public.deleguer_droit(uuid, text, text, timestamptz, timestamptz, text)'::regprocedure),
+  'C5 : deux delegations identiques concurrentes sont serialisees (verrou consultatif)');
+-- C4 : sans droit d'ecriture delegable, aucun compte propose.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-00000000000d');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT count(*)::int FROM public.comptes_delegables()), 0,
+  'C4 : un compte sans droit d''ecriture delegable ne voit aucun compte');
+RESET ROLE;
+-- C5 : pas de retour au perimetre global pour un compte inactif.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT public.affecter_site('00000000-0000-4000-b640-00000000000e', '00000000-0000-4000-b640-0000000000a1',
+  current_date - 10, current_date - 5, 'Mission passee');
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
+UPDATE public.profiles SET status = 'inactive' WHERE id = '00000000-0000-4000-b640-00000000000e';
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.retablir_perimetre_global('00000000-0000-4000-b640-00000000000e', 'Compte inactif')$$,
+  '22023', NULL, 'C5 : retour au perimetre global refuse a un compte inactif');
+RESET ROLE;
+-- Indicateur derive : jamais saisi, recalcule par le serveur.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
+UPDATE public.profiles SET perimetre_affecte = false WHERE id = '00000000-0000-4000-b640-00000000000e';
+SELECT is((SELECT perimetre_affecte FROM public.profiles WHERE id = '00000000-0000-4000-b640-00000000000e'), true,
+  'perimetre_affecte : une ecriture directe est recalculee (indicateur derive)');
+SELECT pg_temp.se_connecter(NULL);
 
 -- 3. Journal de connexion et sessions -------------------------------------
 
@@ -678,6 +814,13 @@ SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT * FROM public.sequences_numerotation()$$, '42501', NULL, 'sequences : reserve a l''administrateur');
 SELECT throws_ok($$SELECT public.enregistrer_unite('litre', 'Litre')$$, '42501', NULL, 'referentiel : ecriture reservee a l''administrateur');
 RESET ROLE;
+
+-- Raccourcis de vehicule_permis et voyage_permis (C2) : meme resultat que D-046.
+SELECT is(pg_temp.ecarts_permis_derives(), 0,
+  'vehicule_permis et voyage_permis identiques a leur definition D-046 (comptes globaux, bornes, affectes, anon)');
+-- Role absent de la matrice (en dernier : modifie role_permissions).
+DELETE FROM public.role_permissions WHERE role::text IN ('driver', 'accountant');
+SELECT is(pg_temp.ecarts_elargis(), 0, 'equivalence elargie : role absent de la matrice, identique a main');
 
 SELECT * FROM finish();
 ROLLBACK;
