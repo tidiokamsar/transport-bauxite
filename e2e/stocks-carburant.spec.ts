@@ -27,7 +27,7 @@ const ouvrir = async (page: Page) => {
   await page.setViewportSize({ width: 1600, height: 1200 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Carburant', exact: true }).click();
-  await page.getByRole('button', { name: 'Stocks et cuves', exact: true }).click();
+  await page.getByRole('button', { name: 'Réceptions, cuves et inventaires', exact: true }).click();
 };
 
 test.describe('Registre carburant', () => {

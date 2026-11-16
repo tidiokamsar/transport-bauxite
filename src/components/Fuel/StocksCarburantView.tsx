@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ParcoursCarburant } from './ParcoursCarburant';
 import { ArrowRightLeft, Check, Download, Gauge, PackagePlus, Plus, RefreshCw, Undo2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -152,8 +153,9 @@ export const StocksCarburantView = () => {
   const livraisonChoisie = livraisons.find((l) => l.id === champ('livraison'));
 
   return <div className="space-y-5">
+    <ParcoursCarburant vue="fuel-stocks" />
     <header className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-2xl font-black text-stone-900">Stocks et cuves</h2>
+      <div><h2 className="text-2xl font-black text-stone-900">Réceptions, cuves et inventaires</h2>
         <p className="text-sm text-stone-500">Stock calculé depuis les mouvements validés. Aucun solde ne se saisit ni ne se modifie.</p></div>
       <div className="flex flex-wrap gap-2">
         {peutEcrire && <>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { ParcoursCarburant } from './ParcoursCarburant';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Provenance, SansDonnees } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
@@ -44,6 +45,7 @@ export const AnomaliesCarburantView = () => {
 
   return (
     <div className="space-y-6">
+      <ParcoursCarburant vue="fuel-anomalies" />
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-stone-900">Anomalies carburant</h2>

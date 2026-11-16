@@ -103,7 +103,7 @@ correspondant (`src/contexts/AuthContext.tsx`). Un administrateur voit tout.
 | trips | Voyages & Rotations, Dispatch, Postes de travail, Fiches terrain, Kilométrage, Tickets CBG, Infrastructures et fermetures, Contrôles avant départ |
 | planning | Planification |
 | gps_tracking | Suivi GPS, Intelligence flotte, Historique des trajets, Géorepérage |
-| fuel | Pleins et cuves, Livraisons et factures CBG, Stocks et cuves, Analyse carburant, Anomalies, Jauges connectées |
+| fuel | Distribution aux engins, Livraisons et factures CBG, Réceptions, cuves et inventaires, Analyse carburant, Anomalies, Jauges connectées |
 | maintenance | Immobilisations, Interventions Neemba, Ordres de travail, Préventif |
 | stock | Stocks |
 | purchases | Achats, Fournisseurs |
@@ -212,7 +212,7 @@ Exigence pour les opérations sensibles (réglage `mfa_exige`) :
 | Points de contrôle avant départ | RH & Sécurité > Contrôles avant départ | Administrateur seulement (libellé, catégorie, bloquant ou non, ordre, actif). |
 | Habilitations exigées pour être affecté | Flotte > Habilitations chauffeurs | Administrateur seulement. Sans type exigé, aucune contrainte. |
 | Distances de référence site à site | Kilométrage | Droit d'écriture `contracts` ou administrateur ; une distance se désactive. |
-| Cuves et citernes | Carburant > Stocks et cuves | Droit d'écriture `fuel`, dans le périmètre du site. |
+| Cuves et citernes | Carburant > Réceptions, cuves et inventaires | Droit d'écriture `fuel`, dans le périmètre du site. |
 | Seuils des pneus | Pneus | Administrateur (table `settings`). |
 
 ## 8. Réglages lus par le serveur (table `settings`)
