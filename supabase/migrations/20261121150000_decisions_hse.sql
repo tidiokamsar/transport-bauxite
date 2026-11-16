@@ -681,14 +681,17 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE a public.actions_correctives;
+DECLARE a public.actions_correctives; v_permis boolean := false;
 BEGIN
   PERFORM public.exiger_droit_hse();
   SELECT * INTO a FROM public.actions_correctives WHERE id = p_action FOR UPDATE;
-  IF NOT FOUND OR NOT CASE
-       WHEN a.incident_id IS NOT NULL THEN EXISTS (SELECT 1 FROM public.incidents i WHERE i.id = a.incident_id
-                                                     AND public.incident_permis(i.trip_id, i.vehicle_id, i.site_id))
-       ELSE EXISTS (SELECT 1 FROM public.inspections s WHERE s.id = a.inspection_id AND public.site_permis(s.site_id)) END THEN
+  IF FOUND AND a.incident_id IS NOT NULL THEN
+    v_permis := EXISTS (SELECT 1 FROM public.incidents i WHERE i.id = a.incident_id
+                          AND public.incident_permis(i.trip_id, i.vehicle_id, i.site_id));
+  ELSIF FOUND THEN
+    v_permis := EXISTS (SELECT 1 FROM public.inspections s WHERE s.id = a.inspection_id AND public.site_permis(s.site_id));
+  END IF;
+  IF NOT v_permis THEN
     RAISE EXCEPTION 'Action introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF a.incident_id IS NOT NULL THEN

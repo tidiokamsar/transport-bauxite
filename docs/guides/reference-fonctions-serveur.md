@@ -193,12 +193,15 @@ réforme précoce sous `pneu_reforme_precoce_km`), pneus pris en compte et exclu
 | `declarer_incident(type, gravite, description, survenu_le, engin, chauffeur, voyage, site, lieu, cout_estime, controle)` | W(trips) ou admin, périmètre | Type, gravité, description, heure requis ; rattachement obligatoire ; numéro `INC` |
 | `analyser_incident(id, cause, motif)` | W(trips) ou admin, périmètre, incident non clos | Cause requise ; motif pour réviser une cause ; journal `incidents_journal` (D-072) |
 | `ajouter_action_corrective(incident, libelle, responsable, echeance)` | idem | Libellé, responsable, échéance |
-| `solder_action_corrective(action, realisee, texte, date)` | idem | Preuve ou motif ; date non future |
+| `solder_action_corrective(action, realisee, texte, date)` | idem (incident ou inspection d'origine, D-068) | Preuve ou motif ; date non future ; action introuvable ou hors périmètre : même message |
 | `cloturer_incident(id, conclusion)` | idem | Cause analysée, aucune action ouverte, conclusion |
 
 ## Prévention HSE (D-068)
 
-Écriture : W(trips) ou admin et périmètre du site ; aucune écriture directe sur les tables.
+Écriture : W(trips) ou admin et périmètre du site ; aucune écriture directe sur les tables ;
+séquences de numérotation fermées aux comptes. Le droit est contrôlé avant toute lecture et
+un objet (dotation, risque, plan, programme, inspection, action) introuvable ou hors
+périmètre rend un même message (D-075) ; le chauffeur d'une dotation est borné au périmètre.
 
 | Fonction | Droit | Règle principale |
 |---|---|---|
@@ -218,10 +221,14 @@ réforme précoce sous `pneu_reforme_precoce_km`), pneus pris en compte et exclu
 | Fonction | Type | Contenu |
 |---|---|---|
 | `actualiser_alertes(forcer)` | DEFINER, profil actif | Crée les alertes manquantes depuis les données réelles (une par règle et par objet), signale les conditions levées ; sans effet si un calcul date de moins de 30 s |
-| `regles_alertes()` | DEFINER | Catalogue des règles, réglage, seuil et état (une règle à seuil est inactive sans seuil saisi) |
-| `prendre_en_compte_alerte(alerte)` / `resoudre_alerte(alerte, motif)` | DEFINER, W(module de la règle) ou admin, périmètre | Résolution motivée, tracée ; une alerte résolue ne renaît pas pour le même objet |
+| `regles_alertes()` | DEFINER, profil actif | Catalogue des règles, réglage, seuil et état (une règle à seuil est inactive sans seuil saisi ; une règle sans seuil est active sauf réglage `false`) ; seule entrée des comptes vers les réglages d'alerte (`seuil_regle_alerte` et `regle_alerte_en_service` leur sont fermées) |
+| `prendre_en_compte_alerte(alerte)` / `resoudre_alerte(alerte, motif)` | DEFINER, W(module de la règle) ou admin, périmètre | Alerte introuvable ou hors lecture : même message ; résolution motivée, tracée ; une alerte résolue ne renaît pas pour le même objet |
 | `centre_decisions()` | INVOKER | Alertes visibles et `mes_validations()` par priorité |
-| `indicateurs_pilotage(debut, fin, site, shift, vehicule, partenaire)` | INVOKER | D-057 avec filtres ; indicateur sans la dimension filtrée : « sans données » et motif ; colonne `nature` (période ou instantané) |
+| `indicateurs_pilotage(debut, fin, site, shift, vehicule, partenaire)` | INVOKER | D-057 et D-072 R3 avec filtres ; indicateur sans la dimension filtrée : « sans données » et motif ; domaine illisible : « Non visible avec vos droits de lecture » (prime sur le motif) ; immobilisation annulée jamais comptée ; colonne `nature` (période ou instantané) ; remplace la signature à 3 arguments (appels à 2 ou 3 arguments valides) |
+
+Table `alerts` : écrite par `actualiser_alertes` seulement ; lue avec le droit de
+lecture du module de la règle et le périmètre (engin, sinon site) ; rien pour anon.
+`alertes_actualisation` : heure du dernier calcul, lisible par l'administrateur.
 
 ## Carburant (D-034, D-041, D-030)
 
