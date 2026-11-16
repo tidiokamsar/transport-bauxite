@@ -278,6 +278,7 @@ PR quand la dette diminue ; ne jamais les remonter.
 - Demonstration PURGEE le 2026-11-16 (D-076, ordre du proprietaire) : la production ne contient plus que les 3 comptes ; des la premiere saisie reelle, deploiement en production = « toujours demander » (bloc 1, section 4). Historique D-020 : identifiants
   `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh apercu` puis `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> deploy/vps/demo/demo.sh purger` (D-074)
   obligatoire avant la premiere saisie reelle.
+- Donnees d'exemple (D-084) : `demo.sh charger` charge un jeu fictif de 5 lignes au plus par table, isole du reel, ecrit par les fonctions serveur (identifiants `dec0de00-`, numeros `DEMO-`, acteurs sans mot de passe et bannis) ; `demo.sh coherence` ; purge par l'outillage D-074, qui retire aussi les preuves immuables et les comptes d'exemple. Non charge en production : chargement sur decision du proprietaire.
 - Cycle voyage (CDC 12, LOT 06) : `trips.etat` ne change que par
   `creer_voyage` / `avancer_voyage` (garde `trips_garde_cycle`), journal
   `trip_events` immuable. Deploye le 2026-11-10 (PR #32).

@@ -139,8 +139,8 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id, email, depart
 -- Shifts propres a l'exemple (les shifts sont communs a tous les sites,
 -- D-078) : noms distincts de tout shift reel.
 INSERT INTO public.work_shifts (id, name, display_name, start_time, end_time, shift_order, color, is_active) VALUES
-  (pg_temp.demo_id(2, 1), 'exemple_jour', 'Jour (exemple)', '06:00', '18:00', 91, '#f59e0b', true),
-  (pg_temp.demo_id(2, 2), 'exemple_nuit', 'Nuit (exemple)', '18:00', '06:00', 92, '#6366f1', true);
+  (pg_temp.demo_id(2, 1), 'exemple_jour', 'Jour (exemple)', '06:00', '18:00', 9901, '#f59e0b', true),
+  (pg_temp.demo_id(2, 2), 'exemple_nuit', 'Nuit (exemple)', '18:00', '06:00', 9902, '#6366f1', true);
 
 -- Contrats (dossier contractuel, D-026) : CBG client a la tonne ; Neemba
 -- loueur, tarif par engin (D-033) : camions au km parcouru charge, chargeuse
@@ -652,9 +652,14 @@ BEGIN
 END $$;
 SET LOCAL session_replication_role = origin;
 
--- 7.6 Sequences de numerotation remises a leur position d'avant le
---     chargement : la numerotation reelle ne saute aucun numero.
-SELECT setval(s.s, s.valeur, s.appelee) FROM demo_sequences s;
+-- 7.6 Sequences des numeros textuels (prefixes DEMO- ci-dessus) remises a
+--     leur position d'avant le chargement : la numerotation reelle ne saute
+--     aucun numero. Les sequences de colonnes entieres (serial, identity,
+--     valeur par defaut nextval) avancent : leurs valeurs, stockees telles
+--     quelles dans les lignes d'exemple, ne doivent pas etre redonnees.
+SELECT setval(s.s, s.valeur, s.appelee) FROM demo_sequences s
+ WHERE NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass AND d.objid = s.s::oid AND d.deptype IN ('a', 'i'))
+   AND NOT EXISTS (SELECT 1 FROM pg_attrdef ad WHERE pg_get_expr(ad.adbin, ad.adrelid) LIKE '%' || (SELECT relname FROM pg_class WHERE oid = s.s::oid) || '%');
 
 -- 7.7 Bandeau « DONNEES DE DEMONSTRATION » (D-020).
 INSERT INTO public.sigtb_demonstration (id, active, chargee_le, description)
