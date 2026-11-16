@@ -180,7 +180,6 @@ export const DashboardView = () => {
     }
     const kpi = (jour: Date) => supabase.rpc('indicateurs_pilotage', { p_debut: ymd(jour), p_fin: ymd(jour), p_site: siteId || null });
 
-    await supabase.rpc('actualiser_alertes');
     const [rV, rT, rE, rD, rK, rKV, rA, rP, rO, rS] = await Promise.all([
       qVehicules,
       qVoyages,
@@ -188,8 +187,9 @@ export const DashboardView = () => {
       qDerniers,
       kpi(maintenant),
       kpi(hier),
-      supabase.from('alerts').select('id, title, message, severity, created_at').eq('status', 'active')
-        .order('created_at', { ascending: false }).limit(4),
+      // Alertes calculees par le serveur a la lecture (D-068), puis lues.
+      supabase.rpc('actualiser_alertes').then(() => supabase.from('alerts').select('id, title, message, severity, created_at').eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(4)),
       supabase.from('vehicle_tracking').select('vehicle_id, latitude, longitude, timestamp, speed')
         .gte('timestamp', ilYa24h.toISOString()).order('timestamp', { ascending: false }).limit(1000),
       qObjectifs,
@@ -294,7 +294,6 @@ export const DashboardView = () => {
     const a = k(code); const b = kv(code);
     return a?.valeur == null || b?.valeur == null ? null : variation(a.valeur, b.valeur);
   };
-  const realisation = k('realisation')?.valeur ?? null;
   const jourTexte = ymd(donnees.heure);
   const mentionsKpi = [`Période : journée du ${jourTexte}`, `Site : ${siteId ? nomSite(siteId) : 'tous les sites visibles'}`,
     `Source : indicateurs_pilotage (serveur) ; calculé le ${donnees.kpi?.[0]?.calcule_le ? new Date(donnees.kpi[0].calcule_le).toLocaleString('fr-FR') : 'sans données'}`];
@@ -329,7 +328,7 @@ export const DashboardView = () => {
           titre="Tonnes livrées (jour)"
           valeur={valeurKpi('tonnes_livrees')}
           pied={<><Variation valeur={ecartVeille('tonnes_livrees')} /><MentionKpi i={k('tonnes_livrees')} /></>}
-          droite={<Anneau pourcentage={realisation} legende="du plan" />}
+          droite={<Anneau pourcentage={calculs.pourcentagePlan} legende="du plan" />}
         />
         <Tuile
           teinte="border-blue-100 bg-blue-50/70"

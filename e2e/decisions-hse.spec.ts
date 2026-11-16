@@ -32,8 +32,10 @@ const kpi = (debut: string, fin: string, tonnes: number | null, fiabilite: strin
 const ouvrir = async (page: Page, groupe: string, ecran: string) => {
   await page.setViewportSize({ width: 1600, height: 1200 });
   await page.goto('/');
-  await page.getByRole('button', { name: groupe, exact: true }).click();
-  await page.getByRole('button', { name: ecran, exact: true }).click();
+  const entree = page.getByRole('button', { name: ecran, exact: true });
+  await expect(page.getByRole('button', { name: groupe, exact: true })).toBeVisible();
+  if (!(await entree.isVisible())) await page.getByRole('button', { name: groupe, exact: true }).click();
+  await entree.click();
 };
 
 test.describe('Centre des decisions et HSE (D-068)', () => {
@@ -68,7 +70,7 @@ test.describe('Centre des decisions et HSE (D-068)', () => {
   });
 
   test('comparaison de periodes : ecart, prudence et filtres transmis au serveur', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, sites: [{ id: 's1', name: 'Mine Nimba' }], work_shifts: [{ id: 'w1', display_name: 'Jour' }],
+    await simulerApi(page, { profiles: PROFIL, sites: [{ id: 's1', name: 'Mine Nimba' }], work_shifts: [{ id: 'w1', name: 'jour', display_name: 'Jour', start_time: '00:00:00', end_time: '23:59:00', is_active: true }],
       vehicles: [{ id: 'v1', registration: 'CAM-01', transporteur: 'Transports Kaloum', proprietaire: null, exploitant: null }] });
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/indicateurs_pilotage', (route) => {
