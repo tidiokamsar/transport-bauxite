@@ -5,6 +5,18 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
+## 3dc77d4 (2026-11-16) : dispatch, voyages et infractions (D-066, PR #88)
+
+- Dispatch : affectation de plusieurs voyages en une fois (chaque ligne acceptée ou refusée avec sa raison), enchaînement du voyage suivant d'un camion livré, avertissement quand le chauffeur fait l'objet d'une sanction de conduite active.
+- Voyages : durées par étape, statistiques des trajets, rapport des voyages, selon votre site.
+- Chauffeurs : registre des infractions et décisions de sanction, numérotées et journalisées.
+
+## 4eb12e6 (2026-11-16) : cloisonnement par site renforcé (D-075, PR #87)
+
+- Un utilisateur affecté à un site ne voit plus les événements de voyage, tickets CBG, immobilisations, pointages, objectifs, livraisons et stocks de carburant ni les positions GPS des autres sites ; un ticket reste visible du site de départ comme du site d'arrivée.
+- Le dispatch refuse le camion, l'engin ou le chauffeur d'un autre site.
+- Les positions GPS ne peuvent plus être saisies depuis le navigateur : elles viennent seulement des boîtiers.
+
 ## 75d94bf (2026-11-16) : purge de la démonstration (D-074, PR #85)
 
 - La purge des données de démonstration suit désormais les liens entre tables : elle retire aussi ce qui a été créé sur la démonstration dans l'interface (voyages préparés, fiches, postes, objectifs de test), et s'arrête en listant toute donnée réelle qui y serait rattachée.
