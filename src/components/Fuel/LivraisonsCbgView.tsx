@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Panneau, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SITE } from '../ui/referentiels';
+import { BoutonPieces } from '../ui/PiecesJointes';
 
 interface Livraison {
   id: string; reference: string; date_livraison: string; site_id: string; site?: { name: string } | null;
@@ -120,7 +121,7 @@ export const LivraisonsCbgView = () => {
 
     <Panneau titre={`Livraisons enregistrées (${livraisons?.length ?? 0})`}>
       {livraisons === null ? <p>Chargement…</p> : livraisons.length === 0 ? <SansDonnees message="Aucune livraison CBG saisie" detail="Saisissez la quantité et le prix figurant sur chaque bon de livraison." /> :
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Référence</th><th className="py-2 pr-3">Site</th><th className="py-2 pr-3 text-right">Litres</th><th className="py-2 pr-3 text-right">GNF / L</th><th className="py-2 text-right">Montant calculé</th></tr></thead><tbody>{livraisons.map((l) => <tr key={l.id} className="border-b border-stone-100"><td className="py-2 pr-3">{l.date_livraison}</td><td className="py-2 pr-3 font-mono">{l.reference}</td><td className="py-2 pr-3">{l.site?.name ?? '—'}</td><td className="py-2 pr-3 text-right">{formatNombre(Number(l.volume_litres), 2)}</td><td className="py-2 pr-3 text-right">{formatNombre(Number(l.prix_litre), 2)}</td><td className="py-2 text-right font-semibold">{monnaie(l.montant)}</td></tr>)}</tbody></table></div>}
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Date</th><th className="py-2 pr-3">Référence</th><th className="py-2 pr-3">Site</th><th className="py-2 pr-3 text-right">Litres</th><th className="py-2 pr-3 text-right">GNF / L</th><th className="py-2 pr-3 text-right">Montant calculé</th><th className="py-2">Justificatifs</th></tr></thead><tbody>{livraisons.map((l) => <tr key={l.id} className="border-b border-stone-100"><td className="py-2 pr-3">{l.date_livraison}</td><td className="py-2 pr-3 font-mono">{l.reference}</td><td className="py-2 pr-3">{l.site?.name ?? '—'}</td><td className="py-2 pr-3 text-right">{formatNombre(Number(l.volume_litres), 2)}</td><td className="py-2 pr-3 text-right">{formatNombre(Number(l.prix_litre), 2)}</td><td className="py-2 pr-3 text-right font-semibold">{monnaie(l.montant)}</td><td className="py-2"><BoutonPieces objetType="livraison_carburant_cbg" objetId={l.id} titre={`livraison ${l.reference}`} peutDeposer={peutEcrire} /></td></tr>)}</tbody></table></div>}
     </Panneau>
 
     {peutEcrire && <Panneau titre="Saisir et contrôler une facture CBG">

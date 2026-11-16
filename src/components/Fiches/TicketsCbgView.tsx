@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { exportToCSV } from '../../lib/exports';
 import { Panneau, Puce, SansDonnees, type TeintePuce } from '../ui/Panneau';
+import { BoutonPieces } from '../ui/PiecesJointes';
 import { lireReleveCsv, type LigneReleve } from './releveCbg';
 
 // Registre des tickets CBG et rapprochement des releves (D-050). CBG pese ;
@@ -134,6 +135,7 @@ export const TicketsCbgView = () => {
           <span className="flex gap-1">
             {peutEcrire && r.statut === 'importe' && <button disabled={busy} onClick={() => rapprocher(r)} aria-label={`Rapprocher ${r.reference}`} className="flex items-center gap-1 rounded bg-stone-800 px-2 py-1 text-xs font-bold text-white"><Scale className="h-3 w-3" /> Rapprocher</button>}
             {r.statut === 'rapproche' && <button onClick={() => setChoisi(r.id)} aria-label={`Résultat ${r.reference}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Résultat</button>}
+            <BoutonPieces objetType="releve_cbg" objetId={r.id} titre={`relevé CBG ${r.reference}`} peutDeposer={peutEcrire} />
           </span></li>)}</ul>}
     </Panneau>
 
@@ -155,9 +157,10 @@ export const TicketsCbgView = () => {
 
     <Panneau titre={`Registre des tickets intégrés (${tickets.length})`}>
       {tickets.length === 0 ? <SansDonnees message="Aucun ticket intégré" /> :
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Pesée</th><th className="py-2 pr-3 text-right">Net</th><th className="py-2">État</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Ticket</th><th className="py-2 pr-3">Pesée</th><th className="py-2 pr-3 text-right">Net</th><th className="py-2 pr-3">État</th><th className="py-2">Justificatifs</th></tr></thead>
           <tbody>{tickets.map((t) => <tr key={t.id} className="border-b border-stone-100"><td className="py-2 pr-3 font-mono">{t.ticket}</td><td className="py-2 pr-3">{new Date(t.mesure_le).toLocaleString('fr-FR')}</td>
-            <td className="py-2 pr-3 text-right">{Number(t.net).toLocaleString('fr-FR')} t</td><td className="py-2">{t.est_rectifie ? <Puce teinte="orange">Rectifié</Puce> : <Puce teinte="gris">Source CBG</Puce>}</td></tr>)}</tbody></table></div>}
+            <td className="py-2 pr-3 text-right">{Number(t.net).toLocaleString('fr-FR')} t</td><td className="py-2 pr-3">{t.est_rectifie ? <Puce teinte="orange">Rectifié</Puce> : <Puce teinte="gris">Source CBG</Puce>}</td>
+            <td className="py-2"><BoutonPieces objetType="ticket_pesee_cbg" objetId={t.id} titre={`ticket CBG ${t.ticket}`} peutDeposer={peutEcrire} /></td></tr>)}</tbody></table></div>}
     </Panneau>
   </div>;
 };
