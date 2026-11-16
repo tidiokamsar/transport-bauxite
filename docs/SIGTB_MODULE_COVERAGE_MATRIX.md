@@ -168,7 +168,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Référentiel, montage, démontage, permutation, contrôle | `Pneus/PneusView` | `tires` (cache), `pneus_operations` (journal), `monter_pneu`, `demonter_pneu`, `permuter_pneu`, `inspecter_pneu`, `annuler_operation_pneu` (D-052) | DÉPLOYÉ | P1 | Anciennes tables `tire_*` à supprimer (décision du propriétaire) |
-| Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | `Pneus/PneusView` | `enregistrer_pneu`, `rechaper_pneu`, `reparer_pneu`, `reformer_pneu`, `v_pneus` (km, coût au km), `v_pneus_a_surveiller` (D-052) | PARTIEL | P1 | Réception depuis un bon de commande (lot 13) ; performance par marque (lot 19) |
+| Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | `Pneus/PneusView`, `Pneus/PerformancePneus`, `Purchases/PurchasesView` | `enregistrer_pneu`, `rechaper_pneu`, `reparer_pneu`, `reformer_pneu`, `v_pneus` (km, coût au km), `v_pneus_a_surveiller` (D-052) ; lignes de pneus des bons et réception par `receptionner_bon_commande` (`receptions_achat_pneus`), `v_pneus_performance`, réglage `pneu_reforme_precoce_km` (D-067, branche d'intégration) | À TESTER | P1 | Réception de pneus non annulable ; pas de référentiel des modèles |
 
 ### 13. Fuel intelligence
 
@@ -212,7 +212,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Articles, mouvements | `Stock/StockView` | `stock_items`, `stock_movements` append-only, `v_stock_depots`, `mouvement_stock`, `inventorier_stock`, `annuler_mouvement_stock` (D-044) | DÉPLOYÉ | P0 | Écran réécrit ; valorisation au prix saisi |
-| Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | `Stock/StockView` | `warehouses` (+ site, D-044) ; transferts, inventaires, seuils couverts | PARTIEL | P1 | Réservations, lots, séries, coût moyen pondéré |
+| Entrepôts, emplacements, réservations, transferts, inventaires, seuils, lots, séries, valorisation | `Stock/StockView`, `Stock/ReservationsStock`, `Stock/LotsStock`, `Stock/ValorisationStock`, `Maintenance/MaintenanceView` | `warehouses` (+ site, D-044) ; transferts, inventaires, seuils ; `reservations_stock` (`reserver_stock`, `lever_reservation_stock`, levée à la clôture d'un ordre), `stock_mouvements_lots` (`inventorier_lot_stock`), `valorisation_articles_stock` et vues `v_valorisation_*` (coût moyen pondéré partiel, GNF) (D-067, branche d'intégration) | À TESTER | P1 | CMP dans l'ordre d'enregistrement, recalculé à chaque lecture ; emplacements : saisie libre |
 
 ### 18. Moyens généraux et patrimoine
 
@@ -294,9 +294,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 15 |
+| À TESTER | 17 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 20 |
+| PARTIEL | 18 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
 | MANQUANT | 15 |

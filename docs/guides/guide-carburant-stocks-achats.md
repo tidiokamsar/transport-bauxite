@@ -1,8 +1,9 @@
 # Guide carburant, stocks et achats
 
 Public : logisticien, magasinier, acheteur, responsable carburant,
-comptable. Sources : D-030, D-034, D-041, D-042, D-044, D-053 ; migrations
-`20261112225739`, `20261115090000`, `20261115180000`, `20261117090000` ;
+comptable. Sources : D-030, D-034, D-041, D-042, D-044, D-053, D-067 ; migrations
+`20261112225739`, `20261115090000`, `20261115180000`, `20261117090000`,
+`20261121130000` ;
 écrans `Fuel`, `Stock`, `Purchases`.
 
 Droits utiles : `fuel` pour le carburant ; `stock` pour les mouvements de
@@ -87,6 +88,33 @@ constate par inventaire, jamais par un stock négatif. Un mouvement issu
 d'une réception d'achat ne s'annule pas directement : on annule la
 réception.
 
+### Stocks avancés (D-067)
+
+Écran **Stocks & Achats > Stocks**, panneaux Réservations, Lots et séries,
+Valorisation.
+
+| Opération | Fonction | Règle principale |
+|---|---|---|
+| Réserver | `reserver_stock` | Droit `stock`, dépôt du périmètre ; pour un ordre de travail ouvert ou en cours (du périmètre), un engin du périmètre ou une affectation nommée ; jamais au-delà du stock libre (stock moins réservations). Numéro `RES-AAAA-NNNNN`. Rien ne sort physiquement. |
+| Consommer | `mouvement_stock` avec la réservation | Sortie du dépôt de la réservation, au plus son reste ; imputée à l'ordre de la réservation (engin de l'ordre). Une sortie ou un transfert sans réservation ne prend que le stock libre. Une sortie annulée rend sa quantité à la réservation. |
+| Lever | `lever_reservation_stock` | Motif obligatoire ; réservation active. |
+| Clôture d'un ordre | automatique | Quand un ordre de travail passe à terminé ou annulé, ses réservations encore actives sont levées avec le motif « Levée à la clôture de l'ordre OT-… (terminé ou annulé) » ; la quantité redevient libre. |
+| Lots et séries | attribut **Suivi** de l'article (aucun, lot, série) | Modifiable seulement sans stock. Un article suivi exige ses lots ou numéros de série à chaque mouvement (entrée, réception d'achat, sortie, transfert, retour) ; un numéro de série vaut une unité et n'est jamais deux fois en stock. |
+| Inventaire d'un lot | `inventorier_lot_stock` | Article suivi seulement (l'inventaire global est refusé) ; motif si écart. |
+
+**Valorisation au coût moyen pondéré.** Calculée par le serveur, par
+article et tous dépôts confondus, dans l'ordre d'enregistrement des
+mouvements, à partir des seules entrées valorisées (prix saisi ou prix de
+réception du bon de commande). Une entrée sans prix rend la valeur
+**partielle** : la valeur affichée est celle des seules quantités
+valorisées, jamais estimée ; le prix de référence de l'article n'est pas
+utilisé. Sans aucune entrée valorisée : « sans données ». Montants en GNF.
+Un compte affecté à un site voit les quantités et les valeurs de ses seuls
+dépôts ; le coût moyen est celui de l'article.
+
+À saisir par l'exploitation : le mode de suivi des articles concernés et
+les prix des entrées d'ouverture (sinon la valeur reste partielle).
+
 ## 4. Circuit achat (D-053)
 
 Écran **Stocks & Achats > Achats**. Les bons de commande ne s'écrivent plus
@@ -101,8 +129,8 @@ annulé.
 | Rédiger | `enregistrer_bon_commande` | Droit d'écriture `purchases` | Fournisseur actif ; dépôt de livraison obligatoire, actif, du périmètre ; au moins une ligne (article ou désignation libre, quantité positive, prix unitaire) ; taxes saisies ; totaux calculés par le serveur. Seul un brouillon se modifie. Numéro `BC-AAAA-NNNNN` attribué par le serveur, non modifiable. |
 | Soumettre | `soumettre_bon_commande` | Droit d'écriture `purchases` | Seul un brouillon avec au moins une ligne se soumet. |
 | Approuver ou rejeter | `decider_bon_commande` | Droit d'approbation `purchases` du rôle (administrateur, directeur, comptable) | Bon soumis, dans le périmètre ; par une **autre personne** que le demandeur (réglage `achats_validation_separee`, exigé si absent) ; rejet motivé. |
-| Réceptionner | `receptionner_bon_commande` | Droit d'écriture `stock` | Bon approuvé ; numéro de réception ; bon de livraison ; par ligne quantité reçue et quantité refusée (motif du refus) ; jamais au-delà de la commande. Les articles reçus entrent au dépôt du bon par `mouvement_stock`, au prix commandé. |
-| Annuler une réception | `annuler_reception` | Droit d'écriture `stock` | Motif requis ; annule les mouvements correspondants ; impossible si le bon est soldé ou clos. |
+| Réceptionner | `receptionner_bon_commande` | Droit d'écriture `stock` | Bon approuvé ; numéro de réception ; bon de livraison ; par ligne quantité reçue et quantité refusée (motif du refus) ; jamais au-delà de la commande. Les articles reçus entrent au dépôt du bon par `mouvement_stock`, au prix commandé, avec leurs lots ou séries si l'article est suivi (D-067). Ligne de pneus (D-067) : un numéro par pneu reçu ; chaque pneu est enregistré au registre des pneus (prix de la ligne, fournisseur du bon, site du dépôt, pièce de réception) ; exige aussi le droit d'écriture flotte ou maintenance. |
+| Annuler une réception | `annuler_reception` | Droit d'écriture `stock` | Motif requis ; annule les mouvements correspondants ; impossible si le bon est soldé ou clos, si un paiement engagé ou payé dépasserait le reçu restant (D-072), ou si la réception a enregistré des pneus (un pneu enregistré par erreur se réforme avec motif, D-052). |
 | Annuler le bon | `annuler_bon_commande` | Droit d'écriture `purchases` | Motif requis ; avant toute réception. |
 | Solder le bon | `solder_bon_commande` | Droit d'écriture `purchases` | Seul un bon reçu en partie se solde ; motif requis (reliquat non livré). |
 
@@ -126,8 +154,14 @@ dépôt.
 - Carburant : pas de valorisation par stockage (prix moyen pondéré de la
   période seulement), pas d'import des documents CBG, jauges connectées non
   branchées au registre (D-041).
-- Stocks magasin : pas de séparation saisie / validation des mouvements ;
-  valorisation au prix unitaire saisi, pas de coût moyen pondéré (D-044).
+- Stocks magasin : pas de séparation saisie / validation des mouvements
+  (D-044). Coût moyen pondéré depuis D-067 : calculé dans l'ordre
+  d'enregistrement (une entrée saisie après coup avec une date ancienne
+  n'est pas replacée à sa date) ; part non valorisée répartie entre dépôts
+  au prorata des quantités ; annulation d'une sortie réintégrée au coût
+  moyen du moment ; recalcul complet à chaque lecture.
+- Réception de pneus : non annulable ; pas de référentiel des modèles de
+  pneus (marque et modèle saisis sur la ligne du bon) (D-067).
 - Achats : pas de contrôle budgétaire ni d'avoirs d'achat (D-053) ; la
   consultation de fournisseurs existe depuis D-059. Taxes des offres :
   saisie toutes taxes comprises, à confirmer par le propriétaire (D-072).
