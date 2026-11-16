@@ -66,7 +66,7 @@ export const FichesView = () => {
   }, [siteId, sites, site]);
 
   const charger = useCallback(async () => {
-    if (!site) return;
+    if (!site) { setFiches([]); setVoyages([]); return; }
     let qv = supabase.from('trips').select('id, reference, vehicle_id, driver_id, etat')
       .eq('planned_date', date).eq('departure_site_id', site).not('vehicle_id', 'is', null).order('reference');
     if (shift) qv = qv.eq('shift_id', shift);
@@ -96,6 +96,10 @@ export const FichesView = () => {
   }, [fiches, voyages, shift, immat]);
 
   const preparer = async (type: TypeFiche) => {
+    if (!site) {
+      setMessage({ ok: false, texte: 'Choisissez un site avant de préparer des fiches.' });
+      return;
+    }
     setEnCours(true);
     setMessage(null);
     const crees: string[] = [];
@@ -158,17 +162,25 @@ export const FichesView = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
-          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site" disabled={Boolean(siteId)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site" disabled={Boolean(siteId) || sites.length === 0} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+            {sites.length === 0 && <option value="">Aucun site</option>}
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" disabled={shifts.length === 0} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+            {shifts.length === 0 && <option value="">Aucun shift</option>}
             {shifts.map((s) => <option key={s.id} value={s.id}>Shift {s.display_name}</option>)}
           </select>
         </div>
       </div>
       {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
 
-      {peutEcrire && (
+      {sites.length === 0 && (
+        <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          Aucun site enregistré : créez d'abord le site d'exploitation (Exploitation → Sites), puis les shifts et la flotte, pour préparer des fiches.
+        </p>
+      )}
+
+      {peutEcrire && site && (
         <Panneau titre="Préparer les fiches du shift">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <section className="rounded-xl border border-stone-200 p-4" aria-label="Fiches de rotations">
