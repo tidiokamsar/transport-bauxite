@@ -20,7 +20,26 @@ interface UserForm {
   photo_url: string;
   status: string;
   site: string;
+  /** Perimetre global (tous les sites) : choix explicite et motive (D-079). */
+  global: boolean;
+  motifGlobal: string;
+  motifDroits: string;
 }
+
+const FORMULAIRE_VIDE: UserForm = {
+  email: '',
+  password: '',
+  full_name: '',
+  phone: '',
+  role: 'driver',
+  department: 'Opérations',
+  photo_url: '',
+  status: 'active',
+  site: '',
+  global: false,
+  motifGlobal: '',
+  motifDroits: '',
+};
 
 // Roles de l'enum user_role (D-010, D-012) ; les droits de chacun sont
 // ceux de la matrice role_permissions, appliques par le serveur (D-021).
@@ -81,23 +100,17 @@ const DEPARTMENTS = [
 
 export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [erreur, setErreur] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [droitsModules, setDroitsModules] = useState<DroitModule[]>([]);
   const [choixDroits, setChoixDroits] = useState<Record<string, string>>({});
   const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
-  const [formData, setFormData] = useState<UserForm>({
-    email: '',
-    password: '',
-    full_name: '',
-    phone: '',
-    role: 'driver',
-    department: 'Opérations',
-    photo_url: '',
-    status: 'active',
-    site: '',
-  });
+  const [erreurSites, setErreurSites] = useState('');
+  const [siteInitial, setSiteInitial] = useState('');
+  const [formData, setFormData] = useState<UserForm>(FORMULAIRE_VIDE);
 
   useEffect(() => {
+    setErreur('');
     if (isOpen && userId) {
       fetchUser();
     } else if (isOpen) {
@@ -106,90 +119,115 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
   }, [isOpen, userId]);
 
   useEffect(() => {
-    supabase.from('sites').select('id, name').order('name')
-      .then(({ data }) => setSites((data as { id: string; name: string }[] | null) ?? []));
+    supabase.from('sites').select('id, name, is_active').order('name')
+      .then(({ data, error }) => {
+        if (error) setErreurSites(`Sites indisponibles : ${error.message}`);
+        setSites(((data as { id: string; name: string; is_active: boolean | null }[] | null) ?? [])
+          .filter((s) => s.is_active !== false));
+      });
   }, []);
 
   const fetchUser = async () => {
     if (!userId) return;
 
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      if (data) {
-        setFormData({
-          email: data.email || '',
-          password: '',
-          full_name: data.full_name || '',
-          phone: data.phone || '',
-          role: data.role || 'driver',
-          department: data.department || 'Opérations',
-          photo_url: data.photo_url || '',
-          status: data.status || 'active',
-          site: data.site_id || '',
-        });
-      }
-
-      const { data: droits, error: erreurDroits } = await supabase
-        .from('v_droits_modules')
-        .select('module, role_lecture, role_ecriture, niveau_attribue')
-        .eq('utilisateur', userId)
-        .order('module');
-
-      if (erreurDroits) throw erreurDroits;
-      setDroitsModules((droits as DroitModule[] | null) ?? []);
-      const choix: Record<string, string> = {};
-      ((droits as DroitModule[] | null) ?? []).forEach((d) => {
-        choix[d.module] = d.niveau_attribue ?? 'defaut';
-      });
-      setChoixDroits(choix);
-    } catch (error) {
-      console.error('Error fetching user:', error);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) {
+      setErreur(`Compte indisponible : ${error.message}`);
+      return;
     }
+    if (data) {
+      setFormData({
+        ...FORMULAIRE_VIDE,
+        email: data.email || '',
+        full_name: data.full_name || '',
+        phone: data.phone || '',
+        role: data.role || 'driver',
+        department: data.department || 'Opérations',
+        photo_url: data.photo_url || '',
+        status: data.status || 'active',
+        site: data.site_id || '',
+        global: !data.site_id,
+      });
+      setSiteInitial(data.site_id || '');
+    }
+
+    const { data: droits, error: erreurDroits } = await supabase
+      .from('v_droits_modules')
+      .select('module, role_lecture, role_ecriture, niveau_attribue')
+      .eq('utilisateur', userId)
+      .order('module');
+
+    if (erreurDroits) {
+      setErreur(`Droits indisponibles : ${erreurDroits.message}`);
+      return;
+    }
+    setDroitsModules((droits as DroitModule[] | null) ?? []);
+    const choix: Record<string, string> = {};
+    ((droits as DroitModule[] | null) ?? []).forEach((d) => {
+      choix[d.module] = d.niveau_attribue ?? 'defaut';
+    });
+    setChoixDroits(choix);
   };
 
   const resetForm = () => {
-    setFormData({
-      email: '',
-      password: '',
-      full_name: '',
-      phone: '',
-      role: 'driver',
-      department: 'Opérations',
-      photo_url: '',
-      status: 'active',
-      site: '',
-    });
+    setFormData(FORMULAIRE_VIDE);
+    setSiteInitial('');
     setDroitsModules([]);
     setChoixDroits({});
   };
 
+  // Droits specifiques (D-036) : seuls les modules changes partent.
+  const changementsDroits = Object.entries(choixDroits).filter(([module, niveau]) => {
+    const droit = droitsModules.find(d => d.module === module);
+    return niveau !== (droit?.niveau_attribue ?? 'defaut');
+  });
+  const perimetreChange = formData.global ? siteInitial !== '' : formData.site !== siteInitial;
+  // Perimetre : un site, ou le global explicite et motive (D-079).
+  const erreurPerimetre = formData.global
+    ? ((!userId || perimetreChange) && !formData.motifGlobal.trim() ? 'Compte global : motif obligatoire.' : '')
+    : (!formData.site ? "Site d'affectation obligatoire (ou cocher « compte global » avec un motif)." : '');
+  const erreurDroits = changementsDroits.length > 0 && !formData.motifDroits.trim()
+    ? 'Motif du changement de droits obligatoire.' : '';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (erreurPerimetre || erreurDroits) {
+      setErreur(erreurPerimetre || erreurDroits);
+      return;
+    }
     setLoading(true);
+    setErreur('');
 
     try {
       if (userId) {
+        // Statut et site ne passent pas par cette mise a jour : ils ont
+        // leurs fonctions serveur (motif et journal, D-079).
         const { error } = await supabase
           .from('profiles')
           .update({
             full_name: formData.full_name,
             phone: formData.phone,
             role: formData.role,
-            site_id: formData.site || null,
             department: formData.department,
             photo_url: formData.photo_url,
-            status: formData.status,
             updated_at: new Date().toISOString(),
           })
           .eq('id', userId);
 
         if (error) throw error;
+
+        if (perimetreChange) {
+          const { error: erreurSite } = await supabase.rpc('definir_site_compte', {
+            p_utilisateur: userId,
+            p_site: formData.global ? null : formData.site,
+            p_motif: formData.global ? formData.motifGlobal.trim() : null,
+          });
+          if (erreurSite) throw erreurSite;
+        }
 
         if (formData.password) {
           await gererCompte({ action: 'mot_de_passe', user_id: userId, password: formData.password });
@@ -201,17 +239,14 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           p_details: { user_id: userId, changes: modifications, mot_de_passe_change: !!formData.password },
         });
 
-        // Droits specifiques (D-036) : seuls les modules changes partent,
-        // chacun par la fonction serveur qui journalise.
-        const changements = Object.entries(choixDroits).filter(([module, niveau]) => {
-          const droit = droitsModules.find(d => d.module === module);
-          return niveau !== (droit?.niveau_attribue ?? 'defaut');
-        });
-        for (const [module, niveau] of changements) {
+        // Chaque changement de droit part par la fonction serveur qui
+        // journalise, avec le motif saisi.
+        for (const [module, niveau] of changementsDroits) {
           const { error: erreurDroit } = await supabase.rpc('definir_droit_module', {
             p_utilisateur: userId,
             p_module: module,
             p_niveau: niveau,
+            p_motif: formData.motifDroits.trim(),
           });
           if (erreurDroit) throw erreurDroit;
         }
@@ -224,23 +259,26 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           phone: formData.phone,
           role: formData.role,
           department: formData.department,
+          site_id: formData.global ? null : formData.site,
+          global: formData.global,
+          motif_global: formData.global ? formData.motifGlobal.trim() : null,
         });
         await supabase.rpc('log_user_activity', {
           p_action: 'user_created',
-          p_details: { user_id: cree.id, email: formData.email, role: formData.role },
+          p_details: { user_id: cree.id, email: formData.email, role: formData.role, site_id: formData.global ? null : formData.site },
         });
       }
 
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error saving user:', error);
-      alert(error instanceof Error ? error.message : 'Erreur lors de la sauvegarde');
+      const message = error && typeof error === 'object' && 'message' in error
+        ? String((error as { message: unknown }).message) : 'erreur inconnue';
+      setErreur(`Enregistrement refusé : ${message}`);
     } finally {
       setLoading(false);
     }
   };
-
   if (!isOpen) return null;
 
   return (
@@ -376,20 +414,30 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Site d'affectation (D-038)
+              <label htmlFor="compte-site" className="block text-sm font-medium text-slate-700 mb-2">
+                Site d'affectation (D-038){formData.global ? '' : ' *'}
               </label>
               <select
-                aria-label="Site d'affectation (D-038)"
-                value={formData.site}
+                id="compte-site"
+                value={formData.global ? '' : formData.site}
+                disabled={formData.global}
                 onChange={(e) => setFormData({ ...formData, site: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-slate-100"
               >
-                <option value="">Tous les sites (compte global)</option>
+                <option value="">{formData.global ? 'Tous les sites (compte global)' : 'Choisir un site'}</option>
                 {sites.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+              {erreurSites && <p className="mt-1 text-xs text-red-700">{erreurSites}</p>}
+              <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={formData.global}
+                  onChange={(e) => setFormData({ ...formData, global: e.target.checked })}
+                />
+                Compte global (lit tous les sites)
+              </label>
             </div>
 
             <div>
@@ -412,6 +460,22 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
             </div>
           </div>
 
+          {formData.global && (!userId || perimetreChange) && (
+            <div>
+              <label htmlFor="compte-motif-global" className="block text-sm font-medium text-slate-700 mb-2">
+                Motif du périmètre global *
+              </label>
+              <input
+                id="compte-motif-global"
+                value={formData.motifGlobal}
+                onChange={(e) => setFormData({ ...formData, motifGlobal: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Ex. direction générale, supervision de tous les sites"
+              />
+              <p className="text-xs text-slate-500 mt-1">Un compte global lit les données de tous les sites : le choix est journalisé avec ce motif.</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               <Image className="w-4 h-4 inline mr-2" />
@@ -427,20 +491,10 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
           </div>
 
           {userId && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Statut
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="active">Actif</option>
-                <option value="inactive">Inactif</option>
-                <option value="suspended">Suspendu</option>
-              </select>
-            </div>
+            <p className="text-sm text-slate-600">
+              Statut : <b>{formData.status === 'active' ? 'Actif' : formData.status === 'suspended' ? 'Suspendu' : 'Inactif'}</b>
+              {' '}(se change par « Désactiver » ou « Réactiver » dans la liste, avec un motif).
+            </p>
           )}
 
           {userId && droitsModules.length > 0 && (
@@ -451,7 +505,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
               </label>
               <p className="text-xs text-slate-500 mb-2">
                 Les droits du rôle s'appliquent par défaut ; une attribution spécifique prime sur lui (D-036).
-                Chaque changement est journalisé par le serveur.
+                Chaque changement est journalisé par le serveur avec son motif.
               </p>
               <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 max-h-72 overflow-y-auto">
                 {droitsModules.map((droit) => (
@@ -474,8 +528,24 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
                   </div>
                 ))}
               </div>
+              {changementsDroits.length > 0 && (
+                <div className="mt-2">
+                  <label htmlFor="compte-motif-droits" className="block text-sm font-medium text-slate-700 mb-1">
+                    Motif du changement de droits *
+                  </label>
+                  <input
+                    id="compte-motif-droits"
+                    value={formData.motifDroits}
+                    onChange={(e) => setFormData({ ...formData, motifDroits: e.target.value })}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Ex. remplacement pendant un congé"
+                  />
+                </div>
+              )}
             </div>
           )}
+
+          {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             <button

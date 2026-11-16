@@ -10,10 +10,12 @@ const CONTRAT = {
   id: 'c1', reference: 'CBG-2026-01', intitule: 'Transport', nature: 'client', contrepartie: 'CBG', devise: 'USD', date_debut: '2026-01-01',
   date_fin: '2026-12-31', statut: 'actif', delai_paiement_jours: 30, description: null, preavis_jours: 60, renouvellement: 'tacite', renouvellement_duree_mois: 12,
 };
+// Version future : une clause ne se saisit plus dans une version en vigueur
+// d'un contrat actif (grille figee, D-079).
 const jeuContrat = {
   profiles: PROFIL,
   contrats: [CONTRAT],
-  contrat_versions: [{ id: 'v0', contrat_id: 'c1', numero: 0, intitule: 'Contrat initial', date_effet: '2026-01-01', date_signature: null, resume: null, document_ref: null }],
+  contrat_versions: [{ id: 'v0', contrat_id: 'c1', numero: 0, intitule: 'Contrat initial', date_effet: '2099-01-01', date_signature: null, resume: null, document_ref: null }],
   contrat_engagements: [
     { id: 'e1', version_id: 'v0', indicateur: 'disponibilite', libelle: 'Disponibilité', seuil: 90, unite: '%', sens: 'minimum', periodicite: 'mois', consequence: null, ordre: 1 },
     { id: 'e2', version_id: 'v0', indicateur: 'autre', libelle: 'Clause libre', seuil: 1, unite: 'u', sens: 'minimum', periodicite: 'mois', consequence: null, ordre: 2 },

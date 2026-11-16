@@ -11,6 +11,7 @@ const ROLES = [
 ] as const;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONGUEUR_MOT_DE_PASSE = 12;
 
 const reponse = (statut: number, corps: Record<string, unknown>) =>
@@ -57,6 +58,15 @@ Deno.serve(async (req: Request) => {
     if (motDePasse.length < LONGUEUR_MOT_DE_PASSE) {
       return reponse(400, { erreur: `Mot de passe de ${LONGUEUR_MOT_DE_PASSE} caractères minimum` });
     }
+    // Perimetre du compte (D-079) : un site, ou le perimetre global par
+    // choix explicite et motive de l'administrateur. Jamais global par defaut.
+    const global = corps.global === true;
+    const site = texte(corps.site_id, 64);
+    const motifGlobal = texte(corps.motif_global, 500);
+    if (global && site) return reponse(400, { erreur: 'Choisir un site ou le périmètre global, pas les deux' });
+    if (!global && !UUID.test(site)) return reponse(400, { erreur: "Site d'affectation requis (ou périmètre global motivé)" });
+    if (global && !motifGlobal) return reponse(400, { erreur: 'Périmètre global : motif obligatoire' });
+    // L'existence et l'activite du site sont controlees par definir_site_compte.
 
     const { data: cree, error: erreurCreation } = await service.auth.admin.createUser({
       email,
@@ -69,20 +79,55 @@ Deno.serve(async (req: Request) => {
       return reponse(deja ? 409 : 400, { erreur: deja ? 'Cette adresse a déjà un compte' : 'Création refusée' });
     }
 
+    // Le profil nait inactif : il n'est active qu'une fois son perimetre
+    // enregistre. Un echec en cours de route laisse au pire un compte
+    // inactif, jamais un compte actif global par defaut.
+    const id = cree.user.id;
+    const annuler = async () => {
+      const { error: e1 } = await service.from('profiles').delete().eq('id', id);
+      const { error: e2 } = await service.auth.admin.deleteUser(id);
+      return !e1 && !e2;
+    };
     const { error: erreurProfil } = await service.from('profiles').upsert({
-      id: cree.user.id,
+      id,
       email,
       full_name: nom,
       role,
       phone: texte(corps.phone, 40) || null,
       department: texte(corps.department, 80) || null,
-      status: 'active',
+      status: 'inactive',
     });
     if (erreurProfil) {
-      await service.auth.admin.deleteUser(cree.user.id);
+      if (!(await annuler())) {
+        return reponse(500, { erreur: 'Profil non enregistré ; annulation incomplète : compte inactif à nettoyer', id });
+      }
       return reponse(500, { erreur: 'Profil non enregistré, compte annulé' });
     }
-    return reponse(201, { id: cree.user.id });
+    // Site ou perimetre global : ecrit par la fonction serveur avec le jeton
+    // de l'administrateur (controle, journal_comptes, auteur). En cas de
+    // refus, le compte est annule : jamais de compte global par defaut.
+    const { error: erreurPerimetre } = await appelant.rpc('definir_site_compte', {
+      p_utilisateur: id,
+      p_site: global ? null : site,
+      p_motif: global ? motifGlobal : null,
+    });
+    if (erreurPerimetre) {
+      if (!(await annuler())) {
+        return reponse(500, { erreur: `Périmètre refusé (${erreurPerimetre.message}) ; annulation incomplète : compte inactif à nettoyer`, id });
+      }
+      return reponse(400, { erreur: `Périmètre refusé, compte annulé : ${erreurPerimetre.message}` });
+    }
+    // Journal puis activation dans une seule transaction (fonction reservee
+    // au service, contre-revue D-079) : jamais de compte actif sans trace.
+    const { data: auteur } = await appelant.auth.getUser();
+    const { error: erreurActivation } = await service.rpc('activer_compte_cree', {
+      p_utilisateur: id,
+      p_auteur: auteur?.user?.id ?? null,
+    });
+    if (erreurActivation) {
+      return reponse(500, { erreur: 'Compte créé avec son périmètre mais resté inactif : le réactiver (motif « création »)', id });
+    }
+    return reponse(201, { id });
   }
 
   if (corps.action === 'mot_de_passe') {

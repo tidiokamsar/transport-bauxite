@@ -5,31 +5,21 @@ import {
   Edit, Trash2, Search, Filter, Phone, Mail
 } from 'lucide-react';
 import { buttonStyles, cardStyles } from '../../styles/theme';
-import { SiteModal } from './SiteModal';
+import { SiteModal, type SiteSaisi } from './SiteModal';
+import { siteCorrespond } from './saisieSite';
 
-interface Site {
-  id: string;
-  name: string;
-  type: string;
-  address: string;
-  city: string;
-  country: string;
-  latitude?: number;
-  longitude?: number;
-  contact_name?: string;
-  contact_phone?: string;
-  contact_email?: string;
-  capacity?: number;
-  current_stock?: number;
-  is_active: boolean;
-  manager_id?: string;
-  manager_name?: string;
-  notes?: string;
-}
+// Ligne complete du referentiel : passee telle quelle au formulaire, pour
+// qu'une modification conserve organisation, coordonnees et responsable (D-079).
+type Site = SiteSaisi;
+
+// Colonnes lues (le stock herite de Bolt n'est ni lu ni affiche : aucune
+// source calculee, D-079).
+const COLONNES = 'id, name, type, organisation_id, address, city, country, latitude, longitude, contact_name, contact_phone, contact_email, capacity, is_active, responsable_id, notes';
 
 export const SitesView = () => {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
@@ -40,59 +30,29 @@ export const SitesView = () => {
   }, []);
 
   const fetchSites = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('sites')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-
-      const formattedSites: Site[] = (data || []).map((site: any) => ({
-        id: site.id,
-        name: site.name,
-        type: site.type,
-        address: site.address,
-        city: site.city,
-        country: site.country,
-        latitude: site.latitude,
-        longitude: site.longitude,
-        contact_name: site.contact_name,
-        contact_phone: site.contact_phone,
-        contact_email: site.contact_email,
-        capacity: site.capacity,
-        current_stock: site.current_stock,
-        is_active: site.is_active,
-        manager_id: site.manager_id,
-        manager_name: undefined,
-        notes: site.notes
-      }));
-
-      setSites(formattedSites);
-    } catch (error) {
-      console.error('Error fetching sites:', error);
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('sites')
+      .select(COLONNES)
+      .order('name');
+    setErreur(error ? `Sites indisponibles : ${error.message}` : '');
+    setSites((data as Site[] | null) ?? []);
+    setLoading(false);
   };
 
   const handleDelete = async (siteId: string) => {
     // Un site n'est pas supprime : il est desactive et garde son historique (D-042).
     if (!confirm("Désactiver ce site ? Il restera dans l'historique des voyages et des fiches.")) return;
 
-    try {
-      const { error } = await supabase
-        .from('sites')
-        .update({ is_active: false })
-        .eq('id', siteId);
-
-      if (error) throw error;
-      fetchSites();
-    } catch (error) {
-      console.error('Error deleting site:', error);
-      alert('Erreur lors de la désactivation du site');
+    const { error } = await supabase
+      .from('sites')
+      .update({ is_active: false })
+      .eq('id', siteId);
+    if (error) {
+      setErreur(`Désactivation refusée par le serveur : ${error.message}`);
+      return;
     }
+    fetchSites();
   };
 
   const getSiteTypeLabel = (type: string) => {
@@ -129,15 +89,7 @@ export const SitesView = () => {
 
   const filteredSites = sites.filter(site => {
     if (filterType !== 'all' && site.type !== filterType) return false;
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      if (!site.name.toLowerCase().includes(search) &&
-          !site.city.toLowerCase().includes(search) &&
-          !site.address.toLowerCase().includes(search)) {
-        return false;
-      }
-    }
-    return true;
+    return siteCorrespond(site, searchTerm);
   });
 
   const stats = {
@@ -145,7 +97,7 @@ export const SitesView = () => {
     active: sites.filter(s => s.is_active).length,
     warehouses: sites.filter(s => s.type === 'warehouse' || s.type === 'depot').length,
     totalCapacity: sites.reduce((sum, s) => sum + (s.capacity || 0), 0),
-    totalStock: sites.reduce((sum, s) => sum + (s.current_stock || 0), 0)
+    sansCapacite: sites.filter(s => s.capacity == null).length,
   };
 
   const siteTypes = [...new Set(sites.map(s => s.type))];
@@ -211,15 +163,20 @@ export const SitesView = () => {
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Utilisation</p>
+              <p className="text-orange-100 text-sm font-medium">Capacité déclarée</p>
               <p className="text-4xl font-bold mt-2">
-                {stats.totalCapacity > 0 ? Math.round((stats.totalStock / stats.totalCapacity) * 100) : 0}%
+                {stats.totalCapacity.toLocaleString('fr-FR')} t
+              </p>
+              <p className="text-orange-100 text-xs mt-1">
+                Saisie des sites{stats.sansCapacite > 0 ? `, ${stats.sansCapacite} sans capacité` : ''}
               </p>
             </div>
             <TrendingUp className="w-12 h-12 opacity-80" />
           </div>
         </div>
       </div>
+
+      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
       <div className={cardStyles}>
         <div className="p-6 border-b border-gray-200">
@@ -288,12 +245,14 @@ export const SitesView = () => {
                         setSelectedSite(site);
                         setShowModal(true);
                       }}
+                      aria-label={`Modifier le site ${site.name}`}
                       className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                       <Edit className="w-4 h-4 text-gray-600" />
                     </button>
                     <button
                       onClick={() => handleDelete(site.id)}
+                      aria-label={`Désactiver le site ${site.name}`}
                       className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                     >
                       <Trash2 className="w-4 h-4 text-red-600" />
@@ -305,8 +264,8 @@ export const SitesView = () => {
                   <div className="flex items-start gap-2 text-sm">
                     <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
                     <div>
-                      <p className="text-gray-900">{site.address}</p>
-                      <p className="text-gray-600">{site.city}, {site.country}</p>
+                      <p className="text-gray-900">{site.address || 'Adresse non saisie'}</p>
+                      <p className="text-gray-600">{[site.city, site.country].filter(Boolean).join(', ') || 'Ville non saisie'}</p>
                     </div>
                   </div>
 
@@ -331,31 +290,14 @@ export const SitesView = () => {
                     </div>
                   )}
 
-                  {site.manager_name && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <p className="text-xs text-gray-600">Responsable</p>
-                      <p className="text-sm font-medium text-gray-900">{site.manager_name}</p>
-                    </div>
+                  {site.latitude != null && site.longitude != null && (
+                    <p className="text-xs text-gray-500">GPS : {site.latitude}, {site.longitude}</p>
                   )}
 
-                  {(site.capacity || site.current_stock) && (
-                    <div className="pt-3 border-t border-gray-200">
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-gray-600">Capacité</span>
-                        <span className="font-medium text-gray-900">
-                          {site.current_stock || 0} / {site.capacity || 0}
-                        </span>
-                      </div>
-                      {site.capacity && (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{
-                              width: `${Math.min(100, ((site.current_stock || 0) / site.capacity) * 100)}%`
-                            }}
-                          />
-                        </div>
-                      )}
+                  {site.capacity != null && (
+                    <div className="pt-3 border-t border-gray-200 flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Capacité de stockage</span>
+                      <span className="font-medium text-gray-900">{site.capacity.toLocaleString('fr-FR')} t</span>
                     </div>
                   )}
                 </div>

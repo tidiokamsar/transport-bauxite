@@ -118,11 +118,15 @@ export const FormulaireContrat = ({ contrat, onFermer, onFait }: { contrat?: Con
       </Champ>
       <Champ libelle="Début *"><input type="date" value={f.date_debut} onChange={(e) => setF({ ...f, date_debut: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Fin"><input type="date" value={f.date_fin} onChange={(e) => setF({ ...f, date_fin: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Statut">
-        <select value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value as Contrat['statut'] })} className={CHAMP}>
-          {Object.entries(STATUTS).map(([k, s]) => <option key={k} value={k}>{s.libelle}</option>)}
-        </select>
-      </Champ>
+      {contrat ? (
+        <Champ libelle="Statut">
+          <select value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value as Contrat['statut'] })} className={CHAMP}>
+            {Object.entries(STATUTS).map(([k, s]) => <option key={k} value={k}>{s.libelle}</option>)}
+          </select>
+        </Champ>
+      ) : (
+        <Champ libelle="Statut"><p className="py-2 text-stone-600">Brouillon : saisir le contrat initial et sa grille, puis l'activer.</p></Champ>
+      )}
       <Champ libelle="Délai de paiement (jours)"><input inputMode="numeric" value={f.delai} onChange={(e) => setF({ ...f, delai: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Préavis de dénonciation (jours)"><input inputMode="numeric" value={f.preavis} onChange={(e) => setF({ ...f, preavis: e.target.value })} placeholder="Selon le contrat" className={CHAMP} /></Champ>
       <Champ libelle="Renouvellement">
@@ -149,7 +153,6 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
     document_ref: version?.document_ref ?? '',
   });
   const { erreur, enCours, enregistrer } = useEnregistrement('contrat_versions', version?.id, onFait);
-  const [reprendre, setReprendre] = useState(true);
   const [erreurCopie, setErreurCopie] = useState('');
   const [copieEnCours, setCopieEnCours] = useState(false);
   const numero = nombre(f.numero);
@@ -157,61 +160,27 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
     contrat_id: contratId, numero, intitule: f.intitule.trim(), date_effet: f.date_effet,
     date_signature: f.date_signature || null, resume: texte(f.resume), document_ref: texte(f.document_ref),
   };
-  // Nouvel avenant : la grille de la version precedente est reprise (chaque
-  // version porte sa grille complete), puis modifiee ligne par ligne.
+  // Nouvel avenant : la grille de la version precedente (tarifs, engagements,
+  // clauses actives) est reprise par la fonction serveur creer_avenant, tout
+  // ou rien (D-079) : une version en vigueur ne recoit pas de tarif ajoute
+  // apres coup par l'API.
   const creerAvecReprise = async () => {
     setCopieEnCours(true);
     setErreurCopie('');
-    const { data: nouvelle, error } = await supabase.from('contrat_versions').insert(ligne).select('id').single();
-    if (error || !nouvelle) {
-      setCopieEnCours(false);
-      setErreurCopie(error?.code === '23505' ? 'Ce numéro de version existe déjà.' : error?.message ?? 'Création impossible');
+    const { error } = await supabase.rpc('creer_avenant', {
+      p_contrat: contratId, p_numero: numero, p_intitule: ligne.intitule, p_date_effet: ligne.date_effet,
+      p_date_signature: ligne.date_signature, p_resume: ligne.resume, p_document_ref: ligne.document_ref,
+    });
+    setCopieEnCours(false);
+    if (error) {
+      setErreurCopie(error.code === '23505' ? 'Ce numéro de version existe déjà.' : `Avenant refusé : ${error.message}`);
       return;
     }
-    const { data: precedente } = await supabase.from('contrat_versions').select('id')
-      .eq('contrat_id', contratId).lt('numero', numero ?? 0).order('numero', { ascending: false }).limit(1).maybeSingle();
-    if (precedente) {
-      const [t, e] = await Promise.all([
-        supabase.from('contrat_tarifs').select('libelle, unite, prix, categorie_materiel, engin, conditions, ordre, km_retour_vide_facturable').eq('version_id', precedente.id),
-        supabase.from('contrat_engagements').select('indicateur, libelle, seuil, unite, sens, periodicite, consequence, ordre').eq('version_id', precedente.id),
-      ]);
-      const copies = await Promise.all([
-        (t.data ?? []).length ? supabase.from('contrat_tarifs').insert((t.data ?? []).map((x) => ({ ...x, version_id: nouvelle.id }))) : { error: null },
-        (e.data ?? []).length
-          ? supabase.from('contrat_engagements').insert((e.data ?? []).map((x) => ({ ...x, version_id: nouvelle.id }))).select('id, indicateur, libelle')
-          : { error: null, data: [] },
-      ]);
-      const echec = copies.find((c) => c.error);
-      if (echec?.error) {
-        setCopieEnCours(false);
-        setErreurCopie(`Avenant créé, mais la reprise de la grille a échoué : ${echec.error.message}`);
-        return;
-      }
-      // Clauses chiffrees (D-065) : reprises par la fonction serveur et
-      // rattachees au meme engagement (indicateur et libelle) de la nouvelle version.
-      const [anciens, clauses] = await Promise.all([
-        supabase.from('contrat_engagements').select('id, indicateur, libelle').eq('version_id', precedente.id),
-        supabase.from('contrat_clauses').select('*').eq('version_id', precedente.id).eq('actif', true),
-      ]);
-      const nouveaux = ((copies[1] as { data: { id: string; indicateur: string; libelle: string }[] | null }).data ?? []);
-      for (const c of (clauses.data ?? []) as Clause[]) {
-        const ancien = (anciens.data ?? []).find((a) => a.id === c.engagement_id);
-        const cible = ancien && nouveaux.find((n) => n.indicateur === ancien.indicateur && n.libelle === ancien.libelle);
-        const r = cible ? await supabase.rpc('definir_clause', {
-          p_version: nouvelle.id, p_type: c.type_clause, p_libelle: c.libelle, p_engagement: cible.id, p_declenchement: c.declenchement,
-          p_base: c.base, p_valeur: c.valeur, p_plafond: c.plafond_ht, p_article: c.article, p_ordre: c.ordre,
-        }) : { error: { message: `engagement de la clause « ${c.libelle} » introuvable` } };
-        if (r.error) {
-          setCopieEnCours(false);
-          setErreurCopie(`Avenant créé, mais la reprise des clauses a échoué : ${r.error.message}`);
-          return;
-        }
-      }
-    }
-    setCopieEnCours(false);
     onFait();
   };
-  const avecReprise = !version && numeroSuivant > 0 && reprendre;
+  // Contrat initial : saisie directe (contrat brouillon) ; avenant : toujours
+  // par creer_avenant (numero suivant, reprise de la grille, D-079).
+  const avecReprise = !version && numeroSuivant > 0;
   return (
     <Fenetre
       titre={version ? 'Modifier la version' : numeroSuivant === 0 ? 'Contrat initial' : `Nouvel avenant (n° ${numeroSuivant})`}
@@ -227,17 +196,75 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
       <Champ libelle="Date de signature"><input type="date" value={f.date_signature} onChange={(e) => setF({ ...f, date_signature: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Référence du document"><input value={f.document_ref} onChange={(e) => setF({ ...f, document_ref: e.target.value })} placeholder="Classement, lien..." className={CHAMP} /></Champ>
       <Champ libelle="Résumé des changements" large><textarea value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} rows={3} className={CHAMP} /></Champ>
-      {!version && numeroSuivant > 0 && (
-        <label className="flex items-center gap-2 sm:col-span-2">
-          <input type="checkbox" checked={reprendre} onChange={(e) => setReprendre(e.target.checked)} />
-          <span>Reprendre les tarifs, engagements et clauses de la version précédente (à modifier ensuite)</span>
-        </label>
+      {avecReprise && (
+        <p className="rounded-lg bg-stone-50 p-3 text-stone-700 sm:col-span-2">
+          L'avenant reprend les tarifs, engagements et clauses de la dernière version. Sa date d'effet suit celle de toute version
+          et de toute période déjà facturée ; il se complète ensuite tant que sa date d'effet n'est pas atteinte.
+        </p>
       )}
     </Fenetre>
   );
 };
 
-export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versionId: string; tarif?: Tarif; onFermer: () => void; onFait: () => void }) => {
+/**
+ * Tarif en vigueur d'un contrat qui n'est plus brouillon (D-033, D-079) : il
+ * ne se modifie pas sur place. Le formulaire cree un avenant (fonction
+ * serveur) qui reprend toute la grille, le tarif portant le nouveau prix.
+ */
+const FormulaireTarifParAvenant = ({ tarif, dateEffetVersion, onFermer, onFait }: {
+  tarif: Tarif; dateEffetVersion: string; onFermer: () => void; onFait: () => void;
+}) => {
+  const [f, setF] = useState({
+    prix: tarif.prix?.toString() ?? '', libelle: tarif.libelle, conditions: tarif.conditions ?? '',
+    intitule: '', date_effet: '', resume: '',
+  });
+  const [erreur, setErreur] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const prix = nombre(f.prix);
+  const valider = async () => {
+    setEnCours(true);
+    setErreur('');
+    const { error } = await supabase.rpc('modifier_tarif_par_avenant', {
+      p_tarif: tarif.id, p_prix: prix, p_intitule: f.intitule.trim(), p_date_effet: f.date_effet,
+      p_libelle: f.libelle.trim(), p_conditions: f.conditions.trim(), p_resume: texte(f.resume),
+    });
+    setEnCours(false);
+    if (error) setErreur(`Avenant refusé : ${error.message}`);
+    else onFait();
+  };
+  return (
+    <Fenetre
+      titre="Modifier un tarif en vigueur par avenant"
+      onFermer={onFermer}
+      enCours={enCours}
+      valide={Boolean(prix !== null && !Number.isNaN(prix) && prix >= 0 && f.libelle.trim() && f.intitule.trim() && f.date_effet && f.date_effet > dateEffetVersion)}
+      erreur={erreur}
+      onValider={valider}
+    >
+      <p className="rounded-lg bg-amber-50 p-3 text-amber-900 sm:col-span-2">
+        Ce tarif est en vigueur sur un contrat actif : il ne se modifie pas sur place. L'enregistrement crée un avenant
+        (nouvelle version) qui reprend toute la grille, avec le nouveau prix pour ce tarif. La version actuelle reste intacte.
+      </p>
+      <Champ libelle="Nouveau prix unitaire *"><input inputMode="decimal" value={f.prix} onChange={(e) => setF({ ...f, prix: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Libellé *"><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Conditions" large><input value={f.conditions} onChange={(e) => setF({ ...f, conditions: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Intitulé de l'avenant *" large><input value={f.intitule} onChange={(e) => setF({ ...f, intitule: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle={`Date d'effet de l'avenant * (après le ${dateEffetVersion})`}><input type="date" value={f.date_effet} onChange={(e) => setF({ ...f, date_effet: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Résumé des changements"><input value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} className={CHAMP} /></Champ>
+    </Fenetre>
+  );
+};
+
+export const FormulaireTarif = ({ versionId, tarif, parAvenant, onFermer, onFait }: {
+  versionId: string; tarif?: Tarif; parAvenant?: { dateEffetVersion: string }; onFermer: () => void; onFait: () => void;
+}) => {
+  if (tarif && parAvenant) {
+    return <FormulaireTarifParAvenant tarif={tarif} dateEffetVersion={parAvenant.dateEffetVersion} onFermer={onFermer} onFait={onFait} />;
+  }
+  return <FormulaireTarifDirect versionId={versionId} tarif={tarif} onFermer={onFermer} onFait={onFait} />;
+};
+
+const FormulaireTarifDirect = ({ versionId, tarif, onFermer, onFait }: { versionId: string; tarif?: Tarif; onFermer: () => void; onFait: () => void }) => {
   const [f, setF] = useState({
     libelle: tarif?.libelle ?? '',
     unite: tarif?.unite ?? '',

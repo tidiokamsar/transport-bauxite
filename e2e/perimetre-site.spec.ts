@@ -65,22 +65,26 @@ test.describe('Périmètre site', () => {
       return repondre(route, UTILISATEUR);
     });
 
-    const maj: Record<string, unknown> = {};
+    // D-079 : le site d'un compte passe par definir_site_compte (journal),
+    // jamais par la mise a jour directe du profil.
     await page.route('**/rest/v1/profiles**', (route) => {
-      if (route.request().method() === 'PATCH' && new URL(route.request().url()).searchParams.get('id') === 'eq.u1') {
-        Object.assign(maj, route.request().postDataJSON() as Record<string, unknown>);
-        return route.fulfill({ status: 204, body: '' });
-      }
+      if (route.request().method() === 'PATCH') return route.fulfill({ status: 204, body: '' });
       return route.fallback();
+    });
+    const maj: Record<string, unknown>[] = [];
+    await page.route('**/rest/v1/rpc/definir_site_compte', (route) => {
+      maj.push(route.request().postDataJSON() as Record<string, unknown>);
+      return route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
     });
 
     await ouvrir(page);
     await page.getByRole('button', { name: 'Paramètres' }).click();
     await page.getByRole('button', { name: 'Modifier' }).first().click();
     await expect(page.getByText('Site d\'affectation (D-038)')).toBeVisible();
-    await page.getByLabel('Site d\'affectation (D-038)').selectOption({ label: 'Mine Nimba' });
+    await page.getByLabel('Compte global (lit tous les sites)').uncheck();
+    await page.getByLabel('Site d\'affectation (D-038) *').selectOption({ label: 'Mine Nimba' });
     await page.getByRole('button', { name: 'Mettre à jour' }).click();
-    await expect.poll(() => (maj as Record<string, unknown>).site_id).toBe('s1');
-    expect(maj).toMatchObject({ site_id: 's1' });
+    await expect.poll(() => maj.length).toBe(1);
+    expect(maj[0]).toEqual({ p_utilisateur: 'u1', p_site: 's1', p_motif: null });
   });
 });
