@@ -2,11 +2,12 @@
 
 Public : chargé de contrats et facturation (`contract_manager`), comptable
 (`accountant`), Directeur Général (`director`). Sources : D-013, D-014,
-D-026, D-029, D-031 à D-033, D-037, D-043, D-055, D-056,
+D-026, D-029, D-031 à D-033, D-037, D-043, D-055, D-056, D-065,
 `docs/SIGTB_2.0_LOCATION_MODEL.md` ; migrations `20261110230000`,
 `20261111120000`, `20261111180000`, `20261111200000`, `20261112100000`,
-`20261113100000`, `20261115150000`, `20261117150000`, `20261117180000` ;
-écrans `Contrats`, `Facturation`, `Paiements`, `Notifications`.
+`20261113100000`, `20261115150000`, `20261117150000`, `20261117180000`,
+`20261121120000` ; écrans `Contrats`, `Facturation`, `Paiements`,
+`Notifications`, `Finance` (budgets et comptabilité).
 
 Droits utiles : `contracts` pour le dossier contractuel, les engagements,
 le rapport de performance, les comités et le contrôle des factures Neemba ;
@@ -197,12 +198,83 @@ fonction serveur de cet écran reste seule juge.
 | Tickets CBG | Écart de relevé à décider | Écriture `trips` |
 | Facturation | Facture à signer | Rôle `director` |
 | HSE | Action corrective en retard | Écriture `trips` ou administrateur |
+| Contrats | Échéance de contrat, préavis à décider, contrat échu | Écriture `contracts`, à partir de la date clé moins `contrats_alerte_echeance_jours` |
+| Contrats | Clause contractuelle à décider | Écriture `contracts` et `invoices`, ou approbation `contracts` |
+| Budgets | Budget dépassé | Écriture `costs` |
 
 Notifications : chaque utilisateur lit seulement les siennes et les marque
 lues (`marquer_notifications_lues`). Elles sont écrites par le serveur
 quand une décision vous concerne : bon de commande approuvé ou rejeté,
 paiement approuvé ou rejeté, anomalie au contrôle d'un paiement, clôture de
 poste validée.
+
+## 10. Clauses, échéances, budgets, export comptable, évaluation de Neemba (D-065)
+
+**Échéances.** Dans le dossier contractuel, saisir le préavis (jours), le
+mode de renouvellement (tacite, exprès, aucun) et la durée d'un
+renouvellement (mois). Un renouvellement ou une dénonciation s'enregistre
+avec une date non future et un motif (`enregistrer_echeance_contrat`) ; le
+renouvellement reporte la date de fin, journalisée. Une prolongation
+tacite n'est jamais écrite automatiquement : l'écran affiche seulement la
+fin qu'elle donnerait. L'alerte part de la date clé (limite de préavis,
+puis fin) moins le réglage `contrats_alerte_echeance_jours` (0 si absent).
+
+**Clauses chiffrées.** Par version du contrat : pénalité, bonus ou
+retenue, conditionnée par un engagement mesuré de la même version (tenu ou
+non tenu), en montant HT fixe ou en taux de l'assiette HT, avec un plafond
+HT facultatif. Aucun taux n'est supposé. Depuis un rapport de performance
+remis (figé), `calculer_clauses` propose les montants HT ; l'assiette d'un
+taux est la somme des factures et avoirs émis dont la période est comprise
+dans celle du rapport, dans la devise du contrat, sans les lignes produites
+par une clause (client), ou des factures du loueur contrôlées (location).
+Sans assiette, rien n'est calculé et la raison est affichée.
+
+Décider (`decider_clause`, motif obligatoire) :
+
+| Décision | Qui | Effet |
+|---|---|---|
+| Appliquer un montant à facturer (bonus client, pénalité ou retenue du loueur) | Écriture `contracts` et `invoices` | Ligne sur un brouillon du contrat que vous avez préparé, ou nouvelle facture brouillon (taux de taxe saisi, 0 si exonéré) |
+| Appliquer un montant à déduire (pénalité ou retenue client) | Écriture `contracts` et `invoices` | Avoir sur une facture émise (au plus le reste HT après avoirs) ou ligne négative sur un brouillon que vous avez préparé |
+| Écarter (renoncer) | Approbation `contracts` (direction, administrateur), autre personne que l'auteur du calcul, tant que `clauses_renonciation_separee` n'est pas à `false` | Proposition écartée, motif et auteur conservés |
+
+La facture ou l'avoir produit suit le circuit habituel : soumission, puis
+signature du Directeur Général, qui ne peut pas en être le préparateur. Si
+cette facture ou cet avoir est annulé, la proposition revient « à décider »
+(journalisé) : le montant ne disparaît jamais sans nouvelle décision. Des
+rapports dont les périodes se chevauchent ne proposent la clause qu'une
+fois. Un avoir, qu'il vienne d'une clause ou non, ne dépasse jamais le reste
+HT de la facture après les avoirs déjà créés.
+
+**Budgets.** L'administrateur saisit les natures de dépense et rattache les
+catégories de coût. Un budget porte une période, un centre (site ou sans
+site), une nature, une devise et un montant **TTC** (droit d'écriture
+`costs`, périmètre du site ; un budget sans site exige un profil global).
+Il ne se modifie pas : il se révise par un nouveau budget motivé, ou
+s'annule avec un motif. Suivi : engagé = bons approuvés ou reçus en partie
+(commande HT + taxes, en GNF par convention D-055) et pièces payables non
+payées (reste à payer TTC) ; réalisé = paiements exécutés et coûts
+enregistrés (montant saisi). Un dépassement est signalé, jamais bloqué. Une
+pièce sans nature apparaît dans « Dépenses à imputer ».
+
+**Dettes et export.** Les dettes fournisseurs viennent du reste à payer
+(D-055). L'export comptable (CSV) liste factures et avoirs émis,
+encaissements, paiements exécutés et coûts d'une période ; le compte de
+tiers reste vide tant que l'administrateur ne l'a pas paramétré.
+
+**Évaluation de Neemba.** Écran **Contrats & Finance > Évaluation Neemba**.
+L'administrateur définit la grille du loueur (critères pondérés, indicateur
+mesuré facultatif). Les mesures (disponibilité, délai de prise en charge,
+interventions hors délai, écart des factures contrôlées) sont affichées à
+côté des notes et figées avec l'évaluation ; elles restent « sans données »
+tant que les engins ne sont pas rattachés au contrat (`vehicles.contrat_id`,
+fiche engin, D-062). Les notes de 1 à 5 sont saisies, jamais déduites des
+mesures. L'évaluation exige un profil sans site (les mesures couvrent tous
+les sites).
+
+**À saisir par le propriétaire avant usage.** Natures de dépense, plan de
+comptes et comptes de tiers ; clauses chiffrées et leurs valeurs (contrats
+signés) ; préavis et renouvellement des contrats ; budgets ; grille
+d'évaluation du loueur ; rattachement des engins au contrat Neemba.
 
 ## Limites connues
 
@@ -220,3 +292,9 @@ poste validée.
   restent en place hors circuit (D-029).
 - Pas de notification par courriel ou SMS, ni de délégation ou d'escalade
   (D-056).
+- L'export comptable n'est pas une écriture en partie double et reflète le
+  plan de comptes du jour (pas d'historique) ; les pénalités du loueur
+  facturées par clause comptent dans le recouvrement mais pas dans le
+  rapport client ; les coûts entrent au budget au montant saisi
+  (HT ou TTC non précisé, D-058) ; un paiement d'une facture du loueur n'a
+  pas de site (budget « sans site ») (D-065).

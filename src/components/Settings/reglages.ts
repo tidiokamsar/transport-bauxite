@@ -53,6 +53,11 @@ export const REGLAGES: Reglage[] = [
     siAbsent: 'Non exigée.', lecteur: 'cloturer_planification (D-063)',
   },
   {
+    cle: 'clauses_renonciation_separee', libelle: 'Clauses : renonciation par une autre personne', type: 'booleen',
+    effet: 'Écarter une pénalité, un bonus ou une retenue calculé revient à une personne qui a le droit d\'approbation des contrats et qui n\'a pas calculé la proposition. L\'application d\'une clause reste soumise à la signature de la facture par le Directeur Général.',
+    siAbsent: 'Exigée.', lecteur: 'decider_clause (D-065)',
+  },
+  {
     cle: 'controle_depart_exige', libelle: 'Contrôle avant départ exigé', type: 'booleen',
     effet: 'Un camion ne passe au chargement qu\'avec un contrôle avant départ du jour qui n\'est pas non conforme.',
     siAbsent: 'Non exigé.', lecteur: 'garde_controle_depart sur trip_events (D-054)',
@@ -84,6 +89,11 @@ export const REGLAGES: Reglage[] = [
     cle: 'consultation_offres_minimum', libelle: 'Consultations : nombre minimal d\'offres', type: 'entier', unite: 'offres',
     effet: 'Une offre ne peut être retenue qu\'après réception de ce nombre d\'offres actives dans la consultation.',
     siAbsent: '1 offre : aucune mise en concurrence imposée.', lecteur: 'reglage_entier, selectionner_offre (D-059)',
+  },
+  {
+    cle: 'contrats_alerte_echeance_jours', libelle: 'Contrats : alerte avant échéance', type: 'entier', unite: 'jours',
+    effet: 'Une échéance de contrat (limite de préavis, puis date de fin) apparaît dans Mes validations ce nombre de jours avant la date clé (aucun blocage, aucun renouvellement automatique).',
+    siAbsent: '0 jour : alerte à la date clé seulement.', lecteur: 'delai_alerte_echeances_contrats, v_echeances_contrats (D-065)',
   },
 ];
 
