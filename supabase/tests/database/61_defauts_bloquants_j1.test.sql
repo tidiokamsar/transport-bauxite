@@ -16,7 +16,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(52);
+SELECT plan(58);
 
 -- Droits : aucune ecriture directe, fonctions fermees a anon
 SELECT is((SELECT count(*)::int FROM unnest(ARRAY['anon', 'authenticated']) u,
