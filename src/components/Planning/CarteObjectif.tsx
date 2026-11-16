@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Ban, History, PenLine, Truck } from 'lucide-react';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Puce } from '../ui/Panneau';
@@ -55,7 +56,10 @@ export const CarteObjectif = ({
   onReviser,
   onAnnuler,
   onHistorique,
+  ventilation,
 }: {
+  /** Bloc de ventilation par destination et contrat (D-063). */
+  ventilation?: ReactNode;
   objectif: Realisation;
   titre: string;
   horaire: string;
@@ -169,6 +173,7 @@ export const CarteObjectif = ({
           </p>
         )}
       </section>
+      {ventilation}
       {objectif.note && <p className="mt-3 text-sm text-stone-600">{objectif.note}</p>}
     </article>
   );
