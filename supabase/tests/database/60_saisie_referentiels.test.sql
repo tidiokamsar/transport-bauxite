@@ -14,7 +14,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(68);
+SELECT plan(86);
 
 -- Jeu de test : A, B et D administrateurs, U chauffeur, I inactif, C charge de contrats.
 INSERT INTO auth.users (id, email) VALUES
@@ -69,6 +69,8 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000003');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT * FROM public.comptes_selectionnables()$$, '42501', NULL,
   'un chauffeur ne liste pas les comptes');
+SELECT throws_ok($$SELECT public.autres_admins_actifs(NULL)$$, '42501',
+  'Comptage des administrateurs reserve a l''administrateur', 'un chauffeur ne compte pas les administrateurs');
 RESET ROLE;
 
 -- 2. Comptes ----------------------------------------------------------------
@@ -128,6 +130,15 @@ SELECT lives_ok($$SELECT public.reactiver_compte('00000000-0000-4000-e790-000000
 SELECT is((SELECT array_agg(action ORDER BY le, action) FROM public.journal_comptes WHERE utilisateur = '00000000-0000-4000-e790-000000000003'),
   ARRAY['desactivation', 'reactivation', 'site'], 'desactivation et reactivation journalisees');
 RESET ROLE;
+-- MFA exige (D-040) : desactivation refusee sans second facteur.
+INSERT INTO public.settings (key, value) VALUES ('mfa_exige', '{"value": "true"}')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.desactiver_compte('00000000-0000-4000-e790-000000000003', 'Sans MFA')$$,
+  '42501', 'Confirmation en deux etapes (MFA) requise pour cette operation', 'mfa exige : desactivation sans aal2 refusee');
+RESET ROLE;
+DELETE FROM public.settings WHERE key = 'mfa_exige';
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000003');
 SET LOCAL ROLE authenticated;
@@ -252,9 +263,45 @@ SELECT is((SELECT string_agg(t.libelle || '=' || t.prix, ', ' ORDER BY t.libelle
   'Transport mine - port=5, Transport mine - stock=3 / 1', 'avenant n° 1 : grille reprise, tarif vise modifie, engagement repris');
 SELECT is((SELECT prix FROM public.contrat_tarifs WHERE id = '00000000-0000-4000-e790-0000000000e0'), 4.5::numeric,
   'le tarif de la version initiale reste intact');
--- Avenant avec reprise atomique (creer_avenant) : version future, libre.
+RESET ROLE;
+-- Clause active sur la version n° 1 (en vigueur) et facture emise jusqu'au
+-- 31/12/2010 sur K1.
+INSERT INTO public.contrat_clauses (id, version_id, type_clause, libelle, engagement_id, declenchement, base, valeur)
+SELECT '00000000-0000-4000-e790-0000000000a9', e.version_id, 'penalite', 'Penalite D079', e.id, 'non_tenu', 'taux', 2
+  FROM public.contrat_engagements e JOIN public.contrat_versions v ON v.id = e.version_id
+ WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 1;
+INSERT INTO public.factures (contrat_id, objet, periode_debut, periode_fin, devise, taux_taxe_pct, statut)
+VALUES ('00000000-0000-4000-e790-0000000000c1', 'Transport D079', '2010-12-01', '2010-12-31', 'USD', 0, 'emise');
+
+SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000005');
+SET LOCAL ROLE authenticated;
+-- Grille figee : engagements et clauses d'une version en vigueur.
+SELECT throws_ok($$INSERT INTO public.contrat_engagements (version_id, indicateur, libelle, seuil, unite, sens, periodicite)
+  VALUES ('00000000-0000-4000-e790-0000000000d0', 'rotations', 'Rotations', 10, 'u', 'minimum', 'jour')$$,
+  '22023', NULL, 'version en vigueur : aucun engagement ajoute sur place');
+SELECT throws_ok($$SELECT public.definir_clause(v.id, 'bonus', 'Bonus D079', e.id, 'tenu', 'montant', 100)
+  FROM public.contrat_versions v JOIN public.contrat_engagements e ON e.version_id = v.id
+ WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 1$$,
+  '22023', NULL, 'version en vigueur : aucune clause saisie sur place');
+SELECT throws_ok($$SELECT public.desactiver_clause('00000000-0000-4000-e790-0000000000a9', 'Erreur')$$,
+  '22023', NULL, 'version en vigueur : aucune clause desactivee sur place');
+-- Creation directe d'une version d'un contrat engage.
+SELECT throws_ok($$INSERT INTO public.contrat_versions (contrat_id, numero, intitule, date_effet)
+  VALUES ('00000000-0000-4000-e790-0000000000c1', 2, 'Directe', '2099-01-01')$$,
+  '22023', NULL, 'contrat actif : pas de version creee en direct');
+-- Sequence et periodes facturees.
 SELECT throws_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 2, 'Trop tot', '2001-03-01')$$,
-  '22023', NULL, 'creer_avenant : date d''effet apres la version precedente');
+  '22023', NULL, 'creer_avenant : date d''effet apres toute version du contrat');
+SELECT throws_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 5, 'Hors sequence', '2099-01-01')$$,
+  '22023', 'Numero d''avenant attendu : 2 (version suivante)', 'creer_avenant : numero suivant impose');
+SELECT throws_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 2, 'Retroactif', '2005-01-01')$$,
+  '22023', 'Periode deja facturee ou controlee jusqu''au 31/12/2010 : l''avenant prend effet apres',
+  'creer_avenant : pas d''effet sur une periode facturee');
+SELECT throws_ok($$SELECT public.modifier_tarif_par_avenant(t.id, 6, 'Retroactif', '2005-01-01')
+  FROM public.contrat_tarifs t JOIN public.contrat_versions v ON v.id = t.version_id
+ WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 1 AND t.libelle = 'Transport mine - port'$$,
+  '22023', NULL, 'modifier_tarif_par_avenant : pas d''effet sur une periode facturee');
+-- Avenant avec reprise atomique (creer_avenant) : version future, libre.
 SELECT lives_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 2, 'Avenant futur', '2099-01-01')$$,
   'creer_avenant : avenant futur cree');
 SELECT is((SELECT string_agg(t.libelle || '=' || t.prix, ', ' ORDER BY t.libelle)
@@ -263,6 +310,11 @@ SELECT is((SELECT string_agg(t.libelle || '=' || t.prix, ', ' ORDER BY t.libelle
           || ' / ' || (SELECT count(*) FROM public.contrat_engagements e JOIN public.contrat_versions v ON v.id = e.version_id
                         WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2),
   'Transport mine - port=5, Transport mine - stock=3 / 1', 'creer_avenant : grille de la version n° 1 reprise');
+SELECT is((SELECT string_agg(k.libelle || '@' || e.libelle, ', ')
+             FROM public.contrat_clauses k JOIN public.contrat_versions v ON v.id = k.version_id
+             JOIN public.contrat_engagements e ON e.id = k.engagement_id AND e.version_id = v.id
+            WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2 AND k.actif),
+  'Penalite D079@Disponibilite', 'creer_avenant : clause active reprise sur l''engagement de la nouvelle version');
 SELECT lives_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite, prix)
   SELECT v.id, 'Nouvel engin', 'km', 2 FROM public.contrat_versions v
    WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2$$,
@@ -270,7 +322,36 @@ SELECT lives_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite,
 SELECT lives_ok($$UPDATE public.contrat_engagements e SET seuil = 90 FROM public.contrat_versions v
    WHERE v.id = e.version_id AND v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2$$,
   'version future : engagement modifie');
+SELECT lives_ok($$SELECT public.definir_clause(v.id, 'bonus', 'Bonus D079', e.id, 'tenu', 'montant', 100)
+  FROM public.contrat_versions v JOIN public.contrat_engagements e ON e.version_id = v.id
+ WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2$$,
+  'version future : clause saisie');
+-- Contrat brouillon : version directe ; activation seulement avec un tarif.
+SELECT lives_ok($$INSERT INTO public.contrat_versions (contrat_id, numero, intitule, date_effet)
+  VALUES ('00000000-0000-4000-e790-0000000000c2', 1, 'Avenant brouillon', '2002-01-01')$$,
+  'contrat brouillon : version creee en direct');
+SELECT throws_ok($$INSERT INTO public.contrats (reference, intitule, nature, contrepartie, devise, date_debut, statut)
+  VALUES ('TEST-D079-DIRECT', 'Direct', 'client', 'CBG', 'USD', '2001-01-01', 'actif')$$,
+  '22023', NULL, 'un contrat ne nait pas actif (aucun tarif)');
+SELECT lives_ok($$INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devise, date_debut)
+  VALUES ('00000000-0000-4000-e790-0000000000c3', 'TEST-D079-VIDE', 'Vide', 'client', 'CBG', 'USD', '2001-01-01')$$,
+  'contrat cree en brouillon');
+SELECT throws_ok($$UPDATE public.contrats SET statut = 'actif' WHERE id = '00000000-0000-4000-e790-0000000000c3'$$,
+  '22023', 'Contrat sans tarif : saisir le contrat initial et sa grille en brouillon avant de l''activer',
+  'activation d''un contrat sans tarif refusee');
+SELECT lives_ok($$UPDATE public.contrats SET statut = 'actif' WHERE id = '00000000-0000-4000-e790-0000000000c2'$$,
+  'activation d''un contrat avec tarif');
 RESET ROLE;
+
+SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 3, 'Chauffeur', '2100-01-01')$$,
+  '42501', NULL, 'creer_avenant refuse sans droit contrats');
+RESET ROLE;
+SELECT ok(NOT has_function_privilege('anon', 'public.creer_avenant(uuid, integer, text, date, date, text, text)', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'public.modifier_tarif_par_avenant(uuid, numeric, text, date, text, text, text)', 'EXECUTE')
+      AND NOT has_function_privilege('authenticated', 'public.controler_date_avenant(uuid, date)', 'EXECUTE'),
+  'fonctions d''avenant fermees a anon, controle de date interne');
 
 SELECT * FROM finish();
 ROLLBACK;

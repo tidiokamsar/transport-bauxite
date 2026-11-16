@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Fuel, Info, Mountain, Target, Truck } from 'lucide-react';
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Download, Fuel, Info, Mountain, Printer, Target, Truck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { exportToCSV, imprimerTableau } from '../../lib/exports';
+import { FIABILITE, lignesExport, type Indicateur } from '../Pilotage/pilotage';
 import { useSite } from '../../contexts/SiteContext';
 import { Embleme, NOM_PRODUIT } from '../Brand/Marque';
 import { Panneau, Provenance, Puce, SansDonnees, type TeintePuce } from '../ui/Panneau';
@@ -63,8 +65,9 @@ interface Donnees {
   voyages: Voyage[] | null;
   enCours: { vehicle_id: string | null }[] | null;
   derniers: DernierVoyage[] | null;
-  litres: number | null;
-  carburantErreur: boolean;
+  /** Indicateurs du jour et de la veille calcules par le serveur (D-057, D-068). */
+  kpi: Indicateur[] | null;
+  kpiVeille: Indicateur[] | null;
   alertes: Alerte[] | null;
   positions: Position[] | null;
   objectifs: ObjectifRealise[] | null;
@@ -107,6 +110,16 @@ const Variation = ({ valeur }: { valeur: number | null }) =>
       {formatNombre(valeur, 1)} % <span className="font-normal text-stone-500">vs hier</span>
     </span>
   );
+
+/** Fiabilite, source, periode et heure d'un indicateur du serveur (CDC 8, regle 5). */
+const MentionKpi = ({ i }: { i: Indicateur | null }) => (
+  <span className="mt-1 block text-[11px] leading-tight text-stone-500">
+    {i ? <><Puce teinte={FIABILITE[i.fiabilite].teinte}>{FIABILITE[i.fiabilite].texte}</Puce>{' '}
+      {i.source} · {i.periode_debut === i.periode_fin ? i.periode_debut : `${i.periode_debut} au ${i.periode_fin}`} ·{' '}
+      {new Date(i.calcule_le).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+      {i.detail ? <span className="block text-orange-800">{i.detail}</span> : null}</> : 'Indicateur indisponible'}
+  </span>
+);
 
 const Tuile = ({
   teinte, icone, titre, valeur, pied, droite,
@@ -156,14 +169,8 @@ export const DashboardView = () => {
       .order('created_at', { ascending: false })
       .limit(5);
     let qObjectifs = supabase.from('v_realisation_objectifs').select('site_id, shift_id, tonnes_cible, tonnes_livrees').eq('date_plan', ymd(maintenant));
-    let qCarburant = supabase
-      .from('fuel_transactions')
-      .select('volume_liters')
-      .eq('transaction_type', 'refuel')
-      .eq('transaction_date', ymd(maintenant));
     if (siteId) {
       qVehicules = qVehicules.eq('site_id', siteId);
-      qCarburant = qCarburant.eq('site_id', siteId);
       qObjectifs = qObjectifs.eq('site_id', siteId);
     }
     if (filtreVoyages) {
@@ -171,29 +178,33 @@ export const DashboardView = () => {
       qEnCours = qEnCours.or(filtreVoyages);
       qDerniers = qDerniers.or(filtreVoyages);
     }
+    const kpi = (jour: Date) => supabase.rpc('indicateurs_pilotage', { p_debut: ymd(jour), p_fin: ymd(jour), p_site: siteId || null });
 
-    const [rV, rT, rE, rD, rC, rA, rP, rO, rS] = await Promise.all([
+    const [rV, rT, rE, rD, rK, rKV, rA, rP, rO, rS] = await Promise.all([
       qVehicules,
       qVoyages,
       qEnCours,
       qDerniers,
-      qCarburant,
-      supabase.from('alerts').select('id, title, message, severity, created_at').eq('status', 'active')
-        .order('created_at', { ascending: false }).limit(4),
+      kpi(maintenant),
+      kpi(hier),
+      // Alertes calculees par le serveur a la lecture (D-068), puis lues ; memes
+      // statuts que le compteur de la barre superieure (active, prise en compte).
+      supabase.rpc('actualiser_alertes').then(() => supabase.from('alerts').select('id, title, message, severity, created_at')
+        .in('status', ['active', 'acknowledged'])
+        .order('created_at', { ascending: false }).limit(4)),
       supabase.from('vehicle_tracking').select('vehicle_id, latitude, longitude, timestamp, speed')
         .gte('timestamp', ilYa24h.toISOString()).order('timestamp', { ascending: false }).limit(1000),
       qObjectifs,
       supabase.from('work_shifts').select('id, display_name, start_time, end_time').eq('is_active', true),
     ]);
 
-    const carburant = resultat<{ volume_liters: number | null }[]>(rC, 'Carburant');
     setDonnees({
       vehicules: resultat<Vehicule[]>(rV, 'Véhicules'),
       voyages: resultat<Voyage[]>(rT, 'Voyages'),
       enCours: resultat<{ vehicle_id: string | null }[]>(rE, 'Voyages en cours'),
       derniers: resultat<DernierVoyage[]>(rD, 'Derniers voyages'),
-      litres: carburant && carburant.length > 0 ? carburant.reduce((s, t) => s + (t.volume_liters ?? 0), 0) : null,
-      carburantErreur: carburant === null,
+      kpi: resultat<Indicateur[]>(rK, 'Indicateurs du jour'),
+      kpiVeille: resultat<Indicateur[]>(rKV, 'Indicateurs de la veille'),
       alertes: resultat<Alerte[]>(rA, 'Alertes'),
       positions: resultat<Position[]>(rP, 'Positions'),
       objectifs: resultat<ObjectifRealise[]>(rO, 'Objectifs'),
@@ -272,8 +283,24 @@ export const DashboardView = () => {
     );
   }
 
-  const { jour, veille, flotte } = calculs;
-  const litresParTonne = donnees.litres !== null && jour.tonnes > 0 ? donnees.litres / jour.tonnes : null;
+  const { jour, flotte } = calculs;
+  // Indicateurs du jour : valeurs, fiabilite, source et heure du serveur
+  // (indicateurs_pilotage), jamais recalculees dans le navigateur.
+  const k = (code: string) => donnees.kpi?.find((i) => i.code === code) ?? null;
+  const kv = (code: string) => donnees.kpiVeille?.find((i) => i.code === code) ?? null;
+  const valeurKpi = (code: string, chiffres = 0) => {
+    const i = k(code);
+    return !i || i.valeur === null ? 'Sans données' : `${formatNombre(i.valeur, chiffres)}${i.unite === 't' ? ' T' : i.unite === 'L' ? ' L' : ''}`;
+  };
+  const ecartVeille = (code: string) => {
+    const a = k(code); const b = kv(code);
+    return a?.valeur == null || b?.valeur == null ? null : variation(a.valeur, b.valeur);
+  };
+  const jourTexte = ymd(donnees.heure);
+  const mentionsKpi = [`Période : journée du ${jourTexte}`, `Site : ${siteId ? nomSite(siteId) : 'tous les sites visibles'}`,
+    `Source : indicateurs_pilotage (serveur) ; calculé le ${donnees.kpi?.[0]?.calcule_le ? new Date(donnees.kpi[0].calcule_le).toLocaleString('fr-FR') : 'sans données'}`];
+  const exporterKpi = () => exportToCSV(lignesExport(donnees.kpi ?? []), `tableau_de_bord_${jourTexte}`);
+  const imprimerKpi = () => imprimerTableau('Tableau de bord : indicateurs du jour', mentionsKpi, lignesExport(donnees.kpi ?? []));
 
   return (
     <div className="space-y-6">
@@ -301,46 +328,45 @@ export const DashboardView = () => {
           teinte="border-orange-100 bg-orange-50/70"
           icone={<Mountain className="h-9 w-9 text-orange-700" />}
           titre="Tonnes livrées (jour)"
-          valeur={donnees.voyages === null ? '—' : `${formatNombre(jour.tonnes)} T`}
-          pied={<Variation valeur={variation(jour.tonnes, veille.tonnes)} />}
+          valeur={valeurKpi('tonnes_livrees')}
+          pied={<><Variation valeur={ecartVeille('tonnes_livrees')} /><MentionKpi i={k('tonnes_livrees')} /></>}
           droite={<Anneau pourcentage={calculs.pourcentagePlan} legende="du plan" />}
         />
         <Tuile
           teinte="border-blue-100 bg-blue-50/70"
           icone={<Truck className="h-9 w-9 text-blue-600" />}
-          titre="Voyages réalisés"
-          valeur={donnees.voyages === null ? '—' : formatNombre(jour.voyages)}
-          pied={<Variation valeur={variation(jour.voyages, veille.voyages)} />}
+          titre="Voyages livrés"
+          valeur={valeurKpi('voyages_livres')}
+          pied={<><Variation valeur={ecartVeille('voyages_livres')} /><MentionKpi i={k('voyages_livres')} /></>}
         />
         <Tuile
           teinte="border-green-100 bg-green-50/70"
           icone={<Truck className="h-9 w-9 text-green-600" />}
-          titre="Véhicules actifs"
-          valeur={donnees.vehicules === null ? '—' : `${flotte.enMission + flotte.disponibles} / ${flotte.total}`}
-          pied={
-            <span className="text-sm text-stone-600">
-              Disponibilité : <b className="text-green-700">{calculs.dispo === null ? '—' : `${formatNombre(calculs.dispo, 1)} %`}</b>
-            </span>
-          }
+          titre="Engins en service"
+          valeur={valeurKpi('engins_actifs')}
+          pied={<>
+            <span className="text-sm text-stone-600">Immobilisations en cours : <b className="text-stone-900">{valeurKpi('immobilisations_ouvertes')}</b></span>
+            <MentionKpi i={k('engins_actifs')} />
+          </>}
         />
         <Tuile
           teinte="border-red-100 bg-red-50/70"
           icone={<Fuel className="h-9 w-9 text-red-600" />}
-          titre="Consommation carburant"
-          valeur={donnees.litres === null ? '—' : `${formatNombre(donnees.litres)} L`}
-          pied={
-            <span className="text-sm text-stone-600">
-              {donnees.litres === null
-                ? donnees.carburantErreur ? 'Données indisponibles' : 'Aucune distribution saisie'
-                : litresParTonne === null ? '— L/T' : `${formatNombre(litresParTonne, 2)} L/T`}
-            </span>
-          }
+          titre="Carburant distribué"
+          valeur={valeurKpi('litres_distribues')}
+          pied={<>
+            <span className="text-sm text-stone-600">{k('litres_par_tonne')?.valeur == null ? 'L/T : sans données' : `${formatNombre(k('litres_par_tonne')!.valeur!, 2)} L/T`}</span>
+            <MentionKpi i={k('litres_distribues')} />
+          </>}
         />
       </div>
-      <Provenance
-        source="voyages terminés (heure d'arrivée), véhicules, distributions de carburant du jour"
-        heure={donnees.heure}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-stone-400">{mentionsKpi.join(' · ')}{donnees.kpi === null ? ' · indicateurs indisponibles' : ''}</p>
+        <div className="flex gap-2 text-sm">
+          <button disabled={!donnees.kpi?.length} onClick={exporterKpi} className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-3 py-1.5 disabled:opacity-50"><Download className="h-4 w-4" /> Exporter les indicateurs</button>
+          <button disabled={!donnees.kpi?.length} onClick={imprimerKpi} className="flex items-center gap-1 rounded-lg border border-stone-200 bg-white px-3 py-1.5 disabled:opacity-50"><Printer className="h-4 w-4" /> Imprimer</button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         <Panneau titre="Production & Réalisation" className="xl:col-span-7" action={<span className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-700">Aujourd'hui</span>}>

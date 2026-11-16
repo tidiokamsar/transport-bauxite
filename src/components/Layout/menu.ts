@@ -30,7 +30,7 @@ export const MENU: MenuItem[] = [
       { id: 'geofencing', label: 'Géorepérage', icon: Gauge },
       { id: 'sites', label: 'Sites', icon: MapPin },
       { id: 'infrastructures', label: 'Infrastructures et fermetures', icon: Building },
-      { id: 'alerts', label: 'Alertes', icon: Bell },
+      { id: 'alerts', label: 'Centre des décisions', icon: Bell },
     ],
   },
   { id: 'planification', label: 'Planification', icon: CalendarDays },
@@ -56,9 +56,9 @@ export const MENU: MenuItem[] = [
     label: 'Carburant',
     icon: Fuel,
     children: [
-      { id: 'fuel', label: 'Pleins et cuves', icon: Fuel },
+      { id: 'fuel', label: 'Distribution aux engins', icon: Fuel },
       { id: 'livraisons-cbg', label: 'Livraisons et factures CBG', icon: Receipt },
-      { id: 'fuel-stocks', label: 'Stocks et cuves', icon: Package },
+      { id: 'fuel-stocks', label: 'Réceptions, cuves et inventaires', icon: Package },
       { id: 'fuel-dashboard', label: 'Analyse carburant', icon: Brain },
       { id: 'fuel-anomalies', label: 'Anomalies', icon: AlertTriangle },
       { id: 'fuel-sensors', label: 'Jauges connectées', icon: Gauge },
@@ -116,6 +116,7 @@ export const MENU: MenuItem[] = [
       { id: 'hr-payroll', label: 'Paie', icon: Banknote },
       { id: 'controles-depart', label: 'Contrôles avant départ', icon: ClipboardCheck },
       { id: 'incidents', label: 'Incidents', icon: ShieldAlert },
+      { id: 'hse-prevention', label: 'Prévention HSE', icon: ClipboardList },
     ],
   },
   {

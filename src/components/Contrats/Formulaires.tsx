@@ -118,11 +118,15 @@ export const FormulaireContrat = ({ contrat, onFermer, onFait }: { contrat?: Con
       </Champ>
       <Champ libelle="Début *"><input type="date" value={f.date_debut} onChange={(e) => setF({ ...f, date_debut: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Fin"><input type="date" value={f.date_fin} onChange={(e) => setF({ ...f, date_fin: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Statut">
-        <select value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value as Contrat['statut'] })} className={CHAMP}>
-          {Object.entries(STATUTS).map(([k, s]) => <option key={k} value={k}>{s.libelle}</option>)}
-        </select>
-      </Champ>
+      {contrat ? (
+        <Champ libelle="Statut">
+          <select value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value as Contrat['statut'] })} className={CHAMP}>
+            {Object.entries(STATUTS).map(([k, s]) => <option key={k} value={k}>{s.libelle}</option>)}
+          </select>
+        </Champ>
+      ) : (
+        <Champ libelle="Statut"><p className="py-2 text-stone-600">Brouillon : saisir le contrat initial et sa grille, puis l'activer.</p></Champ>
+      )}
       <Champ libelle="Délai de paiement (jours)"><input inputMode="numeric" value={f.delai} onChange={(e) => setF({ ...f, delai: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Préavis de dénonciation (jours)"><input inputMode="numeric" value={f.preavis} onChange={(e) => setF({ ...f, preavis: e.target.value })} placeholder="Selon le contrat" className={CHAMP} /></Champ>
       <Champ libelle="Renouvellement">
@@ -149,7 +153,6 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
     document_ref: version?.document_ref ?? '',
   });
   const { erreur, enCours, enregistrer } = useEnregistrement('contrat_versions', version?.id, onFait);
-  const [reprendre, setReprendre] = useState(true);
   const [erreurCopie, setErreurCopie] = useState('');
   const [copieEnCours, setCopieEnCours] = useState(false);
   const numero = nombre(f.numero);
@@ -175,7 +178,9 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
     }
     onFait();
   };
-  const avecReprise = !version && numeroSuivant > 0 && reprendre;
+  // Contrat initial : saisie directe (contrat brouillon) ; avenant : toujours
+  // par creer_avenant (numero suivant, reprise de la grille, D-079).
+  const avecReprise = !version && numeroSuivant > 0;
   return (
     <Fenetre
       titre={version ? 'Modifier la version' : numeroSuivant === 0 ? 'Contrat initial' : `Nouvel avenant (n° ${numeroSuivant})`}
@@ -191,11 +196,11 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
       <Champ libelle="Date de signature"><input type="date" value={f.date_signature} onChange={(e) => setF({ ...f, date_signature: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Référence du document"><input value={f.document_ref} onChange={(e) => setF({ ...f, document_ref: e.target.value })} placeholder="Classement, lien..." className={CHAMP} /></Champ>
       <Champ libelle="Résumé des changements" large><textarea value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} rows={3} className={CHAMP} /></Champ>
-      {!version && numeroSuivant > 0 && (
-        <label className="flex items-center gap-2 sm:col-span-2">
-          <input type="checkbox" checked={reprendre} onChange={(e) => setReprendre(e.target.checked)} />
-          <span>Reprendre les tarifs, engagements et clauses de la version précédente (à modifier ensuite)</span>
-        </label>
+      {avecReprise && (
+        <p className="rounded-lg bg-stone-50 p-3 text-stone-700 sm:col-span-2">
+          L'avenant reprend les tarifs, engagements et clauses de la dernière version. Sa date d'effet suit celle de toute version
+          et de toute période déjà facturée ; il se complète ensuite tant que sa date d'effet n'est pas atteinte.
+        </p>
       )}
     </Fenetre>
   );

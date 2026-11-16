@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, User, Mail, Phone, Shield, Building, Image, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { libelleModule } from './organisation';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -64,32 +65,6 @@ interface DroitModule {
   role_ecriture: boolean;
   niveau_attribue: string | null;
 }
-
-const LIBELLES_MODULES: Record<string, string> = {
-  dashboard: 'Tableau de bord',
-  vehicles: 'Véhicules et engins',
-  drivers: 'Chauffeurs',
-  trips: 'Voyages et fiches terrain',
-  gps_tracking: 'Suivi GPS',
-  geofencing: 'Géorepérage',
-  fuel: 'Carburant',
-  maintenance: 'Maintenance',
-  stock: 'Stocks',
-  purchases: 'Achats et fournisseurs',
-  invoices: 'Facturation',
-  hr: 'Ressources humaines',
-  costs: 'Coûts',
-  reports: 'Rapports',
-  settings: 'Paramètres',
-  contracts: 'Contrats et finance',
-  planning: 'Planification',
-  iot: 'Capteurs IoT',
-  esg: 'Environnement (ESG)',
-  client_portal: 'Portail client',
-  ai_analytics: 'Analyses IA',
-};
-
-const libelleModule = (module: string) => LIBELLES_MODULES[module] ?? module;
 
 const libelleNiveauRole = (droit: DroitModule) => {
   if (droit.role_ecriture) return 'Rôle : lecture et écriture';

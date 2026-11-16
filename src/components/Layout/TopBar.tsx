@@ -78,14 +78,16 @@ export const TopBar = ({
       .then(({ data }) => {
         if (actif) setShifts((data ?? []) as Shift[]);
       });
+    // Les alertes sont calculees par le serveur a la lecture (D-068) :
+    // actualisation (sans effet si recente), puis comptage des actives.
     const lireAlertes = () =>
-      supabase
+      supabase.rpc('actualiser_alertes').then(() => supabase
         .from('alerts')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'active')
+        .in('status', ['active', 'acknowledged'])
         .then(({ count, error }) => {
           if (actif) setAlertes(error ? null : count ?? 0);
-        });
+        }));
     // Elements en attente de decision (D-056), calcules par le serveur.
     const lireValidations = () =>
       supabase.rpc('mes_validations').then(({ data, error }) => {

@@ -123,6 +123,20 @@ Deno.serve(async (req: Request) => {
     if (erreurActivation) {
       return reponse(500, { erreur: 'Compte créé avec son périmètre mais resté inactif : le réactiver (motif « création »)', id });
     }
+    // Activation journalisee (journal_comptes, action « creation ») avec
+    // l'administrateur appelant comme auteur.
+    const { data: auteur } = await appelant.auth.getUser();
+    const { error: erreurJournal } = await service.from('journal_comptes').insert({
+      utilisateur: id,
+      action: 'creation',
+      statut_avant: 'inactive',
+      statut_apres: 'active',
+      motif: 'Création du compte',
+      auteur: auteur?.user?.id ?? null,
+    });
+    if (erreurJournal) {
+      return reponse(500, { erreur: 'Compte créé et actif, mais activation non journalisée : à signaler', id });
+    }
     return reponse(201, { id });
   }
 

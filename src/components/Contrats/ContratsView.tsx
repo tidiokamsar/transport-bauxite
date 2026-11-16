@@ -312,7 +312,7 @@ export const ContratsView = () => {
                             <div>
                               <div className="mb-1 flex items-center justify-between">
                                 <h4 className="text-sm font-semibold text-stone-700">Engagements</h4>
-                                {peutEcrire && <button onClick={() => setFenetre({ type: 'engagement', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter un engagement</button>}
+                                {peutEcrire && !tarifsVerrouilles(v) && <button onClick={() => setFenetre({ type: 'engagement', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter un engagement</button>}
                               </div>
                               {ev.length === 0 ? <p className="text-xs text-stone-400">Aucun engagement dans cette version.</p> : (
                                 <ul className="space-y-1 text-sm">
@@ -336,14 +336,14 @@ export const ContratsView = () => {
                           <div className="mt-3">
                             <div className="mb-1 flex items-center justify-between">
                               <h4 className="text-sm font-semibold text-stone-700">Clauses chiffrées (pénalités, bonus, retenues)</h4>
-                              {peutEcrire && <button onClick={() => setFenetre({ type: 'clause', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter une clause</button>}
+                              {peutEcrire && !tarifsVerrouilles(v) && <button onClick={() => setFenetre({ type: 'clause', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter une clause</button>}
                             </div>
                             {kv.length === 0 ? <p className="text-xs text-stone-400">Aucune clause chiffrée : la conséquence d'un engagement reste en texte libre.</p> : (
                               <ul className="space-y-1 text-sm" aria-label={`Clauses ${libelleVersion(v)}`}>
                                 {kv.map((k) => (
                                   <li key={k.id} className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${k.actif ? 'bg-stone-50' : 'bg-stone-50/40 text-stone-400 line-through'}`}>
                                     <span><b>{TYPES_CLAUSE[k.type_clause]}</b> · {k.libelle} · {decrireClause(k, contrat.devise, ev.find((e) => e.id === k.engagement_id)?.libelle)}{k.article ? ` · art. ${k.article}` : ''}</span>
-                                    {peutEcrire && k.actif && (
+                                    {peutEcrire && k.actif && !tarifsVerrouilles(v) && (
                                       <span className="flex items-center gap-1">
                                         <button onClick={() => setFenetre({ type: 'clause', versionId: v.id, clause: k })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier la clause ${k.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>
                                         <button onClick={() => desactiverClause(k)} className="rounded p-1 text-stone-400 hover:text-red-600" aria-label={`Désactiver la clause ${k.libelle}`}><Ban className="h-3.5 w-3.5" /></button>

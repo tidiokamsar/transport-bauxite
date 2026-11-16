@@ -3,8 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { UserModal } from './UserModal';
 import { FicheSociete } from './FicheSociete';
 import { ReglagesServeur } from './ReglagesServeur';
+import { AffectationsSites } from './AffectationsSites';
+import { Delegations } from './Delegations';
+import { JournalConnexions } from './JournalConnexions';
+import { Referentiels } from './Referentiels';
 import { useAuth } from '../../contexts/AuthContext';
-import { Users, Building2, SlidersHorizontal, Edit, Plus, Search, UserX, UserCheck } from 'lucide-react';
+import { Users, Building2, SlidersHorizontal, Edit, Plus, Search, UserX, UserCheck, MapPin, History, ListOrdered } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -116,6 +120,10 @@ export const AdminSettingsView = () => {
   const tabs = [
     { id: 'users', label: 'Utilisateurs', icon: Users },
     { id: 'organisations', label: 'Organisations', icon: Building2 },
+    { id: 'affectations', label: 'Affectations multisites', icon: MapPin },
+    { id: 'delegations', label: 'Délégations', icon: UserCheck },
+    { id: 'connexions', label: 'Journal de connexion', icon: History },
+    { id: 'referentiels', label: 'Référentiels et numérotation', icon: ListOrdered },
     { id: 'general', label: 'Général', icon: SlidersHorizontal },
   ];
 
@@ -331,6 +339,11 @@ export const AdminSettingsView = () => {
           </table>
         </div>
       )}
+
+      {activeTab === 'affectations' && <AffectationsSites />}
+      {activeTab === 'delegations' && <Delegations administration />}
+      {activeTab === 'connexions' && <JournalConnexions />}
+      {activeTab === 'referentiels' && <Referentiels />}
 
       {activeTab === 'general' && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">

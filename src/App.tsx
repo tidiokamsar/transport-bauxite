@@ -14,6 +14,7 @@ import { DashboardView } from './components/Dashboard/DashboardView';
 import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { Embleme } from './components/Brand/Marque';
+import { EVENEMENT_ALLER_A } from './components/ui/navigation';
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
@@ -67,7 +68,8 @@ const PaiementsView = lazy(() => import('./components/Paiements/PaiementsView').
 const FinanceView = lazy(() => import('./components/Finance/FinanceView').then(m => ({ default: m.FinanceView })));
 const EvaluationLoueurView = lazy(() => import('./components/Contrats/EvaluationLoueurView').then(m => ({ default: m.EvaluationLoueurView })));
 const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').then(m => ({ default: m.IncidentsView })));
-const AlertsView = lazy(() => import('./components/Alerts/AlertsView').then(m => ({ default: m.AlertsView })));
+const CentreDecisionsView = lazy(() => import('./components/Decisions/CentreDecisionsView').then(m => ({ default: m.CentreDecisionsView })));
+const HsePreventionView = lazy(() => import('./components/Hse/HsePreventionView').then(m => ({ default: m.HsePreventionView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
 const InfrastructuresView = lazy(() => import('./components/Sites/InfrastructuresView').then(m => ({ default: m.InfrastructuresView })));
 const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.FiabiliteEnginsView })));
@@ -101,6 +103,12 @@ const MainApp = () => {
     setNiveau(data ? { currentLevel: data.currentLevel, nextLevel: data.nextLevel } : { currentLevel: null, nextLevel: null });
   }, []);
   useEffect(() => { if (user) lireNiveau(); else setNiveau(null); }, [user, lireNiveau]);
+  // Liens des etats vides vers l'ecran de parametrage manquant (D-078).
+  useEffect(() => {
+    const aller = (e: Event) => { const vue = (e as CustomEvent<string>).detail; if (vue) setCurrentView(vue); };
+    window.addEventListener(EVENEMENT_ALLER_A, aller);
+    return () => window.removeEventListener(EVENEMENT_ALLER_A, aller);
+  }, []);
 
   if (loading) {
     return (
@@ -222,7 +230,9 @@ const MainApp = () => {
       case 'incidents':
         return <IncidentsView />;
       case 'alerts':
-        return <AlertsView />;
+        return <CentreDecisionsView onAllerA={setCurrentView} />;
+      case 'hse-prevention':
+        return <HsePreventionView />;
       case 'sites':
         return <SitesView />;
       case 'infrastructures':

@@ -56,7 +56,7 @@ test.describe('Écrans remis à niveau', () => {
     // Saisie par la fonction serveur saisir_plein (D-062), plus d'insertion directe.
     const envois: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/saisir_plein', (route) => { envois.push(route.request().postDataJSON()); return repondre(route, 'p1'); });
-    await aller(page, 'Carburant', 'Pleins et cuves');
+    await aller(page, 'Carburant', 'Distribution aux engins');
     await page.getByRole('button', { name: 'Saisir' }).click();
     const f = page.getByRole('dialog');
     await f.getByLabel('Engin *').selectOption({ label: 'RC-1001' });
