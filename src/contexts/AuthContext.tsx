@@ -40,6 +40,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [droitsSpecifiques, setDroitsSpecifiques] = useState<{ module: string; niveau: string }[]>([]);
+  // Delegations recues en vigueur (D-064), statut calcule par le serveur.
+  const [delegationsRecues, setDelegationsRecues] = useState<{ module: string; niveau: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
           setPermissions([]);
           setDroitsSpecifiques([]);
+          setDelegationsRecues([]);
         }
       })();
     });
@@ -88,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data?.role) {
       await fetchPermissions(data.role);
       await fetchDroitsSpecifiques(userId);
+      await fetchDelegationsRecues(userId);
       await updateLastLogin(userId);
     }
   };
@@ -106,6 +110,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setDroitsSpecifiques(data ?? []);
+  };
+
+  const fetchDelegationsRecues = async (userId: string) => {
+    const { data, error } = await supabase.rpc('mes_delegations');
+    if (error) {
+      console.error('Error fetching delegations:', error);
+      return;
+    }
+    setDelegationsRecues(((data ?? []) as { delegue: string; module: string; niveau: string; statut: string }[])
+      .filter(d => d.delegue === userId && d.statut === 'active'));
   };
 
   const fetchPermissions = async (role: string) => {
@@ -138,6 +152,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (action === 'view') return specifique.niveau === 'lecture' || specifique.niveau === 'ecriture';
       return specifique.niveau === 'ecriture';
     }
+
+    // Delegation en vigueur (D-064) : ecriture ou approbation, et lecture du module.
+    const delegations = delegationsRecues.filter(d => d.module === module);
+    if (action === 'view' && delegations.length > 0) return true;
+    if (action === 'approve' && delegations.some(d => d.niveau === 'approbation')) return true;
+    if (action !== 'view' && action !== 'approve' && delegations.some(d => d.niveau === 'ecriture')) return true;
 
     const permission = permissions.find(p => p.module === module);
     if (!permission) return false;
