@@ -18,7 +18,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(76);
+SELECT plan(77);
 
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
@@ -60,6 +60,9 @@ DELETE FROM public.settings WHERE key IN ('pneu_reforme_precoce_km', 'achats_val
 INSERT INTO public.settings (key, value, category) VALUES ('pneu_reforme_precoce_km', '{"value": "10000"}', 'pneus');
 SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('pneu_reforme_precoce_km', '{"value": "abc"}')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value$$, '22023', NULL, 'seuil de reforme precoce : nombre attendu');
+SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('planification_cloture_separee', '{"value": "oui"}')
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value$$, '22023', NULL,
+  'valider_reglage recree : la cle planification_cloture_separee (D-063) reste controlee');
 
 -- 1. Reservations ---------------------------------------------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');

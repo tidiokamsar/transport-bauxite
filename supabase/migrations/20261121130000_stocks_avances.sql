@@ -60,7 +60,8 @@
     reception avec pneus.
   - `receptionner_bon_commande`, `enregistrer_bon_commande` (20261117090000).
   - `valider_reglage` part de 20261121090000 (cle
-    `planification_cloture_separee`, D-063) ; `seuil_pneus` de 20261116210000.
+    `planification_cloture_separee`, D-063), avec par avance les deux cles de
+    D-065 (20261121120000) ; `seuil_pneus` de 20261116210000.
   - D-072 R1-6 : `stock_disponible` reste retiree aux comptes ; les nouvelles
     fonctions de quantite (`stock_reserve`, `stock_libre`,
     `stock_lot_disponible`) le sont aussi ; les quantites se lisent par les
@@ -1167,8 +1168,13 @@ SELECT r.marque, r.modele,
 GRANT SELECT ON public.v_pneus_performance TO authenticated;
 
 -- 10. Reglage lu par le serveur : format controle -----------------------------
--- Reprise a l'identique de la derniere definition (20261121090000, D-063 :
--- cle planification_cloture_separee), plus pneu_reforme_precoce_km.
+-- Reprise a l'identique de la derniere definition sur main (20261121090000,
+-- D-063 : cle planification_cloture_separee), plus pneu_reforme_precoce_km.
+-- Les deux cles de D-065 (20261121120000, en integration au moment de
+-- celle-ci : clauses_renonciation_separee, contrats_alerte_echeance_jours)
+-- sont reprises par avance : cette migration passe apres la sienne et ne
+-- doit pas les retirer, quel que soit l'ordre de fusion. Sans D-065, elles
+-- ne sont lues par aucune fonction (controle de format seulement).
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1178,7 +1184,7 @@ DECLARE v text := NEW.value ->> 'value';
 BEGIN
   IF NEW.key IN ('mfa_exige', 'carburant_validation_separee', 'kilometrage_validation_separee',
                  'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige',
-                 'planification_cloture_separee') THEN
+                 'planification_cloture_separee', 'clauses_renonciation_separee') THEN
     IF v IS NULL OR v NOT IN ('true', 'false') THEN
       RAISE EXCEPTION 'Reglage % : valeur true ou false attendue', NEW.key USING ERRCODE = '22023';
     END IF;
@@ -1186,8 +1192,8 @@ BEGIN
     IF v IS NULL OR v !~ '^\d+(\.\d+)?$' THEN
       RAISE EXCEPTION 'Reglage % : nombre positif attendu', NEW.key USING ERRCODE = '22023';
     END IF;
-  ELSIF NEW.key IN ('fournisseurs_alerte_documents_jours', 'consultation_offres_minimum') THEN
-    -- Lus par reglage_entier (D-059) : un entier, sinon la valeur par defaut s'appliquerait en silence.
+  ELSIF NEW.key IN ('fournisseurs_alerte_documents_jours', 'consultation_offres_minimum', 'contrats_alerte_echeance_jours') THEN
+    -- Lus par reglage_entier (D-059, D-065) : un entier, sinon la valeur par defaut s'appliquerait en silence.
     IF v IS NULL OR v !~ '^\d+$' OR (NEW.key = 'consultation_offres_minimum' AND v::integer < 1) THEN
       RAISE EXCEPTION 'Reglage % : nombre entier attendu (au moins 1 offre)', NEW.key USING ERRCODE = '22023';
     END IF;
