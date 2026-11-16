@@ -10,8 +10,8 @@ import { TYPES_CLAUSE } from './types';
 
 export interface CalculClause {
   id: string; clause_id: string; rapport_id: string; periode_debut: string; periode_fin: string; type_clause: 'penalite' | 'bonus' | 'retenue';
-  libelle: string; base: string; valeur: number; plafond: number | null; realise: number | null; seuil: number | null; unite: string | null;
-  conforme: boolean | null; assiette: number | null; assiette_source: string | null; montant_calcule: number | null; montant_propose: number | null;
+  libelle: string; base: string; valeur: number; plafond_ht: number | null; realise: number | null; seuil: number | null; unite: string | null;
+  conforme: boolean | null; assiette_ht: number | null; assiette_source: string | null; montant_calcule_ht: number | null; montant_propose_ht: number | null;
   devise: string; raison: string | null; statut: 'propose' | 'sans_objet' | 'applique' | 'ecarte'; motif_decision: string | null; facture_id: string | null;
 }
 interface FactureContrat { id: string; numero: string | null; objet: string; statut: string; type: string }
@@ -69,12 +69,12 @@ export const ClausesCalculees = ({ contratId, nature, peutDecider, version }: { 
                 <p><b>{TYPES_CLAUSE[k.type_clause]}</b> · {k.libelle} · {mois(k.periode_debut)}</p>
                 <p className="text-xs text-stone-500">
                   Mesure figée : {k.realise === null ? 'non mesurable' : `${formatNombre(Number(k.realise), 2)} ${k.unite ?? ''}`}{k.seuil !== null ? ` pour un seuil de ${formatNombre(Number(k.seuil), 2)} ${k.unite ?? ''}` : ''}
-                  {k.assiette !== null ? ` · assiette ${formatNombre(Number(k.assiette), 2)} ${k.devise} (${k.assiette_source})` : ''}
+                  {k.assiette_ht !== null ? ` · assiette ${formatNombre(Number(k.assiette_ht), 2)} ${k.devise} HT (${k.assiette_source})` : ''}
                   {k.raison ? ` · ${k.raison}` : ''}{k.motif_decision ? ` · décision : ${k.motif_decision}` : ''}
                 </p>
               </div>
               <span className="flex items-center gap-2">
-                {k.montant_propose !== null && <b>{formatNombre(Number(k.montant_propose), 2)} {k.devise}</b>}
+                {k.montant_propose_ht !== null && <b>{formatNombre(Number(k.montant_propose_ht), 2)} {k.devise} HT</b>}
                 <Puce teinte={STATUTS[k.statut].teinte}>{STATUTS[k.statut].texte}</Puce>
                 {peutDecider && k.statut === 'propose' && (
                   <button onClick={() => setDecision({ calcul: k, appliquer: true, motif: '', facture: '', taux: '' })} className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-semibold"
@@ -87,7 +87,7 @@ export const ClausesCalculees = ({ contratId, nature, peutDecider, version }: { 
       )}
       {decision && (
         <form onSubmit={(e) => { e.preventDefault(); if (decisionValide) decider(); }} className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4 text-sm sm:grid-cols-2" aria-label="Décision sur la clause">
-          <p className="sm:col-span-2"><b>{decision.calcul.libelle}</b> · proposé : {formatNombre(Number(decision.calcul.montant_propose), 2)} {decision.calcul.devise}
+          <p className="sm:col-span-2"><b>{decision.calcul.libelle}</b> · proposé : {formatNombre(Number(decision.calcul.montant_propose_ht), 2)} {decision.calcul.devise} HT
             {aDeduire(decision.calcul) ? ' à déduire (avoir ou ligne négative)' : ' à facturer'}</p>
           <label className="block"><span className="mb-1 block font-medium">Décision *</span>
             <select value={decision.appliquer ? 'appliquer' : 'ecarter'} onChange={(e) => setDecision({ ...decision, appliquer: e.target.value === 'appliquer' })} className="w-full rounded-lg border border-stone-300 px-3 py-2">

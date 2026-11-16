@@ -68,7 +68,8 @@ export interface Clause {
   declenchement: 'non_tenu' | 'tenu';
   base: 'montant' | 'taux';
   valeur: number;
-  plafond: number | null;
+  /** Plafond HT par periode, dans la devise du contrat. */
+  plafond_ht: number | null;
   article: string | null;
   ordre: number;
   actif: boolean;
@@ -99,10 +100,10 @@ export const TYPES_CLAUSE: Record<Clause['type_clause'], string> = { penalite: '
 export const RENOUVELLEMENTS: Record<string, string> = { tacite: 'Tacite', expres: 'Exprès (avenant requis)', aucun: 'Aucun' };
 
 /** Libelle lisible d'une clause : base, condition et plafond, sans valeur supposee. */
-export const decrireClause = (c: Pick<Clause, 'base' | 'valeur' | 'plafond' | 'declenchement'>, devise: string, engagement?: string): string => {
-  const base = c.base === 'taux' ? `${c.valeur} % de l'assiette facturée` : `${c.valeur} ${devise}`;
+export const decrireClause = (c: Pick<Clause, 'base' | 'valeur' | 'plafond_ht' | 'declenchement'>, devise: string, engagement?: string): string => {
+  const base = c.base === 'taux' ? `${c.valeur} % de l'assiette facturée HT` : `${c.valeur} ${devise} HT`;
   const condition = `si ${engagement ?? "l'engagement"} ${c.declenchement === 'tenu' ? 'est tenu' : "n'est pas tenu"}`;
-  return `${base} ${condition}${c.plafond != null ? ` · plafond ${c.plafond} ${devise}` : ''}`;
+  return `${base} ${condition}${c.plafond_ht != null ? ` · plafond ${c.plafond_ht} ${devise} HT` : ''}`;
 };
 
 /** Etat d'une echeance pour l'affichage. */

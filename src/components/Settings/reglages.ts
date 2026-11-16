@@ -53,6 +53,11 @@ export const REGLAGES: Reglage[] = [
     siAbsent: 'Non exigée.', lecteur: 'cloturer_planification (D-063)',
   },
   {
+    cle: 'clauses_renonciation_separee', libelle: 'Clauses : renonciation par une autre personne', type: 'booleen',
+    effet: 'Écarter une pénalité, un bonus ou une retenue calculé revient à une personne qui a le droit d\'approbation des contrats et qui n\'a pas calculé la proposition. L\'application d\'une clause reste soumise à la signature de la facture par le Directeur Général.',
+    siAbsent: 'Exigée.', lecteur: 'decider_clause (D-065)',
+  },
+  {
     cle: 'controle_depart_exige', libelle: 'Contrôle avant départ exigé', type: 'booleen',
     effet: 'Un camion ne passe au chargement qu\'avec un contrôle avant départ du jour qui n\'est pas non conforme.',
     siAbsent: 'Non exigé.', lecteur: 'garde_controle_depart sur trip_events (D-054)',

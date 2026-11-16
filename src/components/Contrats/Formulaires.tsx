@@ -199,7 +199,7 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
         const cible = ancien && nouveaux.find((n) => n.indicateur === ancien.indicateur && n.libelle === ancien.libelle);
         const r = cible ? await supabase.rpc('definir_clause', {
           p_version: nouvelle.id, p_type: c.type_clause, p_libelle: c.libelle, p_engagement: cible.id, p_declenchement: c.declenchement,
-          p_base: c.base, p_valeur: c.valeur, p_plafond: c.plafond, p_article: c.article, p_ordre: c.ordre,
+          p_base: c.base, p_valeur: c.valeur, p_plafond: c.plafond_ht, p_article: c.article, p_ordre: c.ordre,
         }) : { error: { message: `engagement de la clause « ${c.libelle} » introuvable` } };
         if (r.error) {
           setCopieEnCours(false);
@@ -339,7 +339,7 @@ export const FormulaireClause = ({ versionId, engagements, devise, clause, onFer
     declenchement: clause?.declenchement ?? '',
     base: clause?.base ?? '',
     valeur: clause?.valeur?.toString() ?? '',
-    plafond: clause?.plafond?.toString() ?? '',
+    plafond: clause?.plafond_ht?.toString() ?? '',
     article: clause?.article ?? '',
   });
   const [erreur, setErreur] = useState('');
@@ -371,9 +371,9 @@ export const FormulaireClause = ({ versionId, engagements, devise, clause, onFer
         </select>
       </Champ>
       <Champ libelle="Déclenchement *"><Choix valeur={f.declenchement} options={{ non_tenu: 'Engagement non tenu', tenu: 'Engagement tenu' }} onChange={(declenchement) => setF({ ...f, declenchement })} /></Champ>
-      <Champ libelle="Base *"><Choix valeur={f.base} options={{ montant: `Montant fixe (${devise})`, taux: "Taux de l'assiette facturée (%)" }} onChange={(base) => setF({ ...f, base })} /></Champ>
-      <Champ libelle={f.base === 'taux' ? 'Taux (%) *' : `Montant (${devise}) *`}><input inputMode="decimal" value={f.valeur} onChange={(e) => setF({ ...f, valeur: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle={`Plafond par période (${devise})`}><input inputMode="decimal" value={f.plafond} onChange={(e) => setF({ ...f, plafond: e.target.value })} placeholder="Aucun" className={CHAMP} /></Champ>
+      <Champ libelle="Base *"><Choix valeur={f.base} options={{ montant: `Montant fixe HT (${devise})`, taux: "Taux de l'assiette facturée HT (%)" }} onChange={(base) => setF({ ...f, base })} /></Champ>
+      <Champ libelle={f.base === 'taux' ? 'Taux (%) *' : `Montant HT (${devise}) *`}><input inputMode="decimal" value={f.valeur} onChange={(e) => setF({ ...f, valeur: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle={`Plafond HT par période (${devise})`}><input inputMode="decimal" value={f.plafond} onChange={(e) => setF({ ...f, plafond: e.target.value })} placeholder="Aucun" className={CHAMP} /></Champ>
       <Champ libelle="Article du contrat"><input value={f.article} onChange={(e) => setF({ ...f, article: e.target.value })} className={CHAMP} /></Champ>
       {mesurables.length === 0 && <p className="text-xs text-stone-500 sm:col-span-2">Aucun engagement mesuré dans cette version : saisissez d'abord l'engagement qui conditionne la clause.</p>}
     </Fenetre>

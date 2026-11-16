@@ -19,10 +19,10 @@ describe('dossier contractuel', () => {
   });
 
   it('clauses chiffrees (D-065) : base, condition et plafond saisis', () => {
-    expect(decrireClause({ base: 'taux', valeur: 5, plafond: 300, declenchement: 'non_tenu' }, 'USD', 'Disponibilité'))
-      .toBe("5 % de l'assiette facturée si Disponibilité n'est pas tenu · plafond 300 USD");
-    expect(decrireClause({ base: 'montant', valeur: 1000, plafond: null, declenchement: 'tenu' }, 'GNF'))
-      .toBe("1000 GNF si l'engagement est tenu");
+    expect(decrireClause({ base: 'taux', valeur: 5, plafond_ht: 300, declenchement: 'non_tenu' }, 'USD', 'Disponibilité'))
+      .toBe("5 % de l'assiette facturée HT si Disponibilité n'est pas tenu · plafond 300 USD HT");
+    expect(decrireClause({ base: 'montant', valeur: 1000, plafond_ht: null, declenchement: 'tenu' }, 'GNF'))
+      .toBe("1000 GNF HT si l'engagement est tenu");
   });
 
   it('etat des echeances (D-065)', () => {

@@ -7,18 +7,19 @@ import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { TYPES_ECRITURE, bornesMois, lignesExportComptable, totauxDettes, type Dette, type Ecriture } from './finance';
 
 // Budgets, engagements budgetaires, dettes et export comptable (D-065).
-// Engage = bons approuves non recus et paiements proposes ou approuves ;
-// realise = couts enregistres et paiements executes. Un depassement est
+// Budget TTC. Engage = bons approuves ou recus en partie (commande HT + taxes)
+// et pieces payables non payees (reste a payer TTC) ; realise = paiements
+// executes et couts enregistres (montant saisi). Un depassement est
 // signale, jamais bloque. Referentiels (natures, plan de comptes, comptes de
 // tiers) saisis par l'administrateur : aucun numero de compte suppose.
 
 interface Suivi {
   id: string; numero: string; periode_debut: string; periode_fin: string; site_id: string | null; site: string | null; nature_id: string;
-  nature: string; nature_code: string; devise: string; montant: number; note: string | null; engage_bons: number; engage_paiements: number;
+  nature: string; nature_code: string; devise: string; montant_ttc: number; note: string | null; engage_bons: number; engage_a_payer: number;
   engage: number; realise_couts: number; realise_paiements: number; realise: number; disponible: number; consommation_pct: number;
   depassement: boolean; sources_non_visibles: string | null;
 }
-interface Depense { categorie: string; origine: 'bon_commande' | 'paiement' | 'cout'; piece_id: string; piece: string | null; date_operation: string; nature_id: string | null; devise: string | null; montant: number; tiers: string | null;
+interface Depense { categorie: string; origine: 'bon_commande' | 'a_payer' | 'paiement' | 'cout'; piece_id: string; piece: string | null; date_operation: string; nature_id: string | null; devise: string | null; montant: number; base_montant: string; tiers: string | null;
   source_imputation: 'bon_commande' | 'facture_loueur' | 'cout'; piece_imputee: string }
 interface Ref { id: string; libelle: string; actif?: boolean }
 interface Nature { id: string; code: string; libelle: string; actif: boolean }
@@ -33,7 +34,7 @@ const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
 const nombre = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 const jour = (d: string | null) => (d ? new Date(d + 'T00:00:00').toLocaleDateString('fr-FR') : '—');
 const moisCourant = () => new Date().toISOString().slice(0, 7);
-const ORIGINES: Record<string, string> = { bon_commande: 'Bon de commande', paiement: 'Paiement', cout: 'Coût' };
+const ORIGINES: Record<string, string> = { bon_commande: 'Bon de commande', a_payer: 'Pièce à payer', paiement: 'Paiement', cout: 'Coût' };
 const SOURCES: Record<string, string> = { bon_commande: 'bon de commande', facture_loueur: 'facture du loueur', cout: 'coût' };
 
 export const FinanceView = () => {
@@ -176,7 +177,7 @@ export const FinanceView = () => {
                 </select>
               </label>
               <label>Devise *<input value={budget.devise} onChange={(e) => setBudget({ ...budget, devise: e.target.value.toUpperCase().slice(0, 3) })} placeholder="GNF, USD..." className={CHAMP} /></label>
-              <label>Montant *<input inputMode="decimal" value={budget.montant} onChange={(e) => setBudget({ ...budget, montant: e.target.value })} className={CHAMP} /></label>
+              <label>Montant TTC *<input inputMode="decimal" value={budget.montant} onChange={(e) => setBudget({ ...budget, montant: e.target.value })} className={CHAMP} /></label>
               {budget.remplace && <label className="sm:col-span-2">Motif de la révision *<input value={budget.motif} onChange={(e) => setBudget({ ...budget, motif: e.target.value })} className={CHAMP} /></label>}
               <label className={budget.remplace ? 'sm:col-span-4' : 'sm:col-span-2'}>Note<input value={budget.note} onChange={(e) => setBudget({ ...budget, note: e.target.value })} className={CHAMP} /></label>
               {natures.length === 0 && <p className="text-xs text-stone-500 sm:col-span-4">Aucune nature de dépense : l'administrateur saisit le référentiel (onglet Référentiels).</p>}
@@ -192,7 +193,7 @@ export const FinanceView = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-stone-300 text-left text-stone-500">
-                  <th className="py-2 pr-3 font-medium">Budget</th><th className="py-2 pr-3 text-right font-medium">Montant</th>
+                  <th className="py-2 pr-3 font-medium">Budget</th><th className="py-2 pr-3 text-right font-medium">Budget TTC</th>
                   <th className="py-2 pr-3 text-right font-medium">Engagé</th><th className="py-2 pr-3 text-right font-medium">Réalisé</th>
                   <th className="py-2 pr-3 text-right font-medium">Disponible</th><th className="py-2 font-medium">État</th>
                 </tr></thead>
@@ -200,13 +201,13 @@ export const FinanceView = () => {
                   <tr key={b.id} className="border-b border-stone-100 align-top last:border-0">
                     <td className="py-2 pr-3"><p className="font-semibold">{b.numero} · {b.nature}</p>
                       <p className="text-xs text-stone-500">{jour(b.periode_debut)} – {jour(b.periode_fin)} · {b.site ?? 'sans site'}{b.sources_non_visibles ? ` · non visibles avec vos droits : ${b.sources_non_visibles}` : ''}</p></td>
-                    <td className="py-2 pr-3 text-right">{nombre.format(b.montant)} {b.devise}</td>
-                    <td className="py-2 pr-3 text-right" title={`Bons ${nombre.format(b.engage_bons)} · paiements ${nombre.format(b.engage_paiements)}`}>{nombre.format(b.engage)}</td>
+                    <td className="py-2 pr-3 text-right">{nombre.format(b.montant_ttc)} {b.devise}</td>
+                    <td className="py-2 pr-3 text-right" title={`Bons en commande ${nombre.format(b.engage_bons)} · pièces à payer ${nombre.format(b.engage_a_payer)}`}>{nombre.format(b.engage)}</td>
                     <td className="py-2 pr-3 text-right" title={`Coûts ${nombre.format(b.realise_couts)} · paiements ${nombre.format(b.realise_paiements)}`}>{nombre.format(b.realise)}</td>
                     <td className={`py-2 pr-3 text-right font-semibold ${b.disponible < 0 ? 'text-red-700' : ''}`}>{nombre.format(b.disponible)}</td>
                     <td className="py-2"><span className="flex flex-wrap items-center gap-1">
                       {b.depassement ? <Puce teinte="rouge">Dépassé ({b.consommation_pct} %)</Puce> : <Puce teinte="vert">{b.consommation_pct} % consommé</Puce>}
-                      {peutBudget && <button onClick={() => setBudget({ remplace: b, debut: b.periode_debut, fin: b.periode_fin, nature: b.nature_id, site: b.site_id ?? '', devise: b.devise, montant: String(b.montant), motif: '', note: b.note ?? '' })}
+                      {peutBudget && <button onClick={() => setBudget({ remplace: b, debut: b.periode_debut, fin: b.periode_fin, nature: b.nature_id, site: b.site_id ?? '', devise: b.devise, montant: String(b.montant_ttc), motif: '', note: b.note ?? '' })}
                         className="rounded border border-stone-200 px-2 py-0.5 text-xs" aria-label={`Réviser ${b.numero}`}>Réviser</button>}
                       {peutBudget && <button onClick={() => annulerBudget(b)} className="rounded border border-stone-200 px-2 py-0.5 text-xs" aria-label={`Annuler ${b.numero}`}>Annuler</button>}
                     </span></td>
@@ -215,7 +216,7 @@ export const FinanceView = () => {
               </table>
             </div>
           )}
-          <Provenance source="budgets saisis ; engagé : bons de commande approuvés non reçus (reliquat HT, GNF), paiements proposés ou approuvés ; réalisé : coûts enregistrés, paiements exécutés" heure={heure} />
+          <Provenance source="budgets saisis (TTC) ; engagé : bons approuvés ou reçus en partie (commande HT + taxes, GNF), pièces payables non payées (reste à payer TTC D-055) ; réalisé : paiements exécutés, coûts enregistrés (montant saisi)" heure={heure} />
         </Panneau>
       )}
 
@@ -225,7 +226,7 @@ export const FinanceView = () => {
             <ul className="divide-y divide-stone-100 text-sm" aria-label="Dépenses à imputer">
               {nonImputees.map((d) => (
                 <li key={`${d.source_imputation}-${d.piece_imputee}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <span>{ORIGINES[d.origine]} <b>{d.piece ?? 'sans numéro'}</b>{d.origine === 'paiement' ? ` (impute la ${SOURCES[d.source_imputation]})` : ''} · {jour(d.date_operation)} · {nombre.format(d.montant)} {d.devise ?? 'devise non saisie'}{d.tiers ? ` · ${d.tiers}` : ''}</span>
+                  <span>{ORIGINES[d.origine]} <b>{d.piece ?? 'sans numéro'}</b>{d.origine === 'paiement' || d.origine === 'a_payer' ? ` (impute la ${SOURCES[d.source_imputation]})` : ''} · {jour(d.date_operation)} · {nombre.format(d.montant)} {d.devise ?? 'devise non saisie'} ({d.base_montant}){d.tiers ? ` · ${d.tiers}` : ''}</span>
                   <select defaultValue="" onChange={(e) => imputer(d, e.target.value)} aria-label={`Imputer ${d.piece ?? d.piece_id}`} className="rounded border border-stone-300 px-2 py-1 text-xs">
                     <option value="">Imputer à...</option>
                     {natures.filter((n) => n.actif).map((n) => <option key={n.id} value={n.id}>{n.code} · {n.libelle}</option>)}

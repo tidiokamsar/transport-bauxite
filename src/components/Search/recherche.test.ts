@@ -24,7 +24,7 @@ describe('recherche globale (D-061)', () => {
 describe('parametres lus par le serveur (D-061)', () => {
   it('liste fermee des cles lues par les fonctions SQL', () => {
     expect(REGLAGES.map((r) => r.cle).sort()).toEqual([
-      'achats_validation_separee', 'carburant_validation_separee', 'consultation_offres_minimum', 'contrats_alerte_echeance_jours', 'controle_depart_exige',
+      'achats_validation_separee', 'carburant_validation_separee', 'clauses_renonciation_separee', 'consultation_offres_minimum', 'contrats_alerte_echeance_jours', 'controle_depart_exige',
       'fournisseurs_alerte_documents_jours', 'kilometrage_validation_separee', 'mfa_exige', 'paiements_validation_separee',
       'planification_cloture_separee', 'pneu_inspection_max_jours', 'pneu_profondeur_min_mm', 'tolerance_poids_cbg_t',
     ]);

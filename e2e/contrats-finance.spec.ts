@@ -65,7 +65,7 @@ test.describe('Contrats et finance (D-065)', () => {
     await f.getByLabel('Taux (%) *').fill('120');
     await expect(f.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
     await f.getByLabel('Taux (%) *').fill('5');
-    await f.getByLabel('Plafond par période (USD)').fill('3000');
+    await f.getByLabel('Plafond HT par période (USD)').fill('3000');
     await f.getByRole('button', { name: 'Enregistrer' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0].corps).toMatchObject({ p_version: 'v0', p_type: 'penalite', p_engagement: 'e1', p_declenchement: 'non_tenu', p_base: 'taux', p_valeur: 5, p_plafond: 3000, p_id: null });
@@ -78,7 +78,7 @@ test.describe('Contrats et finance (D-065)', () => {
       sites: [{ id: 's1', name: 'Nimba' }],
       v_suivi_budgets: [{
         id: 'b1', numero: 'BUD-2026-00001', periode_debut: '2026-01-01', periode_fin: '2026-12-31', site_id: 's1', site: 'Nimba', nature_id: 'n1', nature: 'Pièces de rechange',
-        nature_code: 'PIECES', devise: 'GNF', montant: 1000000, note: null, engage_bons: 200000, engage_paiements: 0, engage: 200000, realise_couts: 900000,
+        nature_code: 'PIECES', devise: 'GNF', montant_ttc: 1000000, note: null, engage_bons: 200000, engage_a_payer: 0, engage: 200000, realise_couts: 900000,
         realise_paiements: 0, realise: 900000, disponible: -100000, consommation_pct: 110, depassement: true, sources_non_visibles: null,
       }],
       v_depenses_budgetaires: [], v_dettes_fournisseurs: [], plan_comptable: [], cost_categories: [], contrats: [], suppliers: [], comptes_tiers: [],
@@ -95,7 +95,7 @@ test.describe('Contrats et finance (D-065)', () => {
     await f.getByLabel('Fin *').fill('2027-12-31');
     await f.getByLabel('Nature de dépense *').selectOption('n1');
     await f.getByLabel('Devise *').fill('gnf');
-    await f.getByLabel('Montant *').fill('1 500 000');
+    await f.getByLabel('Montant TTC *').fill('1 500 000');
     await f.getByRole('button', { name: 'Enregistrer le budget' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0].corps).toMatchObject({ p_debut: '2027-01-01', p_fin: '2027-12-31', p_nature: 'n1', p_devise: 'GNF', p_montant: 1500000, p_site: null, p_remplace: null });
