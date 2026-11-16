@@ -77,7 +77,7 @@ test.describe('Pesée CBG à deux sources', () => {
 
     // C : comparaison cote a cote
     await page.getByRole('tab', { name: 'C. Rapprochement' }).click();
-    await page.getByLabel('Relevé', { exact: true }).selectOption('r1');
+    await page.getByRole('combobox', { name: 'Relevé', exact: true }).selectOption('r1');
     const table = page.getByRole('table', { name: 'Rapprochement côte à côte' });
     await expect(table.getByText('Écart de poids')).toBeVisible();
     await expect(table.getByText('Net CBG 42 t, releve KOGON 40 t, ecart 2 t')).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Pesée CBG à deux sources', () => {
     await page.getByRole('tab', { name: 'D. Anomalies et validations' }).click();
     await page.getByRole('button', { name: 'Ouvrir Net CBG 42 t, releve KOGON 40 t, ecart 2 t' }).click();
     const action = page.getByRole('form', { name: 'Action sur l\'anomalie' });
-    await action.getByLabel('Action').selectOption('examiner');
+    await action.getByRole('combobox', { name: 'Action', exact: true }).selectOption('examiner');
     await page.getByRole('button', { name: 'Enregistrer l\'action' }).click();
     await expect.poll(() => appels.length).toBe(3);
     expect(appels[2]).toMatchObject({ fonction: 'agir_anomalie_pesee', corps: { p_id: 'a1', p_action: 'examiner' } });
