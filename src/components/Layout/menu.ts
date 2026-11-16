@@ -30,7 +30,7 @@ export const MENU: MenuItem[] = [
       { id: 'geofencing', label: 'Géorepérage', icon: Gauge },
       { id: 'sites', label: 'Sites', icon: MapPin },
       { id: 'infrastructures', label: 'Infrastructures et fermetures', icon: Building },
-      { id: 'alerts', label: 'Alertes', icon: Bell },
+      { id: 'alerts', label: 'Centre des décisions', icon: Bell },
     ],
   },
   { id: 'planification', label: 'Planification', icon: CalendarDays },
@@ -116,6 +116,7 @@ export const MENU: MenuItem[] = [
       { id: 'hr-payroll', label: 'Paie', icon: Banknote },
       { id: 'controles-depart', label: 'Contrôles avant départ', icon: ClipboardCheck },
       { id: 'incidents', label: 'Incidents', icon: ShieldAlert },
+      { id: 'hse-prevention', label: 'Prévention HSE', icon: ClipboardList },
     ],
   },
   {

@@ -67,7 +67,8 @@ const PaiementsView = lazy(() => import('./components/Paiements/PaiementsView').
 const FinanceView = lazy(() => import('./components/Finance/FinanceView').then(m => ({ default: m.FinanceView })));
 const EvaluationLoueurView = lazy(() => import('./components/Contrats/EvaluationLoueurView').then(m => ({ default: m.EvaluationLoueurView })));
 const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').then(m => ({ default: m.IncidentsView })));
-const AlertsView = lazy(() => import('./components/Alerts/AlertsView').then(m => ({ default: m.AlertsView })));
+const CentreDecisionsView = lazy(() => import('./components/Decisions/CentreDecisionsView').then(m => ({ default: m.CentreDecisionsView })));
+const HsePreventionView = lazy(() => import('./components/Hse/HsePreventionView').then(m => ({ default: m.HsePreventionView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
 const InfrastructuresView = lazy(() => import('./components/Sites/InfrastructuresView').then(m => ({ default: m.InfrastructuresView })));
 const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.FiabiliteEnginsView })));
@@ -222,7 +223,9 @@ const MainApp = () => {
       case 'incidents':
         return <IncidentsView />;
       case 'alerts':
-        return <AlertsView />;
+        return <CentreDecisionsView onAllerA={setCurrentView} />;
+      case 'hse-prevention':
+        return <HsePreventionView />;
       case 'sites':
         return <SitesView />;
       case 'infrastructures':
