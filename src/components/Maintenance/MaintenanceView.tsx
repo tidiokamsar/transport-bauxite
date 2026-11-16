@@ -67,7 +67,9 @@ export const MaintenanceView = () => {
     setPieces(null); setErreurPieces('');
     const { data, error } = await supabase.rpc('pieces_ordre_travail', { p_ordre: id });
     if (error) { setErreurPieces(error.message); setPieces([]); return; }
-    setPieces((data ?? []) as PieceOrdre[]);
+    // Les contre-mouvements d'annulation portent l'ordre (D-072) : le mouvement
+    // annule est deja affiche barre, ils ne forment pas une ligne de plus.
+    setPieces(((data ?? []) as PieceOrdre[]).filter((p) => (p.type_mouvement as string) !== 'annulation'));
   }, []);
   useEffect(() => { if (choisi) chargerPieces(choisi); }, [choisi, chargerPieces]);
   useEffect(() => {

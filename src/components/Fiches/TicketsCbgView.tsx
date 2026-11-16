@@ -24,6 +24,7 @@ const NATURES: Record<string, { libelle: string; teinte: TeintePuce }> = {
   absent_sigtb: { libelle: 'Inconnu de SIGTB', teinte: 'rouge' },
   manquant_releve: { libelle: 'Absent du relevé CBG', teinte: 'orange' },
   ligne_illisible: { libelle: 'Ligne illisible', teinte: 'gris' },
+  doublon_releve: { libelle: 'Ticket en double dans le relevé', teinte: 'rouge' },
 };
 const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
 

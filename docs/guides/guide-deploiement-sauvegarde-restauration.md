@@ -135,6 +135,8 @@ tail -n 20 /var/log/sigtb-sauvegarde.log
 > **Erratum du 2026-11-16 (D-073).** Le test du 2026-11-15 ne comparait que des comptages. La restauration simple qu'il utilisait rouvrait les fonctions internes : 289 fonctions exécutables par `anon` après restauration, contre 65 en production. Cause : l'image Supabase accorde par défaut à `anon`, `authenticated` et `service_role` tous les droits sur les objets créés dans `public`, et le dump n'enregistre pas les retraits de droits faits ensuite. La procédure ci-dessous passe désormais par `deploy/vps/restaurer.sh`, qui neutralise ces droits par défaut pendant la restauration puis les rétablit.
 >
 > **Test du 2026-11-16** (même sauvegarde `sigtb-20261115T224535Z.dump`, nouveau script) : 0 erreur `pg_restore`, 3 s ; 19 contrôles identiques à la production, dont 65 fonctions exécutables par `anon`, 240 par `authenticated`, et les empreintes des droits des fonctions, des tables et des droits par défaut. Les 7 erreurs « role supabase_functions_admin does not exist » ont disparu : la restauration est limitée aux schémas `public`, `auth` et `supabase_migrations`.
+>
+> **Précision du 2026-11-16 (D-072, D-073).** Après la restauration, les droits par défaut du schéma `public` sont ceux du dump : `pg_restore` les applique en fin de restauration. La première version du script les remplaçait par une liste fixe, qui aurait rendu `TRUNCATE` aux comptes après le retrait fait par D-072. En cas d'échec, le script rétablit les droits par défaut relevés avant la restauration. Testé le 2026-11-16 : restauration normale identique à la production (19 contrôles) ; restauration d'un dump tronqué annulée, droits par défaut inchangés.
 
 Une restauration remet la base à l'état du dump : toute saisie postérieure
 est perdue. Elle exige l'autorisation explicite du propriétaire.
@@ -193,9 +195,10 @@ bash /opt/sigtb/depot/courant/deploy/vps/appliquer-migrations.sh --tests
 - `/` répond 200, `/rest/v1/...` 401 sans clé ;
 - connexion d'un administrateur ;
 - comptages des tables principales cohérents avec ceux relevés à l'étape 2 ;
-- droits : `restaurer.sh` affiche l'empreinte des droits par défaut avant et
-  après, elle doit être identique ; le nombre de fonctions exécutables par
-  `anon` doit être celui relevé à l'étape 2 ;
+- droits : le nombre de fonctions exécutables par `anon` et l'empreinte des
+  droits par défaut affichée par `restaurer.sh` (« après ») doivent être ceux
+  relevés à l'étape 2 sur la même sauvegarde : ce sont ceux du dump, qui
+  peuvent différer de l'état d'avant la restauration ;
 - consigner la restauration (fichier, heure, raison, résultat) dans le
   journal du serveur.
 

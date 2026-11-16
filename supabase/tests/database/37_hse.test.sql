@@ -69,7 +69,10 @@ SELECT throws_ok($$SELECT public.avancer_voyage((SELECT id FROM v), 'AT_LOADING'
 SELECT public.enregistrer_controle_depart('00000000-0000-4000-a400-0000000000b1',
   '[{"point": "00000000-0000-4000-a400-0000000000e1", "resultat": "conforme"}, {"point": "00000000-0000-4000-a400-0000000000e2", "resultat": "non_conforme", "observation": "Fele"}]'::jsonb,
   p_date => now());
+-- controle_depart_du_jour n'est plus executable par les comptes (D-072, R3-7).
+RESET ROLE;
 SELECT is(public.controle_depart_du_jour('00000000-0000-4000-a400-0000000000b1', current_date), 'reserves', 'apres reparation : conforme avec reserves');
+SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.avancer_voyage((SELECT id FROM v), 'AT_LOADING', now())$$, 'depart autorise');
 SELECT throws_ok($$UPDATE public.controles_depart SET resultat = 'conforme' WHERE id = (SELECT id FROM c1)$$, '42501', NULL, 'controle non modifiable');
 
