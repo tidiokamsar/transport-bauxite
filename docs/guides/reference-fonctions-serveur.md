@@ -99,8 +99,8 @@ périmètre).
 
 | Fonction | Droit | Règle principale |
 |---|---|---|
-| `affecter_en_groupe(affectations)` | DEFINER, W(trips), périmètre | Tableau JSON `[{voyage, camion, chauffeur, engin, recommandation}]`, 1 à 300 lignes ; voyage préparé (Brouillon, Planifié) ; chaque ligne dans son propre sous-bloc : un refus n'annule que ce voyage ; rapport par voyage (`affecte` ou `refuse` et raison) ; référence jamais rendue hors périmètre |
-| `enchainer_voyage(voyage, chargeuse, suivant, date, shift, recommandation)` | DEFINER, W(trips), périmètre | Voyage livré (ou accepté, clôturé, en litige, rejeté) avec camion et chauffeur ; camion et chauffeur non engagés ailleurs (verrou par camion) ; voyage suivant désigné : préparé, sans camion, même site de chargement, pas antérieur ; sinon nouveau voyage sur le même trajet ; décision historisée (`regle` = `enchainement`) |
+| `affecter_en_groupe(affectations)` | DEFINER, W(trips), périmètre | Tableau JSON `[{voyage, camion, chauffeur, engin, recommandation}]`, 1 à 300 lignes ; voyage préparé (Brouillon, Planifié) ; chaque ligne dans son propre sous-bloc : un refus n'annule que ce voyage ; rapport par voyage (`affecte` ou `refuse` et raison) ; référence jamais rendue hors périmètre ; conflit transitoire (classes 40 et 55) : l'opération entière échoue, à rejouer |
+| `enchainer_voyage(voyage, chargeuse, suivant, date, shift, recommandation)` | DEFINER, W(trips), périmètre | Périmètre avant tout verrou ; voyage livré (ou accepté, clôturé, en litige, rejeté) avec camion et chauffeur ; camion et chauffeur non engagés ailleurs (verrou par camion ; référence du voyage engageant donnée seulement dans le périmètre) ; voyage suivant désigné : préparé, sans camion, même site de chargement, pas antérieur ; sinon nouveau voyage sur le même trajet, à la date fournie (sans date : celle du voyage livré, refusée s'il date d'avant la veille) ; décision historisée (`regle` = `enchainement`) |
 | `durees_voyages(debut, fin)` | INVOKER | Par voyage visible : cycle (arrivée au chargement -> livraison) et rotation (-> arrivée au chargement suivante du même camion, même date et shift) mesurés sur `trip_events` ; NULL si non mesurable |
 | `statistiques_trajets(site, shift, jusqua, jours)` | INVOKER | Par destination, sur les journées antérieures à `jusqua` (1 à 90 jours) : voyages livrés, charge moyenne, cycle et rotation moyens, nombre de mesures |
 | `rapport_voyages(debut, fin, axe, site)` | INVOKER | Axe `camion`, `chauffeur`, `site` ou `shift` ; période d'au plus 367 jours ; voyages, livrés, annulés, tonnes (D-023), livrés sans poids, durées moyennes, incidents, litiges |
@@ -111,7 +111,7 @@ périmètre).
 | `annuler_sanction(sanction, motif)` | DEFINER, A(drivers) ou admin, périmètre | Décision active ; motif requis |
 
 Tables `infractions_chauffeur` et `sanctions_infraction` : lecture R(drivers)
-ou R(trips), périmètre du chauffeur ou du voyage ; aucune écriture directe ;
+ou R(trips), périmètre du chauffeur, du voyage ou du site de saisie ; aucune écriture directe ;
 garde `garde_registre_infractions` (append-only, seule l'annulation motivée
 modifie une ligne). `infraction_accessible` est interne (non exécutable par
 les comptes).

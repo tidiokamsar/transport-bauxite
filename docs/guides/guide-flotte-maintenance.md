@@ -171,9 +171,13 @@ du chauffeur**.
   une sanction est en vigueur, réservé à une personne habilitée à
   sanctionner, et la sanction est annulée avec elle. Rien n'est supprimé.
 - Une sanction (même un retrait de conduite) ne bloque pas le dispatch :
-  la personne qui affecte en tient compte.
+  un retrait de conduite ou une mise à pied en vigueur s'affiche en
+  avertissement dans la recommandation ; la personne qui affecte décide.
+- Une infraction reste visible et traitable par le site où elle a été
+  saisie, même après mutation du chauffeur.
 - Pas de séparation entre la personne qui déclare et celle qui décide :
-  dérogation à confirmer par le propriétaire (D-066).
+  elles peuvent être la même personne (dérogation à confirmer par le
+  propriétaire, D-066).
 
 ## Limites connues
 

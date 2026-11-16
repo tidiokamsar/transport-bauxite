@@ -25,13 +25,15 @@ export const IncidentVoyage = ({
   const [saisie, setSaisie] = useState(false);
   const [champs, setChamps] = useState<Record<string, string>>({});
   const [erreur, setErreur] = useState('');
+  const [erreurLecture, setErreurLecture] = useState('');
   const [message, setMessage] = useState('');
   const [enCours, setEnCours] = useState(false);
 
   const charger = useCallback(async () => {
     const { data, error } = await supabase.from('incidents')
       .select('id, numero, type, severity, incident_time, statut, description').eq('trip_id', voyage.id).order('incident_time');
-    setIncidents(error ? [] : (data ?? []) as IncidentLu[]);
+    setErreurLecture(error ? `Incidents indisponibles : ${error.message}` : '');
+    setIncidents(error ? null : (data ?? []) as IncidentLu[]);
   }, [voyage.id]);
   useEffect(() => { charger(); }, [charger]);
 
@@ -61,7 +63,8 @@ export const IncidentVoyage = ({
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-stone-700"><ShieldAlert className="h-4 w-4" /> Incidents du voyage</h3>
         {peutEcrire && !saisie && <button onClick={ouvrir} className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100">Déclarer un incident</button>}
       </div>
-      {incidents === null ? <p className="text-sm text-stone-400">Chargement…</p> : incidents.length === 0 ? (
+      {erreurLecture ? <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreurLecture}</p>
+        : incidents === null ? <p className="text-sm text-stone-400">Chargement…</p> : incidents.length === 0 ? (
         <p className="text-sm text-stone-500">Aucun incident déclaré sur ce voyage.</p>
       ) : (
         <ul className="space-y-1 text-sm">{incidents.map((i) => (

@@ -11,6 +11,7 @@ import {
 } from './recommandation';
 import { FenetreDecision, type ModeDecision } from './FenetreDecision';
 import { SimulationScenarios } from './SimulationScenarios';
+import { SANCTIONS_CONDUITE, SELECTION_SANCTIONS_CONDUITE, sanctionsConduiteParChauffeur, type SanctionConduite } from '../Drivers/infractions';
 
 // Dispatch v1 (etape 4 de la reprise, CDC 11, D-024). Le systeme recommande
 // selon des regles fixes et affichees ; le dispatcher accepte, modifie ou
@@ -82,18 +83,25 @@ export const DispatchView = () => {
   const [enCours, setEnCours] = useState(false);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
+  const [sanctions, setSanctions] = useState<Map<string, SanctionConduite[]>>(new Map());
+  const [erreurSanctions, setErreurSanctions] = useState('');
 
   useEffect(() => {
     Promise.all([
       supabase.from('work_shifts').select('id, display_name, start_time, end_time').eq('is_active', true).order('shift_order'),
       supabase.from('vehicles').select('id, registration, vehicle_type, status, site_id').order('registration'),
       supabase.from('drivers').select('id, name, status, license_expiry').order('name'),
-    ]).then(([s, v, d]) => {
+      supabase.from('sanctions_infraction').select(SELECTION_SANCTIONS_CONDUITE)
+        .eq('statut', 'active').in('sanction', SANCTIONS_CONDUITE).limit(1000),
+    ]).then(([s, v, d, rS]) => {
       const liste = (s.data ?? []) as Shift[];
       setShifts(liste);
       setShift((x) => x || shiftCourant(liste)?.id || '');
       setEngins((v.data ?? []) as Engin[]);
       setChauffeurs((d.data ?? []) as Chauffeur[]);
+      // Avertissement seulement : une lecture impossible est signalee, jamais tue.
+      setErreurSanctions(rS.error ? `Sanctions en vigueur indisponibles : ${rS.error.message}` : '');
+      setSanctions(rS.error ? new Map() : sanctionsConduiteParChauffeur(rS.data ?? []));
     });
   }, []);
 
@@ -171,6 +179,7 @@ export const DispatchView = () => {
       engins,
       chauffeurs,
       habitudes,
+      sanctions,
     });
     return {
       aAffecter,
@@ -178,7 +187,7 @@ export const DispatchView = () => {
       recommandations: new Map(recommandations.map((r) => [r.voyageId, r])),
       affectes: liste.filter((v) => v.vehicle_id && !A_AFFECTER.includes(v.etat ?? '') && !['CANCELLED', 'REJECTED'].includes(v.etat ?? '')).length,
     };
-  }, [voyages, camionParId, chauffeurParId, date, engins, chauffeurs, habitudes]);
+  }, [voyages, camionParId, chauffeurParId, date, engins, chauffeurs, habitudes, sanctions]);
 
   const camionsSite = engins.filter((e) => camionDisponible(e) && (e.site_id === null || e.site_id === site));
   const enginsSite = engins.filter((e) => e.status === 'active' && TYPES_ENGIN.includes(e.vehicle_type) && (e.site_id === null || e.site_id === site));
@@ -257,6 +266,7 @@ export const DispatchView = () => {
       <>
         <p className="font-semibold text-stone-900">{[r.camion?.registration, r.chauffeur?.name, r.engin?.registration].filter(Boolean).join(' · ')}</p>
         <ul className="mt-0.5 space-y-0.5 text-xs text-stone-500">{r.explications.map((e) => <li key={e}>{e}</li>)}</ul>
+        {r.avertissements.map((a) => <p key={a} role="note" className="mt-1 text-xs font-medium text-orange-800">{a}</p>)}
       </>
     )
   );
@@ -295,6 +305,7 @@ export const DispatchView = () => {
       </section>
 
       {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+      {erreurSanctions && <p role="alert" className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{erreurSanctions}</p>}
 
       {peutEcrire && (
         <Panneau titre="Préparer le shift">

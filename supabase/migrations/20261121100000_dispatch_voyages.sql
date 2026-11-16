@@ -60,6 +60,15 @@
   voyage suivant hors perimetre ; `enregistrer_infraction` controle le
   perimetre du voyage et de l'engin avant leur coherence (pas d'oracle) ;
   sequence et garde du registre fermees aux comptes.
+
+  Revue independante de l'integration (constats 2 a 8) : conflits
+  transitoires (classes 40 et 55) relances par `affecter_en_groupe`, jamais
+  rapportes comme refus ; `enchainer_voyage` controle le perimetre avant tout
+  verrou, ne donne la reference d'un voyage engageant que dans le perimetre,
+  et exige une date pour un voyage livre avant la veille ; une infraction
+  reste lisible et traitable par le site ou elle a ete saisie apres mutation
+  du chauffeur. Le perimetre du camion et du chauffeur dans
+  `decider_affectation` est traite a part (D-075).
 */
 
 -- 1. Durees mesurees par voyage
@@ -189,6 +198,12 @@ BEGIN
       trip_id := v_trip; reference := v_ref; resultat := 'affecte'; decision_id := v_decision; raison := NULL;
       RETURN NEXT;
     EXCEPTION WHEN OTHERS THEN
+      -- Conflit transitoire (classe 40 : interblocage, serialisation ; 55 :
+      -- verrou indisponible) : l'operation entiere echoue et se rejoue, le
+      -- voyage n'est jamais declare refuse a tort.
+      IF left(SQLSTATE, 2) IN ('40', '55') THEN
+        RAISE;
+      END IF;
       trip_id := v_trip; reference := v_ref; resultat := 'refuse'; decision_id := NULL; raison := SQLERRM;
       RETURN NEXT;
     END;
@@ -214,18 +229,20 @@ AS $$
 DECLARE
   v public.trips;
   s public.trips;
-  v_engage text;
+  v_engage uuid;
+  v_ref_engage text;
   v_date date;
   v_suivant uuid;
 BEGIN
   IF NOT public.has_module_write('trips') THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les voyages requis' USING ERRCODE = '42501';
   END IF;
-  SELECT * INTO v FROM public.trips WHERE id = p_trip_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Voyage introuvable' USING ERRCODE = 'P0002'; END IF;
-  IF NOT public.voyage_permis(v.id) THEN
+  -- Perimetre avant tout verrou ni lecture.
+  IF p_trip_id IS NULL OR NOT public.voyage_permis(p_trip_id) THEN
     RAISE EXCEPTION 'Voyage hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
+  SELECT * INTO v FROM public.trips WHERE id = p_trip_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Voyage introuvable' USING ERRCODE = 'P0002'; END IF;
   IF v.etat NOT IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED', 'REJECTED') THEN
     RAISE EXCEPTION 'Le voyage doit etre livre pour enchainer le suivant' USING ERRCODE = '22023';
   END IF;
@@ -235,22 +252,30 @@ BEGIN
 
   -- Un seul enchainement a la fois par camion.
   PERFORM pg_advisory_xact_lock(hashtext('sigtb.enchainement.' || v.vehicle_id::text));
-  SELECT t.reference INTO v_engage FROM public.trips t
+  -- La reference du voyage qui engage deja le camion ou le chauffeur n'est
+  -- donnee que s'il est dans le perimetre de l'appelant.
+  SELECT t.id, t.reference INTO v_engage, v_ref_engage FROM public.trips t
    WHERE t.vehicle_id = v.vehicle_id AND t.id <> v.id
      AND t.etat IN ('ASSIGNED', 'AT_LOADING', 'LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT',
                     'AT_DESTINATION', 'UNLOADING', 'WEIGHED_IN', 'INTERRUPTED')
    ORDER BY t.planned_date, t.reference LIMIT 1;
   IF v_engage IS NOT NULL THEN
-    RAISE EXCEPTION 'Camion deja engage sur le voyage %', v_engage USING ERRCODE = '22023';
+    IF public.voyage_permis(v_engage) THEN
+      RAISE EXCEPTION 'Camion deja engage sur le voyage %', v_ref_engage USING ERRCODE = '22023';
+    END IF;
+    RAISE EXCEPTION 'Camion deja engage sur un autre voyage' USING ERRCODE = '22023';
   END IF;
   -- Le chauffeur suit le camion : il ne doit pas etre engage ailleurs.
-  SELECT t.reference INTO v_engage FROM public.trips t
+  SELECT t.id, t.reference INTO v_engage, v_ref_engage FROM public.trips t
    WHERE t.driver_id = v.driver_id AND t.id <> v.id
      AND t.etat IN ('ASSIGNED', 'AT_LOADING', 'LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT',
                     'AT_DESTINATION', 'UNLOADING', 'WEIGHED_IN', 'INTERRUPTED')
    ORDER BY t.planned_date, t.reference LIMIT 1;
   IF v_engage IS NOT NULL THEN
-    RAISE EXCEPTION 'Chauffeur deja engage sur le voyage %', v_engage USING ERRCODE = '22023';
+    IF public.voyage_permis(v_engage) THEN
+      RAISE EXCEPTION 'Chauffeur deja engage sur le voyage %', v_ref_engage USING ERRCODE = '22023';
+    END IF;
+    RAISE EXCEPTION 'Chauffeur deja engage sur un autre voyage' USING ERRCODE = '22023';
   END IF;
 
   IF p_suivant IS NOT NULL THEN
@@ -264,6 +289,12 @@ BEGIN
     END IF;
     v_suivant := s.id;
   ELSE
+    -- Sans date fournie, la date du voyage livre ; refusee si ce voyage est
+    -- ancien (un enchainement se decide le jour meme ou le lendemain).
+    IF p_date IS NULL AND v.planned_date < current_date - 1 THEN
+      RAISE EXCEPTION 'Voyage livre du % : preciser la date du voyage suivant', to_char(v.planned_date, 'DD/MM/YYYY')
+        USING ERRCODE = '22023';
+    END IF;
     v_date := coalesce(p_date, v.planned_date);
     IF v_date < v.planned_date THEN
       RAISE EXCEPTION 'Date du voyage suivant anterieure au voyage livre' USING ERRCODE = '22023';
@@ -428,7 +459,8 @@ GRANT ALL ON public.infractions_chauffeur, public.sanctions_infraction TO servic
 DROP POLICY IF EXISTS lecture ON public.infractions_chauffeur;
 CREATE POLICY lecture ON public.infractions_chauffeur FOR SELECT TO authenticated
   USING ((public.has_module_view('drivers') OR public.has_module_view('trips') OR public.is_admin())
-         AND (public.chauffeur_permis(driver_id) OR (trip_id IS NOT NULL AND public.voyage_permis(trip_id))));
+         AND (public.chauffeur_permis(driver_id) OR (trip_id IS NOT NULL AND public.voyage_permis(trip_id))
+              OR (site_id IS NOT NULL AND public.site_permis(site_id))));
 DROP POLICY IF EXISTS lecture ON public.sanctions_infraction;
 CREATE POLICY lecture ON public.sanctions_infraction FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.infractions_chauffeur i WHERE i.id = infraction_id));
@@ -542,7 +574,10 @@ DECLARE i public.infractions_chauffeur;
 BEGIN
   SELECT * INTO i FROM public.infractions_chauffeur WHERE id = p_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Infraction introuvable' USING ERRCODE = '22023'; END IF;
-  IF NOT (public.chauffeur_permis(i.driver_id) OR (i.trip_id IS NOT NULL AND public.voyage_permis(i.trip_id))) THEN
+  -- Meme perimetre que la lecture : chauffeur, voyage, ou site ou l'infraction
+  -- a ete saisie (elle reste traitee par ce site apres mutation du chauffeur).
+  IF NOT (public.chauffeur_permis(i.driver_id) OR (i.trip_id IS NOT NULL AND public.voyage_permis(i.trip_id))
+          OR (i.site_id IS NOT NULL AND public.site_permis(i.site_id))) THEN
     RAISE EXCEPTION 'Infraction hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF i.statut = 'annulee' THEN RAISE EXCEPTION 'Infraction annulee' USING ERRCODE = '22023'; END IF;

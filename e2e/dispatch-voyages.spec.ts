@@ -155,6 +155,42 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     expect(incidents[0]).toMatchObject({ p_trip: 't1', p_vehicle: 'v1', p_driver: 'c1', p_site: SITE_MINE, p_type: 'materiel', p_gravite: 'minor', p_description: 'Crevaison pneu avant gauche' });
   });
 
+  test('enchainement sur un nouveau voyage : date envoyee, sanction de conduite signalee sans blocage', async ({ page }) => {
+    await simulerApi(page, {
+      ...BASE,
+      trips: [voyage('t1', 'VYG-001', 'DELIVERED', { vehicle_id: 'v1', driver_id: 'c1', loader_vehicle_id: 'l1', status: 'completed', net_weight: 34 })],
+      trip_events: [], incidents: [],
+      sanctions_infraction: [{ sanction: 'retrait_conduite', infractions_chauffeur: { driver_id: 'c1', numero: 'INF-2026-00007', statut: 'enregistree' } }],
+    });
+    const enchainements = await capturer(page, 'enchainer_voyage', 't9');
+    await ouvrir(page, 'Voyages & Rotations', 'Voyages & Rotations');
+    await page.getByRole('row').filter({ hasText: 'VYG-001' }).click();
+    const suivant = page.getByRole('dialog').getByRole('region', { name: 'Voyage suivant' });
+    await expect(suivant).toContainText('Recommandé : enchaîner un nouveau voyage sur le même trajet');
+    await expect(suivant.getByRole('note')).toContainText('Alpha Test fait l\'objet d\'une sanction en vigueur (Retrait de la conduite, INF-2026-00007)');
+    await expect(suivant.getByLabel('Date du voyage suivant')).not.toHaveValue('');
+    await suivant.getByRole('button', { name: 'Enchaîner le voyage suivant' }).click();
+    await expect.poll(() => enchainements.length).toBe(1);
+    expect(enchainements[0]).toMatchObject({ p_trip_id: 't1', p_suivant: null, p_shift_id: SHIFT });
+    expect(String(enchainements[0].p_date)).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  test('fiche d\'un voyage : lecture impossible signalee, aucune recommandation ni liste vide', async ({ page }) => {
+    await simulerApi(page, {
+      ...BASE,
+      trips: [voyage('t1', 'VYG-001', 'DELIVERED', { vehicle_id: 'v1', driver_id: 'c1', status: 'completed' })],
+      trip_events: [],
+    });
+    await page.route('**/rest/v1/incidents*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'panne simulee' }) }));
+    await page.route('**/rest/v1/sanctions_infraction*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'panne simulee' }) }));
+    await ouvrir(page, 'Voyages & Rotations', 'Voyages & Rotations');
+    await page.getByRole('row').filter({ hasText: 'VYG-001' }).click();
+    const fiche = page.getByRole('dialog');
+    await expect(fiche.getByRole('region', { name: 'Voyage suivant' }).getByRole('alert')).toContainText('Lecture impossible');
+    await expect(fiche.getByRole('region', { name: 'Incidents du voyage' }).getByRole('alert')).toContainText('Incidents indisponibles');
+    await expect(fiche.getByRole('region', { name: 'Incidents du voyage' })).not.toContainText('Aucun incident déclaré');
+  });
+
   test('rapports par axe : tableau, mesures absentes signalees, export CSV', async ({ page }) => {
     await simulerApi(page, { ...BASE, trips: [] });
     const rapports = await capturer(page, 'rapport_voyages', [

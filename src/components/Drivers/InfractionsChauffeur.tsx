@@ -26,6 +26,7 @@ export const InfractionsChauffeur = ({ chauffeurId }: { chauffeurId: string }) =
   const [champs, setChamps] = useState<Record<string, string>>({});
   const [decision, setDecision] = useState<{ id: string; sanction: string; motif: string; detail: string } | null>(null);
   const [erreur, setErreur] = useState('');
+  const [erreurLecture, setErreurLecture] = useState('');
   const [message, setMessage] = useState('');
   const [enCours, setEnCours] = useState(false);
 
@@ -36,16 +37,31 @@ export const InfractionsChauffeur = ({ chauffeurId }: { chauffeurId: string }) =
         .eq('driver_id', chauffeurId).order('survenue_le', { ascending: false }),
       supabase.from('trips').select('id, reference, planned_date').eq('driver_id', chauffeurId).order('planned_date', { ascending: false }).limit(50),
     ]);
-    if (rI.error) setErreur(`Registre indisponible : ${rI.error.message}`);
+    // Registre illisible : etat d'erreur, jamais « aucune infraction ».
+    if (rI.error) {
+      setErreurLecture(`Registre indisponible : ${rI.error.message}`);
+      setInfractions(null); setSanctions([]);
+      return;
+    }
     const liste = (rI.data ?? []) as Infraction[];
-    setInfractions(liste);
     setVoyages((rV.data ?? []) as VoyageCourt[]);
+    const echec = rV.error ? `Voyages du chauffeur indisponibles : ${rV.error.message}` : '';
+    let decisions: Sanction[] = [];
     if (liste.length > 0) {
       const rS = await supabase.from('sanctions_infraction')
         .select('id, infraction_id, sanction, detail, motif, decide_le, statut, motif_annulation')
         .in('infraction_id', liste.map((i) => i.id)).order('decide_le');
-      setSanctions((rS.data ?? []) as Sanction[]);
-    } else setSanctions([]);
+      if (rS.error) {
+        // Sans les decisions, l'etat « sans decision » serait faux.
+        setErreurLecture(`Décisions de sanction indisponibles : ${rS.error.message}`);
+        setInfractions(null); setSanctions([]);
+        return;
+      }
+      decisions = (rS.data ?? []) as Sanction[];
+    }
+    setErreurLecture(echec);
+    setSanctions(decisions);
+    setInfractions(liste);
   }, [chauffeurId]);
   useEffect(() => { charger(); }, [charger]);
 
@@ -104,7 +120,8 @@ export const InfractionsChauffeur = ({ chauffeurId }: { chauffeurId: string }) =
         </div>
       )}
 
-      {infractions === null ? <p className="text-sm text-slate-400">Chargement…</p> : infractions.length === 0 ? (
+      {erreurLecture && <p role="alert" className="mb-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreurLecture}</p>}
+      {infractions === null ? (erreurLecture ? null : <p className="text-sm text-slate-400">Chargement…</p>) : infractions.length === 0 ? (
         <SansDonnees message="Aucune infraction enregistrée" />
       ) : (
         <ul className="divide-y divide-slate-100 text-sm">{infractions.map((i) => {

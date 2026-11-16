@@ -47,7 +47,10 @@ export const SimulationScenarios = ({
       supabase.rpc('statistiques_trajets', { p_site_id: site, p_shift_id: horizon === 'shift' ? shift : null, p_jusqua: date, p_jours: jours }),
       supabase.from('infrastructures_site').select('site_id, type, code, capacite, unite_capacite, actif'),
     ]);
-    setErreur(rS.error ? `Statistiques indisponibles : ${rS.error.message}` : '');
+    // Une lecture impossible donne un etat d'erreur, pas un scenario calcule
+    // sur des donnees partielles (capacites ignorees) ni « sans donnees ».
+    setErreur(rS.error ? `Statistiques indisponibles : ${rS.error.message}`
+      : rC.error ? `Capacités des infrastructures indisponibles : ${rC.error.message}` : '');
     setStats(rS.error || !Array.isArray(rS.data) ? [] : (rS.data as StatTrajet[]).map((s) => ({
       ...s,
       charge_moyenne: s.charge_moyenne === null ? null : Number(s.charge_moyenne),
@@ -93,7 +96,7 @@ export const SimulationScenarios = ({
       </div>
       {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
-      {stats === null ? <p className="text-sm text-stone-400">Chargement…</p> : stats.length === 0 ? (
+      {erreur ? null : stats === null ? <p className="text-sm text-stone-400">Chargement…</p> : stats.length === 0 ? (
         <SansDonnees message="Sans données" detail="Aucun voyage livré depuis ce site sur la période observée : aucune rotation à exploiter, aucun scénario n'est estimé." />
       ) : (
         <>

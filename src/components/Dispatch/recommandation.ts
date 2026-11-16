@@ -2,6 +2,8 @@
 // regles fixes et explicables. Il propose, le dispatcher decide ; le
 // serveur (decider_affectation) controle les contraintes non negociables.
 
+import { avertissementSanction, type SanctionConduite } from '../Drivers/infractions';
+
 export interface VoyageShift {
   id: string;
   reference: string;
@@ -35,6 +37,8 @@ export interface Recommandation {
   explications: string[];
   /** Raison bloquante : aucune proposition complete possible. */
   impossible: string | null;
+  /** Avertissements non bloquants (sanction de conduite en vigueur, D-066). */
+  avertissements: string[];
 }
 
 export const TYPES_CAMION = ['tipper', 'flatbed'];
@@ -91,6 +95,7 @@ export const recommander = ({
   engins,
   chauffeurs,
   habitudes,
+  sanctions,
 }: {
   date: string;
   voyages: VoyageShift[];
@@ -99,6 +104,8 @@ export const recommander = ({
   engins: Engin[];
   chauffeurs: Chauffeur[];
   habitudes: Map<string, string>;
+  /** Sanctions de conduite en vigueur par chauffeur (avertissement seulement). */
+  sanctions?: Map<string, SanctionConduite[]>;
 }): Recommandation[] => {
   const actifs = voyages.filter((v) => !ANNULES.includes(v.etat ?? ''));
   const chargeCamion = new Map<string, number>();
@@ -174,7 +181,11 @@ export const recommander = ({
       }
       if (engin && camion) chargeEngin.set(engin.id, (chargeEngin.get(engin.id) ?? 0) + 1);
 
-      return { voyageId: voyage.id, camion, chauffeur, engin, explications: impossible ? [impossible] : explications, impossible };
+      const avertissement = !impossible && chauffeur ? avertissementSanction(chauffeur.name, sanctions?.get(chauffeur.id)) : null;
+      return {
+        voyageId: voyage.id, camion, chauffeur, engin, explications: impossible ? [impossible] : explications, impossible,
+        avertissements: avertissement ? [avertissement] : [],
+      };
     });
 };
 
@@ -184,6 +195,7 @@ export const instantane = (r: Recommandation) => ({
   chauffeur: r.chauffeur?.name ?? null,
   engin: r.engin?.registration ?? null,
   explications: r.explications,
+  avertissements: r.avertissements,
 });
 
 /**

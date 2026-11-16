@@ -3,6 +3,8 @@
 // suivant, sans retour au parking ; le dispatcher decide (enchainer_voyage,
 // controle serveur par decider_affectation).
 
+import { avertissementSanction, type SanctionConduite } from '../Drivers/infractions';
+
 export const ENCHAINABLES = ['DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED', 'REJECTED'];
 export const ENGAGES = ['ASSIGNED', 'AT_LOADING', 'LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT', 'AT_DESTINATION', 'UNLOADING', 'WEIGHED_IN', 'INTERRUPTED'];
 
@@ -27,10 +29,12 @@ export interface Suivant {
   suivant: VoyageSimple | null;
   chargeuse: EnginEtat | null;
   explications: string[];
+  /** Avertissements non bloquants (sanction de conduite en vigueur). */
+  avertissements: string[];
 }
 
 export const recommanderSuivant = ({
-  voyage, camion, chauffeur, chargeuse, voyagesCamion, prepares,
+  voyage, camion, chauffeur, chargeuse, voyagesCamion, prepares, sanctions,
 }: {
   voyage: VoyageSimple;
   camion: EnginEtat | null;
@@ -40,9 +44,11 @@ export const recommanderSuivant = ({
   voyagesCamion: VoyageSimple[];
   /** Voyages prepares (sans camion) du site de chargement. */
   prepares: VoyageSimple[];
+  /** Sanctions de conduite en vigueur du chauffeur. */
+  sanctions?: SanctionConduite[];
 }): Suivant | null => {
   if (!ENCHAINABLES.includes(voyage.etat ?? '')) return null;
-  const refus = (raison: string): Suivant => ({ possible: false, raison, suivant: null, chargeuse: null, explications: [] });
+  const refus = (raison: string): Suivant => ({ possible: false, raison, suivant: null, chargeuse: null, explications: [], avertissements: [] });
   if (!camion || camion.status !== 'active') return refus(`Camion ${camion?.registration ?? 'inconnu'} indisponible`);
   if (!chauffeur || chauffeur.status !== 'active') return refus(`Chauffeur ${chauffeur?.name ?? 'inconnu'} indisponible`);
   if (!chauffeur.license_expiry || chauffeur.license_expiry < voyage.planned_date) return refus(`Permis de ${chauffeur.name} expiré`);
@@ -65,5 +71,6 @@ export const recommanderSuivant = ({
   const garder = chargeuse && chargeuse.status === 'active' ? chargeuse : null;
   explications.push(garder ? `${garder.registration} reste la chargeuse`
     : chargeuse ? `${chargeuse.registration} indisponible : voyage sans chargeuse désignée` : 'Aucune chargeuse sur le voyage livré');
-  return { possible: true, raison: null, suivant, chargeuse: garder, explications };
+  const avertissement = avertissementSanction(chauffeur.name, sanctions);
+  return { possible: true, raison: null, suivant, chargeuse: garder, explications, avertissements: avertissement ? [avertissement] : [] };
 };

@@ -37,3 +37,14 @@ describe('voyage suivant apres livraison', () => {
       .toMatchObject({ possible: false, raison: 'Permis de Alpha expiré' });
   });
 });
+
+describe('sanction de conduite en vigueur', () => {
+  it('avertit sans bloquer', () => {
+    const r = recommanderSuivant({
+      voyage: livre, camion, chauffeur, chargeuse, voyagesCamion: [], prepares: [],
+      sanctions: [{ driver_id: 'c1', sanction: 'mise_a_pied', numero: 'INF-2026-00004' }],
+    });
+    expect(r?.possible).toBe(true);
+    expect(r?.avertissements[0]).toContain('Mise à pied, INF-2026-00004');
+  });
+});

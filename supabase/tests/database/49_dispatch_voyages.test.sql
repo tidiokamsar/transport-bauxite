@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(65);
+SELECT plan(80);
 
 -- Voyage affecte -> livre, toutes les etapes a l'heure de la transaction.
 CREATE FUNCTION pg_temp.livrer_maintenant(p_trip uuid) RETURNS void
@@ -35,7 +35,10 @@ INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-a660-000000000001', 'operations.d066@exemple.invalid'),
   ('00000000-0000-4000-a660-000000000002', 'directeur.d066@exemple.invalid'),
   ('00000000-0000-4000-a660-000000000003', 'comptable.d066@exemple.invalid'),
-  ('00000000-0000-4000-a660-000000000004', 'operations.site.d066@exemple.invalid');
+  ('00000000-0000-4000-a660-000000000004', 'operations.site.d066@exemple.invalid'),
+  ('00000000-0000-4000-a660-000000000005', 'operations.depota.d066@exemple.invalid'),
+  ('00000000-0000-4000-a660-000000000006', 'directeur.depotb.d066@exemple.invalid'),
+  ('00000000-0000-4000-a660-000000000007', 'operations.mine.d066@exemple.invalid');
 INSERT INTO public.sites (id, name, type) VALUES
   ('00000000-0000-4000-a660-0000000000a1', 'Mine D-066', 'mine'),
   ('00000000-0000-4000-a660-0000000000a2', 'Depot A D-066', 'depot'),
@@ -44,18 +47,27 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-a660-000000000001', 'operations_manager', 'Operations D-066', 'active', NULL),
   ('00000000-0000-4000-a660-000000000002', 'director', 'Directeur D-066', 'active', NULL),
   ('00000000-0000-4000-a660-000000000003', 'accountant', 'Comptable D-066', 'active', NULL),
-  ('00000000-0000-4000-a660-000000000004', 'operations_manager', 'Operations depot B D-066', 'active', '00000000-0000-4000-a660-0000000000a3')
+  ('00000000-0000-4000-a660-000000000004', 'operations_manager', 'Operations depot B D-066', 'active', '00000000-0000-4000-a660-0000000000a3'),
+  ('00000000-0000-4000-a660-000000000005', 'operations_manager', 'Operations depot A D-066', 'active', '00000000-0000-4000-a660-0000000000a2'),
+  ('00000000-0000-4000-a660-000000000006', 'director', 'Directeur depot B D-066', 'active', '00000000-0000-4000-a660-0000000000a3'),
+  ('00000000-0000-4000-a660-000000000007', 'operations_manager', 'Operations mine D-066', 'active', '00000000-0000-4000-a660-0000000000a1')
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status, site_id) VALUES
   ('00000000-0000-4000-a660-0000000000b1', 'TEST-D066-1', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000b2', 'TEST-D066-2', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000b3', 'TEST-D066-3', 'Test', 40, 'tipper', 'immobilized', '00000000-0000-4000-a660-0000000000a1'),
-  ('00000000-0000-4000-a660-0000000000e1', 'TEST-D066-CHG', 'Test', 10, 'loader', 'active', '00000000-0000-4000-a660-0000000000a1');
+  ('00000000-0000-4000-a660-0000000000e1', 'TEST-D066-CHG', 'Test', 10, 'loader', 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000b4', 'TEST-D066-4', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000b5', 'TEST-D066-5', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000b6', 'TEST-D066-6', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1');
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-a660-0000000000c1', 'Chauffeur un D-066', 'D066-1', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c2', 'Chauffeur deux D-066', 'D066-2', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c3', 'Chauffeur expire D-066', 'D066-3', 'C', current_date - 1, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
-  ('00000000-0000-4000-a660-0000000000c4', 'Chauffeur depot B D-066', 'D066-4', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a3');
+  ('00000000-0000-4000-a660-0000000000c4', 'Chauffeur depot B D-066', 'D066-4', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a3'),
+  ('00000000-0000-4000-a660-0000000000c5', 'Chauffeur cinq D-066', 'D066-5', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000c6', 'Chauffeur six D-066', 'D066-6', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000c7', 'Chauffeur mute D-066', 'D066-7', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1');
 
 -- Responsable des operations (global)
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
@@ -148,6 +160,37 @@ RESET ROLE;
 DELETE FROM public.habilitations_requises;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
 SET LOCAL ROLE authenticated;
+
+-- 2 ter. Chauffeur engage ailleurs, voyage rejete, voyage livre ancien.
+CREATE TEMP TABLE eng AS SELECT public.creer_voyage(current_date + 2, '00000000-0000-4000-a660-0000000000a1',
+  '00000000-0000-4000-a660-0000000000a3', '00000000-0000-4000-a660-0000000000b4', '00000000-0000-4000-a660-0000000000c2') AS id;
+SELECT throws_like($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 3), NULL)$$, 'Chauffeur deja engage sur le voyage VYG-%',
+  'enchainement refuse : chauffeur engage sur un autre voyage (reference donnee dans le perimetre)');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000005');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 3), NULL)$$, '22023', 'Chauffeur deja engage sur un autre voyage',
+  'compte borne : reference du voyage engageant hors perimetre non revelee');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE rej AS SELECT public.creer_voyage(current_date, '00000000-0000-4000-a660-0000000000a1', '00000000-0000-4000-a660-0000000000a2',
+  '00000000-0000-4000-a660-0000000000b5', '00000000-0000-4000-a660-0000000000c5') AS id;
+SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM rej))$$, 'voyage livre');
+SELECT lives_ok($$SELECT public.avancer_voyage((SELECT id FROM rej), 'REJECTED', now(), 'Bauxite hors specification', '{}'::jsonb)$$,
+  'voyage rejete a destination');
+CREATE TEMP TABLE rej_suivant (id uuid);
+SELECT lives_ok($$INSERT INTO rej_suivant SELECT public.enchainer_voyage((SELECT id FROM rej), NULL)$$, 'un voyage rejete s''enchaine');
+SELECT is((SELECT (etat, vehicle_id, driver_id)::text FROM public.trips WHERE id = (SELECT id FROM rej_suivant)),
+  '(ASSIGNED,00000000-0000-4000-a660-0000000000b5,00000000-0000-4000-a660-0000000000c5)',
+  'voyage suivant d''un voyage rejete : meme camion, meme chauffeur');
+CREATE TEMP TABLE ancien AS SELECT public.creer_voyage(current_date - 3, '00000000-0000-4000-a660-0000000000a1', '00000000-0000-4000-a660-0000000000a2',
+  '00000000-0000-4000-a660-0000000000b6', '00000000-0000-4000-a660-0000000000c6') AS id;
+SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM ancien))$$, 'voyage d''il y a trois jours livre');
+SELECT throws_like($$SELECT public.enchainer_voyage((SELECT id FROM ancien), NULL)$$, '%preciser la date du voyage suivant',
+  'voyage livre ancien sans date : date du voyage suivant exigee');
+SELECT lives_ok($$SELECT public.enchainer_voyage((SELECT id FROM ancien), NULL, NULL, current_date)$$,
+  'voyage livre ancien avec la date du jour : enchaine');
 
 -- 3. Durees, statistiques de trajets et rapports (annee 2001)
 CREATE TEMP TABLE v2001 (nom text, id uuid);
@@ -262,6 +305,43 @@ SELECT is((SELECT (i.statut, (SELECT count(*) FROM public.sanctions_infraction s
 SELECT throws_ok($$SELECT public.annuler_infraction((SELECT id FROM inf), 'Encore')$$, '22023', NULL, 'infraction deja annulee');
 RESET ROLE;
 
+-- Perimetre des decisions de sanction (directeur d'un autre site)
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE inf2 AS SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c1', 'ceinture', now() - interval '2 hours',
+  'Ceinture non bouclee', 'constat_interne') AS id;
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000006');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.decider_sanction((SELECT id FROM inf2), 'avertissement', 'Rappel')$$, '42501',
+  'Infraction hors de votre perimetre', 'decider_sanction refusee hors perimetre');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000002');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE sanc2 AS SELECT public.decider_sanction((SELECT id FROM inf2), 'avertissement', 'Rappel des regles') AS id;
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000006');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.annuler_sanction((SELECT id FROM sanc2), 'Erreur')$$, '42501',
+  'Infraction hors de votre perimetre', 'annuler_sanction refusee hors perimetre');
+RESET ROLE;
+
+-- Mutation du chauffeur : l'infraction reste au site ou elle a ete saisie
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000007');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE inf3 AS SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c7', 'documents', now() - interval '1 hour',
+  'Carte grise absente', 'controle_routier') AS id;
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
+UPDATE public.drivers SET site_id = '00000000-0000-4000-a660-0000000000a3' WHERE id = '00000000-0000-4000-a660-0000000000c7';
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT count(*)::int FROM public.infractions_chauffeur WHERE id = (SELECT id FROM inf3)), 1,
+  'chauffeur mute : l''infraction reste visible du site ou elle a ete saisie');
+SELECT lives_ok($$SELECT public.annuler_infraction((SELECT id FROM inf3), 'Carte grise presentee le jour meme')$$,
+  'chauffeur mute : l''infraction reste traitable par ce site');
+RESET ROLE;
+
 -- Comptable (lecture seule) et responsable d'un autre site
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000003');
 SET LOCAL ROLE authenticated;
@@ -276,6 +356,11 @@ SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660
   'Ceinture non bouclee', 'constat_interne')$$, '42501', NULL, 'chauffeur d''un autre site hors perimetre');
 SELECT is((SELECT count(*)::int FROM public.infractions_chauffeur WHERE driver_id = '00000000-0000-4000-a660-0000000000c1'), 0,
   'le registre d''un chauffeur d''un autre site n''est pas visible');
+SELECT is((SELECT count(*)::int FROM public.durees_voyages('2001-02-01', '2001-02-01')), 1,
+  'durees_voyages sous compte borne : seul le voyage arrivant au depot B');
+SELECT is((SELECT (voyages, incidents)::text FROM public.rapport_voyages('2001-02-01', '2001-02-01', 'camion')
+            WHERE cle = '00000000-0000-4000-a660-0000000000b1'), '(1,0)',
+  'rapport_voyages sous compte borne : voyages et incidents d''un autre site exclus');
 SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c1', 'ceinture', now(),
   'Ceinture non bouclee', 'constat_interne', NULL, (SELECT id FROM vs WHERE n = 2))$$, '42501',
   'Voyage hors de votre perimetre', 'voyage hors perimetre : refus de perimetre avant tout controle de coherence');
@@ -304,8 +389,9 @@ SELECT is((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.infractions_c
           AND (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
                  AND tablename IN ('infractions_chauffeur', 'sanctions_infraction') AND cmd = 'SELECT') = 2,
   true, 'RLS active, une politique de lecture par table');
-SELECT is(has_sequence_privilege('authenticated', 'public.infractions_numero_seq', 'USAGE'), false,
-  'sequence des numeros fermee aux comptes');
+SELECT is((SELECT bool_or(has_sequence_privilege(r, 'public.infractions_numero_seq', p))
+             FROM unnest(ARRAY['anon', 'authenticated']) r, unnest(ARRAY['USAGE', 'SELECT', 'UPDATE']) p), false,
+  'sequence des numeros fermee aux comptes (USAGE, SELECT, UPDATE)');
 SELECT is(has_function_privilege('authenticated', 'public.infraction_accessible(uuid)', 'EXECUTE')
           OR has_function_privilege('authenticated', 'public.garde_registre_infractions()', 'EXECUTE'), false,
   'fonctions internes du registre non executables par les comptes');
