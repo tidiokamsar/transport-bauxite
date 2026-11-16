@@ -22,7 +22,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(99);
+SELECT plan(105);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-a650-000000000001', 'contrats.d065@exemple.invalid'),
@@ -432,6 +432,67 @@ RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SELECT throws_ok($$UPDATE public.evaluations_fournisseurs SET note_globale = 1 WHERE id = (SELECT id FROM ev1)$$, '42501', NULL,
   'evaluation du loueur non modifiable (garde)');
+
+-- R1 (contre-revue) : seul un calcul propose ou applique couvre une periode.
+INSERT INTO public.rapports_performance (id, contrat_id, periode_debut, periode_fin, contenu, statut, remis_le, remis_a)
+SELECT x.id::uuid, '00000000-0000-4000-a650-0000000000c2', x.debut::date, x.fin::date,
+       jsonb_build_object('engagements', jsonb_build_array(jsonb_build_object('engagement_id', '00000000-0000-4000-a650-0000000000e3',
+         'indicateur', 'disponibilite', 'seuil', 85, 'unite', '%', 'sens', 'minimum', 'realise', CASE WHEN x.tenu THEN 90 ELSE 70 END,
+         'echantillon', 3, 'conforme', x.tenu))), 'remis', x.fin::date + 5, 'Loueur'
+  FROM (VALUES ('00000000-0000-4000-a650-0000000002a1', '2002-01-01', '2002-01-31', false),
+               ('00000000-0000-4000-a650-0000000002a2', '2002-01-15', '2002-02-14', false),
+               ('00000000-0000-4000-a650-0000000002a3', '2002-02-01', '2002-02-28', false),
+               ('00000000-0000-4000-a650-0000000002a4', '2002-04-01', '2002-04-30', true),
+               ('00000000-0000-4000-a650-0000000002a5', '2002-04-15', '2002-05-14', false)) AS x(id, debut, fin, tenu);
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE k7 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite chaine R1',
+  '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 1000) AS id;
+SELECT public.calculer_clauses(x.id::uuid)
+  FROM unnest(ARRAY['00000000-0000-4000-a650-0000000002a1', '00000000-0000-4000-a650-0000000002a2', '00000000-0000-4000-a650-0000000002a3',
+                    '00000000-0000-4000-a650-0000000002a4', '00000000-0000-4000-a650-0000000002a5']) WITH ORDINALITY AS x(id, n)
+ ORDER BY x.n;
+SELECT is((SELECT string_agg(to_char(periode_debut, 'MM-DD') || ':' || statut, ',' ORDER BY periode_debut, periode_fin)
+             FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k7)),
+  '01-01:propose,01-15:sans_objet,02-01:propose,04-01:sans_objet,04-15:propose',
+  'janvier propose, mi-janvier couvert, fevrier non tenu propose ; avril tenu sans objet, mi-avril non tenu propose');
+
+-- R2 (contre-revue) : clause saisie sur un contrat en brouillon, refusee sur un contrat clos.
+RESET ROLE;
+INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devise, date_debut, statut) VALUES
+  ('00000000-0000-4000-a650-0000000000c3', 'TEST-D065-BROUILLON', 'Contrat en preparation', 'client', 'Client D-065', 'USD', '2001-01-01', 'brouillon'),
+  ('00000000-0000-4000-a650-0000000000c4', 'TEST-D065-CLOS', 'Contrat clos', 'client', 'Client D-065', 'USD', '2001-01-01', 'clos');
+INSERT INTO public.contrat_versions (id, contrat_id, numero, intitule, date_effet) VALUES
+  ('00000000-0000-4000-a650-0000000000d3', '00000000-0000-4000-a650-0000000000c3', 0, 'Initial', '2001-01-01'),
+  ('00000000-0000-4000-a650-0000000000d4', '00000000-0000-4000-a650-0000000000c4', 0, 'Initial', '2001-01-01');
+INSERT INTO public.contrat_engagements (id, version_id, indicateur, libelle, seuil, unite, sens, periodicite) VALUES
+  ('00000000-0000-4000-a650-0000000000e5', '00000000-0000-4000-a650-0000000000d3', 'disponibilite', 'Disponibilite', 90, '%', 'minimum', 'mois'),
+  ('00000000-0000-4000-a650-0000000000e6', '00000000-0000-4000-a650-0000000000d4', 'disponibilite', 'Disponibilite', 90, '%', 'minimum', 'mois');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d3', 'penalite', 'Clause en preparation',
+  '00000000-0000-4000-a650-0000000000e5', 'non_tenu', 'montant', 10)$$, 'clause saisie sur un contrat en brouillon');
+SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d4', 'penalite', 'Clause tardive',
+  '00000000-0000-4000-a650-0000000000e6', 'non_tenu', 'montant', 10)$$, '22023', NULL, 'clause refusee sur un contrat clos');
+
+-- R3 (contre-revue) : une facture de penalite du loueur ne compte pas comme facture CBG.
+CREATE TEMP TABLE ind_avant AS SELECT factures_emises FROM public.indicateurs_charge_contrats();
+RESET ROLE;
+INSERT INTO public.factures (id, numero, type, contrat_id, objet, periode_debut, periode_fin, devise, taux_taxe_pct, montant_ht, montant_taxe,
+                             montant_ttc, statut, date_emission) VALUES
+  ('00000000-0000-4000-a650-0000000000f9', 'TEST-D065-FAC-DEC', 'facture', '00000000-0000-4000-a650-0000000000c1', 'Transport decembre',
+   '2001-12-01', '2001-12-31', 'USD', 0, 100, 0, 100, 'emise', current_date),
+  ('00000000-0000-4000-a650-0000000000fa', 'TEST-D065-PEN-DEC', 'facture', '00000000-0000-4000-a650-0000000000c2', 'Penalite du loueur',
+   '2001-12-01', '2001-12-31', 'USD', 0, 777, 0, 777, 'emise', current_date);
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT valeur FROM public.rapport_client('2001-12-01', '2001-12-31') WHERE indicateur = 'Montant HT facturé (USD)'), 100::numeric,
+  'rapport client : facture de penalite du loueur exclue');
+SELECT is((SELECT factures_emises FROM public.indicateurs_charge_contrats()) - (SELECT factures_emises FROM ind_avant), 1,
+  'indicateurs du poste : seule la facture du contrat client est comptee');
+SELECT ok(EXISTS (SELECT 1 FROM public.v_creances WHERE id = '00000000-0000-4000-a650-0000000000fa'),
+  'la facture de penalite du loueur reste une creance suivie');
+RESET ROLE;
 
 -- Droits (D-072 : un droit retire se verifie par has_*_privilege) -----------------------
 SELECT is((SELECT bool_or(has_table_privilege(r, 'public.' || t, p))

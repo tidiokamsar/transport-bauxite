@@ -84,7 +84,8 @@
      (« propose », journalise dans `calculs_clauses_journal`) quand la
      facture ou l'avoir qu'il a produit est annule ; une clause n'est
      proposee qu'une fois pour des rapports dont les periodes se
-     chevauchent ; `creer_avoir` (D-029) repris avec verrou et plafond apres
+     chevauchent (seul un calcul propose ou applique couvre la periode) ;
+     `creer_avoir` (D-029) repris avec verrou et plafond apres
      avoirs ; `rapport_client` et `indicateurs_charge_contrats` reprises,
      limitees aux factures des contrats clients (`est_facture_client`).
 
@@ -445,8 +446,8 @@ BEGIN
   SELECT c.statut INTO v_statut FROM public.contrat_versions v JOIN public.contrats c ON c.id = v.contrat_id
    WHERE v.id = p_version FOR UPDATE OF v;
   IF NOT FOUND THEN RAISE EXCEPTION 'Version du contrat introuvable' USING ERRCODE = '22023'; END IF;
-  IF v_statut <> 'actif' THEN
-    RAISE EXCEPTION 'Contrat % : une clause chiffree se saisit sur un contrat actif', v_statut USING ERRCODE = '22023';
+  IF v_statut NOT IN ('brouillon', 'actif') THEN
+    RAISE EXCEPTION 'Contrat % : une clause chiffree se saisit sur un contrat en brouillon ou actif', v_statut USING ERRCODE = '22023';
   END IF;
   IF p_type IS NULL OR p_type NOT IN ('penalite', 'bonus', 'retenue') THEN
     RAISE EXCEPTION 'Type de clause : penalite, bonus ou retenue' USING ERRCODE = '22023';
@@ -556,9 +557,11 @@ BEGIN
                    WHEN cl.declenchement = 'non_tenu' THEN NOT v_conforme ELSE v_conforme END;
     v_assiette := NULL; v_source := NULL; v_calc := NULL; v_prop := NULL; v_raison := NULL;
     -- Rapports dont les periodes se chevauchent : une clause n'est proposee
-    -- qu'une fois pour une meme periode (tout calcul non ecarte compte).
+    -- qu'une fois pour une meme periode. Seul un calcul propose ou applique
+    -- couvre la periode : un calcul sans objet (clause non declenchee ou
+    -- periode deja couverte) ou ecarte ne bloque pas un rapport suivant.
     SELECT x.periode_debut, x.periode_fin INTO v_couvert FROM public.calculs_clauses x
-     WHERE x.clause_id = cl.id AND x.rapport_id <> r.id AND x.statut <> 'ecarte'
+     WHERE x.clause_id = cl.id AND x.rapport_id <> r.id AND x.statut IN ('propose', 'applique')
        AND x.periode_debut <= r.periode_fin AND x.periode_fin >= r.periode_debut
      ORDER BY x.calcule_le LIMIT 1;
     IF FOUND THEN
