@@ -56,9 +56,9 @@ export const MENU: MenuItem[] = [
     label: 'Carburant',
     icon: Fuel,
     children: [
-      { id: 'fuel', label: 'Pleins et cuves', icon: Fuel },
+      { id: 'fuel', label: 'Distribution aux engins', icon: Fuel },
       { id: 'livraisons-cbg', label: 'Livraisons et factures CBG', icon: Receipt },
-      { id: 'fuel-stocks', label: 'Stocks et cuves', icon: Package },
+      { id: 'fuel-stocks', label: 'Réceptions, cuves et inventaires', icon: Package },
       { id: 'fuel-dashboard', label: 'Analyse carburant', icon: Brain },
       { id: 'fuel-anomalies', label: 'Anomalies', icon: AlertTriangle },
       { id: 'fuel-sensors', label: 'Jauges connectées', icon: Gauge },

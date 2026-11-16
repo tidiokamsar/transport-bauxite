@@ -28,7 +28,7 @@ prix des livraisons de la période. Sans livraison saisie, le coût est
 
 ## 2. Registre du carburant (D-041)
 
-Écran **Carburant > Stocks et cuves**.
+Écran **Carburant > Réceptions, cuves et inventaires**.
 
 ### Cuves et citernes
 

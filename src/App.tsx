@@ -14,6 +14,7 @@ import { DashboardView } from './components/Dashboard/DashboardView';
 import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { Embleme } from './components/Brand/Marque';
+import { EVENEMENT_ALLER_A } from './components/ui/navigation';
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
@@ -101,6 +102,12 @@ const MainApp = () => {
     setNiveau(data ? { currentLevel: data.currentLevel, nextLevel: data.nextLevel } : { currentLevel: null, nextLevel: null });
   }, []);
   useEffect(() => { if (user) lireNiveau(); else setNiveau(null); }, [user, lireNiveau]);
+  // Liens des etats vides vers l'ecran de parametrage manquant (D-078).
+  useEffect(() => {
+    const aller = (e: Event) => { const vue = (e as CustomEvent<string>).detail; if (vue) setCurrentView(vue); };
+    window.addEventListener(EVENEMENT_ALLER_A, aller);
+    return () => window.removeEventListener(EVENEMENT_ALLER_A, aller);
+  }, []);
 
   if (loading) {
     return (
