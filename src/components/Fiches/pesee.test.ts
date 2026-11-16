@@ -32,6 +32,7 @@ describe('analyse de l\'import du releve CBG (D-081)', () => {
       { rang: 4, motif: 'Aucune valeur reconnue', contenu: ';;;' },
     ]);
     expect(r.incompletes).toBe(1);
+    expect(analyserReleve('ticket;date;net\nT-1;2026-10-03;0\nT-2;2026-10-03;-4').incompletes).toBe(2);
     expect(r.lignes[1].date).toBe('');
   });
   it('fichier vide refuse', () => {
@@ -46,15 +47,16 @@ describe('analyse de l\'import du releve CBG (D-081)', () => {
 describe('anomalies de pesee', () => {
   const droits = { voyages: true, facturation: true, utilisateur: 'u1' };
   it('actions selon l\'etat', () => {
-    expect(actionsPossibles({ statut: 'ouverte', categorie: 'ecart_poids', soumis_par: null }, droits))
+    expect(actionsPossibles({ statut: 'ouverte', categorie: 'ecart_poids', soumis_par: null, conclu_par: null }, droits))
       .toEqual(['examiner', 'demander_verification', 'ajouter_observation', 'affecter']);
-    expect(actionsPossibles({ statut: 'cloturee', categorie: 'ecart_poids', soumis_par: null }, droits)).toEqual([]);
+    expect(actionsPossibles({ statut: 'cloturee', categorie: 'ecart_poids', soumis_par: null, conclu_par: null }, droits)).toEqual([]);
   });
-  it('celui qui a soumis un ecart de poids ne le cloture pas', () => {
-    expect(actionsPossibles({ statut: 'soumise_validation', categorie: 'ecart_poids', soumis_par: 'u1' }, droits)).not.toContain('cloturer');
-    expect(actionsPossibles({ statut: 'soumise_validation', categorie: 'ecart_poids', soumis_par: 'u2' }, droits)).toContain('cloturer');
-    expect(actionsPossibles({ statut: 'soumise_validation', categorie: 'ecart_poids', soumis_par: 'u2' }, { ...droits, facturation: false }))
-      .not.toContain('cloturer');
+  it('ni le soumetteur ni l\'auteur de la conclusion ne cloturent, toutes categories', () => {
+    const a = { statut: 'soumise_validation', categorie: 'camion_non_reconnu', soumis_par: 'u2', conclu_par: 'u3' };
+    expect(actionsPossibles({ ...a, soumis_par: 'u1' }, droits)).not.toContain('cloturer');
+    expect(actionsPossibles({ ...a, conclu_par: 'u1' }, droits)).not.toContain('cloturer');
+    expect(actionsPossibles(a, droits)).toContain('cloturer');
+    expect(actionsPossibles(a, { ...droits, facturation: false })).not.toContain('cloturer');
   });
   it('tolerance non parametree affichee comme telle', () => {
     expect(libelleTolerance({ tolerance_t: null, tolerance_pct: null, source: 'non_parametree' })).toContain('non paramétrée');
@@ -76,6 +78,9 @@ describe('brouillons de fiche terrain KOGON', () => {
   it('stockage indisponible : aucun plantage', () => {
     expect(lireBrouillons(null)).toEqual([]);
     expect(enregistrerBrouillon({ client_id: 'c', site_id: '', trip_id: '', champs: {}, anomalie: false, modifie_le: '' }, null)).toBe(false);
+  });
+  it('heure illisible : erreur explicite', () => {
+    expect(() => donneesReleveKogon({ heure_pesee_observee: 'pas une heure' }, false)).toThrow('illisible');
   });
   it('donnees envoyees : vides retires, decimales a virgule, rien de complete', () => {
     expect(donneesReleveKogon({ ticket: ' T-1 ', net: '40,5', brut: '', anomalie_texte: 'x' }, false))

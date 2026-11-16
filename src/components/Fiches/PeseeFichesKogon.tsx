@@ -64,9 +64,12 @@ export const PeseeFichesKogon = ({ ctx }: { ctx: ContextePesee }) => {
     else setErreur('Stockage local indisponible : le brouillon n\'a pas pu être enregistré.');
   };
   const envoyer = async (x: BrouillonKogon) => {
-    setBusy(true); setErreur(''); setMessage('');
+    setErreur(''); setMessage('');
+    let donnees: Record<string, unknown>;
+    try { donnees = donneesReleveKogon(x.champs, x.anomalie); } catch (e) { setErreur((e as Error).message); return; }
+    setBusy(true);
     const { data, error } = await supabase.rpc('saisir_releve_terrain_kogon', {
-      p_client_id: x.client_id, p_site_id: x.site_id, p_trip_id: x.trip_id || null, p_donnees: donneesReleveKogon(x.champs, x.anomalie),
+      p_client_id: x.client_id, p_site_id: x.site_id, p_trip_id: x.trip_id || null, p_donnees: donnees,
     });
     setBusy(false);
     if (error) { enregistrerBrouillon(x); setBrouillons(lireBrouillons()); setErreur(`${error.message} (brouillon conservé sur ce poste)`); return; }

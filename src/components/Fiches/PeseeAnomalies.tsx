@@ -14,7 +14,7 @@ import { CHAMP, dateHeure, type ContextePesee } from './peseeContexte';
 interface Anomalie {
   id: string; releve_id: string; trip_id: string | null; site_id: string | null; categorie: string; gravite: 'basse' | 'moyenne' | 'haute';
   description: string; sources: string[]; valeurs: Record<string, unknown>; responsable_id: string | null; statut: string;
-  decision: string | null; commentaire: string | null; preuve_ref: string | null; soumis_par: string | null; cree_le: string;
+  decision: string | null; commentaire: string | null; preuve_ref: string | null; soumis_par: string | null; conclu_par: string | null; cree_le: string;
 }
 interface Evenement { id: string; action: string; statut_avant: string | null; statut_apres: string; commentaire: string | null; preuve_ref: string | null; auteur: string | null; le: string }
 interface Personne { id: string; full_name: string | null }
@@ -34,7 +34,7 @@ export const PeseeAnomalies = ({ ctx }: { ctx: ContextePesee }) => {
 
   const charger = useCallback(async () => {
     const [a, p] = await Promise.all([
-      supabase.from('anomalies_pesee').select('id, releve_id, trip_id, site_id, categorie, gravite, description, sources, valeurs, responsable_id, statut, decision, commentaire, preuve_ref, soumis_par, cree_le')
+      supabase.from('anomalies_pesee').select('id, releve_id, trip_id, site_id, categorie, gravite, description, sources, valeurs, responsable_id, statut, decision, commentaire, preuve_ref, soumis_par, conclu_par, cree_le')
         .order('cree_le', { ascending: false }).limit(500),
       supabase.from('profiles').select('id, full_name').eq('status', 'active').order('full_name'),
     ]);

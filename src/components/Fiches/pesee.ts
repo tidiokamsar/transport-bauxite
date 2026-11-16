@@ -57,7 +57,11 @@ export const analyserReleve = (texte: string): AnalyseImport => {
     }
     lignes.push(l);
   });
-  const incompletes = lignes.filter((l) => !l.ticket || !l.date || (!l.net && !(l.brut && l.tare))).length;
+  // Poids nul ou negatif : ligne gardee telle que recue, mais incomplete (le serveur ne la compare pas).
+  const positif = (v: string) => v !== '' && Number(v) > 0;
+  const poidsLisible = (l: LigneReleve) => (l.net ? positif(l.net)
+    : positif(l.brut) && l.tare !== '' && Number(l.tare) >= 0 && Number(l.brut) > Number(l.tare));
+  const incompletes = lignes.filter((l) => !l.ticket || !l.date || !poidsLisible(l)).length;
   return { lignes, rejets, colonnes: lu.colonnes, incompletes };
 };
 
@@ -114,11 +118,12 @@ export const MOTIF_EXIGE: ActionAnomalie[] = ['demander_verification', 'ajouter_
 
 /**
  * Actions proposees selon l'etat et les droits ; le serveur reste juge
- * (agir_anomalie_pesee). Le valideur (droit facturation) cloture ; celui qui
- * a soumis un ecart de poids ne le cloture pas.
+ * (agir_anomalie_pesee, delegations comprises). Le valideur (droit
+ * facturation) cloture ; ni l'auteur de la conclusion ni celui qui a soumis
+ * ne cloturent, quelle que soit la categorie.
  */
 export const actionsPossibles = (
-  a: { statut: string; categorie: string; soumis_par: string | null },
+  a: { statut: string; categorie: string; soumis_par: string | null; conclu_par: string | null },
   droits: { voyages: boolean; facturation: boolean; utilisateur: string | null },
 ): ActionAnomalie[] => {
   if (a.statut === 'cloturee') return [];
@@ -132,7 +137,8 @@ export const actionsPossibles = (
     r.push('ajouter_observation', 'affecter');
   }
   if (droits.facturation && a.statut === 'soumise_validation'
-      && !(a.categorie === 'ecart_poids' && a.soumis_par !== null && a.soumis_par === droits.utilisateur)) {
+      && a.soumis_par !== null && a.conclu_par !== null
+      && a.soumis_par !== droits.utilisateur && a.conclu_par !== droits.utilisateur) {
     r.push('cloturer');
   }
   return r;
@@ -189,7 +195,7 @@ export const supprimerBrouillon = (clientId: string, s: Stockage | null = stocka
   try { s?.removeItem(PREFIXE_BROUILLON + clientId); } catch { /* stockage indisponible : rien a retirer */ }
 };
 
-/** Donnees envoyees a saisir_releve_terrain_kogon (vides retires, jamais completes). */
+/** Donnees envoyees a saisir_releve_terrain_kogon (vides retires, jamais completes) ; leve une erreur si l'heure est illisible. */
 export const donneesReleveKogon = (champs: Record<string, string>, anomalie: boolean): Record<string, unknown> => {
   const d: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(champs)) {
@@ -197,7 +203,11 @@ export const donneesReleveKogon = (champs: Record<string, string>, anomalie: boo
     if (!t) continue;
     d[k] = ['brut', 'tare', 'net', 'latitude', 'longitude', 'precision_m'].includes(k) ? t.replace(',', '.') : t;
   }
-  if (d.heure_pesee_observee) d.heure_pesee_observee = new Date(String(d.heure_pesee_observee)).toISOString();
+  if (d.heure_pesee_observee) {
+    const h = new Date(String(d.heure_pesee_observee));
+    if (Number.isNaN(h.getTime())) throw new Error('Heure de pesée observée illisible');
+    d.heure_pesee_observee = h.toISOString();
+  }
   d.anomalie_signalee = anomalie;
   if (!anomalie) delete d.anomalie_texte;
   return d;

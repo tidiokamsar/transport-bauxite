@@ -45,7 +45,7 @@ le brouillon local dépend du navigateur du poste.
 les lignes rejetées et leur motif, les lignes incomplètes, avant l'envoi.
 Un même fichier ne s'importe qu'une fois (empreinte SHA-256). Un ticket
 déjà présent dans un autre relevé est accepté et signalé. Un relevé
-importé par erreur s'**annule** avec un motif, tant qu'aucun de ses
+importé par erreur s'**annule** avec un motif, par une personne ayant le droit facturation et autre que l'importateur, tant qu'aucun de ses
 voyages n'est dans une réconciliation close.
 
 **C. Rapprochement** : choisir le relevé, **Rapprocher** (ou relancer :
@@ -79,17 +79,17 @@ action est motivée et inscrite à l'historique.
 ## 3. Validateur (droit `invoices` en écriture)
 
 Espace D, anomalies « Soumise à validation » : **Clôturer** ou
-**Renvoyer en examen** (motif). Celui qui a soumis un écart de poids ne
-peut pas le clôturer. Une anomalie ouverte sur un voyage bloque sa ligne
+**Renvoyer en examen** (motif). Ni celui qui a conclu, ni celui qui a
+soumis (ni leurs délégants) ne peuvent clôturer, quelle que soit la catégorie. Une anomalie ouverte sur un voyage bloque sa ligne
 de réconciliation (`anomalie_pesee_ouverte`) jusqu'à décision motivée.
 
 Réconciliation mensuelle : le tonnage CBG est celui du relevé officiel ;
 le relevé KOGON est affiché à part. Sans relevé CBG, la ligne porte
-`sans_releve_cbg` et le tonnage reçu provient du relevé KOGON, signalé.
+`sans_releve_cbg` (bloquante, forçable par décision motivée) et le tonnage reçu provient du relevé KOGON. Un relevé ambigu ne donne aucun tonnage. Une décision « facturable » est annulée si une anomalie bloquante nouvelle apparaît ou si le tonnage change.
 
 ## 4. À fournir par le propriétaire
 
 - Un relevé CBG réel (format, colonnes, unité) pour valider l'import.
 - La tolérance par site (t et %) et son motif.
-- Si `sans_releve_cbg` doit bloquer la facturation (aujourd'hui : signalé, non bloquant).
+- Si `sans_releve_cbg` doit rester bloquante (aujourd'hui : bloquante, forçable par décision motivée, choix provisoire).
 - Le stockage des pièces (fichier original du relevé, scans) viendra du lot pièces jointes.

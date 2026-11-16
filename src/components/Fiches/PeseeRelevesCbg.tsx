@@ -14,7 +14,7 @@ import { CHAMP, type ContextePesee, type Resultat } from './peseeContexte';
 interface Releve {
   id: string; reference: string; periode_debut: string; periode_fin: string; site_id: string | null;
   statut: 'importe' | 'rapproche' | 'annule'; importe_le: string; fichier_source: string | null; empreinte_sha256: string | null;
-  lignes_rejetees: unknown[] | null; motif_annulation: string | null; rapproche_pesees_le: string | null;
+  lignes_rejetees: unknown[] | null; importe_par: string | null; motif_annulation: string | null; rapproche_pesees_le: string | null;
 }
 interface Rapport { acceptees: number; rejetees: number; doublons_inter_releves: number; incompletes: number }
 interface Lecture extends AnalyseImport { fichier: string; empreinte: string }
@@ -32,7 +32,7 @@ export const PeseeRelevesCbg = ({ ctx, onRapproche }: { ctx: ContextePesee; onRa
 
   const charger = useCallback(async () => {
     const r = await supabase.from('releves_cbg')
-      .select('id, reference, periode_debut, periode_fin, site_id, statut, importe_le, fichier_source, empreinte_sha256, lignes_rejetees, motif_annulation, rapproche_pesees_le')
+      .select('id, reference, periode_debut, periode_fin, site_id, statut, importe_le, importe_par, fichier_source, empreinte_sha256, lignes_rejetees, motif_annulation, rapproche_pesees_le')
       .order('importe_le', { ascending: false }).limit(50);
     if (r.error) setErreur(r.error.message);
     setReleves((r.data ?? []) as Releve[]);
@@ -107,7 +107,7 @@ export const PeseeRelevesCbg = ({ ctx, onRapproche }: { ctx: ContextePesee; onRa
             <span className="flex gap-1">
               {ctx.peutEcrire && r.statut !== 'annule' && <button disabled={busy} onClick={() => rapprocher(r)} aria-label={`Rapprocher ${r.reference}`} className="flex items-center gap-1 rounded bg-stone-800 px-2 py-1 text-xs font-bold text-white"><Scale className="h-3 w-3" /> {r.rapproche_pesees_le ? 'Relancer le rapprochement' : 'Rapprocher'}</button>}
               {r.rapproche_pesees_le && <button onClick={() => onRapproche(r.id)} aria-label={`Résultat ${r.reference}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Résultat</button>}
-              {ctx.peutEcrire && r.statut !== 'annule' && <button onClick={() => setAnnulation({ id: r.id, motif: '' })} aria-label={`Annuler ${r.reference}`} className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700"><Ban className="h-3 w-3" /> Annuler</button>}
+              {ctx.peutValider && r.statut !== 'annule' && r.importe_par !== ctx.utilisateur && <button onClick={() => setAnnulation({ id: r.id, motif: '' })} aria-label={`Annuler ${r.reference}`} className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700"><Ban className="h-3 w-3" /> Annuler</button>}
             </span>
           </div>
           {r.statut === 'annule' && <p className="text-xs text-stone-500">Motif d'annulation : {r.motif_annulation}</p>}

@@ -17,7 +17,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(70);
+SELECT plan(93);
 
 -- Droits : fonctions fermees a anon, internes fermees aux comptes, aucune ecriture directe
 SELECT is((SELECT count(*)::int FROM unnest(ARRAY[
@@ -30,7 +30,10 @@ SELECT is((SELECT count(*)::int FROM unnest(ARRAY[
     'public.agir_anomalie_pesee(uuid, text, text, text, uuid)']) f
   WHERE has_function_privilege('anon', f, 'EXECUTE') OR NOT has_function_privilege('authenticated', f, 'EXECUTE')), 0,
   'fonctions de pesee : executables par authenticated seulement');
-SELECT is((SELECT count(*)::int FROM unnest(ARRAY['public.releve_cbg_engage(uuid)',
+SELECT ok(NOT has_function_privilege('authenticated', 'public.importer_releve_cbg(text, date, date, uuid, text, jsonb)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.importer_releve_cbg(text, date, date, uuid, text, jsonb)', 'EXECUTE'),
+  'import v1 sans empreinte retire aux comptes (M3)');
+SELECT is((SELECT count(*)::int FROM unnest(ARRAY['public.releve_cbg_engage(uuid)', 'public.releves_kogon_perimetre(uuid)',
     'public.recopier_ticket_kogon()', 'public.recopier_rectification_kogon()']) f
   WHERE has_function_privilege('authenticated', f, 'EXECUTE') OR has_function_privilege('anon', f, 'EXECUTE')), 0,
   'fonctions internes fermees aux comptes');
@@ -51,7 +54,8 @@ INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-d810-000000000001', 'agent.d810@exemple.invalid'),
   ('00000000-0000-4000-d810-000000000002', 'valideur.d810@exemple.invalid'),
   ('00000000-0000-4000-d810-000000000003', 'borne.d810@exemple.invalid'),
-  ('00000000-0000-4000-d810-000000000004', 'sansdroit.d810@exemple.invalid');
+  ('00000000-0000-4000-d810-000000000004', 'sansdroit.d810@exemple.invalid'),
+  ('00000000-0000-4000-d810-000000000005', 'valideur2.d810@exemple.invalid');
 INSERT INTO public.sites (id, name, type) VALUES
   ('00000000-0000-4000-d810-0000000000a1', 'Mine D810', 'mine'),
   ('00000000-0000-4000-d810-0000000000a2', 'Depot CBG D810', 'depot'),
@@ -60,11 +64,12 @@ INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-d810-000000000001', 'operations_manager', 'Agent D810', 'active', NULL),
   ('00000000-0000-4000-d810-000000000002', 'operations_manager', 'Valideur D810', 'active', NULL),
   ('00000000-0000-4000-d810-000000000003', 'operations_manager', 'Borne D810', 'active', '00000000-0000-4000-d810-0000000000a3'),
-  ('00000000-0000-4000-d810-000000000004', 'operations_manager', 'Sans droit D810', 'active', NULL)
+  ('00000000-0000-4000-d810-000000000004', 'operations_manager', 'Sans droit D810', 'active', NULL),
+  ('00000000-0000-4000-d810-000000000005', 'operations_manager', 'Valideur 2 D810', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 INSERT INTO public.droits_utilisateur (utilisateur, module, niveau)
 SELECT u, m, 'ecriture' FROM unnest(ARRAY['00000000-0000-4000-d810-000000000001', '00000000-0000-4000-d810-000000000002',
-  '00000000-0000-4000-d810-000000000003']::uuid[]) u, unnest(ARRAY['trips', 'invoices', 'settings']) m
+  '00000000-0000-4000-d810-000000000003', '00000000-0000-4000-d810-000000000005']::uuid[]) u, unnest(ARRAY['trips', 'invoices', 'settings']) m
 ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 INSERT INTO public.droits_utilisateur (utilisateur, module, niveau)
 SELECT '00000000-0000-4000-d810-000000000004', m, 'lecture' FROM unnest(ARRAY['trips', 'invoices', 'settings']) m
@@ -113,6 +118,10 @@ SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), 
   '{"ticket":"K810-X","brut":"20","tare":"30"}')$$, '22023', NULL, 'brut inferieur a la tare refuse');
 SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), '00000000-0000-4000-d810-0000000000a2', NULL,
   '{"ticket":"K810-X","net":"40","anomalie_signalee":true}')$$, '22023', NULL, 'anomalie signalee sans description refusee');
+SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), '00000000-0000-4000-d810-0000000000a2', NULL,
+  '{"ticket":"K810-X","net":"40","anomalie_signalee":"peut-etre"}')$$, '22023', NULL, 'anomalie signalee illisible : message traduit');
+SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), '00000000-0000-4000-d810-0000000000a2', NULL,
+  '{"ticket":"K810-X","net":"40","remplace_id":"abc","motif_remplacement":"x"}')$$, '22023', NULL, 'releve a corriger illisible : message traduit');
 SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), '00000000-0000-4000-d810-0000000000a3',
   '00000000-0000-4000-d810-000000000013', '{"ticket":"K810-X","net":"40"}')$$, '22023', NULL, 'site etranger au voyage refuse');
 RESET ROLE;
@@ -186,11 +195,27 @@ CREATE TEMP TABLE imp2 AS SELECT public.importer_releve_cbg_v2('CBG-D810-10-B', 
   'complement.csv', repeat('b', 64), '[{"ticket":"K810-2","date":"2001-10-03","immatriculation":"KG-0002-A","net":"43"}]') AS rapport;
 GRANT SELECT ON imp2 TO authenticated;
 SELECT is((SELECT (rapport ->> 'doublons_inter_releves')::int FROM imp2), 1, 'ticket deja present dans un autre releve : marque, pas rejete');
+SELECT throws_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp2), 'Releve en double')$$, '42501', NULL,
+  'l''importateur n''annule pas son releve');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000004');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp2), 'Releve en double')$$, '42501', NULL,
+  'annulation reservee au droit facturation');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp2), '')$$, '22023', NULL, 'annulation sans motif refusee');
 SELECT lives_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp2), 'Releve en double envoye par erreur')$$,
-  'releve annule avec motif');
+  'releve annule avec motif par une autre personne');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000001');
+SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.importer_releve_cbg_v2('CBG-D810-10-C', '2001-10-03', '2001-10-03', '00000000-0000-4000-d810-0000000000a2',
   'complement.csv', repeat('b', 64), '[{"ticket":"K810-2","date":"2001-10-03","net":"43"}]')$$, 'apres annulation, le fichier se reimporte');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.annuler_releve_cbg((SELECT id FROM public.releves_cbg WHERE reference = 'CBG-D810-10-C'), 'Essai de reimport')$$,
   'second releve annule');
 RESET ROLE;
@@ -225,6 +250,26 @@ SELECT ok((SELECT ancienne_valeur ->> 'statut' = 'en_examen' AND nouvelle_valeur
   'ancienne et nouvelle valeur tracees');
 SELECT throws_ok($$SELECT public.agir_anomalie_pesee((SELECT id FROM an), 'ajouter_observation', 'Apres coup')$$, '22023', NULL,
   'anomalie cloturee immuable');
+CREATE TEMP TABLE an2 AS SELECT id FROM public.anomalies_pesee WHERE categorie = 'concordant_avec_reserve' AND trip_id = '00000000-0000-4000-d810-000000000014';
+GRANT SELECT ON an2 TO authenticated;
+SELECT is(public.agir_anomalie_pesee((SELECT id FROM an2), 'examiner'), 'en_examen', 'reserve en examen');
+SELECT is(public.agir_anomalie_pesee((SELECT id FROM an2), 'confirmer_concordance', 'Ecart de 0,3 t accepte'), 'justifiee', 'concordance confirmee');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.agir_anomalie_pesee((SELECT id FROM an2), 'soumettre_validation'), 'soumise_validation', 'soumise par une autre personne');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.agir_anomalie_pesee((SELECT id FROM an2), 'cloturer', 'Valide')$$, '42501', NULL,
+  'l''auteur de la conclusion ne cloture pas, quelle que soit la categorie');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000005');
+SET LOCAL ROLE authenticated;
+SELECT is(public.agir_anomalie_pesee((SELECT id FROM an2), 'cloturer', 'Valide par un tiers'), 'cloturee', 'cloture par une troisieme personne');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
 
 -- Reconciliation : tonnage CBG officiel, releve KOGON a part
 CREATE TEMP TABLE rec AS SELECT public.ouvrir_reconciliation('00000000-0000-4000-d810-0000000000c1', '2001-10-01', '2001-10-31', 'recu', 5) AS id;
@@ -235,6 +280,32 @@ SELECT ok((SELECT tonnage_cbg = 43 AND tonnage_kogon = 41 AND anomalies @> ARRAY
   WHERE reference = 'TEST-D810-2'), 'ecart officiel / KOGON signale, aucune valeur ecrasee');
 SELECT ok((SELECT tonnage_cbg IS NULL AND anomalies @> ARRAY['sans_ticket_cbg'] FROM public.reconciliation_lignes
   WHERE reference = 'TEST-D810-3'), 'sans releve KOGON de rotation : aucun repli sur une autre valeur');
+SELECT ok((SELECT anomalies @> ARRAY['anomalie_pesee_ouverte'] AND public.statut_ligne(decision, anomalies) = 'a_examiner'
+  FROM public.reconciliation_lignes WHERE reference = 'TEST-D810-3'), 'anomalie de pesee ouverte : ligne a examiner');
+SELECT ok(public.ligne_bloquee(ARRAY['sans_releve_cbg']) AND NOT public.ligne_non_forcable(ARRAY['sans_releve_cbg']),
+  'sans releve CBG : bloquant mais forcable par decision motivee');
+SELECT lives_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TEST-D810-1'),
+  'facturable', 'Concordant avec le releve CBG')$$, 'ligne declaree facturable');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE imp3 AS SELECT public.importer_releve_cbg_v2('CBG-D810-10-D', '2001-10-03', '2001-10-05', '00000000-0000-4000-d810-0000000000a2',
+  'contradictoire.csv', repeat('c', 64), '[{"ticket":"K810-1","date":"2001-10-03","net":"41"},{"ticket":"K810-Z","date":"2001-10-05","net":"0"}]') AS rapport;
+GRANT SELECT ON imp3 TO authenticated;
+SELECT is((SELECT (rapport ->> 'incompletes')::int FROM imp3), 1, 'poids nul : ligne incomplete');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.actualiser_reconciliation((SELECT id FROM rec))$$, 'actualisation apres un releve contradictoire');
+SELECT ok((SELECT anomalies @> ARRAY['releve_cbg_ambigu', 'base_absente', 'releve_non_rapproche'] AND tonnage_base IS NULL AND tonnage_cbg IS NULL
+  FROM public.reconciliation_lignes WHERE reference = 'TEST-D810-1'), 'releve ambigu : aucune base, jamais de repli sur KOGON');
+SELECT ok((SELECT decision IS NULL AND decide_par IS NULL FROM public.reconciliation_lignes WHERE reference = 'TEST-D810-1'),
+  'decision facturable perimee invalidee');
+SELECT lives_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp3), 'Releve contradictoire envoye par erreur')$$,
+  'releve contradictoire annule');
+SELECT lives_ok($$SELECT public.actualiser_reconciliation((SELECT id FROM rec))$$, 'actualisation apres annulation');
+SELECT ok((SELECT tonnage_base = 40 AND NOT anomalies && ARRAY['releve_cbg_ambigu', 'releve_non_rapproche'] FROM public.reconciliation_lignes
+  WHERE reference = 'TEST-D810-1'), 'apres annulation : releve officiel unique de nouveau');
 RESET ROLE;
 UPDATE public.reconciliations SET statut = 'cloturee', cloturee_le = now() WHERE id = (SELECT id FROM rec);
 
@@ -247,14 +318,21 @@ SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), 
   '22023', NULL, 'correction du releve KOGON refusee apres cloture');
 SELECT throws_ok($$SELECT public.agir_anomalie_pesee((SELECT id FROM public.anomalies_pesee WHERE categorie = 'camion_non_reconnu'
   AND trip_id = '00000000-0000-4000-d810-000000000013'), 'examiner')$$, '22023', NULL, 'anomalie d''une reconciliation cloturee figee');
-SELECT throws_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp), 'Erreur')$$, '22023', NULL,
-  'releve engage dans une reconciliation cloturee : annulation refusee');
 SELECT lives_ok($$SELECT public.saisir_releve_terrain_kogon('00000000-0000-4000-d810-0000000000e5', '00000000-0000-4000-d810-0000000000a2', NULL,
   jsonb_build_object('ticket', 'K810-4', 'net', '39.5', 'motif_remplacement', 'Relecture de la fiche',
   'remplace_id', (SELECT id FROM public.releves_terrain_kogon WHERE client_id = '00000000-0000-4000-d810-0000000000e2')))$$,
   'correction d''un releve hors reconciliation close : nouvelle ligne motivee');
 SELECT is((SELECT count(*)::int FROM public.v_releves_terrain_kogon_effectifs WHERE ticket = 'K810-4'), 1,
   'seule la derniere version est en vigueur, l''ancienne est conservee');
+SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), '00000000-0000-4000-d810-0000000000a1', NULL,
+  jsonb_build_object('ticket', 'K810-4', 'net', '39.6', 'motif_remplacement', 'Autre site',
+  'remplace_id', (SELECT id FROM public.releves_terrain_kogon WHERE client_id = '00000000-0000-4000-d810-0000000000e5')))$$,
+  '22023', NULL, 'une correction ne change pas de site');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d810-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.annuler_releve_cbg((SELECT (rapport ->> 'releve_id')::uuid FROM imp), 'Erreur')$$, '22023', NULL,
+  'releve engage dans une reconciliation cloturee : annulation refusee');
 RESET ROLE;
 
 -- Perimetre de site : un utilisateur d'un autre site ne voit ni ne modifie
@@ -274,6 +352,16 @@ SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon(gen_random_uuid(), 
 SELECT throws_ok($$SELECT public.saisir_releve_terrain_kogon('00000000-0000-4000-d810-0000000000e1', '00000000-0000-4000-d810-0000000000a3', NULL, '{"ticket":"K810-3","net":"40"}')$$,
   '23505', NULL, 'identifiant de saisie d''un autre agent : refuse, rien n''est revele');
 RESET ROLE;
+
+INSERT INTO public.rectifications_tickets_pesee_cbg (ticket_id, ancien_ticket, ancien_brut, ancienne_tare, ancien_net,
+  nouveau_ticket, nouveau_brut, nouvelle_tare, motif, corrige_par)
+SELECT k.id, k.ticket, k.brut, k.tare, k.net, k.ticket, 60.5, 20, 'Relecture du ticket', '00000000-0000-4000-d810-000000000002'
+  FROM public.tickets_pesee_cbg k WHERE k.trip_id = '00000000-0000-4000-d810-000000000011';
+SELECT ok((SELECT e.net = 40.5 AND e.remplace_id IS NOT NULL AND e.motif_remplacement LIKE 'Rectification : %'
+  FROM public.v_releves_terrain_kogon_effectifs e WHERE e.trip_id = '00000000-0000-4000-d810-000000000011'),
+  'rectification du ticket recopiee dans la source B, ancienne valeur conservee');
+SELECT is((SELECT count(*)::int FROM public.releves_terrain_kogon WHERE trip_id = '00000000-0000-4000-d810-000000000011'), 2,
+  'deux versions du releve KOGON du voyage');
 
 SELECT * FROM finish();
 ROLLBACK;

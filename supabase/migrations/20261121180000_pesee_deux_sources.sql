@@ -170,7 +170,8 @@ BEGIN
             v_autre);
   END LOOP;
   SELECT count(*) INTO v_illisibles FROM public.releves_cbg_lignes l
-   WHERE l.releve_id = v_id AND (l.ticket IS NULL OR l.date_pesee IS NULL OR coalesce(l.net, l.brut - l.tare) IS NULL);
+   WHERE l.releve_id = v_id AND (l.ticket IS NULL OR l.date_pesee IS NULL OR coalesce(l.net, l.brut - l.tare) IS NULL
+                                 OR coalesce(l.net, l.brut - l.tare) <= 0 OR l.brut <= 0 OR l.tare < 0);
   RETURN jsonb_build_object('releve_id', v_id, 'acceptees', n, 'rejetees', jsonb_array_length(coalesce(p_rejets, '[]'::jsonb)),
                             'doublons_inter_releves', v_doublons, 'incompletes', v_illisibles);
 END;
@@ -392,13 +393,20 @@ BEGIN
   IF (v_lat IS NULL) <> (v_lon IS NULL) THEN RAISE EXCEPTION 'Latitude et longitude se saisissent ensemble' USING ERRCODE = '22023'; END IF;
   -- Correction : nouvelle ligne qui remplace l'ancienne (motif obligatoire, ancienne conservee).
   IF nullif(d ->> 'remplace_id', '') IS NOT NULL THEN
-    v_remplace := (d ->> 'remplace_id')::uuid;
+    BEGIN
+      v_remplace := (d ->> 'remplace_id')::uuid;
+    EXCEPTION WHEN others THEN
+      RAISE EXCEPTION 'Releve a corriger illisible' USING ERRCODE = '22023';
+    END;
     SELECT * INTO ancien FROM public.releves_terrain_kogon WHERE id = v_remplace FOR UPDATE;
     IF NOT FOUND OR NOT public.site_permis(ancien.site_id) THEN
       RAISE EXCEPTION 'Releve a corriger introuvable' USING ERRCODE = 'P0002';
     END IF;
     IF EXISTS (SELECT 1 FROM public.releves_terrain_kogon n WHERE n.remplace_id = ancien.id) THEN
       RAISE EXCEPTION 'Ce releve a deja ete corrige : corriger la derniere version' USING ERRCODE = '22023';
+    END IF;
+    IF ancien.site_id IS DISTINCT FROM p_site_id THEN
+      RAISE EXCEPTION 'Une correction garde le site du releve corrige' USING ERRCODE = '22023';
     END IF;
     IF ancien.origine = 'rotation' THEN
       RAISE EXCEPTION 'Releve saisi avec la rotation : utiliser la rectification du ticket' USING ERRCODE = '22023';
@@ -409,6 +417,9 @@ BEGIN
     IF nullif(btrim(coalesce(d ->> 'motif_remplacement', '')), '') IS NULL THEN
       RAISE EXCEPTION 'Motif de correction obligatoire' USING ERRCODE = '22023';
     END IF;
+  END IF;
+  IF coalesce(d ->> 'anomalie_signalee', 'false') NOT IN ('true', 'false') THEN
+    RAISE EXCEPTION 'Anomalie signalee : vrai ou faux attendu' USING ERRCODE = '22023';
   END IF;
   IF coalesce((d ->> 'anomalie_signalee')::boolean, false) AND nullif(btrim(coalesce(d ->> 'anomalie_texte', '')), '') IS NULL THEN
     RAISE EXCEPTION 'Decrire l''anomalie signalee' USING ERRCODE = '22023';
@@ -576,12 +587,13 @@ GRANT SELECT ON public.v_rapprochements_pesee_courants TO authenticated;
 
 CREATE TABLE IF NOT EXISTS public.anomalies_pesee (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  cle text NOT NULL UNIQUE,
+  cle text NOT NULL,
   releve_id uuid NOT NULL REFERENCES public.releves_cbg(id),
   rapprochement_id uuid NOT NULL REFERENCES public.rapprochements_pesee(id),
   ligne_id uuid REFERENCES public.releves_cbg_lignes(id),
   releve_kogon_id uuid REFERENCES public.releves_terrain_kogon(id),
   trip_id uuid REFERENCES public.trips(id),
+  trips_concernes uuid[] NOT NULL DEFAULT '{}',
   site_id uuid REFERENCES public.sites(id),
   categorie text NOT NULL CHECK (categorie IN ('concordant_avec_reserve', 'ecart_poids', 'ticket_sans_fiche', 'fiche_sans_ticket',
     'ticket_duplique', 'camion_non_reconnu', 'rotation_non_retrouvee', 'donnees_incompletes', 'a_examiner')),
@@ -597,12 +609,17 @@ CREATE TABLE IF NOT EXISTS public.anomalies_pesee (
   preuve_ref text,
   soumis_par uuid REFERENCES auth.users(id),
   soumis_le timestamptz,
+  conclu_par uuid REFERENCES auth.users(id),
+  conclu_le timestamptz,
   cloture_par uuid REFERENCES auth.users(id),
   cloture_le timestamptz,
   cree_le timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS anomalies_pesee_statut_idx ON public.anomalies_pesee (statut, site_id);
 CREATE INDEX IF NOT EXISTS anomalies_pesee_trip_idx ON public.anomalies_pesee (trip_id);
+CREATE INDEX IF NOT EXISTS anomalies_pesee_trips_idx ON public.anomalies_pesee USING gin (trips_concernes);
+-- Un constat n'a qu'une anomalie active ; apres cloture, un constat aux valeurs changees en ouvre une nouvelle.
+CREATE UNIQUE INDEX IF NOT EXISTS anomalies_pesee_cle_active_uq ON public.anomalies_pesee (cle) WHERE statut <> 'cloturee';
 
 CREATE TABLE IF NOT EXISTS public.journal_anomalies_pesee (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -627,6 +644,20 @@ RETURNS text LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   SELECT CASE p_categorie
     WHEN 'ecart_poids' THEN 'haute' WHEN 'ticket_duplique' THEN 'haute' WHEN 'a_examiner' THEN 'haute'
     WHEN 'concordant_avec_reserve' THEN 'basse' ELSE 'moyenne' END;
+$$;
+
+-- Releves KOGON en vigueur dans le perimetre de l'utilisateur et du releve (sans site : tous).
+CREATE OR REPLACE FUNCTION public.releves_kogon_perimetre(p_site_id uuid)
+RETURNS SETOF public.releves_terrain_kogon
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT k.* FROM public.releves_terrain_kogon k
+   WHERE NOT EXISTS (SELECT 1 FROM public.releves_terrain_kogon n WHERE n.remplace_id = k.id)
+     AND public.site_permis(k.site_id)
+     AND (p_site_id IS NULL OR k.site_id = p_site_id);
 $$;
 
 CREATE OR REPLACE FUNCTION public.rapprocher_pesees(p_releve_id uuid)
@@ -654,24 +685,16 @@ BEGIN
   INSERT INTO public.passes_rapprochement_pesee (releve_id, numero, lance_par) VALUES (r.id, v_numero, auth.uid())
   RETURNING id INTO v_passe;
 
-  -- Releves KOGON en vigueur du perimetre de l'utilisateur et du releve.
-  CREATE TEMP TABLE IF NOT EXISTS pg_temp.kogon_pesee (LIKE public.releves_terrain_kogon) ON COMMIT DROP;
-  DELETE FROM pg_temp.kogon_pesee;
-  INSERT INTO pg_temp.kogon_pesee
-  SELECT k2.* FROM public.releves_terrain_kogon k2
-   WHERE NOT EXISTS (SELECT 1 FROM public.releves_terrain_kogon n WHERE n.remplace_id = k2.id)
-     AND public.site_permis(k2.site_id)
-     AND (r.site_id IS NULL OR k2.site_id = r.site_id);
-
   FOR l IN SELECT * FROM public.releves_cbg_lignes WHERE releve_id = r.id ORDER BY rang LOOP
     v_classes := '{}'; v_notes := '{}'; v_reserve := false; v_trip := NULL; v_trips := '{}'; k := NULL;
     v_net_kogon := NULL; v_ecart := NULL; v_pct := NULL; v_immat_ref := NULL; v_site := r.site_id;
     v_net_cbg := coalesce(l.net, l.brut - l.tare);
+    IF v_net_cbg <= 0 OR l.brut <= 0 OR l.tare < 0 THEN v_net_cbg := NULL; END IF;
     SELECT * INTO v_tol FROM public.tolerance_pesee_applicable(r.site_id);
     IF l.ticket IS NULL OR v_net_cbg IS NULL OR l.date_pesee IS NULL THEN
       v_classes := v_classes || 'donnees_incompletes'::text;
       v_notes := v_notes || format('Ligne %s du releve CBG : %s', l.rang, concat_ws(', ',
-        CASE WHEN l.ticket IS NULL THEN 'ticket absent' END, CASE WHEN v_net_cbg IS NULL THEN 'poids absent' END,
+        CASE WHEN l.ticket IS NULL THEN 'ticket absent' END, CASE WHEN v_net_cbg IS NULL THEN 'poids absent ou non positif' END,
         CASE WHEN l.date_pesee IS NULL THEN 'date absente' END));
     END IF;
     IF l.ticket IS NOT NULL THEN
@@ -685,9 +708,14 @@ BEGIN
                                    ELSE format('Ticket %s present dans un autre releve CBG', l.ticket) END;
       END IF;
     END IF;
-    -- Doublon dans le meme releve : la ligne n'est pas confrontee une deuxieme fois.
+    -- Doublon dans le meme releve : la ligne n'est pas confrontee une deuxieme fois,
+    -- mais les voyages des releves KOGON de ce ticket sont designes (blocage en reconciliation).
+    IF l.ticket IS NOT NULL AND v_rang IS NOT NULL THEN
+      SELECT coalesce(array_agg(DISTINCT x.trip_id), '{}') INTO v_trips FROM public.releves_kogon_perimetre(r.site_id) x
+       WHERE upper(btrim(x.ticket)) = upper(btrim(l.ticket)) AND x.trip_id IS NOT NULL;
+    END IF;
     IF l.ticket IS NOT NULL AND v_rang IS NULL THEN
-      SELECT coalesce(array_agg(x.id ORDER BY x.saisi_le), '{}') INTO v_candidats FROM pg_temp.kogon_pesee x
+      SELECT coalesce(array_agg(x.id ORDER BY x.saisi_le), '{}') INTO v_candidats FROM public.releves_kogon_perimetre(r.site_id) x
        WHERE upper(btrim(x.ticket)) = upper(btrim(l.ticket));
       IF cardinality(v_candidats) = 0 THEN
         v_classes := v_classes || 'ticket_sans_fiche'::text;
@@ -711,10 +739,10 @@ BEGIN
       ELSIF cardinality(v_candidats) > 1 THEN
         v_classes := v_classes || 'a_examiner'::text;
         v_notes := v_notes || format('%s releves KOGON portent le ticket %s : aucun rapprochement automatique', cardinality(v_candidats), l.ticket);
-        SELECT coalesce(array_agg(DISTINCT x.trip_id), '{}') INTO v_trips FROM pg_temp.kogon_pesee x
+        SELECT coalesce(array_agg(DISTINCT x.trip_id), '{}') INTO v_trips FROM public.releves_kogon_perimetre(r.site_id) x
          WHERE x.id = ANY (v_candidats) AND x.trip_id IS NOT NULL;
       ELSE
-        SELECT * INTO k FROM pg_temp.kogon_pesee x WHERE x.id = v_candidats[1];
+        SELECT * INTO k FROM public.releves_kogon_perimetre(r.site_id) x WHERE x.id = v_candidats[1];
         v_trip := k.trip_id;
         v_site := coalesce(k.site_id, r.site_id);
         SELECT * INTO v_tol FROM public.tolerance_pesee_applicable(v_site);
@@ -774,7 +802,7 @@ BEGIN
   END LOOP;
 
   -- Releves KOGON de la periode sans ligne CBG de meme ticket.
-  FOR k IN SELECT x.* FROM pg_temp.kogon_pesee x
+  FOR k IN SELECT x.* FROM public.releves_kogon_perimetre(r.site_id) x
             WHERE (coalesce(x.heure_pesee_observee, x.saisi_le) AT TIME ZONE 'Africa/Conakry')::date BETWEEN r.periode_debut AND r.periode_fin
               AND NOT EXISTS (SELECT 1 FROM public.releves_cbg_lignes l2
                                WHERE l2.releve_id = r.id AND x.ticket IS NOT NULL AND upper(btrim(l2.ticket)) = upper(btrim(x.ticket)))
@@ -791,22 +819,26 @@ BEGIN
       coalesce(k.net, k.brut - k.tare), v_tol.tolerance_t, v_tol.tolerance_pct, v_tol.source, v_classes, array_to_string(v_notes, ' ; '));
   END LOOP;
 
-  -- Une anomalie par constat ; un constat deja ouvert n'est pas recree.
+  -- Une anomalie par constat. Un constat deja actif n'est pas recree ; un constat
+  -- clos est rouvert (nouvelle anomalie) si les valeurs comparees ont change.
   FOR v_rp, v_c IN SELECT rp.id, c FROM public.rapprochements_pesee rp, unnest(rp.classes) c
                     WHERE rp.passe_id = v_passe AND c <> 'concordant' LOOP
-    INSERT INTO public.anomalies_pesee (cle, releve_id, rapprochement_id, ligne_id, releve_kogon_id, trip_id, site_id,
+    INSERT INTO public.anomalies_pesee (cle, releve_id, rapprochement_id, ligne_id, releve_kogon_id, trip_id, trips_concernes, site_id,
       categorie, gravite, description, sources, valeurs)
-    SELECT concat_ws(':', rp.releve_id, coalesce('l' || rp.ligne_id::text, 'k' || rp.releve_kogon_id::text), v_c),
-      rp.releve_id, rp.id, rp.ligne_id, rp.releve_kogon_id, rp.trip_id, rp.site_id, v_c, public.gravite_anomalie_pesee(v_c),
+    SELECT x.* FROM (SELECT concat_ws(':', rp.releve_id, coalesce('l' || rp.ligne_id::text, 'k' || rp.releve_kogon_id::text), v_c) AS cle,
+      rp.releve_id, rp.id, rp.ligne_id, rp.releve_kogon_id, rp.trip_id,
+      ARRAY(SELECT DISTINCT u FROM unnest(array_append(rp.trips_candidats, rp.trip_id)) u WHERE u IS NOT NULL),
+      rp.site_id, v_c, public.gravite_anomalie_pesee(v_c),
       coalesce(rp.detail, v_c),
       array_remove(ARRAY[CASE WHEN rp.ligne_id IS NOT NULL THEN 'cbg' END, CASE WHEN rp.releve_kogon_id IS NOT NULL THEN 'kogon' END,
                          CASE WHEN rp.trip_id IS NOT NULL THEN 'rotation' END], NULL),
       jsonb_strip_nulls(jsonb_build_object('ticket', rp.ticket, 'net_cbg', rp.net_cbg, 'net_kogon', rp.net_kogon, 'ecart_t', rp.ecart_t,
         'ecart_pct', rp.ecart_pct, 'tolerance_t', rp.tolerance_t, 'tolerance_pct', rp.tolerance_pct, 'source_tolerance', rp.source_tolerance,
         'immatriculation_cbg', rp.immatriculation_cbg, 'immatriculation_kogon', rp.immatriculation_kogon, 'date_cbg', rp.date_cbg,
-        'trips_candidats', CASE WHEN cardinality(rp.trips_candidats) > 0 THEN to_jsonb(rp.trips_candidats) END))
-      FROM public.rapprochements_pesee rp WHERE rp.id = v_rp
-    ON CONFLICT (cle) DO NOTHING;
+        'trips_candidats', CASE WHEN cardinality(rp.trips_candidats) > 0 THEN to_jsonb(rp.trips_candidats) END)) AS valeurs
+      FROM public.rapprochements_pesee rp WHERE rp.id = v_rp) x
+     WHERE NOT EXISTS (SELECT 1 FROM public.anomalies_pesee a WHERE a.cle = x.cle AND a.statut <> 'cloturee')
+       AND NOT EXISTS (SELECT 1 FROM public.anomalies_pesee a WHERE a.cle = x.cle AND a.statut = 'cloturee' AND a.valeurs = x.valeurs);
   END LOOP;
   INSERT INTO public.journal_anomalies_pesee (anomalie_id, action, statut_avant, statut_apres, nouvelle_valeur, auteur)
   SELECT a.id, 'creation', NULL, a.statut, a.valeurs, auth.uid()
@@ -851,7 +883,8 @@ BEGIN
     RAISE EXCEPTION 'Anomalie introuvable' USING ERRCODE = 'P0002';
   END IF;
   IF a.statut = 'cloturee' THEN RAISE EXCEPTION 'Anomalie cloturee : elle ne change plus' USING ERRCODE = '22023'; END IF;
-  IF public.voyage_couvert_cloture(a.trip_id) THEN
+  IF public.voyage_couvert_cloture(a.trip_id)
+     OR EXISTS (SELECT 1 FROM unnest(a.trips_concernes) u WHERE public.voyage_couvert_cloture(u)) THEN
     RAISE EXCEPTION 'Anomalie liee a une reconciliation cloturee : correction par avoir' USING ERRCODE = '22023';
   END IF;
   v_statut := a.statut; v_decision := a.decision; v_responsable := a.responsable_id;
@@ -890,10 +923,12 @@ BEGIN
       v_statut := 'en_examen';
     WHEN 'cloturer' THEN
       IF a.statut <> 'soumise_validation' THEN RAISE EXCEPTION 'Seule une anomalie soumise a validation se cloture' USING ERRCODE = '22023'; END IF;
-      -- Separation des taches : celui qui soumet un ecart de poids ne le valide pas.
-      -- (D-064 : delegants compris, public.separation_violee).
-      IF a.categorie = 'ecart_poids' AND (a.soumis_par IS NULL OR public.separation_violee(a.soumis_par, 'invoices', 'trips', a.soumis_le)) THEN
-        RAISE EXCEPTION 'La cloture d''un ecart de poids revient a une autre personne que celle qui l''a soumis' USING ERRCODE = '42501';
+      -- Separation des taches (D-064, delegants compris, toutes categories) : ni
+      -- l'auteur de la conclusion, ni celui qui a soumis, ne cloturent.
+      IF a.soumis_par IS NULL OR a.conclu_par IS NULL
+         OR public.separation_violee(a.soumis_par, 'invoices', 'trips', a.soumis_le)
+         OR public.separation_violee(a.conclu_par, 'invoices', 'trips', a.conclu_le) THEN
+        RAISE EXCEPTION 'La cloture revient a une autre personne que celles qui ont conclu et soumis l''anomalie' USING ERRCODE = '42501';
       END IF;
       v_statut := 'cloturee';
     ELSE
@@ -909,6 +944,8 @@ BEGIN
     commentaire = coalesce(v_com, commentaire), preuve_ref = coalesce(v_preuve, preuve_ref),
     soumis_par = CASE WHEN p_action = 'soumettre_validation' THEN auth.uid() WHEN p_action = 'renvoyer' THEN NULL ELSE soumis_par END,
     soumis_le = CASE WHEN p_action = 'soumettre_validation' THEN now() WHEN p_action = 'renvoyer' THEN NULL ELSE soumis_le END,
+    conclu_par = CASE WHEN p_action IN ('confirmer_concordance', 'accepter_ecart_justifie', 'signaler_erreur_cbg') THEN auth.uid() ELSE conclu_par END,
+    conclu_le = CASE WHEN p_action IN ('confirmer_concordance', 'accepter_ecart_justifie', 'signaler_erreur_cbg') THEN now() ELSE conclu_le END,
     cloture_par = CASE WHEN p_action = 'cloturer' THEN auth.uid() ELSE cloture_par END,
     cloture_le = CASE WHEN p_action = 'cloturer' THEN now() ELSE cloture_le END
    WHERE id = a.id;
@@ -945,11 +982,15 @@ SET search_path = ''
 AS $$
 DECLARE r public.releves_cbg; v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
 BEGIN
-  IF NOT public.has_module_write('trips') THEN
-    RAISE EXCEPTION 'Droit d''ecriture sur les voyages requis' USING ERRCODE = '42501';
+  -- Annuler un releve change le tonnage facture : droit facturation.
+  IF NOT public.has_module_write('invoices') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur la facturation requis' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO r FROM public.releves_cbg WHERE id = p_releve_id FOR UPDATE;
   IF NOT FOUND OR NOT public.site_permis(r.site_id) THEN RAISE EXCEPTION 'Releve introuvable' USING ERRCODE = 'P0002'; END IF;
+  IF r.importe_par IS NULL OR public.separation_violee(r.importe_par, 'invoices', 'trips', r.importe_le) THEN
+    RAISE EXCEPTION 'L''annulation revient a une autre personne que celle qui a importe le releve' USING ERRCODE = '42501';
+  END IF;
   IF r.statut = 'annule' THEN RAISE EXCEPTION 'Releve deja annule' USING ERRCODE = '22023'; END IF;
   IF v_motif IS NULL THEN RAISE EXCEPTION 'Motif d''annulation obligatoire' USING ERRCODE = '22023'; END IF;
   IF public.releve_cbg_engage(r.id) THEN
@@ -1011,11 +1052,16 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', sig);
   END LOOP;
   -- Fonctions internes (appelees par les fonctions serveur) : fermees aux comptes.
-  FOREACH sig IN ARRAY ARRAY['releve_cbg_engage(uuid)'] LOOP
+  FOREACH sig IN ARRAY ARRAY['releve_cbg_engage(uuid)', 'releves_kogon_perimetre(uuid)'] LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', sig);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', sig);
   END LOOP;
 END $$;
+
+-- M3 (revue) : l'import sans empreinte ni controle de colonnes n'est plus
+-- executable par les comptes ; l'ecran appelle importer_releve_cbg_v2.
+REVOKE EXECUTE ON FUNCTION public.importer_releve_cbg(text, date, date, uuid, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.importer_releve_cbg(text, date, date, uuid, text, jsonb) TO service_role;
 
 -- ===================================================================
 -- 7. Reconciliation : tonnage CBG officiel, releve KOGON distinct
@@ -1032,7 +1078,18 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
   SELECT p_anomalies && ARRAY['base_absente', 'litige', 'rejet', 'ecart_hors_tolerance',
     'ecart_double_pesee', 'sans_double_pesee', 'sans_ticket_cbg', 'ticket_rectifie',
     'ticket_double', 'non_accepte', 'net_superieur_capacite',
-    'releve_cbg_ambigu', 'ecart_releve_cbg', 'anomalie_pesee_ouverte'];
+    'releve_cbg_ambigu', 'ecart_releve_cbg', 'anomalie_pesee_ouverte', 'sans_releve_cbg', 'releve_non_rapproche'];
+$$;
+
+-- M1 (revue) : une decision « facturable » est perimee si une anomalie non
+-- forcable est presente, si une anomalie bloquante nouvelle apparait apres
+-- la decision, ou si le tonnage de base a change.
+CREATE OR REPLACE FUNCTION public.decision_facturable_perimee(p_anciennes text[], p_nouvelles text[], p_ancienne_base numeric, p_nouvelle_base numeric)
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = '' AS $$
+  SELECT public.ligne_non_forcable(p_nouvelles)
+      OR p_ancienne_base IS DISTINCT FROM p_nouvelle_base
+      OR EXISTS (SELECT 1 FROM unnest(coalesce(p_nouvelles, '{}')) x
+                  WHERE public.ligne_bloquee(ARRAY[x]) AND NOT (x = ANY (coalesce(p_anciennes, '{}'))));
 $$;
 
 CREATE OR REPLACE FUNCTION public.actualiser_reconciliation(p_id uuid)
@@ -1052,22 +1109,22 @@ BEGIN
     ticket_brut, ticket_tare, ticket_document_ref, ticket_rectifie, releve_cbg_ligne_id)
   SELECT gen_random_uuid(), r.id, t.id, t.reference, t.planned_date, t.vehicle_id, t.etat,
     coalesce(t.net_weight, t.load_weight),
-    -- Recu : releve officiel CBG s'il est connu ; sinon releve KOGON, signale par sans_releve_cbg.
-    coalesce(cb.net, p.net, t.net_weight_reception), t.accepted_tonnage,
+    -- Recu : releve officiel CBG s'il est connu ; sinon releve KOGON, signale par sans_releve_cbg
+    -- (bloquant) ; releve ambigu : aucun (base absente, non forcable).
+    rv.recu, t.accepted_tonnage,
     p.net, cb.net,
-    CASE r.base_tonnage WHEN 'accepte' THEN t.accepted_tonnage WHEN 'recu' THEN coalesce(cb.net, p.net, t.net_weight_reception)
-      ELSE coalesce(t.net_weight, t.load_weight) END,
+    bs.base,
     coalesce(p.ticket, tk.ticket), fi.fiche,
     array_remove(ARRAY[
       CASE WHEN coalesce(t.net_weight, t.load_weight, p.net, t.net_weight_reception) IS NULL THEN 'sans_pesee' END,
-      CASE WHEN (CASE r.base_tonnage WHEN 'accepte' THEN t.accepted_tonnage WHEN 'recu' THEN coalesce(cb.net, p.net, t.net_weight_reception)
-        ELSE coalesce(t.net_weight, t.load_weight) END) IS NULL THEN 'base_absente' END,
-      CASE WHEN coalesce(t.net_weight, t.load_weight) > 0 AND coalesce(cb.net, p.net, t.net_weight_reception) IS NOT NULL
-        AND abs(coalesce(cb.net, p.net, t.net_weight_reception) - coalesce(t.net_weight, t.load_weight)) / coalesce(t.net_weight, t.load_weight) * 100
+      CASE WHEN bs.base IS NULL THEN 'base_absente' END,
+      CASE WHEN coalesce(t.net_weight, t.load_weight) > 0 AND rv.recu IS NOT NULL
+        AND abs(rv.recu - coalesce(t.net_weight, t.load_weight)) / coalesce(t.net_weight, t.load_weight) * 100
           > r.tolerance_ecart_pct THEN 'ecart_hors_tolerance' END,
       CASE WHEN p.trip_id IS NULL THEN 'sans_ticket_cbg' END,
       CASE WHEN p.est_rectifie THEN 'ticket_rectifie' END,
-      CASE WHEN p.net IS NOT NULL AND veh.capacity_tonnes > 0 AND p.net > veh.capacity_tonnes THEN 'net_superieur_capacite' END,
+      -- m4 : ticket KOGON ou valeur facturee au-dessus de la capacite du camion.
+      CASE WHEN veh.capacity_tonnes > 0 AND (p.net > veh.capacity_tonnes OR bs.base > veh.capacity_tonnes) THEN 'net_superieur_capacite' END,
       CASE WHEN t.etat = 'DISPUTED' THEN 'litige' END,
       CASE WHEN t.etat = 'REJECTED' THEN 'rejet' END,
       CASE WHEN r.base_tonnage = 'accepte' AND t.etat = 'DELIVERED' THEN 'non_accepte' END,
@@ -1078,9 +1135,11 @@ BEGIN
       -- D-081 : deux sources. Sans ligne du releve officiel : signale, jamais confondu.
       CASE WHEN p.trip_id IS NOT NULL AND coalesce(cb.nombre, 0) = 0 THEN 'sans_releve_cbg' END,
       CASE WHEN cb.nombre > 1 THEN 'releve_cbg_ambigu' END,
+      CASE WHEN cb.nombre >= 1 AND cb.non_rapproche THEN 'releve_non_rapproche' END,
       CASE WHEN cb.net IS NOT NULL AND p.net IS NOT NULL
         AND NOT public.ecart_dans_tolerance(cb.net - p.net, cb.net, tol.tolerance_t, tol.tolerance_pct) THEN 'ecart_releve_cbg' END,
-      CASE WHEN EXISTS (SELECT 1 FROM public.anomalies_pesee ap WHERE ap.trip_id = t.id AND ap.statut <> 'cloturee') THEN 'anomalie_pesee_ouverte' END
+      CASE WHEN EXISTS (SELECT 1 FROM public.anomalies_pesee ap
+                         WHERE (ap.trip_id = t.id OR t.id = ANY (ap.trips_concernes)) AND ap.statut <> 'cloturee') THEN 'anomalie_pesee_ouverte' END
     ], NULL), p.brut, p.tare, p.document_ref, coalesce(p.est_rectifie, false), cb.ligne_id
   FROM public.trips t
   LEFT JOIN public.vehicles veh ON veh.id = t.vehicle_id
@@ -1091,10 +1150,14 @@ BEGIN
     SELECT count(DISTINCT coalesce(l.net, l.brut - l.tare))::integer AS nombre,
            CASE WHEN count(DISTINCT coalesce(l.net, l.brut - l.tare)) = 1 THEN min(coalesce(l.net, l.brut - l.tare)) END AS net,
            CASE WHEN count(DISTINCT coalesce(l.net, l.brut - l.tare)) = 1
-                THEN (array_agg(l.id ORDER BY rc.importe_le DESC, l.rang))[1] END AS ligne_id
+                THEN (array_agg(l.id ORDER BY rc.importe_le DESC, l.rang))[1] END AS ligne_id,
+           coalesce(bool_or(rc.rapproche_pesees_le IS NULL), false) AS non_rapproche
       FROM public.releves_cbg_lignes l JOIN public.releves_cbg rc ON rc.id = l.releve_id AND rc.statut <> 'annule'
      WHERE p.ticket IS NOT NULL AND upper(btrim(l.ticket)) = upper(btrim(p.ticket))
-       AND coalesce(l.net, l.brut - l.tare) IS NOT NULL) cb ON true
+       AND coalesce(l.net, l.brut - l.tare) > 0 AND coalesce(l.brut, 1) > 0 AND coalesce(l.tare, 0) >= 0) cb ON true
+  LEFT JOIN LATERAL (SELECT CASE WHEN cb.nombre > 1 THEN NULL ELSE coalesce(cb.net, p.net, t.net_weight_reception) END AS recu) rv ON true
+  LEFT JOIN LATERAL (SELECT CASE r.base_tonnage WHEN 'accepte' THEN t.accepted_tonnage WHEN 'recu' THEN rv.recu
+                                ELSE coalesce(t.net_weight, t.load_weight) END AS base) bs ON true
   LEFT JOIN LATERAL (SELECT * FROM public.tolerance_pesee_applicable(t.arrival_site_id)) tol ON true
   LEFT JOIN LATERAL (
     SELECT e.donnees ->> 'ticket' AS ticket FROM public.trip_events e
@@ -1125,15 +1188,15 @@ BEGIN
     ticket_brut = EXCLUDED.ticket_brut, ticket_tare = EXCLUDED.ticket_tare,
     ticket_document_ref = EXCLUDED.ticket_document_ref, ticket_rectifie = EXCLUDED.ticket_rectifie,
     releve_cbg_ligne_id = EXCLUDED.releve_cbg_ligne_id,
-    -- Repris de J1 final (20261121160000) : une decision « facturable »
-    -- devenue impossible est invalidee, la ligne repasse a examiner.
-    decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+    -- Repris de J1 final (20261121160000), etendu (M1) : une decision
+    -- « facturable » perimee est invalidee, la ligne repasse a examiner.
+    decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.decision_facturable_perimee(reconciliation_lignes.anomalies, EXCLUDED.anomalies, reconciliation_lignes.tonnage_base, EXCLUDED.tonnage_base)
       THEN NULL ELSE reconciliation_lignes.decision END,
-    motif_decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+    motif_decision = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.decision_facturable_perimee(reconciliation_lignes.anomalies, EXCLUDED.anomalies, reconciliation_lignes.tonnage_base, EXCLUDED.tonnage_base)
       THEN NULL ELSE reconciliation_lignes.motif_decision END,
-    decide_par = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+    decide_par = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.decision_facturable_perimee(reconciliation_lignes.anomalies, EXCLUDED.anomalies, reconciliation_lignes.tonnage_base, EXCLUDED.tonnage_base)
       THEN NULL ELSE reconciliation_lignes.decide_par END,
-    decide_le = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.ligne_non_forcable(EXCLUDED.anomalies)
+    decide_le = CASE WHEN reconciliation_lignes.decision = 'facturable' AND public.decision_facturable_perimee(reconciliation_lignes.anomalies, EXCLUDED.anomalies, reconciliation_lignes.tonnage_base, EXCLUDED.tonnage_base)
       THEN NULL ELSE reconciliation_lignes.decide_le END;
   SELECT count(*) INTO n FROM public.reconciliation_lignes WHERE reconciliation_id = r.id;
   UPDATE public.reconciliations SET actualisee_le = now() WHERE id = r.id;
