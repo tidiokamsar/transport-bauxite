@@ -114,6 +114,18 @@ CREATE INDEX IF NOT EXISTS idx_reservations_stock_ordre ON public.reservations_s
 ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS reservation_id uuid REFERENCES public.reservations_stock(id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_reservation ON public.stock_movements(reservation_id);
 
+-- Ordre d'enregistrement du cout moyen (revue C2) : created_at vaut now(),
+-- le debut de la transaction ; deux transactions concurrentes s'y classent
+-- dans l'ordre de leur debut, pas de leur ecriture. enregistre_le prend
+-- clock_timestamp() a l'insertion, faite sous le verrou de l'article par
+-- toutes les fonctions d'ecriture. Existant : created_at (puis numero MVT
+-- au tri), sans meilleure information. Aucune ecriture du navigateur.
+ALTER TABLE public.stock_movements ADD COLUMN IF NOT EXISTS enregistre_le timestamptz;
+UPDATE public.stock_movements SET enregistre_le = coalesce(created_at, movement_date, now()) WHERE enregistre_le IS NULL;
+ALTER TABLE public.stock_movements ALTER COLUMN enregistre_le SET DEFAULT clock_timestamp();
+ALTER TABLE public.stock_movements ALTER COLUMN enregistre_le SET NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_stock_movements_enregistrement ON public.stock_movements(stock_item_id, enregistre_le);
+
 CREATE TABLE IF NOT EXISTS public.stock_mouvements_lots (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   stock_movement_id uuid NOT NULL REFERENCES public.stock_movements(id),
@@ -210,6 +222,28 @@ CREATE TRIGGER garde_suivi_article BEFORE UPDATE OF suivi ON public.stock_items
   FOR EACH ROW EXECUTE FUNCTION public.garde_suivi_article();
 
 -- 3. Vues et fonctions de lecture ---------------------------------------------
+
+-- v_stock_depots (D-044, 20261115180000) recreee a l'identique, plus la borne
+-- des depots visibles (revue C5, D-075) : un transfert depuis un depot du
+-- perimetre ne donne plus la variation d'un depot d'un autre site. Les
+-- fonctions SECURITY DEFINER qui la lisent (cache quantity_in_stock, garde du
+-- suivi) gardent la vue complete (proprietaire). Limite consignee :
+-- stock_items.quantity_in_stock reste un total tous depots lisible avec le
+-- droit stocks (lot separe).
+CREATE OR REPLACE VIEW public.v_stock_depots WITH (security_invoker = true) AS
+SELECT x.stock_item_id, x.warehouse_id, sum(x.variation) AS quantite
+  FROM (
+    SELECT m.stock_item_id, m.from_warehouse_id AS warehouse_id, -m.quantity AS variation
+      FROM public.stock_movements m
+     WHERE m.from_warehouse_id IS NOT NULL AND m.movement_type IN ('exit', 'transfer', 'annulation')
+    UNION ALL
+    SELECT m.stock_item_id, m.to_warehouse_id, m.quantity
+      FROM public.stock_movements m
+     WHERE m.to_warehouse_id IS NOT NULL AND m.movement_type IN ('entry', 'return', 'transfer', 'annulation', 'adjustment')
+  ) x
+ WHERE EXISTS (SELECT 1 FROM public.warehouses w WHERE w.id = x.warehouse_id)
+ GROUP BY x.stock_item_id, x.warehouse_id;
+GRANT SELECT ON public.v_stock_depots TO authenticated;
 
 CREATE OR REPLACE VIEW public.v_reservations_stock WITH (security_invoker = true) AS
 SELECT r.id, r.numero, r.stock_item_id, r.warehouse_id, r.quantite, r.maintenance_order_id, r.vehicle_id, r.affectation,
@@ -593,6 +627,17 @@ BEGIN
     RAISE EXCEPTION 'Mouvement % deja annule', m.movement_number USING ERRCODE = '22023';
   END IF;
   SELECT * INTO a FROM public.stock_items WHERE id = m.stock_item_id FOR UPDATE;
+  -- Sous le verrou de l'article : deux annulations simultanees du meme
+  -- mouvement ne passent pas toutes les deux.
+  IF EXISTS (SELECT 1 FROM public.stock_movements WHERE annule_mouvement_id = p_id) THEN
+    RAISE EXCEPTION 'Mouvement % deja annule', m.movement_number USING ERRCODE = '22023';
+  END IF;
+  -- Revue C7 : un mouvement sans lot, anterieur au passage de l'article en
+  -- suivi par lot ou serie, laisserait les lots incoherents.
+  IF a.suivi <> 'aucun' AND NOT EXISTS (SELECT 1 FROM public.stock_mouvements_lots x WHERE x.stock_movement_id = m.id) THEN
+    RAISE EXCEPTION 'Mouvement % sans lot ni numero de serie, anterieur au suivi de l''article % : corriger par inventaire du lot',
+      m.movement_number, a.item_code USING ERRCODE = '22023';
+  END IF;
   -- Le contre-mouvement inverse les depots de l'original.
   IF m.movement_type = 'adjustment' THEN
     v_qte := abs(m.quantity);
@@ -772,9 +817,9 @@ END $$;
 
 -- 7. Valorisation au cout moyen pondere -----------------------------------------
 -- Par article, tous depots confondus (l'article est un referentiel global,
--- D-044), dans l'ordre d'enregistrement des mouvements (horodatage
--- d'insertion, puis numero MVT) ; les controles de stock se font a
--- l'enregistrement : la quantite ne devient jamais negative.
+-- D-044), dans l'ordre d'enregistrement des mouvements (enregistre_le, pris
+-- sous le verrou de l'article, puis numero MVT) ; les controles de stock se
+-- font a l'enregistrement : la quantite ne devient jamais negative.
 -- Etat : quantite q, quantite non valorisee qnv, valeur v des quantites
 -- valorisees (numeric, sans arrondi intermediaire) ; cmp = v / (q - qnv).
 --   entree avec prix : v += q x prix ; entree sans prix : qnv += q ;
@@ -783,24 +828,46 @@ END $$;
 --     valorise) ;
 --   sortie, manquant d'inventaire, annulation d'un retour : sortie au cmp
 --     (v et qnv reduits en proportion) ; stock nul : remise a zero ;
---   annulation d'une entree : retrait de sa quantite a son propre prix.
+--   annulation d'une entree juste apres elle (aucun autre mouvement de
+--     l'article entre les deux) : retrait exact, a son propre prix ;
+--   annulation d'une entree apres d'autres mouvements (revue C1) : les
+--     quantites de cette entree ne sont plus identifiables dans le stock,
+--     elle sort au cmp du moment, comme une sortie, et l'article est
+--     signale « a verifier » jusqu'au retour a un stock nul. Jamais de
+--     valeur ramenee a 0 en silence.
 -- Les transferts ne changent pas la valeur d'un article.
--- La fonction ne rend ni quantite ni valeur (qui reveleraient le stock des
--- depots hors perimetre) : seulement le cout unitaire et la part non
--- valorisee de l'article ; quantites et valeurs viennent de v_stock_depots
--- (RLS du perimetre). Montants en GNF.
+-- Ne rend que les articles presents (stock non nul) dans un depot du
+-- perimetre de l'appelant (revue C4), et pour eux seulement le cout unitaire
+-- et la part non valorisee, ni quantite ni valeur : quantites et valeurs
+-- viennent de v_stock_depots (RLS du perimetre). Le cout unitaire reste celui
+-- de l'article tous sites (limite consignee, D-067). Montants en GNF.
 CREATE OR REPLACE FUNCTION public.valorisation_articles_stock()
-RETURNS TABLE (stock_item_id uuid, cout_unitaire numeric, part_non_valorisee numeric)
+RETURNS TABLE (stock_item_id uuid, cout_unitaire numeric, part_non_valorisee numeric, a_verifier boolean)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE e record; v_art uuid; q numeric := 0; qnv numeric := 0; v numeric := 0; f numeric;
+DECLARE e record; v_art uuid; v_dernier uuid; q numeric := 0; qnv numeric := 0; v numeric := 0; f numeric;
+        v_verif boolean := false; v_action text;
 BEGIN
   IF NOT (public.has_module_view('stock') OR public.is_admin()) THEN RETURN; END IF;
   FOR e IN
-    SELECT s.stock_item_id AS art, s.quantity::numeric AS qte, o.unit_price::numeric AS prix_origine,
+    WITH permis AS (
+      SELECT x.stock_item_id
+        FROM (
+          SELECT m.stock_item_id, m.from_warehouse_id AS w, -m.quantity AS variation FROM public.stock_movements m
+           WHERE m.from_warehouse_id IS NOT NULL AND m.movement_type IN ('exit', 'transfer', 'annulation')
+          UNION ALL
+          SELECT m.stock_item_id, m.to_warehouse_id, m.quantity FROM public.stock_movements m
+           WHERE m.to_warehouse_id IS NOT NULL AND m.movement_type IN ('entry', 'return', 'transfer', 'annulation', 'adjustment')
+        ) x
+        JOIN public.warehouses wh ON wh.id = x.w
+       WHERE public.site_permis(wh.site_id)
+       GROUP BY x.stock_item_id, x.w
+      HAVING sum(x.variation) <> 0
+    )
+    SELECT s.id, s.stock_item_id AS art, s.quantity::numeric AS qte, o.id AS origine, o.unit_price::numeric AS prix_origine,
            CASE
              WHEN s.movement_type = 'entry' AND s.unit_price IS NOT NULL THEN 'entree_prix'
              WHEN s.movement_type = 'entry' THEN 'entree_sans_prix'
@@ -814,19 +881,27 @@ BEGIN
            s.unit_price::numeric AS prix
       FROM public.stock_movements s
       LEFT JOIN public.stock_movements o ON o.id = s.annule_mouvement_id
-     WHERE s.movement_type <> 'transfer' AND (s.movement_type <> 'annulation' OR o.movement_type <> 'transfer')
-     ORDER BY s.stock_item_id, s.created_at, substring(s.movement_number FROM '(\d+)$')::bigint NULLS FIRST, s.id
+     WHERE s.stock_item_id IN (SELECT p.stock_item_id FROM permis p)
+       AND s.movement_type <> 'transfer' AND (s.movement_type <> 'annulation' OR o.movement_type <> 'transfer')
+     ORDER BY s.stock_item_id, s.enregistre_le, substring(s.movement_number FROM '(\d+)$')::bigint NULLS FIRST, s.id
   LOOP
     IF v_art IS DISTINCT FROM e.art THEN
       IF v_art IS NOT NULL AND q > 0 THEN
         stock_item_id := v_art;
         cout_unitaire := CASE WHEN q - qnv > 0 THEN v / (q - qnv) END;
         part_non_valorisee := qnv / q;
+        a_verifier := v_verif;
         RETURN NEXT;
       END IF;
-      v_art := e.art; q := 0; qnv := 0; v := 0;
+      v_art := e.art; q := 0; qnv := 0; v := 0; v_verif := false; v_dernier := NULL;
     END IF;
-    CASE e.action
+    -- Annulation d'une entree apres d'autres mouvements : sortie au cmp (C1).
+    v_action := e.action;
+    IF v_action IN ('retrait_prix', 'retrait_sans_prix') AND e.origine IS DISTINCT FROM v_dernier THEN
+      v_action := 'sortie_cmp';
+      v_verif := true;
+    END IF;
+    CASE v_action
       WHEN 'entree_prix' THEN v := v + e.qte * e.prix; q := q + e.qte;
       WHEN 'entree_sans_prix' THEN qnv := qnv + e.qte; q := q + e.qte;
       WHEN 'entree_cmp' THEN
@@ -837,12 +912,17 @@ BEGIN
         IF abs(e.qte) >= q THEN q := 0; qnv := 0; v := 0;
         ELSE f := (q - abs(e.qte)) / q; v := v * f; qnv := qnv * f; q := q - abs(e.qte); END IF;
       WHEN 'retrait_prix' THEN
-        q := q - e.qte; v := greatest(v - e.qte * e.prix_origine, 0);
+        q := q - e.qte;
+        IF v < e.qte * e.prix_origine THEN v_verif := true; END IF;
+        v := greatest(v - e.qte * e.prix_origine, 0);
       WHEN 'retrait_sans_prix' THEN
-        q := q - e.qte; qnv := greatest(qnv - e.qte, 0);
+        q := q - e.qte;
+        IF qnv < e.qte THEN v_verif := true; END IF;
+        qnv := greatest(qnv - e.qte, 0);
       ELSE NULL;
     END CASE;
-    IF q <= 0 THEN q := 0; qnv := 0; v := 0; END IF;
+    v_dernier := e.id;
+    IF q <= 0 THEN q := 0; qnv := 0; v := 0; v_verif := false; END IF;
     qnv := least(qnv, q);
     IF qnv < 0.001 THEN qnv := 0; END IF;
     IF q - qnv <= 0 THEN v := 0; END IF;
@@ -851,6 +931,7 @@ BEGIN
     stock_item_id := v_art;
     cout_unitaire := CASE WHEN q - qnv > 0 THEN v / (q - qnv) END;
     part_non_valorisee := qnv / q;
+    a_verifier := v_verif;
     RETURN NEXT;
   END IF;
 END;
@@ -862,6 +943,7 @@ GRANT EXECUTE ON FUNCTION public.valorisation_articles_stock() TO authenticated,
 -- se repartit en proportion des quantites (approximation consignee).
 -- statut : complete (toutes les quantites valorisees), partielle (une
 -- partie entree sans prix : valeur des seules quantites valorisees),
+-- a_verifier (entree annulee apres d'autres mouvements, retiree au cmp),
 -- sans_donnees (aucune quantite valorisee).
 CREATE OR REPLACE VIEW public.v_valorisation_stock WITH (security_invoker = true) AS
 SELECT d.stock_item_id, d.warehouse_id, d.quantite::integer AS quantite,
@@ -870,6 +952,7 @@ SELECT d.stock_item_id, d.warehouse_id, d.quantite::integer AS quantite,
        CASE WHEN a.cout_unitaire IS NOT NULL
             THEN round(d.quantite * (1 - a.part_non_valorisee) * a.cout_unitaire)::bigint END AS valeur,
        CASE WHEN a.cout_unitaire IS NULL THEN 'sans_donnees'
+            WHEN a.a_verifier THEN 'a_verifier'
             WHEN a.part_non_valorisee > 0 THEN 'partielle'
             ELSE 'complete' END AS statut,
        'GNF'::text AS devise
@@ -884,6 +967,7 @@ CREATE OR REPLACE VIEW public.v_valorisation_articles WITH (security_invoker = t
 SELECT s.stock_item_id, sum(s.quantite)::integer AS quantite, sum(s.quantite_non_valorisee) AS quantite_non_valorisee,
        max(s.cmp) AS cmp, sum(s.valeur)::bigint AS valeur,
        CASE WHEN bool_and(s.statut = 'sans_donnees') THEN 'sans_donnees'
+            WHEN bool_or(s.statut = 'a_verifier') THEN 'a_verifier'
             WHEN bool_or(s.statut = 'partielle') THEN 'partielle'
             ELSE 'complete' END AS statut,
        'GNF'::text AS devise
@@ -896,8 +980,10 @@ SELECT s.warehouse_id, count(*)::integer AS nb_articles,
        sum(s.valeur)::bigint AS valeur_connue,
        count(*) FILTER (WHERE s.statut = 'partielle')::integer AS nb_articles_partiels,
        count(*) FILTER (WHERE s.statut = 'sans_donnees')::integer AS nb_articles_sans_prix,
+       count(*) FILTER (WHERE s.statut = 'a_verifier')::integer AS nb_articles_a_verifier,
        CASE WHEN bool_and(s.statut = 'complete') THEN 'complete'
             WHEN bool_and(s.statut = 'sans_donnees') THEN 'sans_donnees'
+            WHEN bool_or(s.statut = 'a_verifier') THEN 'a_verifier'
             ELSE 'partielle' END AS statut,
        'GNF'::text AS devise
   FROM public.v_valorisation_stock s
@@ -1079,19 +1165,57 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE d public.deliveries; po public.purchase_orders; l public.receptions_achat_lignes; r record;
+DECLARE d public.deliveries; po public.purchase_orders; l public.receptions_achat_lignes; r record; t record;
+        v_utilises text; v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
 BEGIN
-  IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN RAISE EXCEPTION 'Motif de l''annulation requis' USING ERRCODE = '22023'; END IF;
+  IF v_motif IS NULL THEN RAISE EXCEPTION 'Motif de l''annulation requis' USING ERRCODE = '22023'; END IF;
   SELECT * INTO d FROM public.deliveries WHERE id = p_livraison FOR UPDATE;
   IF NOT FOUND OR d.annule_le IS NOT NULL THEN RAISE EXCEPTION 'Reception introuvable ou deja annulee' USING ERRCODE = '22023'; END IF;
   po := public.bon_commande_ecrivable(d.purchase_order_id, 'stock');
   IF po.status NOT IN ('partially_received', 'received') THEN
     RAISE EXCEPTION 'Bon solde ou clos : reception non annulable' USING ERRCODE = '22023';
   END IF;
+  -- Pneus de la reception (revue C3, derogation a D-052 a confirmer par le
+  -- proprietaire) : l'annulation est permise tant que chaque pneu n'a que son
+  -- operation d'entree ; il sort alors du registre par une operation
+  -- d'annulation motivee de son entree (journal, pas de suppression), son
+  -- statut devient « reforme » (aucune operation ne s'y applique plus) et son
+  -- numero recoit le suffixe de la reception pour liberer le numero saisi.
+  -- Sinon refus avec la liste des pneus deja montes ou mouvementes.
   IF EXISTS (SELECT 1 FROM public.receptions_achat_pneus rp JOIN public.receptions_achat_lignes x ON x.id = rp.reception_ligne_id
               WHERE x.delivery_id = p_livraison) THEN
-    RAISE EXCEPTION 'Reception % avec pneus : non annulable (l''entree d''un pneu ne s''annule pas ; reformer un pneu enregistre par erreur)',
-      d.delivery_number USING ERRCODE = '22023';
+    IF NOT (public.has_module_write('vehicles') OR public.has_module_write('maintenance') OR public.is_admin()) THEN
+      RAISE EXCEPTION 'Reception % avec pneus : droit d''ecriture sur la flotte ou la maintenance requis', d.delivery_number
+        USING ERRCODE = '42501';
+    END IF;
+    PERFORM 1 FROM public.tires tr
+      JOIN public.receptions_achat_pneus rp ON rp.tire_id = tr.id
+      JOIN public.receptions_achat_lignes x ON x.id = rp.reception_ligne_id
+     WHERE x.delivery_id = p_livraison
+     ORDER BY tr.id FOR UPDATE OF tr;
+    SELECT string_agg(tr.tire_number, ', ' ORDER BY tr.tire_number) INTO v_utilises
+      FROM public.tires tr
+      JOIN public.receptions_achat_pneus rp ON rp.tire_id = tr.id
+      JOIN public.receptions_achat_lignes x ON x.id = rp.reception_ligne_id
+     WHERE x.delivery_id = p_livraison
+       AND EXISTS (SELECT 1 FROM public.pneus_operations o WHERE o.tire_id = tr.id AND o.type <> 'entree');
+    IF v_utilises IS NOT NULL THEN
+      RAISE EXCEPTION 'Reception % non annulable : pneus deja montes ou mouvementes (%)', d.delivery_number, v_utilises
+        USING ERRCODE = '22023';
+    END IF;
+    FOR t IN SELECT tr.id, tr.tire_number, o.id AS entree
+               FROM public.tires tr
+               JOIN public.receptions_achat_pneus rp ON rp.tire_id = tr.id
+               JOIN public.receptions_achat_lignes x ON x.id = rp.reception_ligne_id
+               JOIN public.pneus_operations o ON o.tire_id = tr.id AND o.type = 'entree'
+              WHERE x.delivery_id = p_livraison LOOP
+      INSERT INTO public.pneus_operations (tire_id, type, effectue_le, motif, note, annule_operation_id, saisi_par)
+      VALUES (t.id, 'annulation', now(), 'Annulation de la reception ' || d.delivery_number || ' : ' || v_motif,
+              'Numero saisi a la reception : ' || t.tire_number, t.entree, auth.uid());
+      UPDATE public.tires SET status = 'retired', vehicle_id = NULL, "position" = NULL,
+             tire_number = t.tire_number || '-ANNULE-' || d.delivery_number, updated_at = now()
+       WHERE id = t.id;
+    END LOOP;
   END IF;
   PERFORM set_config('sigtb.annulation_reception', 'on', true);
   FOR l IN SELECT * FROM public.receptions_achat_lignes WHERE delivery_id = p_livraison LOOP
@@ -1147,6 +1271,9 @@ WITH base AS (
       SELECT min(o.effectue_le) FILTER (WHERE o.type = 'montage') AS premier_montage,
              max(o.effectue_le) FILTER (WHERE o.type = 'reforme') AS reforme_le
         FROM public.v_pneus_operations_effectives o WHERE o.tire_id = p.id) vie ON true
+   -- Pneu sorti du registre par l'annulation de sa reception (entree annulee) : ni pris ni exclu.
+   WHERE NOT EXISTS (SELECT 1 FROM public.pneus_operations a JOIN public.pneus_operations e ON e.id = a.annule_operation_id
+                      WHERE e.tire_id = p.id AND e.type = 'entree')
 ), retenus AS (
   SELECT b.*, b.fin_de_vie AND b.mesures_completes AS pris FROM base b
 )
@@ -1202,3 +1329,14 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+-- 11. Vues : rien pour anon (revue C6) -------------------------------------------
+-- Les droits par defaut de Supabase ouvrent les vues nouvelles a anon ; elles
+-- sont lues par les seuls comptes (RLS du perimetre).
+REVOKE ALL ON public.v_reservations_stock, public.v_stock_disponibilite, public.v_stock_lots, public.v_stock_lots_mouvements,
+              public.v_valorisation_stock, public.v_valorisation_articles, public.v_valorisation_depots,
+              public.v_pneus_performance, public.v_stock_depots FROM anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON public.v_reservations_stock, public.v_stock_disponibilite, public.v_stock_lots, public.v_stock_lots_mouvements,
+       public.v_valorisation_stock, public.v_valorisation_articles, public.v_valorisation_depots, public.v_pneus_performance
+  FROM authenticated;

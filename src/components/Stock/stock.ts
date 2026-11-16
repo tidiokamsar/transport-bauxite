@@ -73,11 +73,13 @@ export const STATUT_RESERVATION: Record<StatutReservation, { texte: string; tein
   levee: { texte: 'Levée', teinte: 'gris' },
 };
 
-export type StatutValeur = 'complete' | 'partielle' | 'sans_donnees' | 'sans_stock';
+export type StatutValeur = 'complete' | 'partielle' | 'a_verifier' | 'sans_donnees' | 'sans_stock';
 
 export const STATUT_VALEUR: Record<StatutValeur, { texte: string; teinte: TeintePuce }> = {
   complete: { texte: 'Complète', teinte: 'vert' },
   partielle: { texte: 'Partielle', teinte: 'orange' },
+  // Entree annulee apres d'autres mouvements : retiree au cout moyen du moment (D-067 revue C1).
+  a_verifier: { texte: 'À vérifier', teinte: 'orange' },
   sans_donnees: { texte: 'Sans données', teinte: 'gris' },
   sans_stock: { texte: 'Sans stock', teinte: 'gris' },
 };
@@ -87,7 +89,7 @@ const gnf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
 /** Valeur calculee par le serveur : jamais completee ni estimee a l'ecran. */
 export const texteValeur = (valeur: number | null, statut: StatutValeur) => {
   if (valeur === null || statut === 'sans_donnees') return 'Sans données';
-  return `${gnf.format(valeur)} GNF${statut === 'partielle' ? ' (partielle)' : ''}`;
+  return `${gnf.format(valeur)} GNF${statut === 'partielle' ? ' (partielle)' : statut === 'a_verifier' ? ' (à vérifier)' : ''}`;
 };
 
 export const texteCmp = (cmp: number | null) => (cmp === null ? 'Sans données' : `${gnf.format(cmp)} GNF`);

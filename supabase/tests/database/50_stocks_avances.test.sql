@@ -4,7 +4,8 @@
 -- main : droits retires (has_*_privilege, jamais un appel refuse sous SET
 -- ROLE, D-072), reservations levees a la cloture d'un ordre, perimetre d'un
 -- compte borne a un site (D-075), annulation de reception d'un bon engage
--- refusee (D-072 R3-5). Tout est annule.
+-- refusee (D-072 R3-5) ; constats C1 a C7 de la revue independante (section
+-- 10). Tout est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -18,14 +19,15 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(77);
+SELECT plan(94);
 
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistique.d067@exemple.invalid'),
   ('00000000-0000-4000-d067-000000000002', 'comptable.d067@exemple.invalid'),
   ('00000000-0000-4000-d067-000000000003', 'admin.d067@exemple.invalid'),
-  ('00000000-0000-4000-d067-000000000005', 'logistique.site2.d067@exemple.invalid');
+  ('00000000-0000-4000-d067-000000000005', 'logistique.site2.d067@exemple.invalid'),
+  ('00000000-0000-4000-d067-000000000006', 'magasin.seul.d067@exemple.invalid');
 INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistician', 'Logistique D-067', 'active', NULL),
   ('00000000-0000-4000-d067-000000000002', 'accountant', 'Comptable D-067', 'active', NULL),
@@ -34,8 +36,15 @@ ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, s
 INSERT INTO public.sites (id, name, type) VALUES ('00000000-0000-4000-d067-0000000000a1', 'Site D-067', 'depot'),
   ('00000000-0000-4000-d067-0000000000a2', 'Site 2 D-067', 'depot');
 INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
-  ('00000000-0000-4000-d067-000000000005', 'logistician', 'Logistique site 2 D-067', 'active', '00000000-0000-4000-d067-0000000000a2')
+  ('00000000-0000-4000-d067-000000000005', 'logistician', 'Logistique site 2 D-067', 'active', '00000000-0000-4000-d067-0000000000a2'),
+  ('00000000-0000-4000-d067-000000000006', 'logistician', 'Magasin seul D-067', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
+-- Compte n'ayant que le droit stocks : flotte et maintenance en lecture (D-036).
+INSERT INTO public.droits_utilisateur (utilisateur, module, niveau) VALUES
+  ('00000000-0000-4000-d067-000000000006', 'vehicles', 'lecture'),
+  ('00000000-0000-4000-d067-000000000006', 'maintenance', 'lecture'),
+  ('00000000-0000-4000-d067-000000000006', 'stock', 'ecriture')
+ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 INSERT INTO public.warehouses (id, name, code, warehouse_type, site_id) VALUES
   ('00000000-0000-4000-d067-0000000000c1', 'Magasin D-067', 'TEST-MAG-D067', 'main', '00000000-0000-4000-d067-0000000000a1'),
   ('00000000-0000-4000-d067-0000000000c2', 'Atelier D-067', 'TEST-ATL-D067', 'garage', '00000000-0000-4000-d067-0000000000a1'),
@@ -55,7 +64,15 @@ INSERT INTO public.stock_items (id, item_code, name, unit_of_measure, suivi) VAL
   ('00000000-0000-4000-d067-0000000000e4', 'TEST-CMP-D067', 'Courroie D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000e5', 'TEST-SANS-D067', 'Joint D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000e6', 'TEST-PAY-D067', 'Pompe D-067', 'piece', 'aucun'),
-  ('00000000-0000-4000-d067-0000000000e7', 'TEST-OTP-D067', 'Plaquette D-067', 'piece', 'aucun');
+  ('00000000-0000-4000-d067-0000000000e7', 'TEST-OTP-D067', 'Plaquette D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000e9', 'TEST-C1A-D067', 'C1a D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000ea', 'TEST-C1B-D067', 'C1b D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000eb', 'TEST-C1C-D067', 'C1c D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000ec', 'TEST-C1D-D067', 'C1d D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000ed', 'TEST-C2-D067', 'C2 D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000ee', 'TEST-C3-D067', 'C3 D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000ef', 'TEST-C7-D067', 'C7 D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000f0', 'TEST-RES-D067', 'Reservation D-067', 'piece', 'aucun');
 DELETE FROM public.settings WHERE key IN ('pneu_reforme_precoce_km', 'achats_validation_separee');
 INSERT INTO public.settings (key, value, category) VALUES ('pneu_reforme_precoce_km', '{"value": "10000"}', 'pneus');
 SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('pneu_reforme_precoce_km', '{"value": "abc"}')
@@ -231,8 +248,6 @@ SELECT is((SELECT quantite FROM public.v_stock_lots WHERE stock_item_id = '00000
 -- e2 : 5 a 2000, sortie 2, inventaire -1, annulation de la sortie (+2 au cmp), 4 a 2500 : 18000 / 8.
 SELECT is((SELECT cmp FROM public.v_valorisation_articles WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e2'),
   2250.00, 'cmp recalcule avec le prix de reception');
-SELECT throws_ok($$SELECT public.annuler_reception((SELECT id FROM rec), 'Erreur')$$, '22023', NULL,
-  'reception avec pneus non annulable');
 
 -- 5. Performance par marque et modele ----------------------------------------------
 SELECT public.monter_pneu((SELECT id FROM public.tires WHERE tire_number = 'TEST-PN-D067-1'), '00000000-0000-4000-d067-0000000000b1', 'AV G', p_km => 1000);
@@ -241,6 +256,9 @@ SELECT public.demonter_pneu((SELECT id FROM public.tires WHERE tire_number = 'TE
 SELECT public.demonter_pneu((SELECT id FROM public.tires WHERE tire_number = 'TEST-PN-D067-2'), 'Coupure', 'damaged', '00000000-0000-4000-d067-0000000000a1', p_km => 6000);
 SELECT public.reformer_pneu((SELECT id FROM public.tires WHERE tire_number = 'TEST-PN-D067-1'), 'Usure finale');
 SELECT public.reformer_pneu((SELECT id FROM public.tires WHERE tire_number = 'TEST-PN-D067-2'), 'Coupure flanc');
+SELECT throws_like($$SELECT public.annuler_reception((SELECT id FROM rec), 'Erreur')$$,
+  '%deja montes ou mouvementes (TEST-PN-D067-1, TEST-PN-D067-2)%',
+  'C3 : reception dont les pneus ont ete montes non annulable, pneus listes');
 SELECT public.enregistrer_pneu(p_numero => 'TEST-PN-D067-3', p_marque => ' marque d067', p_modele => 'xdr ', p_site => '00000000-0000-4000-d067-0000000000a1');
 SELECT is((SELECT nb_pneus || ' ' || nb_pris_en_compte || ' ' || nb_exclus_en_service || ' ' || km_moyens || ' ' || cout_km || ' ' || taux_reforme_precoce_pct
              FROM public.v_pneus_performance WHERE marque = 'MARQUE D067' AND modele = 'XDR'),
@@ -333,6 +351,12 @@ SELECT lives_ok($$SELECT public.annuler_ordre_travail('00000000-0000-4000-d067-0
 SELECT is((SELECT statut || ' ' || motif_levee FROM public.v_reservations_stock WHERE id = (SELECT id FROM res_ot WHERE n = 'r3')),
   'levee Levee a la cloture de l''ordre TEST-OT3-D067 (annule)', 'ordre annule : sa reservation est levee');
 RESET ROLE;
+-- Transfert du site 1 vers le site 2 (compte global) : sonde C5 ci-dessous.
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e7', 'transfer', 1, '00000000-0000-4000-d067-0000000000c1',
+  '00000000-0000-4000-d067-0000000000c3');
+RESET ROLE;
 
 -- 8. Perimetre : compte borne au site 2 (D-038, D-075) ---------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000005');
@@ -361,6 +385,12 @@ SELECT throws_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000
   'compte borne : ordre de travail du site 1 refuse, message unique');
 SELECT lives_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000e1', '00000000-0000-4000-d067-0000000000c3', 1,
   p_affectation => 'Atelier site 2')$$, 'compte borne : reservation dans son depot');
+SELECT is((SELECT count(*)::int FROM public.v_stock_depots WHERE warehouse_id IN ('00000000-0000-4000-d067-0000000000c1', '00000000-0000-4000-d067-0000000000c2'))
+          || ' ' || (SELECT quantite::int FROM public.v_stock_depots
+                      WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e7' AND warehouse_id = '00000000-0000-4000-d067-0000000000c3'),
+  '0 1', 'C5 : v_stock_depots ne donne plus le depot du site 1 par le transfert, seulement le sien');
+SELECT is((SELECT count(*)::int FROM public.valorisation_articles_stock() WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e5'), 0,
+  'C4 : aucun cout d''un article present seulement dans un depot d''un autre site');
 RESET ROLE;
 
 -- 9. D-072 R3-5 toujours vrai : reception d'un bon engage non annulable ------------
@@ -389,6 +419,132 @@ SELECT throws_like($$SELECT public.annuler_reception((SELECT id FROM rec2), 'Err
   'R3-5 : reception d''un bon engage non annulable (fonction recreee par D-067)');
 SELECT is((SELECT status FROM public.purchase_orders WHERE id = (SELECT id FROM bc2)), 'received', 'R3-5 : bon toujours recu');
 RESET ROLE;
+
+
+-- 10. Constats de la revue independante (C1 a C7) ---------------------------------
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+-- C1 : entree annulee apres d'autres mouvements : sortie au cmp, « a verifier ».
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e9', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100);
+CREATE TEMP TABLE c1a AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e9', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 500) AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e9', 'exit', 5, '00000000-0000-4000-d067-0000000000c1');
+SELECT public.annuler_mouvement_stock((SELECT id FROM c1a), 'Erreur de prix');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e9'),
+  'a_verifier 5 300.00 1500', 'C1 : 10 a 100, 10 a 500, sortie 5, annulation de l''entree a 500 : 5 au cmp 300, a verifier (plus de valeur 0)');
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ea', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 500);
+CREATE TEMP TABLE c1b AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ea', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100) AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ea', 'exit', 5, '00000000-0000-4000-d067-0000000000c1');
+SELECT public.annuler_mouvement_stock((SELECT id FROM c1b), 'Erreur');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000ea'),
+  'a_verifier 5 300.00 1500', 'C1 : 10 a 500, 10 a 100, sortie 5, annulation de l''entree a 100 : cmp 300 (plus 700), a verifier');
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000eb', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100);
+CREATE TEMP TABLE c1c AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000eb', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1') AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000eb', 'exit', 4, '00000000-0000-4000-d067-0000000000c1');
+SELECT public.annuler_mouvement_stock((SELECT id FROM c1c), 'Erreur');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || quantite_non_valorisee || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000eb'),
+  'a_verifier 6 3.000 100.00 300', 'C1 : 10 a 100, 10 sans prix, sortie 4, annulation de l''entree sans prix : cmp 100 (plus 133,33), a verifier');
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ec', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100);
+CREATE TEMP TABLE c1d AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ec', 'entry', 5, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 200) AS id;
+SELECT public.annuler_mouvement_stock((SELECT id FROM c1d), 'Doublon');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000ec'),
+  'complete 10 100.00 1000', 'C1 : entree annulee juste apres elle : retrait exact a son prix, complete');
+RESET ROLE;
+
+-- C2 : ordre d'enregistrement (enregistre_le), pas created_at (debut de transaction).
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.stock_movements (movement_date, movement_type, stock_item_id, quantity, unit_price, total_value, to_warehouse_id, created_at)
+VALUES (now(), 'entry', '00000000-0000-4000-d067-0000000000ed', 10, 100, 1000, '00000000-0000-4000-d067-0000000000c1', now() + interval '2 hours');
+INSERT INTO public.stock_movements (movement_date, movement_type, stock_item_id, quantity, from_warehouse_id, created_at)
+VALUES (now(), 'exit', '00000000-0000-4000-d067-0000000000ed', 10, '00000000-0000-4000-d067-0000000000c1', now() + interval '1 hour');
+INSERT INTO public.stock_movements (movement_date, movement_type, stock_item_id, quantity, unit_price, total_value, to_warehouse_id, created_at)
+VALUES (now(), 'entry', '00000000-0000-4000-d067-0000000000ed', 10, 300, 3000, '00000000-0000-4000-d067-0000000000c1', now());
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT cmp FROM public.v_valorisation_articles WHERE stock_item_id = '00000000-0000-4000-d067-0000000000ed'), 300.00,
+  'C2 : entree a 100, sortie de 10, entree a 300 dans l''ordre d''ecriture : cmp 300 malgre un created_at forge en sens inverse');
+
+-- C3 : reception de pneus annulable tant que chaque pneu n'a que son entree.
+CREATE TEMP TABLE bc3 AS SELECT public.enregistrer_bon_commande('00000000-0000-4000-d067-0000000000f1', '00000000-0000-4000-d067-0000000000c1',
+  '[{"article": "00000000-0000-4000-d067-0000000000ee", "quantite": 2, "prix_unitaire": 500},
+    {"quantite": 1, "prix_unitaire": 1000000, "pneu": {"marque": "Marque D067", "modele": "ANN"}}]') AS id;
+SELECT public.soumettre_bon_commande((SELECT id FROM bc3));
+CREATE TEMP TABLE bc4 AS SELECT public.enregistrer_bon_commande('00000000-0000-4000-d067-0000000000f1', '00000000-0000-4000-d067-0000000000c1',
+  '[{"quantite": 1, "prix_unitaire": 1000000, "pneu": {"marque": "Marque D067", "modele": "SEUL"}}]') AS id;
+SELECT public.soumettre_bon_commande((SELECT id FROM bc4));
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.decider_bon_commande((SELECT id FROM bc3), true);
+SELECT public.decider_bon_commande((SELECT id FROM bc4), true);
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000006');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.receptionner_bon_commande((SELECT id FROM bc4),
+  (SELECT jsonb_agg(jsonb_build_object('ligne', id, 'recue', 1, 'pneus', '[{"numero": "TEST-PN-D067-8"}]'::jsonb))
+     FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc4)))$$, '42501', NULL,
+  'C3 : compte n''ayant que le droit stocks : reception de pneus refusee');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE rec3 AS SELECT public.receptionner_bon_commande((SELECT id FROM bc3),
+  (SELECT jsonb_agg(CASE WHEN pneu_marque IS NOT NULL
+            THEN jsonb_build_object('ligne', id, 'recue', 1, 'pneus', '[{"numero": "TEST-PN-D067-9"}]'::jsonb)
+            ELSE jsonb_build_object('ligne', id, 'recue', 2) END)
+     FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc3))) AS id;
+CREATE TEMP TABLE pneu_c3 AS SELECT rp.tire_id AS id FROM public.receptions_achat_pneus rp
+  JOIN public.receptions_achat_lignes x ON x.id = rp.reception_ligne_id WHERE x.delivery_id = (SELECT id FROM rec3);
+SELECT lives_ok($$SELECT public.annuler_reception((SELECT id FROM rec3), 'Numero errone')$$,
+  'C3 : reception annulable, son pneu n''ayant que son entree');
+SELECT ok((SELECT t.status = 'retired' AND t.tire_number LIKE 'TEST-PN-D067-9-ANNULE-REC-%' FROM public.tires t WHERE t.id = (SELECT id FROM pneu_c3)),
+  'C3 : pneu sorti du registre (statut reforme, numero suffixe : le numero saisi est libre)');
+SELECT ok(EXISTS (SELECT 1 FROM public.pneus_operations a JOIN public.pneus_operations e ON e.id = a.annule_operation_id
+                   WHERE e.tire_id = (SELECT id FROM pneu_c3) AND e.type = 'entree' AND a.type = 'annulation'
+                     AND a.motif LIKE 'Annulation de la reception REC-% : Numero errone'
+                     AND a.note = 'Numero saisi a la reception : TEST-PN-D067-9'),
+  'C3 : annulation de l''entree du pneu journalisee et motivee, pas de suppression');
+SELECT is((SELECT status FROM public.purchase_orders WHERE id = (SELECT id FROM bc3)) || ' '
+          || (SELECT quantite::int FROM public.v_stock_depots WHERE stock_item_id = '00000000-0000-4000-d067-0000000000ee'
+                AND warehouse_id = '00000000-0000-4000-d067-0000000000c1'),
+  'approved 0', 'C3 : bon revenu a approuve, lignes de stock de la meme reception annulees');
+SELECT lives_ok($$SELECT public.receptionner_bon_commande((SELECT id FROM bc3),
+  (SELECT jsonb_agg(CASE WHEN pneu_marque IS NOT NULL
+            THEN jsonb_build_object('ligne', id, 'recue', 1, 'pneus', '[{"numero": "TEST-PN-D067-9"}]'::jsonb)
+            ELSE jsonb_build_object('ligne', id, 'recue', 2) END)
+     FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc3)))$$,
+  'C3 : nouvelle reception avec le meme numero de pneu');
+SELECT is((SELECT nb_pneus FROM public.v_pneus_performance WHERE marque = 'MARQUE D067' AND modele = 'ANN'), 1,
+  'C3 : le pneu de la reception annulee n''entre pas dans la performance');
+
+-- C7 : mouvement sans lot anterieur au suivi par lot : annulation refusee.
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ef', 'entry', 2, NULL, '00000000-0000-4000-d067-0000000000c1');
+CREATE TEMP TABLE c7 AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000ef', 'exit', 2, '00000000-0000-4000-d067-0000000000c1') AS id;
+RESET ROLE;
+UPDATE public.stock_items SET suivi = 'lot' WHERE id = '00000000-0000-4000-d067-0000000000ef';
+SET LOCAL ROLE authenticated;
+SELECT throws_like($$SELECT public.annuler_mouvement_stock((SELECT id FROM c7), 'Erreur')$$, '%anterieur au suivi%',
+  'C7 : annulation d''un mouvement sans lot sur un article passe en suivi par lot refusee');
+
+-- Retour d'une sortie annulee dans sa reservation.
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f0', 'entry', 5, NULL, '00000000-0000-4000-d067-0000000000c1');
+CREATE TEMP TABLE res_ret AS SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000f0', '00000000-0000-4000-d067-0000000000c1', 3,
+  p_affectation => 'Chantier sud') AS id;
+CREATE TEMP TABLE sortie_ret AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f0', 'exit', 2, '00000000-0000-4000-d067-0000000000c1',
+  p_reservation => (SELECT id FROM res_ret)) AS id;
+SELECT public.annuler_mouvement_stock((SELECT id FROM sortie_ret), 'Piece non sortie');
+SELECT is((SELECT statut || ' ' || quantite_consommee || ' ' || quantite_restante FROM public.v_reservations_stock WHERE id = (SELECT id FROM res_ret)),
+  'active 0 3', 'sortie annulee : sa quantite revient a la reservation');
+RESET ROLE;
+
+-- C6 : vues fermees a anon.
+SELECT ok(NOT (SELECT bool_or(has_table_privilege('anon', v, 'SELECT'))
+  FROM unnest(ARRAY['public.v_reservations_stock', 'public.v_stock_disponibilite', 'public.v_stock_lots', 'public.v_stock_lots_mouvements',
+                    'public.v_valorisation_stock', 'public.v_valorisation_articles', 'public.v_valorisation_depots',
+                    'public.v_pneus_performance', 'public.v_stock_depots']) v),
+  'C6 : aucune des vues de stocks et de pneus lisible par anon');
 
 SELECT * FROM finish();
 ROLLBACK;

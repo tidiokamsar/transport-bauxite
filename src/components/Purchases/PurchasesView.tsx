@@ -235,6 +235,8 @@ export const PurchasesView = () => {
                   : <span className="text-xs text-stone-400">—</span>}</td>
             </>}
           </tr>; })}</tbody></table>
+      {reception && detail.lignes.some((l) => l.pneu_marque) && <p role="note" className="mt-3 rounded bg-orange-50 p-2 text-xs text-orange-800">
+        Pneus : chaque pneu reçu entre au registre des pneus. La réception ne pourra plus être annulée dès qu'un de ses pneus aura été monté ou mouvementé (D-067) ; vérifiez les numéros avant d'enregistrer.</p>}
       {reception && <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-sm">Bon de livraison du fournisseur<input value={bl} onChange={(e) => setBl(e.target.value)} className={CHAMP} /></label>
         <button disabled={busy || !receptionValide} onClick={receptionner} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer la réception</button>

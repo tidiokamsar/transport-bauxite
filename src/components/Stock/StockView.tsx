@@ -70,7 +70,8 @@ export const StockView = () => {
       supabase.from('maintenance_orders').select('id, work_order_number, vehicle_id, status').in('status', ['open', 'in_progress']).order('work_order_number'),
       supabase.from('vehicles').select('id, registration').order('registration'),
     ]);
-    setErreur(a.error?.message ?? d.error?.message ?? l.error?.message ?? m.error?.message ?? r.error?.message ?? '');
+    // Toute lecture en echec est signalee (D-067 revue C8), jamais une liste vide silencieuse.
+    setErreur([a, d, l, m, s, r, lo, lm, o, v].map((x) => x.error?.message).find(Boolean) ?? '');
     setArticles((a.data ?? []) as Article[]);
     setDepots((d.data ?? []) as Depot[]);
     setLignes((l.data ?? []) as Ligne[]);

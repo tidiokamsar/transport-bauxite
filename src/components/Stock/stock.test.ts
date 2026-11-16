@@ -33,6 +33,7 @@ describe('valorisation (D-067)', () => {
     expect(texteValeur(null, 'sans_donnees')).toBe('Sans données');
     expect(texteValeur(22500, 'partielle')).toMatch(/22\s500 GNF \(partielle\)/);
     expect(texteValeur(30000, 'complete')).toMatch(/30\s000 GNF$/);
+    expect(texteValeur(1500, 'a_verifier')).toMatch(/1\s500 GNF \(à vérifier\)/);
     expect(texteCmp(null)).toBe('Sans données');
   });
 });

@@ -74,6 +74,8 @@ export const MaintenanceView = () => {
     ]);
     setReservationsOrdre((r.data ?? []) as ReservationOrdre[]);
     if (error) { setErreurPieces(error.message); setPieces([]); return; }
+    // Reservations illisibles : signale (D-067 revue C8), jamais « aucune reservation » en silence.
+    if (r.error) setErreurPieces(`Réservations de l'ordre illisibles : ${r.error.message}`);
     // Les contre-mouvements d'annulation portent l'ordre (D-072) : le mouvement
     // annule est deja affiche barre, ils ne forment pas une ligne de plus.
     setPieces(((data ?? []) as PieceOrdre[]).filter((p) => (p.type_mouvement as string) !== 'annulation'));
