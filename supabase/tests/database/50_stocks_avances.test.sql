@@ -1,6 +1,10 @@
 -- Tests (D-067) : reservations, lots et numeros de serie, cout moyen
 -- pondere, reception de pneus depuis un bon de commande, performance des
--- pneus par marque et modele (migration 20261119210000). Tout est annule.
+-- pneus par marque et modele (migration 20261121130000) ; integration sur
+-- main : droits retires (has_*_privilege, jamais un appel refuse sous SET
+-- ROLE, D-072), reservations levees a la cloture d'un ordre, perimetre d'un
+-- compte borne a un site (D-075), annulation de reception d'un bon engage
+-- refusee (D-072 R3-5). Tout est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -14,34 +18,44 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(52);
+SELECT plan(76);
 
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistique.d067@exemple.invalid'),
   ('00000000-0000-4000-d067-000000000002', 'comptable.d067@exemple.invalid'),
-  ('00000000-0000-4000-d067-000000000003', 'admin.d067@exemple.invalid');
+  ('00000000-0000-4000-d067-000000000003', 'admin.d067@exemple.invalid'),
+  ('00000000-0000-4000-d067-000000000005', 'logistique.site2.d067@exemple.invalid');
 INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-d067-000000000001', 'logistician', 'Logistique D-067', 'active', NULL),
   ('00000000-0000-4000-d067-000000000002', 'accountant', 'Comptable D-067', 'active', NULL),
   ('00000000-0000-4000-d067-000000000003', 'admin', 'Admin D-067', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
-INSERT INTO public.sites (id, name, type) VALUES ('00000000-0000-4000-d067-0000000000a1', 'Site D-067', 'depot');
+INSERT INTO public.sites (id, name, type) VALUES ('00000000-0000-4000-d067-0000000000a1', 'Site D-067', 'depot'),
+  ('00000000-0000-4000-d067-0000000000a2', 'Site 2 D-067', 'depot');
+INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
+  ('00000000-0000-4000-d067-000000000005', 'logistician', 'Logistique site 2 D-067', 'active', '00000000-0000-4000-d067-0000000000a2')
+ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 INSERT INTO public.warehouses (id, name, code, warehouse_type, site_id) VALUES
   ('00000000-0000-4000-d067-0000000000c1', 'Magasin D-067', 'TEST-MAG-D067', 'main', '00000000-0000-4000-d067-0000000000a1'),
-  ('00000000-0000-4000-d067-0000000000c2', 'Atelier D-067', 'TEST-ATL-D067', 'garage', '00000000-0000-4000-d067-0000000000a1');
+  ('00000000-0000-4000-d067-0000000000c2', 'Atelier D-067', 'TEST-ATL-D067', 'garage', '00000000-0000-4000-d067-0000000000a1'),
+  ('00000000-0000-4000-d067-0000000000c3', 'Magasin site 2 D-067', 'TEST-MAG2-D067', 'main', '00000000-0000-4000-d067-0000000000a2');
 INSERT INTO public.suppliers (id, supplier_number, supplier_type, company_name) VALUES
   ('00000000-0000-4000-d067-0000000000f1', 'TEST-F-D067', 'parts', 'Fournisseur D-067');
 INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, vehicle_type, status, site_id) VALUES
   ('00000000-0000-4000-d067-0000000000b1', 'TEST-D067-1', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-d067-0000000000a1');
 INSERT INTO public.maintenance_orders (id, vehicle_id, maintenance_type, description, status, work_order_number) VALUES
-  ('00000000-0000-4000-d067-000000000021', '00000000-0000-4000-d067-0000000000b1', 'corrective', 'TEST-D067', 'open', 'TEST-OT-D067');
+  ('00000000-0000-4000-d067-000000000021', '00000000-0000-4000-d067-0000000000b1', 'corrective', 'TEST-D067', 'open', 'TEST-OT-D067'),
+  ('00000000-0000-4000-d067-000000000022', '00000000-0000-4000-d067-0000000000b1', 'corrective', 'TEST-D067-2', 'open', 'TEST-OT2-D067'),
+  ('00000000-0000-4000-d067-000000000023', '00000000-0000-4000-d067-0000000000b1', 'corrective', 'TEST-D067-3', 'open', 'TEST-OT3-D067');
 INSERT INTO public.stock_items (id, item_code, name, unit_of_measure, suivi) VALUES
   ('00000000-0000-4000-d067-0000000000e1', 'TEST-ART-D067', 'Filtre D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000e2', 'TEST-LOT-D067', 'Huile D-067', 'bidon', 'lot'),
   ('00000000-0000-4000-d067-0000000000e3', 'TEST-SER-D067', 'Alternateur D-067', 'piece', 'serie'),
   ('00000000-0000-4000-d067-0000000000e4', 'TEST-CMP-D067', 'Courroie D-067', 'piece', 'aucun'),
-  ('00000000-0000-4000-d067-0000000000e5', 'TEST-SANS-D067', 'Joint D-067', 'piece', 'aucun');
+  ('00000000-0000-4000-d067-0000000000e5', 'TEST-SANS-D067', 'Joint D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000e6', 'TEST-PAY-D067', 'Pompe D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000e7', 'TEST-OTP-D067', 'Plaquette D-067', 'piece', 'aucun');
 DELETE FROM public.settings WHERE key IN ('pneu_reforme_precoce_km', 'achats_validation_separee');
 INSERT INTO public.settings (key, value, category) VALUES ('pneu_reforme_precoce_km', '{"value": "10000"}', 'pneus');
 SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('pneu_reforme_precoce_km', '{"value": "abc"}')
@@ -57,8 +71,8 @@ CREATE TEMP TABLE res AS SELECT public.reserver_stock('00000000-0000-4000-d067-0
 SELECT is((SELECT quantite || ' ' || reserve || ' ' || libre FROM public.v_stock_disponibilite
             WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e1' AND warehouse_id = '00000000-0000-4000-d067-0000000000c1'),
   '10 4 6', 'reservation : deduite du libre sans sortie physique');
-SELECT is((SELECT vehicle_id FROM public.reservations_stock WHERE id = (SELECT id FROM res)),
-  '00000000-0000-4000-d067-0000000000b1'::uuid, 'engin de l''ordre repris sur la reservation');
+SELECT is((SELECT vehicle_id FROM public.reservations_stock WHERE id = (SELECT id FROM res)), NULL,
+  'engin de l''ordre non recopie sur la reservation (il peut changer tant qu''aucune piece n''est imputee)');
 SELECT throws_like($$SELECT public.annuler_mouvement_stock((SELECT id FROM public.stock_movements
   WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e1' AND movement_type = 'entry'), 'Erreur')$$,
   '%reserve%', 'annulation qui laisserait une reservation sans stock refusee');
@@ -74,8 +88,9 @@ SELECT lives_ok($$SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000
   'sortie du stock libre');
 CREATE TEMP TABLE sortie_res AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e1', 'exit', 3, '00000000-0000-4000-d067-0000000000c1',
   p_reservation => (SELECT id FROM res)) AS id;
-SELECT is((SELECT maintenance_order_id FROM public.stock_movements WHERE id = (SELECT id FROM sortie_res)),
-  '00000000-0000-4000-d067-000000000021'::uuid, 'sortie sur reservation imputee a l''ordre de la reservation');
+SELECT is((SELECT maintenance_order_id || ' ' || vehicle_id FROM public.stock_movements WHERE id = (SELECT id FROM sortie_res)),
+  '00000000-0000-4000-d067-000000000021 00000000-0000-4000-d067-0000000000b1',
+  'sortie sur reservation imputee a l''ordre de la reservation, engin de l''ordre');
 SELECT is((SELECT statut || ' ' || quantite_consommee || ' ' || quantite_restante FROM public.v_reservations_stock WHERE id = (SELECT id FROM res)),
   'active 3 1', 'reservation consommee en partie par la sortie');
 SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e1', 'exit', 2, '00000000-0000-4000-d067-0000000000c1',
@@ -83,13 +98,19 @@ SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-d067-000000
 SELECT throws_ok($$SELECT public.lever_reservation_stock((SELECT id FROM res), ' ')$$, '22023', NULL, 'levee sans motif refusee');
 SELECT lives_ok($$SELECT public.lever_reservation_stock((SELECT id FROM res), 'Piece remplacee par le loueur')$$, 'levee motivee');
 SELECT is((SELECT statut || ' ' || quantite_restante FROM public.v_reservations_stock WHERE id = (SELECT id FROM res)) || ' '
-          || public.stock_libre('00000000-0000-4000-d067-0000000000e1', '00000000-0000-4000-d067-0000000000c1'),
+          || (SELECT libre FROM public.v_stock_disponibilite
+               WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e1' AND warehouse_id = '00000000-0000-4000-d067-0000000000c1'),
   'levee 0 1', 'reservation levee : le reste redevient libre');
-SELECT throws_ok($$UPDATE public.reservations_stock SET quantite = 9 WHERE id = (SELECT id FROM res)$$,
-  '42501', NULL, 'ecriture directe d''une reservation refusee');
-SELECT throws_ok($$DELETE FROM public.reservations_stock WHERE id = (SELECT id FROM res)$$,
-  '42501', NULL, 'suppression d''une reservation refusee');
 RESET ROLE;
+-- Ecriture directe : aucun droit (verifie par has_table_privilege, D-072) ;
+-- la garde refuse aussi une modification ou une suppression avec session.
+SELECT ok(NOT has_table_privilege('authenticated', 'public.reservations_stock', 'UPDATE')
+          AND NOT has_table_privilege('authenticated', 'public.reservations_stock', 'DELETE'),
+  'reservation : ni modification ni suppression par les comptes');
+SELECT throws_ok($$UPDATE public.reservations_stock SET quantite = 9 WHERE id = (SELECT id FROM res)$$,
+  '42501', NULL, 'garde : une reservation ne se modifie pas');
+SELECT throws_ok($$DELETE FROM public.reservations_stock WHERE id = (SELECT id FROM res)$$,
+  '42501', NULL, 'garde : une reservation ne se supprime pas');
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000002');
 SET LOCAL ROLE authenticated;
@@ -142,8 +163,8 @@ SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e3', 'transfer'
   '00000000-0000-4000-d067-0000000000c2', p_lots => '[{"code": "S1"}]');
 SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e3', 'exit', 1, '00000000-0000-4000-d067-0000000000c1',
   p_lots => '[{"code": "S1"}]')$$, '22023', NULL, 'sortie d''une serie absente du depot refusee');
-SELECT throws_ok($$INSERT INTO public.stock_mouvements_lots (stock_movement_id, code, quantite)
-  VALUES ((SELECT id FROM sortie_lot), 'X', 1)$$, '42501', NULL, 'lignes de lots : ecriture directe refusee');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.stock_mouvements_lots', 'INSERT'),
+  'lignes de lots : aucune ecriture directe');
 
 -- 3. Cout moyen pondere ------------------------------------------------------------
 SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e4', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 1000);
@@ -229,6 +250,141 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT coalesce(taux_reforme_precoce_pct::text, 'sans donnees') FROM public.v_pneus_performance WHERE marque = 'MARQUE D067' AND modele = 'XDR'),
   'sans donnees', 'sans seuil : taux de reforme precoce sans donnees');
+RESET ROLE;
+
+
+-- 6. Droits (has_*_privilege : un droit retire ne se verifie pas par un appel
+-- refuse sous SET ROLE, D-072) ----------------------------------------------------
+SELECT ok(NOT (SELECT bool_or(has_function_privilege(r, f, 'EXECUTE'))
+  FROM unnest(ARRAY['authenticated', 'anon']) r,
+       unnest(ARRAY['public.stock_disponible(uuid, uuid)', 'public.stock_reserve(uuid, uuid)', 'public.stock_libre(uuid, uuid)',
+                    'public.stock_lot_disponible(uuid, uuid, text)',
+                    'public.controler_lots_mouvement(public.stock_items, text, integer, uuid, jsonb)',
+                    'public.lever_reservations_ordre()', 'public.garde_suivi_article()']) f),
+  'fonctions internes (quantites, lots, gardes) non executables par les comptes');
+SELECT is((SELECT string_agg(p.pronargs::text, ',') FROM pg_proc p
+            WHERE p.pronamespace = 'public'::regnamespace AND p.proname = 'mouvement_stock'), '13',
+  'mouvement_stock : une seule signature (13 arguments), l''ancienne retiree');
+SELECT ok(has_function_privilege('authenticated', 'public.mouvement_stock(uuid, text, integer, uuid, uuid, timestamptz, bigint, text, uuid, uuid, text, jsonb, uuid)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.mouvement_stock(uuid, text, integer, uuid, uuid, timestamptz, bigint, text, uuid, uuid, text, jsonb, uuid)', 'EXECUTE')
+          AND has_function_privilege('authenticated', 'public.reserver_stock(uuid, uuid, integer, uuid, uuid, text, text)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.reserver_stock(uuid, uuid, integer, uuid, uuid, text, text)', 'EXECUTE'),
+  'fonctions d''ecriture : executables par les comptes, pas par anon');
+SELECT is((SELECT count(*)::int FROM information_schema.role_table_grants
+            WHERE table_schema = 'public' AND grantee IN ('anon', 'authenticated', 'PUBLIC')
+              AND table_name IN ('reservations_stock', 'stock_mouvements_lots', 'receptions_achat_pneus')
+              AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')), 0,
+  'nouvelles tables : ni ecriture, ni DELETE, ni TRUNCATE pour les comptes');
+SELECT ok(NOT (SELECT bool_or(has_sequence_privilege(r, 'public.reservations_stock_numero_seq', p))
+  FROM unnest(ARRAY['authenticated', 'anon']) r, unnest(ARRAY['USAGE', 'SELECT', 'UPDATE']) p),
+  'sequence des numeros RES fermee aux comptes');
+SELECT is((SELECT count(*)::int FROM pg_class c
+            WHERE c.oid IN ('public.reservations_stock'::regclass, 'public.stock_mouvements_lots'::regclass, 'public.receptions_achat_pneus'::regclass)
+              AND c.relrowsecurity
+              AND EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname)
+              AND NOT EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname
+                                AND coalesce(p.qual, '') ~ '^\(?true\)?$')), 3,
+  'nouvelles tables : RLS active, politique explicite, aucune politique ouverte');
+
+-- 7. Cloture d'un ordre de travail : reservations levees --------------------------
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e7', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 500);
+CREATE TEMP TABLE res_ot AS
+  SELECT 'r2a'::text AS n, public.reserver_stock('00000000-0000-4000-d067-0000000000e7', '00000000-0000-4000-d067-0000000000c1', 3,
+    p_ordre_maintenance => '00000000-0000-4000-d067-000000000022') AS id
+  UNION ALL SELECT 'r2b', public.reserver_stock('00000000-0000-4000-d067-0000000000e7', '00000000-0000-4000-d067-0000000000c1', 1,
+    p_ordre_maintenance => '00000000-0000-4000-d067-000000000022')
+  UNION ALL SELECT 'r3', public.reserver_stock('00000000-0000-4000-d067-0000000000e7', '00000000-0000-4000-d067-0000000000c1', 2,
+    p_ordre_maintenance => '00000000-0000-4000-d067-000000000023');
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e7', 'exit', 1, '00000000-0000-4000-d067-0000000000c1',
+  p_reservation => (SELECT id FROM res_ot WHERE n = 'r2a'));
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e7', 'exit', 1, '00000000-0000-4000-d067-0000000000c1',
+  p_reservation => (SELECT id FROM res_ot WHERE n = 'r2b'));
+SELECT is((SELECT quantite || ' ' || reserve || ' ' || libre FROM public.v_stock_disponibilite
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e7' AND warehouse_id = '00000000-0000-4000-d067-0000000000c1'),
+  '8 4 4', 'reservations de deux ordres : 2 restantes sur l''un, 2 sur l''autre');
+RESET ROLE;
+-- L'ordre passe a termine par l'ecran (ecriture de l'ordre, garde avec session).
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000003');
+UPDATE public.maintenance_orders SET status = 'completed' WHERE id = '00000000-0000-4000-d067-000000000022';
+SELECT is((SELECT string_agg(r.statut, ' ' ORDER BY x.n) FROM public.v_reservations_stock r JOIN res_ot x ON x.id = r.id
+            WHERE x.n IN ('r2a', 'r2b')), 'levee consommee',
+  'ordre termine : reservation active levee, reservation consommee inchangee');
+SELECT ok((SELECT motif_levee = 'Levee a la cloture de l''ordre TEST-OT2-D067 (termine)'
+                  AND levee_par = '00000000-0000-4000-d067-000000000003'
+             FROM public.reservations_stock WHERE id = (SELECT id FROM res_ot WHERE n = 'r2a')),
+  'levee consignee : motif citant l''ordre, auteur de la cloture');
+SELECT is((SELECT reserve FROM public.v_stock_disponibilite
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e7' AND warehouse_id = '00000000-0000-4000-d067-0000000000c1'),
+  2, 'la quantite levee redevient libre');
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000e7', '00000000-0000-4000-d067-0000000000c1', 1,
+  p_ordre_maintenance => '00000000-0000-4000-d067-000000000022')$$, '22023', NULL, 'ordre termine : aucune nouvelle reservation');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.annuler_ordre_travail('00000000-0000-4000-d067-000000000023', 'Doublon de l''ordre 2')$$,
+  'annulation motivee d''un ordre sans piece imputee');
+SELECT is((SELECT statut || ' ' || motif_levee FROM public.v_reservations_stock WHERE id = (SELECT id FROM res_ot WHERE n = 'r3')),
+  'levee Levee a la cloture de l''ordre TEST-OT3-D067 (annule)', 'ordre annule : sa reservation est levee');
+RESET ROLE;
+
+-- 8. Perimetre : compte borne au site 2 (D-038, D-075) ---------------------------
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000005');
+SET LOCAL ROLE authenticated;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e1', 'entry', 2, NULL, '00000000-0000-4000-d067-0000000000c3', now(), 700);
+SELECT is((SELECT count(*)::int FROM public.reservations_stock
+            WHERE warehouse_id IN ('00000000-0000-4000-d067-0000000000c1', '00000000-0000-4000-d067-0000000000c2')), 0,
+  'compte borne : reservations des depots du site 1 invisibles');
+SELECT is((SELECT count(*)::int FROM public.v_stock_lots WHERE warehouse_id IN ('00000000-0000-4000-d067-0000000000c1', '00000000-0000-4000-d067-0000000000c2'))
+          + (SELECT count(*)::int FROM public.v_stock_disponibilite WHERE warehouse_id IN ('00000000-0000-4000-d067-0000000000c1', '00000000-0000-4000-d067-0000000000c2'))
+          + (SELECT count(*)::int FROM public.v_valorisation_stock WHERE warehouse_id IN ('00000000-0000-4000-d067-0000000000c1', '00000000-0000-4000-d067-0000000000c2')),
+  0, 'compte borne : lots, disponibilite et valorisation du site 1 invisibles');
+-- e1 : 1 restant a 1000 au site 1, 2 entres a 700 au site 2 : cmp de l'article 800.
+SELECT is((SELECT statut || ' ' || quantite || ' ' || valeur || ' ' || cmp || ' ' || devise FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000e1'),
+  'complete 2 1600 800.00 GNF', 'compte borne : quantite et valeur de ses seuls depots, cmp de l''article, en GNF');
+SELECT throws_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000e1', '00000000-0000-4000-d067-0000000000c1', 1,
+  p_affectation => 'Chantier')$$, '42501', NULL, 'compte borne : reservation dans un depot du site 1 refusee');
+SELECT throws_ok($$SELECT public.lever_reservation_stock((SELECT id FROM res_ot WHERE n = 'r2a'), 'Essai')$$,
+  '42501', 'Reservation introuvable ou hors de votre perimetre', 'compte borne : levee hors perimetre refusee, message unique');
+SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000e7', 'exit', 1, '00000000-0000-4000-d067-0000000000c1',
+  p_reservation => (SELECT id FROM res_ot WHERE n = 'r3'))$$, '42501', NULL,
+  'compte borne : sortie sur une reservation du site 1 refusee avant toute lecture');
+SELECT throws_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000e1', '00000000-0000-4000-d067-0000000000c3', 1,
+  p_ordre_maintenance => '00000000-0000-4000-d067-000000000021')$$, '42501', 'Ordre de travail introuvable ou hors de votre perimetre',
+  'compte borne : ordre de travail du site 1 refuse, message unique');
+SELECT lives_ok($$SELECT public.reserver_stock('00000000-0000-4000-d067-0000000000e1', '00000000-0000-4000-d067-0000000000c3', 1,
+  p_affectation => 'Atelier site 2')$$, 'compte borne : reservation dans son depot');
+RESET ROLE;
+
+-- 9. D-072 R3-5 toujours vrai : reception d'un bon engage non annulable ------------
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE bc2 AS SELECT public.enregistrer_bon_commande('00000000-0000-4000-d067-0000000000f1', '00000000-0000-4000-d067-0000000000c1',
+  '[{"article": "00000000-0000-4000-d067-0000000000e6", "quantite": 2, "prix_unitaire": 1000}]') AS id;
+SELECT public.soumettre_bon_commande((SELECT id FROM bc2));
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.decider_bon_commande((SELECT id FROM bc2), true);
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE rec2 AS SELECT public.receptionner_bon_commande((SELECT id FROM bc2),
+  (SELECT jsonb_agg(jsonb_build_object('ligne', id, 'recue', 2)) FROM public.purchase_order_items WHERE purchase_order_id = (SELECT id FROM bc2))) AS id;
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT public.proposer_paiement(2000, 'Pompe D-067', p_bon => (SELECT id FROM bc2));
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-d067-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_like($$SELECT public.annuler_reception((SELECT id FROM rec2), 'Erreur de saisie')$$, '%engages ou payes%',
+  'R3-5 : reception d''un bon engage non annulable (fonction recreee par D-067)');
+SELECT is((SELECT status FROM public.purchase_orders WHERE id = (SELECT id FROM bc2)), 'received', 'R3-5 : bon toujours recu');
 RESET ROLE;
 
 SELECT * FROM finish();
