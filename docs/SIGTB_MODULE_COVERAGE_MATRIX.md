@@ -227,7 +227,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Contrats clients, fournisseurs, location ; parties ; versions et avenants ; tarifs et unités | `Contrats/*` | D-026, D-033 | DÉPLOYÉ | P1 | - |
 | Engagements, conformité, rapport de performance | `Contrats/EngagementsView` | `contrat_engagements`, `comparer_engagements` (D-031) | DÉPLOYÉ | P1 | - |
 | Comités et actions | `Contrats/ComitesView` | `comites_contrat`, `comite_actions` | DÉPLOYÉ | P2 | - |
-| Pénalités, bonus, retenues, échéances, renouvellements, alertes | `Contrats/ContratsView`, `Contrats/Formulaires` (clauses), `Contrats/ClausesCalculees` (engagements) | `contrat_clauses`, `calculs_clauses`, `definir_clause`, `calculer_clauses`, `decider_clause` (ligne de facture ou avoir par le circuit D-029, réglage `clauses_renonciation_separee`) ; `contrats_echeances`, `enregistrer_echeance_contrat`, `v_echeances_contrats`, réglage `contrats_alerte_echeance_jours` (D-065, branche d'intégration) | À TESTER | P2 | Clause appliquée sur un brouillon ensuite annulé : pas de nouvelle décision (D-065, limites) |
+| Pénalités, bonus, retenues, échéances, renouvellements, alertes | `Contrats/ContratsView`, `Contrats/Formulaires` (clauses), `Contrats/ClausesCalculees` (engagements) | `contrat_clauses`, `calculs_clauses`, `definir_clause`, `calculer_clauses`, `decider_clause` (ligne de facture ou avoir par le circuit D-029, réglage `clauses_renonciation_separee`) ; `contrats_echeances`, `enregistrer_echeance_contrat`, `v_echeances_contrats`, réglage `contrats_alerte_echeance_jours` (D-065, branche d'intégration) | À TESTER | P2 | Valeurs des clauses à saisir depuis les contrats signés (D-065) |
 
 ### 20. Finance et facturation
 

@@ -238,7 +238,12 @@ Décider (`decider_clause`, motif obligatoire) :
 | Écarter (renoncer) | Approbation `contracts` (direction, administrateur), autre personne que l'auteur du calcul, tant que `clauses_renonciation_separee` n'est pas à `false` | Proposition écartée, motif et auteur conservés |
 
 La facture ou l'avoir produit suit le circuit habituel : soumission, puis
-signature du Directeur Général, qui ne peut pas en être le préparateur.
+signature du Directeur Général, qui ne peut pas en être le préparateur. Si
+cette facture ou cet avoir est annulé, la proposition revient « à décider »
+(journalisé) : le montant ne disparaît jamais sans nouvelle décision. Des
+rapports dont les périodes se chevauchent ne proposent la clause qu'une
+fois. Un avoir, qu'il vienne d'une clause ou non, ne dépasse jamais le reste
+HT de la facture après les avoirs déjà créés.
 
 **Budgets.** L'administrateur saisit les natures de dépense et rattache les
 catégories de coût. Un budget porte une période, un centre (site ou sans
@@ -263,7 +268,8 @@ interventions hors délai, écart des factures contrôlées) sont affichées à
 côté des notes et figées avec l'évaluation ; elles restent « sans données »
 tant que les engins ne sont pas rattachés au contrat (`vehicles.contrat_id`,
 fiche engin, D-062). Les notes de 1 à 5 sont saisies, jamais déduites des
-mesures.
+mesures. L'évaluation exige un profil sans site (les mesures couvrent tous
+les sites).
 
 **À saisir par le propriétaire avant usage.** Natures de dépense, plan de
 comptes et comptes de tiers ; clauses chiffrées et leurs valeurs (contrats
@@ -286,8 +292,9 @@ d'évaluation du loueur ; rattachement des engins au contrat Neemba.
   restent en place hors circuit (D-029).
 - Pas de notification par courriel ou SMS, ni de délégation ou d'escalade
   (D-056).
-- Une clause appliquée sur un brouillon ensuite annulé ne se redécide pas
-  (une nouvelle clause est à saisir) ; l'export comptable n'est pas une
-  écriture en partie double ; les coûts entrent au budget au montant saisi
+- L'export comptable n'est pas une écriture en partie double et reflète le
+  plan de comptes du jour (pas d'historique) ; les pénalités du loueur
+  facturées par clause comptent dans le recouvrement mais pas dans le
+  rapport client ; les coûts entrent au budget au montant saisi
   (HT ou TTC non précisé, D-058) ; un paiement d'une facture du loueur n'a
   pas de site (budget « sans site ») (D-065).

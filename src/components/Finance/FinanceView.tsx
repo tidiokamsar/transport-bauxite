@@ -46,7 +46,7 @@ export const FinanceView = () => {
   const [natures, setNatures] = useState<Nature[]>([]);
   const [sites, setSites] = useState<Ref[]>([]);
   const [depenses, setDepenses] = useState<Depense[]>([]);
-  const [dettes, setDettes] = useState<Dette[]>([]);
+  const [dettes, setDettes] = useState<Dette[] | null>(null);
   const [comptes, setComptes] = useState<Compte[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string; nature_depense_id: string | null }[]>([]);
   const [contrats, setContrats] = useState<{ id: string; reference: string; contrepartie: string }[]>([]);
@@ -71,12 +71,14 @@ export const FinanceView = () => {
       supabase.from('suppliers').select('id, company_name').order('company_name'),
       supabase.from('comptes_tiers').select('id, contrat_id, supplier_id, compte_id'),
     ]);
-    setMessage(s.error ? { ok: false, texte: s.error.message } : null);
-    setSuivi((s.data ?? []) as Suivi[]);
+    // Lecture impossible : etat d'erreur explicite, jamais « aucun budget » ou « aucune dette ».
+    const echecs = [s, n, si, d, de, pc, cc, co, fo, ct].map((r) => r.error?.message).filter(Boolean);
+    setMessage(echecs.length ? { ok: false, texte: `Lecture impossible : ${echecs.join(' ; ')}` } : null);
+    setSuivi(s.error ? null : (s.data ?? []) as Suivi[]);
     setNatures((n.data ?? []) as Nature[]);
     setSites(((si.data ?? []) as { id: string; name: string }[]).map((x) => ({ id: x.id, libelle: x.name })));
     setDepenses((d.data ?? []) as Depense[]);
-    setDettes((de.data ?? []) as Dette[]);
+    setDettes(de.error ? null : (de.data ?? []) as Dette[]);
     setComptes((pc.data ?? []) as Compte[]);
     setCategories((cc.data ?? []) as { id: string; name: string; nature_depense_id: string | null }[]);
     setContrats((co.data ?? []) as { id: string; reference: string; contrepartie: string }[]);
@@ -129,8 +131,8 @@ export const FinanceView = () => {
     const { du } = bornesMois(mois.du);
     const { au } = bornesMois(mois.au);
     const { data, error } = await supabase.rpc('ecritures_gestion', { p_du: du, p_au: au });
-    setMessage(error ? { ok: false, texte: error.message } : null);
-    setEcritures((data ?? []) as Ecriture[]);
+    setMessage(error ? { ok: false, texte: `Écritures indisponibles : ${error.message}` } : null);
+    setEcritures(error ? null : (data ?? []) as Ecriture[]);
   };
   const exporter = () => {
     if (!ecritures?.length) return;
@@ -152,7 +154,7 @@ export const FinanceView = () => {
             className={`rounded-xl px-3 py-1.5 text-sm font-semibold ${onglet === o ? 'bg-orange-600 text-white' : 'border border-stone-200 bg-white text-stone-700'}`}>{ONGLETS[o]}</button>
         ))}
       </nav>
-      {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
+      {message && <p role={message.ok ? 'status' : 'alert'} className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
 
       {onglet === 'budgets' && (
         <Panneau titre="Suivi budgétaire" action={peutBudget && (
@@ -187,7 +189,7 @@ export const FinanceView = () => {
               </div>
             </form>
           )}
-          {suivi === null ? <div className="h-16" /> : suivi.length === 0 ? (
+          {suivi === null ? (message && !message.ok ? <p className="text-sm text-stone-500">Budgets non lus (voir le message ci-dessus).</p> : <div className="h-16" />) : suivi.length === 0 ? (
             <SansDonnees message="Aucun budget" detail="Saisissez un budget par période, centre et nature de dépense." />
           ) : (
             <div className="overflow-x-auto">
@@ -241,7 +243,7 @@ export const FinanceView = () => {
 
       {onglet === 'dettes' && (
         <Panneau titre="Dettes fournisseurs">
-          {dettes.length === 0 ? <SansDonnees message="Aucune dette" detail="Factures du loueur contrôlées et bons de commande reçus non payés." /> : (
+          {dettes === null ? <p className="text-sm text-stone-500">Dettes non lues (voir le message ci-dessus).</p> : dettes.length === 0 ? <SansDonnees message="Aucune dette" detail="Factures du loueur contrôlées et bons de commande reçus non payés." /> : (
             <>
               <ul className="mb-4 flex flex-wrap gap-2 text-sm" aria-label="Totaux des dettes">
                 {totauxDettes(dettes).map((t) => <li key={`${t.beneficiaire}-${t.devise}`} className="rounded-xl bg-stone-50 px-3 py-2"><b>{t.beneficiaire}</b> · {nombre.format(t.du)} {t.devise} ({t.pieces} pièce(s))</li>)}

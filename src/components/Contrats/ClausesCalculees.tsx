@@ -27,13 +27,17 @@ export const ClausesCalculees = ({ contratId, nature, peutDecider, version }: { 
   const [factures, setFactures] = useState<FactureContrat[]>([]);
   const [decision, setDecision] = useState<{ calcul: CalculClause; appliquer: boolean; motif: string; facture: string; taux: string } | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
+  const [erreurLecture, setErreurLecture] = useState('');
 
   const charger = useCallback(async () => {
     const [c, f] = await Promise.all([
       supabase.from('calculs_clauses').select('*').eq('contrat_id', contratId).order('periode_debut', { ascending: false }),
       supabase.from('factures').select('id, numero, objet, statut, type').eq('contrat_id', contratId).eq('type', 'facture').in('statut', ['brouillon', 'emise']),
     ]);
-    setCalculs((c.data ?? []) as CalculClause[]);
+    // Lecture impossible : etat d'erreur, jamais « aucun calcul ».
+    const echec = c.error ?? f.error;
+    setErreurLecture(echec ? `Calculs ou factures indisponibles : ${echec.message}` : '');
+    setCalculs(c.error ? null : (c.data ?? []) as CalculClause[]);
     setFactures((f.data ?? []) as FactureContrat[]);
   }, [contratId]);
   useEffect(() => { charger(); }, [charger, version]);
@@ -59,7 +63,8 @@ export const ClausesCalculees = ({ contratId, nature, peutDecider, version }: { 
   return (
     <Panneau titre="Clauses chiffrées calculées">
       {message && <p className={`mb-3 rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
-      {calculs === null ? <div className="h-12" /> : calculs.length === 0 ? (
+      {erreurLecture && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurLecture}</p>}
+      {calculs === null ? (erreurLecture ? null : <div className="h-12" />) : calculs.length === 0 ? (
         <SansDonnees message="Aucun calcul" detail="Saisissez les clauses dans le dossier contractuel, puis calculez-les depuis un rapport remis." />
       ) : (
         <ul className="divide-y divide-stone-100 text-sm" aria-label="Clauses calculées">

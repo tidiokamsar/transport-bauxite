@@ -39,9 +39,11 @@ export const EvaluationLoueurView = () => {
   const [nouveau, setNouveau] = useState({ libelle: '', poids: '', indicateur: '' });
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [heure, setHeure] = useState<Date | null>(null);
+  const [erreurLecture, setErreurLecture] = useState('');
 
   useEffect(() => {
-    supabase.from('contrats').select('id, reference, contrepartie').eq('nature', 'location').order('reference').then(({ data }) => {
+    supabase.from('contrats').select('id, reference, contrepartie').eq('nature', 'location').order('reference').then(({ data, error }) => {
+      if (error) setErreurLecture(`Contrats de location indisponibles : ${error.message}`);
       const liste = (data ?? []) as { id: string; reference: string; contrepartie: string }[];
       setContrats(liste);
       setContrat((x) => x || liste[0]?.id || '');
@@ -55,10 +57,13 @@ export const EvaluationLoueurView = () => {
       contrat ? supabase.from('v_evaluations_loueur_courantes').select('*').eq('contrat_id', contrat).order('periode_debut', { ascending: false }) : Promise.resolve({ data: [] }),
       contrat ? supabase.rpc('mesures_loueur', { p_contrat: contrat, p_du: du, p_au: au }) : Promise.resolve({ data: [] }),
     ]);
+    // Lecture impossible : etat d'erreur explicite, jamais « sans donnees ».
+    const echec = c.error ?? ('error' in e ? e.error : null) ?? ('error' in m ? m.error : null);
+    setErreurLecture(echec ? `Grille, évaluations ou mesures indisponibles : ${echec.message}` : '');
     setCriteres((c.data ?? []) as Critere[]);
     setEvaluations((e.data ?? []) as Evaluation[]);
     setMesures((m.data ?? []) as Mesure[]);
-    setHeure(new Date());
+    setHeure(echec ? null : new Date());
   }, [contrat, mois]);
   useEffect(() => { charger(); }, [charger]);
 
@@ -104,6 +109,7 @@ export const EvaluationLoueurView = () => {
           <input type="month" value={mois} onChange={(e) => setMois(e.target.value)} aria-label="Mois évalué" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
         </div>
       </div>
+      {erreurLecture && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurLecture}</p>}
       {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
 
       <Panneau titre="Indicateurs mesurés de la période">
