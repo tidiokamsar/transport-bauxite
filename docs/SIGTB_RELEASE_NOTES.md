@@ -5,6 +5,15 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
+## 16f149e (2026-11-16) : corrections de sécurité et d'intégrité (D-072, D-073, PR #79 à #81)
+
+- Revue indépendante a posteriori des lots D-041 à D-062 : une quinzaine de défauts majeurs corrigés. Lectures et saisies bornées au site (carburant, stocks, relevés CBG, ordres de travail, rapports figés) ; fonctions internes plus appelables depuis le navigateur ; suppression et vidage de tables retirés aux comptes.
+- Achats et paiements : l'approbateur d'un bon ne peut pas en être l'auteur ; un bon issu d'une consultation reprend exactement l'offre retenue ; paiement revérifié au moment de la décision et de l'exécution.
+- Exploitation : habilitations du chauffeur contrôlées à toute affectation à un voyage ; une immobilisation avec intervention Neemba en cours ne s'annule ni ne se clôture sans validation de la remise en service ; une fermeture de site planifiée peut être levée avant son début ; relève de chauffeurs possible sur un même camion.
+- Indicateurs : une immobilisation annulée n'est plus comptée ouverte ; un domaine non lisible est affiché « Non visible avec vos droits de lecture » au lieu de 0.
+- Restauration des sauvegardes : les droits d'accès sont désormais restaurés à l'identique (auparavant, une restauration rouvrait les fonctions internes).
+- Erreurs TypeScript à 0.
+
 ## 5ef4ab6 (2026-11-18) : écrans hérités corrigés (D-061, PR #76)
 
 - Ordres de travail : numéro attribué par le serveur, annulation motivée, pièces sorties du registre des stocks (plus de second inventaire).
