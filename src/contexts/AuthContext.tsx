@@ -197,9 +197,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'recouvrement': 'invoices',
       'factures-neemba': 'contracts',
       // D-065 : evaluations du loueur (contracts) ; budgets lus par costs,
-      // invoices ou reports, plan comptable par contracts.
+      // invoices ou reports (politique lecture de public.budgets, D-078).
       'evaluation-loueur': 'contracts',
-      'budgets': ['costs', 'invoices', 'reports', 'contracts'],
+      'budgets': ['costs', 'invoices', 'reports'],
       'paiements': 'invoices',
       'reconciliation': 'invoices',
       'invoices': 'invoices',

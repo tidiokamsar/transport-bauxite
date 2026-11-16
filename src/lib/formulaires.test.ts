@@ -49,5 +49,7 @@ describe('chauffeur (D-078)', () => {
   it('champs requis et salaire controles', () => {
     expect(corpsChauffeur({ ...base, license_expiry: '' }, null).erreur).toMatch(/requis/);
     expect(corpsChauffeur({ ...base, base_salary: '-5' }, null).erreur).toMatch(/Salaire/);
+    expect(corpsChauffeur({ ...base, base_salary: '1500000,5' }, null).erreur).toMatch(/Salaire.*entier/);
+    expect(corpsChauffeur({ ...base, base_salary: '1 500 000' }, null).corps?.base_salary).toBe(1500000);
   });
 });

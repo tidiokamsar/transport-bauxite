@@ -46,8 +46,8 @@ INSERT INTO public.immobilisations (vehicle_id, debut, fin, cause, imputation, d
   ('00000000-0000-4000-9300-0000000000b1', '2001-09-15 00:00+00', '2001-09-15 10:00+00', 'panne', 'loueur', 'x', 'cloturee');
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-9300-000000000001');
-SET LOCAL ROLE authenticated;
-
+-- D-078 : facture du loueur ecrite par saisir_facture_fournisseur seulement ;
+-- le jeu d'essai est pose hors role authenticated.
 INSERT INTO public.factures_fournisseur (id, contrat_id, numero_fournisseur, date_facture, periode_debut, periode_fin, devise, montant_ht_facture)
 VALUES ('00000000-0000-4000-9300-000000000101', '00000000-0000-4000-9300-0000000000c1', 'NB-2001-09', '2001-10-02', '2001-09-01', '2001-09-30', 'USD', 21000);
 INSERT INTO public.factures_fournisseur_lignes (facture_id, vehicle_id, libelle, categorie_materiel, heures_facturees, taux_facture, montant_facture) VALUES
@@ -55,6 +55,7 @@ INSERT INTO public.factures_fournisseur_lignes (facture_id, vehicle_id, libelle,
   ('00000000-0000-4000-9300-000000000101', '00000000-0000-4000-9300-0000000000b2', 'TEST-NB-CHG', 'Chargeuse', 50, 150, 7500),
   ('00000000-0000-4000-9300-000000000101', '00000000-0000-4000-9300-0000000000b3', 'TEST-NB-3', 'Semi-remorque', 20, 100, 2000),
   ('00000000-0000-4000-9300-000000000101', NULL, 'Frais de mobilisation', NULL, NULL, NULL, 500);
+SET LOCAL ROLE authenticated;
 
 SELECT is(public.controler_facture_fournisseur('00000000-0000-4000-9300-000000000101'), 1000::numeric,
   'montant reclame : heures facturees au-dela des heures pointees');
@@ -84,10 +85,12 @@ SELECT ok((SELECT ecarts_detectes >= 1000 AND ecarts_recouvres >= 1000 FROM publ
   'indicateur : ecarts detectes et recouvres');
 
 -- Facture conforme : aucune notification d'ecart
+RESET ROLE;
 INSERT INTO public.factures_fournisseur (id, contrat_id, numero_fournisseur, date_facture, periode_debut, periode_fin, devise, montant_ht_facture)
 VALUES ('00000000-0000-4000-9300-000000000102', '00000000-0000-4000-9300-0000000000c1', 'NB-2001-09B', '2001-10-02', '2001-09-01', '2001-09-30', 'USD', 7500);
 INSERT INTO public.factures_fournisseur_lignes (facture_id, vehicle_id, libelle, categorie_materiel, heures_facturees, taux_facture, montant_facture)
 VALUES ('00000000-0000-4000-9300-000000000102', '00000000-0000-4000-9300-0000000000b2', 'Chargeuse', 'Chargeuse', 50, 150, 7500);
+SET LOCAL ROLE authenticated;
 SELECT is(public.notifier_ecart_fournisseur('00000000-0000-4000-9300-000000000102', current_date, NULL), 'conforme',
   'facture conforme : pas de notification');
 RESET ROLE;
