@@ -4,9 +4,10 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import {
-  ETATS_PNEU, LIBELLES_ACTION, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
+  ETATS_PNEU, LIBELLES_ACTION, MOTIF_ANNULATION_RECEPTION, etatAffiche, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
   type ActionPneu, type EtatPneu,
 } from './pneus';
+import { PerformancePneus } from './PerformancePneus';
 
 // Pneus (D-052) : registre et cycle de vie individuel. Chaque operation
 // passe par une fonction serveur et s'inscrit au journal ; une erreur se
@@ -37,11 +38,13 @@ export const PneusView = () => {
   const estAdmin = profile?.role === 'admin';
   const peutEcrire = estAdmin || hasPermission('vehicles', 'edit') || hasPermission('maintenance', 'edit');
   const [pneus, setPneus] = useState<Pneu[] | null>(null);
+  const [annulesReception, setAnnulesReception] = useState<Set<string>>(new Set());
   const [alertes, setAlertes] = useState<Alerte[]>([]);
   const [engins, setEngins] = useState<Lib[]>([]);
   const [sites, setSites] = useState<Lib[]>([]);
   const [fournisseurs, setFournisseurs] = useState<Lib[]>([]);
   const [seuils, setSeuils] = useState<Record<string, string>>({});
+  const [version, setVersion] = useState(0);
   const [filtre, setFiltre] = useState('');
   const [saisie, setSaisie] = useState(false);
   const [action, setAction] = useState<{ type: ActionPneu; pneu: Pneu } | null>(null);
@@ -52,21 +55,27 @@ export const PneusView = () => {
   const [busy, setBusy] = useState(false);
 
   const charger = useCallback(async () => {
-    const [p, a, v, s, f] = await Promise.all([
+    const [p, a, v, s, f, ar] = await Promise.all([
       supabase.from('v_pneus').select('*').order('tire_number'),
       supabase.from('v_pneus_a_surveiller').select('id, tire_number, motif, derniere_profondeur_mm, last_inspection_date, installation_date'),
       supabase.from('vehicles').select('id, registration').order('registration'),
       supabase.from('sites').select('id, name').order('name'),
       supabase.from('suppliers').select('id, company_name').order('company_name'),
+      supabase.from('pneus_operations').select('tire_id, type, motif').eq('type', 'annulation').like('motif', `${MOTIF_ANNULATION_RECEPTION}%`),
     ]);
-    setErreur(p.error?.message ?? a.error?.message ?? '');
+    setErreur(p.error?.message ?? a.error?.message ?? ar.error?.message ?? '');
+    setAnnulesReception(new Set((ar.data ?? [])
+      .filter((x) => x.type === 'annulation' && String(x.motif ?? '').startsWith(MOTIF_ANNULATION_RECEPTION))
+      .map((x) => x.tire_id as string)));
     setPneus((p.data ?? []) as Pneu[]);
     setAlertes((a.data ?? []) as Alerte[]);
     setEngins((v.data ?? []).map((x) => ({ id: x.id as string, libelle: x.registration as string })));
     setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
     setFournisseurs((f.data ?? []).map((x) => ({ id: x.id as string, libelle: x.company_name as string })));
+    setVersion((n) => n + 1);
+    setVersion((n) => n + 1);
     if (estAdmin) {
-      const { data } = await supabase.from('settings').select('key, value').in('key', ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours']);
+      const { data } = await supabase.from('settings').select('key, value').in('key', ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']);
       setSeuils(Object.fromEntries((data ?? []).map((x) => [x.key as string, String((x.value as { value?: string })?.value ?? '')])));
     }
   }, [estAdmin]);
@@ -140,7 +149,7 @@ export const PneusView = () => {
   };
   const enregistrerSeuils = async () => {
     setErreur(''); setMessage('');
-    for (const cle of ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours']) {
+    for (const cle of ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']) {
       const v = (seuils[cle] ?? '').trim().replace(',', '.');
       const { error } = v === ''
         ? await supabase.from('settings').delete().eq('key', cle)
@@ -235,10 +244,13 @@ export const PneusView = () => {
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">Profondeur minimale (mm)<input aria-label="Profondeur minimale (mm)" value={seuils.pneu_profondeur_min_mm ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_profondeur_min_mm: e.target.value })} className={CHAMP} /></label>
         <label className="text-sm">Inspection au plus tard tous les (jours)<input aria-label="Inspection maximale (jours)" value={seuils.pneu_inspection_max_jours ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_inspection_max_jours: e.target.value })} className={CHAMP} /></label>
+        <label className="text-sm">Réforme précoce en dessous de (km)<input aria-label="Réforme précoce (km)" value={seuils.pneu_reforme_precoce_km ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_reforme_precoce_km: e.target.value })} className={CHAMP} /></label>
         <div className="flex items-end"><button onClick={enregistrerSeuils} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Enregistrer les seuils</button></div>
       </div>
       <p className="mt-2 text-xs text-stone-500">Vide : pas d'alerte de ce type.</p>
     </Panneau>}
+
+    <PerformancePneus version={version} />
 
     <Panneau titre="Registre">
       <select aria-label="Filtrer par état" value={filtre} onChange={(e) => setFiltre(e.target.value)} className="mb-3 rounded border border-stone-300 px-3 py-2 text-sm">
@@ -249,7 +261,7 @@ export const PneusView = () => {
           <th className="py-2 pr-3">Coût au km</th><th className="py-2 pr-3">Profondeur</th><th className="py-2 pr-3">Rechapages</th><th /></tr></thead>
           <tbody>{liste.map((p) => <tr key={p.id} className="border-b border-stone-100 align-top">
             <td className="py-2 pr-3"><b>{p.tire_number}</b><span className="block text-xs text-stone-500">{p.brand} {p.model}{p.dimension ? ` · ${p.dimension}` : ''}</span></td>
-            <td className="py-2 pr-3"><Puce teinte={ETATS_PNEU[p.status].teinte}>{ETATS_PNEU[p.status].texte}</Puce></td>
+            <td className="py-2 pr-3">{(() => { const e = etatAffiche(p.status, annulesReception.has(p.id)); return <Puce teinte={e.teinte}>{e.texte}</Puce>; })()}</td>
             <td className="py-2 pr-3">{emplacement(p)}</td>
             <td className="py-2 pr-3">{texteKm(p.km_parcourus, p.km_incomplet, p.nb_montages)}</td>
             <td className="py-2 pr-3">{texteCoutKm(p.cout_km)}</td>

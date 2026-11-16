@@ -1,9 +1,9 @@
 # Guide flotte, maintenance et HSE
 
 Public : responsable de flotte, chef de maintenance, responsable HSE.
-Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054, D-066 ; migrations
+Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054, D-066, D-067 ; migrations
 `20261110210000`, `20261116120000`, `20261116180000`, `20261116210000`,
-`20261117120000`, `20261121100000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
+`20261117120000`, `20261121100000`, `20261121130000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
 `Hse`, `Incidents`.
 
 Rappel du contrat de location (D-022, D-027) : les engins (semi-remorques,
@@ -96,6 +96,35 @@ le seuil de profondeur ou non inspectés depuis trop longtemps (réglages
 `pneu_profondeur_min_mm` et `pneu_inspection_max_jours`, saisis par
 l'administrateur dans l'écran ; sans seuil, aucune alerte).
 
+**Réception depuis un bon de commande (D-067).** Une ligne de bon de
+commande peut porter un modèle de pneu (marque, modèle, dimension), sans
+article du magasin. À la réception, un numéro est saisi par pneu reçu ;
+chaque pneu entre au registre au prix de la ligne, avec le fournisseur du
+bon, le site du dépôt et la pièce de réception ; le droit d'écriture flotte
+ou maintenance est requis. Une réception s'annule tant que chacun de ses
+pneus n'a que son entrée : l'entrée est annulée avec motif (journal), le pneu
+passe à l'état réformé et son numéro est suffixé `-ANNULE-REC-…` (le numéro
+saisi redevient libre) ; dès qu'un pneu a été monté ou mouvementé,
+l'annulation est refusée avec la liste des pneus (dérogation à D-052, à
+confirmer par le propriétaire). L'écran Pneus affiche un tel pneu
+« Annulé (réception) ».
+
+**Performance par marque et modèle (D-067).** Panneau Performance,
+`v_pneus_performance` : sur les seuls pneus réformés aux mesures complètes
+(monté au moins une fois, kilomètres connus et positifs, coût au km
+calculé), kilomètres moyens, coût au km, durée de vie en jours (premier
+montage à la réforme) et taux de réforme précoce (sous le réglage
+`pneu_reforme_precoce_km`, saisi par l'administrateur ; sans seuil : sans
+données). Les pneus en service et ceux aux mesures incomplètes sont comptés
+comme exclus. Une ligne par marque regroupe tous ses modèles.
+
+**Pièces d'un ordre de travail (D-061, D-067).** Une pièce peut être
+réservée pour un ordre ouvert ou en cours (Stocks > Réservations) ; la
+sortie depuis l'ordre consomme la réservation et, pour un article suivi,
+exige ses lots ou numéros de série. Quand l'ordre est terminé ou annulé,
+ses réservations encore actives sont levées automatiquement, avec un motif
+qui cite l'ordre.
+
 ## 5. Contrôles avant départ (D-054)
 
 Écran **RH & Sécurité > Contrôles avant départ**.
@@ -187,5 +216,7 @@ du chauffeur**.
 - Interventions : le délai contractuel n'est pas repris du contrat
   automatiquement ; pas de portail Neemba (D-049).
 - Pneus : les tables `tire_*` héritées ne sont plus lues, leur suppression
-  reste à décider (D-052).
+  reste à décider (D-052). Pas de référentiel des modèles de pneus : marque
+  et modèle sont saisis sur la ligne du bon et regroupés sans tenir compte
+  de la casse ni des espaces (D-067).
 - Incidents : pas de notification par courriel ou SMS (D-056).
