@@ -80,9 +80,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Objectifs jour / shift / site, plan initial et révisions | `Planning/*` | `objectifs_production`, `definir_objectif`, `annuler_objectif` (D-023) | DÉPLOYÉ | P1 | - |
 | Comparaison planifié / réalisé, écarts | `Planning/*` | `v_realisation_objectifs` | DÉPLOYÉ | P1 | Alertes de sous-production : MANQUANT |
-| Objectifs par destination et par contrat | - | - | MANQUANT | P2 | Dimension contrat et dépôt sur l'objectif |
-| Besoins en camions et engins, simulation de capacité, scénarios de rattrapage | - | - | MANQUANT | P2 | Après référentiel d'infrastructures et historique de cycle |
-| Clôture de planification, rapports de production | - | - | MANQUANT | P2 | - |
+| Objectifs par destination et par contrat | `Planning/VentilationObjectif` | `objectifs_ventilation`, `ventiler_objectif`, `v_realisation_ventilation` (D-063, branche d'intégration) | À TESTER | P2 | Réalisé par contrat seul non mesurable (un voyage ne porte pas de contrat) |
+| Besoins en camions et engins, simulation de capacité, scénarios de rattrapage | `Planning/SimulationObjectifs` | `durees_cycle_observees`, `simuler_objectif` (D-063, branche d'intégration) | À TESTER | P2 | Seuils d'échantillon constants, non paramétrables |
+| Clôture de planification, rapports de production | `Planning/ClotureProduction` | `clotures_planification`, `cloturer_planification`, `annuler_cloture_planification`, `rapport_production`, réglage `planification_cloture_separee` (D-063, branche d'intégration) | À TESTER | P2 | Cause d'écart exigée sans tolérance |
 
 ### 05. Shift management
 
@@ -91,7 +91,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Modèles d'horaires | Paramètres | `work_shifts` (définitions) | EXISTANT | P1 | - |
 | Instances de shift : ouverture, responsable, équipe, affectations, clôture validée | `Postes/PostesView` | `postes`, `postes_equipe`, `ouvrir_poste`, `cloturer_poste`, `valider_cloture_poste` (D-048) | DÉPLOYÉ | P1 | Affectation des engins au poste depuis l'écran |
 | Passation de consignes, événements, rapport de shift, retards et absences | `Postes/PostesView` | passation automatique, `postes_evenements`, bilan figé, présences (D-048) | DÉPLOYÉ | P1 | - |
-| Comparaison entre shifts, historique des équipes | - | `trips.shift_id` | PARTIEL | P2 | - |
+| Comparaison entre shifts, historique des équipes | `Planning/ComparaisonShifts` | `comparer_shifts` (D-063, branche d'intégration) | À TESTER | P2 | Historique des équipes : vue par poste (D-048) seulement |
 
 ### 06. Dispatch et affectation
 
@@ -291,12 +291,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 5 |
+| À TESTER | 9 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 24 |
+| PARTIEL | 23 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
-| MANQUANT | 18 |
+| MANQUANT | 15 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
