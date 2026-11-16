@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FileText, Printer, Send, X } from 'lucide-react';
+import { Calculator, FileText, Printer, Send, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { INDICATEURS, PERIODICITES } from './types';
+import { ClausesCalculees } from './ClausesCalculees';
 
 // Engagements de l'avenant compares au realise, et rapport de performance
 // mensuel (phase 4, D-031). Les mesures viennent du terrain (voyages,
@@ -20,7 +21,7 @@ interface Rapport {
   genere_le: string; remis_le: string | null; remis_a: string | null;
   contenu: { engagements: Ligne[]; reconciliations: { debut: string; fin: string; statut: string; tonnage_facturable: number | null; voyages_facturables: number | null }[]; factures: { numero: string | null; type: string; statut: string; montant_ttc: number; devise: string }[] };
 }
-interface Contrat { id: string; reference: string; contrepartie: string; intitule: string }
+interface Contrat { id: string; reference: string; contrepartie: string; intitule: string; nature: string }
 
 const moisPrecedent = () => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); };
 const bornes = (mois: string) => { const [a, m] = mois.split('-').map(Number); return { du: `${mois}-01`, au: `${mois}-${String(new Date(a, m, 0).getDate()).padStart(2, '0')}` }; };
@@ -59,10 +60,12 @@ export const EngagementsView = () => {
   const [apercu, setApercu] = useState<Rapport | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [heure, setHeure] = useState<Date | null>(null);
+  const [versionCalculs, setVersionCalculs] = useState(0);
+  const peutDecider = (peutEcrire && (hasPermission('invoices', 'create') || hasPermission('invoices', 'edit')));
 
   useEffect(() => {
     Promise.all([
-      supabase.from('contrats').select('id, reference, contrepartie, intitule').order('reference'),
+      supabase.from('contrats').select('id, reference, contrepartie, intitule, nature').order('reference'),
       supabase.from('societe').select('raison_sociale').eq('id', 1).maybeSingle(),
     ]).then(([c, s]) => {
       const liste = (c.data ?? []) as Contrat[];
@@ -100,6 +103,12 @@ export const EngagementsView = () => {
     charger();
   };
 
+  const calculer = async (r: Rapport) => {
+    const { data, error } = await supabase.rpc('calculer_clauses', { p_rapport: r.id });
+    setMessage(error ? { ok: false, texte: error.message } : { ok: true, texte: `${data ?? 0} clause(s) calculée(s) : propositions à décider, rien n'est appliqué automatiquement` });
+    setVersionCalculs((v) => v + 1);
+  };
+
   const c = contrats.find((x) => x.id === contrat);
   const tenus = (lignes ?? []).filter((l) => l.conforme === true).length;
   const nonTenus = (lignes ?? []).filter((l) => l.conforme === false).length;
@@ -135,12 +144,15 @@ export const EngagementsView = () => {
               <span className="flex gap-1">
                 <Puce teinte={r.statut === 'remis' ? 'vert' : 'orange'}>{r.statut === 'remis' ? 'Remis' : 'Brouillon'}</Puce>
                 <button onClick={() => setApercu(r)} className="rounded-lg border border-stone-200 px-2.5 py-1 text-xs" aria-label={`Aperçu du rapport ${r.periode_debut}`}><Printer className="inline h-3.5 w-3.5" /> Aperçu</button>
+                {peutEcrire && r.statut === 'remis' && <button onClick={() => calculer(r)} className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-700" aria-label={`Calculer les clauses ${r.periode_debut}`}><Calculator className="inline h-3.5 w-3.5" /> Calculer les clauses</button>}
                 {peutEcrire && r.statut === 'brouillon' && <button onClick={() => remettre(r)} className="rounded-lg bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700"><Send className="inline h-3.5 w-3.5" /> Marquer remis</button>}
               </span>
             </li>
           ))}</ul>
         )}
       </Panneau>
+
+      {contrat && <ClausesCalculees contratId={contrat} nature={c?.nature ?? null} peutDecider={peutDecider} version={versionCalculs} />}
 
       {apercu && (
         <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">

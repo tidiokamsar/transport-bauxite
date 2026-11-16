@@ -85,6 +85,11 @@ export const REGLAGES: Reglage[] = [
     effet: 'Une offre ne peut être retenue qu\'après réception de ce nombre d\'offres actives dans la consultation.',
     siAbsent: '1 offre : aucune mise en concurrence imposée.', lecteur: 'reglage_entier, selectionner_offre (D-059)',
   },
+  {
+    cle: 'contrats_alerte_echeance_jours', libelle: 'Contrats : alerte avant échéance', type: 'entier', unite: 'jours',
+    effet: 'Une échéance de contrat (limite de préavis, puis date de fin) apparaît dans Mes validations ce nombre de jours avant la date clé (aucun blocage, aucun renouvellement automatique).',
+    siAbsent: '0 jour : alerte à la date clé seulement.', lecteur: 'delai_alerte_echeances_contrats, v_echeances_contrats (D-065)',
+  },
 ];
 
 export const CLES_REGLAGES = REGLAGES.map((r) => r.cle);
