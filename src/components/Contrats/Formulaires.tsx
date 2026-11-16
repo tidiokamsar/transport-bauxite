@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { ErreurFenetre, Fenetre as FenetreCommune } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import {
   INDICATEURS, NATURES, PERIODICITES, RENOUVELLEMENTS, STATUTS, TYPES_CLAUSE, UNITES_TARIF,
@@ -21,24 +21,23 @@ const Fenetre = ({ titre, onFermer, onValider, enCours, valide, erreur, children
   erreur: string;
   children: ReactNode;
 }) => (
-  <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-    <div onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={titre}>
-      <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-        <h2 className="text-xl font-black text-stone-900">{titre}</h2>
-        <button onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-      </header>
-      <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
-        {children}
-        {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
-      </div>
-      <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-        <button onClick={onFermer} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-        <button onClick={onValider} disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
-          {enCours ? 'Enregistrement...' : 'Enregistrer'}
-        </button>
-      </footer>
+  <FenetreCommune
+    titre={titre}
+    onFermer={onFermer}
+    enCours={enCours}
+    onSubmit={(e) => { e.preventDefault(); if (valide && !enCours) onValider(); }}
+    pied={<>
+      <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+      <button type="submit" disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
+        {enCours ? 'Enregistrement...' : 'Enregistrer'}
+      </button>
+    </>}
+  >
+    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+      <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
+      {children}
     </div>
-  </div>
+  </FenetreCommune>
 );
 
 const Champ = ({ libelle, large = false, children }: { libelle: string; large?: boolean; children: ReactNode }) => (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { BOUTON_PRINCIPAL, BOUTON_SECONDAIRE, ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { useSite } from '../../contexts/SiteContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -56,14 +56,18 @@ export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; on
   };
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => onClose(false)}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={vehicle ? 'Modifier un engin' : 'Nouvel engin'}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-          <h2 className="text-xl font-black text-stone-900">{vehicle ? `Modifier ${vehicle.registration}` : 'Nouvel engin'}</h2>
-          <button onClick={() => onClose(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+    <Fenetre
+      titre={vehicle ? `Modifier ${vehicle.registration}` : 'Nouvel engin'}
+      onFermer={() => onClose(false)}
+      enCours={busy}
+      onSubmit={(e) => { e.preventDefault(); void enregistrer(); }}
+      pied={<>
+        <button type="button" onClick={() => onClose(false)} disabled={busy} className={BOUTON_SECONDAIRE}>Annuler</button>
+        <button type="submit" disabled={busy || !pret} className={BOUTON_PRINCIPAL}>Enregistrer</button>
+      </>}
+    >
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
           <label>Immatriculation *<input value={f.registration} onChange={(e) => poser('registration', e.target.value)} className={CHAMP} /></label>
           <label>Marque et modèle *<input value={f.brand_model} onChange={(e) => poser('brand_model', e.target.value)} className={CHAMP} /></label>
           <label>Type *<select value={f.vehicle_type} onChange={(e) => poser('vehicle_type', e.target.value)} className={CHAMP}>
@@ -77,13 +81,7 @@ export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; on
           <label>Expiration assurance<input type="date" value={f.insurance_expiry} onChange={(e) => poser('insurance_expiry', e.target.value)} className={CHAMP} /></label>
           <label>Expiration visite technique<input type="date" value={f.technical_inspection_expiry} onChange={(e) => poser('technical_inspection_expiry', e.target.value)} className={CHAMP} /></label>
           <p className="text-xs text-stone-500 sm:col-span-2">Propriété, contrat et statut se renseignent depuis la fiche de l'engin (journalisés) ; le kilométrage par les relevés de compteur.</p>
-          {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
         </div>
-        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-          <button onClick={() => onClose(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-          <button disabled={busy || !pret} onClick={enregistrer} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
-        </footer>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

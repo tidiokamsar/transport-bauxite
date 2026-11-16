@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, Download, Mail, CheckCircle, Calendar,
+  Download, Mail, CheckCircle, Calendar,
   User, Briefcase
 } from 'lucide-react';
+import { Fenetre } from '../ui/Fenetre';
 
 interface PayrollDetailsModalProps {
   isOpen: boolean;
@@ -497,12 +498,12 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-8">
+      <Fenetre titre="Bulletin de Paie" onFermer={onClose} largeur="max-w-sm">
+        <div role="status" className="py-4 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-slate-600">Chargement...</p>
         </div>
-      </div>
+      </Fenetre>
     );
   }
 
@@ -514,28 +515,49 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
   const missionBonus = trips.length * 50000;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Bulletin de Paie</h2>
-              <p className="text-blue-100 mt-1">
-                {employee?.first_name} {employee?.last_name} • {employee?.employee_number}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+    <Fenetre
+      titre="Bulletin de Paie"
+      sousTitre={<>{employee?.first_name} {employee?.last_name} • {employee?.employee_number}</>}
+      onFermer={onClose}
+      largeur="max-w-4xl"
+      pied={<>
+        <div className="flex flex-col gap-2 sm:mr-auto sm:flex-row">
+          <button
+            onClick={handleDownloadPDF}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Télécharger PDF
+          </button>
+          <button
+            onClick={handleSendEmail}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+          >
+            <Mail className="w-4 h-4" />
+            Envoyer par email
+          </button>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {payroll?.status === 'draft' && (
+          <button
+            onClick={handleApprove}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Approuver
+          </button>
+        )}
+        {payroll?.status === 'pending' && (
+          <button
+            onClick={handlePay}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+          >
+            <CheckCircle className="w-4 h-4" />
+            Marquer payé
+          </button>
+        )}
+      </>}
+    >
+        <div>
           {/* Informations principales */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div className="bg-slate-50 rounded-lg p-4">
@@ -640,48 +662,6 @@ export const PayrollDetailsModal = ({ isOpen, onClose, payrollId, onSuccess }: P
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="border-t border-slate-200 p-6 bg-slate-50">
-          <div className="flex flex-wrap gap-3 justify-between">
-            <div className="flex gap-3">
-              <button
-                onClick={handleDownloadPDF}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Télécharger PDF
-              </button>
-              <button
-                onClick={handleSendEmail}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
-              >
-                <Mail className="w-4 h-4" />
-                Envoyer par email
-              </button>
-            </div>
-            <div className="flex gap-3">
-              {payroll?.status === 'draft' && (
-                <button
-                  onClick={handleApprove}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Approuver
-                </button>
-              )}
-              {payroll?.status === 'pending' && (
-                <button
-                  onClick={handlePay}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Marquer payé
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

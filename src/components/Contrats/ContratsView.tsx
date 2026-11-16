@@ -3,6 +3,7 @@ import { Ban, CalendarClock, FilePlus2, History, PenLine, Plus, Trash2 } from 'l
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { ErreurFenetre, Fenetre as FenetreCommune } from '../ui/Fenetre';
 import { formatNombre } from '../Dashboard/indicateurs';
 import {
   INDICATEURS, NATURES, PERIODICITES, RENOUVELLEMENTS, STATUTS, TYPES_CLAUSE, UNITES_TARIF, decrireClause, etatEcheance, libelleVersion,
@@ -411,21 +412,26 @@ const FenetreEcheance = ({ contrat, evenement, onFermer, onFait }: {
   };
   const champ = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm';
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-      <form onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); if (valide) enregistrer(); }}
-        className="w-full max-w-lg space-y-3 rounded-2xl bg-white p-6 shadow-2xl text-sm" aria-label={renouveler ? 'Renouvellement du contrat' : 'Dénonciation du contrat'}>
-        <h2 className="text-xl font-black text-stone-900">{renouveler ? 'Renouvellement' : 'Dénonciation'} · {contrat.reference}</h2>
-        <p className="text-stone-500">Fin actuelle : {date(contrat.date_fin)}{contrat.preavis_jours != null ? ` · préavis ${contrat.preavis_jours} jours` : ''}</p>
+    <FenetreCommune
+      titre={`${renouveler ? 'Renouvellement' : 'Dénonciation'} · ${contrat.reference}`}
+      sousTitre={`Fin actuelle : ${date(contrat.date_fin)}${contrat.preavis_jours != null ? ` · préavis ${contrat.preavis_jours} jours` : ''}`}
+      ariaLabel={renouveler ? 'Renouvellement du contrat' : 'Dénonciation du contrat'}
+      largeur="max-w-lg"
+      onFermer={onFermer}
+      enCours={enCours}
+      onSubmit={(e) => { e.preventDefault(); if (valide) enregistrer(); }}
+      pied={<>
+        <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+        <button type="submit" disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
+      </>}
+    >
+      <div className="space-y-3 text-sm">
+        <ErreurFenetre>{erreur}</ErreurFenetre>
         <label className="block"><span className="mb-1 block font-medium">Date de l'événement *</span><input type="date" value={f.date} max={aujourdhui()} onChange={(e) => setF({ ...f, date: e.target.value })} className={champ} /></label>
         {renouveler && <label className="block"><span className="mb-1 block font-medium">Nouvelle date de fin *</span><input type="date" value={f.fin} onChange={(e) => setF({ ...f, fin: e.target.value })} className={champ} /></label>}
         <label className="block"><span className="mb-1 block font-medium">Motif *</span><input value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} placeholder="Avenant signé, courrier de dénonciation..." className={champ} /></label>
         <label className="block"><span className="mb-1 block font-medium">Référence du document</span><input value={f.document} onChange={(e) => setF({ ...f, document: e.target.value })} className={champ} /></label>
-        {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onFermer} className="rounded-lg px-4 py-2 text-stone-600 hover:bg-stone-100">Annuler</button>
-          <button type="submit" disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 font-bold text-white disabled:opacity-50">Enregistrer</button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </FenetreCommune>
   );
 };

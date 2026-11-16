@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ErreurFenetre, Fenetre as FenetreCommune, type FenetreProps } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { formatNombre } from '../Dashboard/indicateurs';
 import type { SiteResume } from '../../contexts/SiteContext';
@@ -11,26 +11,8 @@ import type { ShiftHoraire } from './plan';
 
 export const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
 
-export const Fenetre = ({ titre, onFermer, children, pied, largeur = 'max-w-2xl' }: {
-  titre: string;
-  onFermer: () => void;
-  children: ReactNode;
-  pied?: ReactNode;
-  largeur?: string;
-}) => (
-  <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-    <div onClick={(e) => e.stopPropagation()} className={`w-full ${largeur} rounded-2xl bg-white shadow-2xl`} role="dialog" aria-modal="true" aria-label={titre}>
-      <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-        <h2 className="text-xl font-black text-stone-900">{titre}</h2>
-        <button type="button" onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer">
-          <X className="h-5 w-5" />
-        </button>
-      </header>
-      {children}
-      {pied && <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">{pied}</footer>}
-    </div>
-  </div>
-);
+/** Fenetre commune (ui/Fenetre) sans marge de contenu : les fenetres de la planification posent la leur. */
+export const Fenetre = (props: FenetreProps) => <FenetreCommune corpsClassName="" {...props} />;
 
 const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
@@ -139,9 +121,17 @@ export const DefinirObjectif = ({
     <Fenetre
       titre={actuel ? `Réviser l'objectif (version ${actuel.version + 1})` : 'Définir un objectif'}
       onFermer={onFermer}
+      enCours={enCours}
+      onSubmit={valider}
+      pied={<>
+        <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+        <button type="submit" disabled={enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
+          {enCours ? 'Enregistrement...' : actuel ? 'Enregistrer la révision' : 'Enregistrer l\'objectif'}
+        </button>
+      </>}
     >
-      <form onSubmit={valider}>
-        <div className="grid grid-cols-1 gap-4 px-6 py-5 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 px-4 py-4 sm:grid-cols-2 sm:px-6 sm:py-5">
+          <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
           <label className="block text-sm">
             <span className="mb-1 block font-medium text-stone-700">Date *</span>
             <input type="date" value={form.date} onChange={maj('date')} className={CHAMP} required />
@@ -199,15 +189,7 @@ export const DefinirObjectif = ({
             <span className="mb-1 block font-medium text-stone-700">Note</span>
             <textarea value={form.note} onChange={maj('note')} rows={2} className={CHAMP} />
           </label>
-          {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{erreur}</p>}
         </div>
-        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-          <button type="button" onClick={onFermer} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-          <button type="submit" disabled={enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
-            {enCours ? 'Enregistrement...' : actuel ? 'Enregistrer la révision' : 'Enregistrer l\'objectif'}
-          </button>
-        </footer>
-      </form>
     </Fenetre>
   );
 };
@@ -234,20 +216,21 @@ export const AnnulerObjectif = ({ id, libelle, onFermer, onAnnule }: {
       titre="Annuler l'objectif"
       onFermer={onFermer}
       largeur="max-w-lg"
+      enCours={enCours}
       pied={<>
-        <button onClick={onFermer} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Retour</button>
+        <button onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Retour</button>
         <button onClick={valider} disabled={enCours || !motif.trim()} className="rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
           {enCours ? 'Annulation...' : 'Annuler l\'objectif'}
         </button>
       </>}
     >
       <div className="space-y-3 px-6 py-5 text-sm">
+        <ErreurFenetre>{erreur}</ErreurFenetre>
         <p className="text-stone-600">{libelle}. L'objectif reste dans l'historique avec son motif d'annulation.</p>
         <label className="block">
           <span className="mb-1 block font-medium text-stone-700">Motif (obligatoire)</span>
           <input value={motif} onChange={(e) => setMotif(e.target.value)} className={CHAMP} />
         </label>
-        {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
       </div>
     </Fenetre>
   );
@@ -296,7 +279,7 @@ export const HistoriqueObjectif = ({ date, siteId, shiftId, libelle, onFermer }:
     <Fenetre titre="Historique de l'objectif" onFermer={onFermer} largeur="max-w-lg">
       <div className="px-6 py-5">
         <p className="mb-4 text-sm text-stone-500">{libelle}</p>
-        {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+        <ErreurFenetre>{erreur}</ErreurFenetre>
         {versions === null ? (
           <p className="text-sm text-stone-400">Chargement...</p>
         ) : (

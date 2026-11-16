@@ -7,6 +7,7 @@ import { AffectationsSites } from './AffectationsSites';
 import { Delegations } from './Delegations';
 import { JournalConnexions } from './JournalConnexions';
 import { Referentiels } from './Referentiels';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { useAuth } from '../../contexts/AuthContext';
 import { Users, Building2, SlidersHorizontal, Edit, Plus, Search, UserX, UserCheck, MapPin, History, ListOrdered } from 'lucide-react';
 
@@ -353,12 +354,25 @@ export const AdminSettingsView = () => {
       )}
 
       {changementStatut && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div role="dialog" aria-label={changementStatut.action === 'desactiver' ? 'Désactiver le compte' : 'Réactiver le compte'} className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-slate-900">
-              {changementStatut.action === 'desactiver' ? 'Désactiver' : 'Réactiver'} le compte de {changementStatut.user.full_name || changementStatut.user.email}
-            </h3>
-            <p className="mt-1 text-sm text-slate-600">
+        <Fenetre
+          titre={`${changementStatut.action === 'desactiver' ? 'Désactiver' : 'Réactiver'} le compte de ${changementStatut.user.full_name || changementStatut.user.email}`}
+          ariaLabel={changementStatut.action === 'desactiver' ? 'Désactiver le compte' : 'Réactiver le compte'}
+          onFermer={() => setChangementStatut(null)}
+          largeur="max-w-md"
+          onSubmit={(e) => { e.preventDefault(); if (motifStatut.trim()) confirmerChangementStatut(); }}
+          pied={<>
+            <button type="button" onClick={() => setChangementStatut(null)} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
+            <button
+              type="submit"
+              disabled={!motifStatut.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Confirmer
+            </button>
+          </>}
+        >
+            <ErreurFenetre className="mb-3">{erreurStatut}</ErreurFenetre>
+            <p className="text-sm text-slate-600">
               {changementStatut.action === 'desactiver'
                 ? 'Le compte ne pourra plus se connecter aux données ; il reste l\'auteur de ses pièces. Le dernier administrateur actif ne peut pas être désactivé.'
                 : 'Le compte retrouve les droits de son rôle et de son site.'}
@@ -370,19 +384,7 @@ export const AdminSettingsView = () => {
               onChange={(e) => setMotifStatut(e.target.value)}
               className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
             />
-            {erreurStatut && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurStatut}</p>}
-            <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setChangementStatut(null)} className="rounded-lg px-4 py-2 text-sm text-slate-600 hover:bg-slate-100">Annuler</button>
-              <button
-                onClick={confirmerChangementStatut}
-                disabled={!motifStatut.trim()}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                Confirmer
-              </button>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       <UserModal

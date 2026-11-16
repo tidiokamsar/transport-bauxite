@@ -3,6 +3,7 @@ import { CheckCircle2, Download, FileCheck2, Lock, Plus, RefreshCw, Pencil } fro
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 import { ANOMALIES, BASES, STATUTS_LIGNE, bornesMoisCalendaires, statutLigne, type BaseTonnage, type StatutLigne } from './facturation';
@@ -287,19 +288,26 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
         </div>
       )}
       {rectification && rec?.statut === 'ouverte' && (
-        <div role="dialog" aria-modal="true" aria-labelledby="rectification-titre" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <Panneau titre="Rectifier un ticket CBG">
-            <p id="rectification-titre" className="mb-3 text-sm text-stone-600">Voyage {rectification.reference}. Le ticket initial restera conservé dans l’historique.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
+        <Fenetre
+          titre="Rectifier un ticket CBG"
+          sousTitre={`Voyage ${rectification.reference}. Le ticket initial restera conservé dans l’historique.`}
+          onFermer={() => setRectification(null)}
+          enCours={enCours}
+          onSubmit={(e) => { e.preventDefault(); if (!(enCours || !correction.ticket.trim() || !correction.brut.trim() || !correction.tare.trim() || !correction.motif.trim())) enregistrerRectification(); }}
+          pied={<>
+            <button type="button" onClick={() => setRectification(null)} disabled={enCours} className="rounded-lg border px-4 py-2 text-sm disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={enCours || !correction.ticket.trim() || !correction.brut.trim() || !correction.tare.trim() || !correction.motif.trim()} className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer la rectification</button>
+          </>}
+        >
+            <ErreurFenetre className="mb-3">{message && !message.ok ? message.texte : null}</ErreurFenetre>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <label>Numéro du ticket *<input value={correction.ticket} onChange={(e) => setCorrection({ ...correction, ticket: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label>Poids brut (t) *<input inputMode="decimal" value={correction.brut} onChange={(e) => setCorrection({ ...correction, brut: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label>Tare (t) *<input inputMode="decimal" value={correction.tare} onChange={(e) => setCorrection({ ...correction, tare: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label>Référence du document<input value={correction.documentRef} onChange={(e) => setCorrection({ ...correction, documentRef: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label className="sm:col-span-2">Motif obligatoire *<textarea value={correction.motif} onChange={(e) => setCorrection({ ...correction, motif: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" rows={2} /></label>
             </div>
-            <div className="mt-4 flex justify-end gap-2"><button onClick={() => setRectification(null)} className="rounded-lg border px-4 py-2">Annuler</button><button onClick={enregistrerRectification} disabled={enCours || !correction.ticket.trim() || !correction.brut.trim() || !correction.tare.trim() || !correction.motif.trim()} className="rounded-lg bg-amber-700 px-4 py-2 font-bold text-white disabled:opacity-50">Enregistrer la rectification</button></div>
-          </Panneau>
-        </div>
+        </Fenetre>
       )}
       <Provenance source="voyages livrés de la période (cycle, tickets CBG et fiches terrain) ; rectifications motivées tracées ; décisions du chargé de contrats ; tonnage figé à la clôture" heure={heure} />
     </div>

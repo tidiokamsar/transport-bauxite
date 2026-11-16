@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { PayrollModal } from './PayrollModal';
 import { PayrollDetailsModal } from './PayrollDetailsModal';
-import { DollarSign, Plus, Edit, Download, CheckCircle, Clock, XCircle, TrendingUp, Eye, FileText, Send, UserCircle } from 'lucide-react';
+import { DollarSign, Plus, Edit, Download, CheckCircle, Clock, TrendingUp, Eye, UserCircle } from 'lucide-react';
 
 export const PayrollView = () => {
   const [payroll, setPayroll] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
-  const [selectedPayroll] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPayrollId, setSelectedPayrollId] = useState<string>('');
   const [filters, setFilters] = useState({ status: 'all', month: new Date().toISOString().slice(0, 7) });
@@ -278,135 +277,6 @@ export const PayrollView = () => {
         onSuccess={fetchData}
       />
 
-      {/* OLD MODAL - TO REMOVE */}
-      {/* eslint-disable-next-line no-constant-binary-expression -- bloc desactive, a supprimer en Vague B (HR) */}
-      {false && showDetailModal && selectedPayroll && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b bg-slate-50">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold">Détails de la Paie</h2>
-                  <p className="text-slate-600 mt-1">
-                    {selectedPayroll.employee?.first_name} {selectedPayroll.employee?.last_name} -
-                    {new Date(selectedPayroll.period_start).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-                <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-slate-200 rounded-lg">
-                  <XCircle className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm text-slate-600">Matricule</label>
-                    <p className="font-medium">{selectedPayroll.employee?.employee_number}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-600">Poste</label>
-                    <p className="font-medium">{selectedPayroll.employee?.position}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-600">Période</label>
-                    <p className="font-medium">
-                      {new Date(selectedPayroll.period_start).toLocaleDateString('fr-FR')} -
-                      {new Date(selectedPayroll.period_end).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm text-slate-600">Jours travaillés</label>
-                    <p className="font-medium">{selectedPayroll.days_worked} jours</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-600">Jours absents</label>
-                    <p className="font-medium">{selectedPayroll.days_absent} jours</p>
-                  </div>
-                  <div>
-                    <label className="text-sm text-slate-600">Heures travaillées</label>
-                    <p className="font-medium">{selectedPayroll.hours_worked}h</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="font-bold mb-3">Rémunération</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Salaire de base</span>
-                    <span className="font-medium">{parseFloat(selectedPayroll.base_salary).toLocaleString()} GNF</span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Heures supplémentaires</span>
-                    <span className="font-medium text-blue-600">+{parseFloat(selectedPayroll.overtime_pay || 0).toLocaleString()} GNF</span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Primes</span>
-                    <span className="font-medium text-green-600">+{parseFloat(selectedPayroll.bonuses || 0).toLocaleString()} GNF</span>
-                  </div>
-                </div>
-              </div>
-
-              {selectedPayroll.bonuses && selectedPayroll.bonuses.length > 0 && (
-                <div className="border-t pt-4">
-                  <h3 className="font-bold mb-3">Détail des Primes</h3>
-                  <div className="space-y-2">
-                    {selectedPayroll.bonuses.map((bonus: any) => (
-                      <div key={bonus.id} className="flex justify-between py-2 bg-green-50 px-3 rounded">
-                        <div>
-                          <p className="font-medium">{bonus.bonus_type === 'mission_completion' ? 'Primes missions' : bonus.bonus_type}</p>
-                          <p className="text-xs text-slate-600">{bonus.description}</p>
-                        </div>
-                        <span className="font-medium text-green-600">{parseFloat(bonus.amount).toLocaleString()} GNF</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="border-t pt-4">
-                <h3 className="font-bold mb-3">Déductions</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Sécurité sociale</span>
-                    <span className="font-medium text-red-600">-{parseFloat(selectedPayroll.social_security || 0).toLocaleString()} GNF</span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Impôts</span>
-                    <span className="font-medium text-red-600">-{parseFloat(selectedPayroll.tax_amount || 0).toLocaleString()} GNF</span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span className="text-slate-600">Autres déductions</span>
-                    <span className="font-medium text-red-600">-{parseFloat(selectedPayroll.deductions || 0).toLocaleString()} GNF</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t-2 pt-4">
-                <div className="flex justify-between items-center bg-green-50 p-4 rounded-lg">
-                  <span className="text-lg font-bold">Salaire Net</span>
-                  <span className="text-2xl font-bold text-green-600">{parseFloat(selectedPayroll.net_salary).toLocaleString()} GNF</span>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  Télécharger bulletin
-                </button>
-                <button className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2">
-                  <Send className="w-5 h-5" />
-                  Envoyer par email
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { instantane, type Chauffeur, type Engin, type Recommandation } from './recommandation';
 
@@ -64,16 +64,26 @@ export const FenetreDecision = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={titre}>
-        <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-          <div>
-            <h2 className="text-xl font-black text-stone-900">{titre}</h2>
-            <p className="text-sm text-stone-500">{reference}</p>
-          </div>
-          <button onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="space-y-3 px-6 py-5 text-sm">
+    <Fenetre
+      titre={titre}
+      sousTitre={reference}
+      largeur="max-w-lg"
+      onFermer={onFermer}
+      enCours={enCours}
+      onSubmit={(e) => { e.preventDefault(); if (!(enCours || !motif.trim() || (!refus && (!camion || !chauffeur)))) valider(); }}
+      pied={<>
+        <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+        <button
+          type="submit"
+          disabled={enCours || !motif.trim() || (!refus && (!camion || !chauffeur))}
+          className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 ${refus ? 'bg-red-600' : 'bg-gradient-to-r from-orange-500 to-orange-700'}`}
+        >
+          {enCours ? 'Enregistrement...' : refus ? 'Refuser' : 'Enregistrer la décision'}
+        </button>
+      </>}
+    >
+        <div className="space-y-3 text-sm">
+          <ErreurFenetre>{erreur}</ErreurFenetre>
           <div className="rounded-lg bg-stone-50 p-3 text-stone-600">
             <p className="font-medium text-stone-700">Recommandation</p>
             <p>{[recommandation.camion?.registration, recommandation.chauffeur?.name, recommandation.engin?.registration].filter(Boolean).join(' · ') || 'Aucune'}</p>
@@ -107,19 +117,7 @@ export const FenetreDecision = ({
             <span className="mb-1 block font-medium text-stone-700">Motif (obligatoire)</span>
             <input value={motif} onChange={(e) => setMotif(e.target.value)} className={CHAMP} />
           </label>
-          {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
         </div>
-        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-          <button onClick={onFermer} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-          <button
-            onClick={valider}
-            disabled={enCours || !motif.trim() || (!refus && (!camion || !chauffeur))}
-            className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 ${refus ? 'bg-red-600' : 'bg-gradient-to-r from-orange-500 to-orange-700'}`}
-          >
-            {enCours ? 'Enregistrement...' : refus ? 'Refuser' : 'Enregistrer la décision'}
-          </button>
-        </footer>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

@@ -124,7 +124,8 @@ export const VentilerObjectif = ({ objectifId, siteChargement, tonnesObjectif, l
         </button>
       </>}
     >
-      <div className="space-y-3 px-6 py-5 text-sm">
+      <div className="space-y-3 px-4 py-4 text-sm sm:px-6 sm:py-5">
+        {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
         <p className="text-stone-600">
           {libelle} : {formatNombre(tonnesObjectif)} t. La somme des lignes ne dépasse pas l'objectif. La ventilation ne se modifie plus
           ensuite : pour la changer, révisez l'objectif.
@@ -164,7 +165,6 @@ export const VentilerObjectif = ({ objectifId, siteChargement, tonnesObjectif, l
         <button type="button" onClick={() => setLignes([...lignes, { ...LIGNE_VIDE }])} className="flex items-center gap-1 text-sm font-semibold text-orange-700">
           <Plus className="h-4 w-4" /> Ajouter une ligne
         </button>
-        {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
       </div>
     </Fenetre>
   );

@@ -3,9 +3,10 @@ import { MapContainer, TileLayer, Marker, Circle, Polyline, Popup } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
+import { Fenetre } from '../ui/Fenetre';
 import {
   MapPin, Gauge, Fuel, User, Clock, Navigation, Navigation2, Map as MapIcon,
-  TrendingUp, Package, Truck, X, Maximize2,
+  TrendingUp, Package, Truck, Maximize2,
   Activity, Droplet, Radio, Calendar
 } from 'lucide-react';
 
@@ -780,30 +781,16 @@ export const LiveMapView = () => {
 
       {/* Detail Modal - GRAND */}
       {showDetailModal && selectedTrip && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-                  <Truck className="w-8 h-8" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold">{selectedTrip.vehicle_registration}</h2>
-                  <p className="text-blue-100 text-sm">{selectedTrip.vehicle_brand}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-lg flex items-center justify-center transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
-              <div className="grid grid-cols-3 gap-6 mb-6">
+        <Fenetre
+          titre={selectedTrip.vehicle_registration}
+          sousTitre={selectedTrip.vehicle_brand}
+          icone={<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100"><Truck className="h-6 w-6 text-blue-700" /></span>}
+          onFermer={() => setShowDetailModal(false)}
+          largeur="max-w-7xl"
+          zClasse="z-[2000]"
+          corpsClassName="bg-slate-50 p-4 sm:p-6"
+        >
+              <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-3">
                 {/* Real-time Stats */}
                 <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl p-6 shadow-lg">
                   <div className="flex items-center justify-between mb-3">
@@ -860,7 +847,7 @@ export const LiveMapView = () => {
               </div>
 
               {/* Mission Info */}
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 gap-6 mb-6 md:grid-cols-2">
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
                   <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
                     <Package className="w-5 h-5 text-blue-600" />
@@ -1078,9 +1065,7 @@ export const LiveMapView = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

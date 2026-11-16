@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, MapPin, Save, Building2, Phone, Mail, Users, Package } from 'lucide-react';
+import { MapPin, Save, Building2, Phone, Mail, Users, Package } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { enNombre, enTexte, locationAEnvoyer, verifierCapacite, verifierCoordonnees } from './saisieSite';
 
 /** Colonnes du referentiel des sites saisies dans ce formulaire (D-079). */
@@ -121,32 +122,44 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
   const labelClass = "block text-sm font-semibold text-gray-700 mb-2";
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-      <div role="dialog" aria-label={site ? 'Modifier le site' : 'Nouveau site'} className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[92vh] overflow-hidden">
-        <div className="sticky top-0 bg-gradient-to-r from-orange-500 via-red-500 to-orange-600 px-6 py-5 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center shadow-lg">
-              <MapPin className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">
-                {site ? 'Modifier le site' : 'Nouveau site'}
-              </h2>
-              <p className="text-sm text-orange-100 mt-0.5">
-                {site ? 'Mettre à jour les informations du site' : 'Ajouter un nouveau site au réseau'}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Fermer"
-            className="p-2.5 hover:bg-white/20 rounded-xl transition-all duration-200"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-8 space-y-8 overflow-y-auto max-h-[calc(92vh-90px)]">
+    <Fenetre
+      titre={site ? 'Modifier le site' : 'Nouveau site'}
+      sousTitre={site ? 'Mettre à jour les informations du site' : 'Ajouter un nouveau site au réseau'}
+      icone={<span className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100"><MapPin className="h-6 w-6 text-orange-600" /></span>}
+      onFermer={onClose}
+      largeur="max-w-5xl"
+      enCours={loading}
+      onSubmit={handleSubmit}
+      pied={<>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-6 py-2.5 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all disabled:opacity-50"
+          disabled={loading}
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          className="px-8 py-2.5 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-700 shadow-lg transition-all disabled:opacity-50"
+          disabled={loading}
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+              Enregistrement...
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <Save className="w-5 h-5" />
+              {site ? 'Mettre à jour' : 'Créer le site'}
+            </span>
+          )}
+        </button>
+      </>}
+    >
+        <div className="space-y-6 sm:space-y-8">
+          <ErreurFenetre>{erreur}</ErreurFenetre>
           {/* Informations principales */}
           <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -403,38 +416,7 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
             </div>
           </div>
 
-          {erreur && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-4 pt-6 border-t-2 border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 border-2 border-gray-300 text-gray-700 font-semibold rounded-xl hover:bg-gray-100 transition-all"
-              disabled={loading}
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-bold rounded-xl hover:from-orange-600 hover:to-red-700 shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  Enregistrement...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <Save className="w-5 h-5" />
-                  {site ? 'Mettre à jour' : 'Créer le site'}
-                </span>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Fenetre>
   );
 };

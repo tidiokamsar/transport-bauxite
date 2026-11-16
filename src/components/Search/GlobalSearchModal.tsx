@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Building2, FileText, Loader2, MapPin, Search, Truck, User, Wrench, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -27,6 +27,24 @@ export const GlobalSearchModal = ({ isOpen, onClose, onAllerA }: GlobalSearchMod
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const sources = SOURCES_RECHERCHE.filter((s) => canAccessModule(s.vue));
+  const fermer = useRef(onClose);
+  fermer.current = onClose;
+
+  // Fenetre ouverte : Echap ferme meme hors du champ, page dessous figee,
+  // focus rendu a l'element d'origine a la fermeture.
+  useEffect(() => {
+    if (!isOpen) return;
+    const origine = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const debordement = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const clavier = (e: KeyboardEvent) => { if (e.key === 'Escape') fermer.current(); };
+    document.addEventListener('keydown', clavier);
+    return () => {
+      document.removeEventListener('keydown', clavier);
+      document.body.style.overflow = debordement;
+      if (origine && document.contains(origine)) origine.focus({ preventScroll: true });
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) { setQuery(''); setResults([]); setErreurs([]); setSelectedIndex(0); }
@@ -65,24 +83,29 @@ export const GlobalSearchModal = ({ isOpen, onClose, onAllerA }: GlobalSearchMod
     if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIndex((i) => Math.min(i + 1, results.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIndex((i) => Math.max(i - 1, 0)); }
     else if (e.key === 'Enter' && results[selectedIndex]) ouvrir(results[selectedIndex]);
-    else if (e.key === 'Escape') onClose();
   };
 
   if (!isOpen) return null;
   const motif = motifRecherche(query);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-20" role="dialog" aria-label="Recherche globale">
-      <div className="w-full max-w-2xl rounded-xl bg-white text-stone-900 shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-stone-200 p-4">
+    <div
+      className="fixed inset-0 z-[900] flex items-start justify-center bg-black/50 p-4 sm:pt-20"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Recherche globale"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white text-stone-900 shadow-2xl sm:max-h-[calc(100dvh-7rem)]">
+        <div className="flex shrink-0 items-center gap-3 border-b border-stone-200 p-4">
           <Search className="h-5 w-5 text-stone-400" />
           <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleKeyDown}
-            aria-label="Rechercher" placeholder="Engin, chauffeur, voyage, ordre de travail, facture, site…" className="flex-1 text-lg outline-none" autoFocus />
+            aria-label="Rechercher" placeholder="Engin, chauffeur, voyage, ordre de travail, facture, site…" className="min-w-0 flex-1 text-lg outline-none" autoFocus />
           {loading && <Loader2 className="h-5 w-5 animate-spin text-orange-600" />}
           <button onClick={onClose} aria-label="Fermer la recherche" className="rounded p-1 hover:bg-stone-100"><X className="h-5 w-5 text-stone-400" /></button>
         </div>
 
-        <div className="max-h-96 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {!motif && (
             <div className="p-8 text-center text-stone-500">
               <p>Tapez au moins 2 caractères.</p>
@@ -114,7 +137,7 @@ export const GlobalSearchModal = ({ isOpen, onClose, onAllerA }: GlobalSearchMod
             </ul>
           )}
         </div>
-        <p className="border-t border-stone-200 bg-stone-50 p-3 text-xs text-stone-500">↑ ↓ pour naviguer · Entrée pour ouvrir l'écran · Échap pour fermer</p>
+        <p className="hidden shrink-0 border-t border-stone-200 bg-stone-50 p-3 text-xs text-stone-500 sm:block">↑ ↓ pour naviguer · Entrée pour ouvrir l'écran · Échap pour fermer</p>
       </div>
     </div>
   );
