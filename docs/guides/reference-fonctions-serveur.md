@@ -286,7 +286,7 @@ périmètre.
 
 ## Organisation et administration (D-064, à tester)
 
-Migration `20261121110000`, test 47, E2E `organisation`. En branche
+Migration `20261121140000`, test 47, E2E `organisation`. En branche
 (`lot-02/organisation-integration`), ni fusionnée ni déployée à la date de
 cette révision.
 

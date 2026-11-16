@@ -1,6 +1,6 @@
 -- Tests (D-064) : affectations multisites et site_permis, delegations
 -- temporaires et has_module_*, journal de connexion, referentiels devises et
--- unites, sequences de numerotation (migration 20261121110000).
+-- unites, sequences de numerotation (migration 20261121140000).
 -- Integration sur main : signatures et volatilite inchangees, droits sans
 -- delegation identiques aux corps de main (D-036, D-053), compte sans
 -- affectation apres annulation non global, retour explicite au perimetre

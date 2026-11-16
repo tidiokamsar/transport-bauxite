@@ -3,7 +3,7 @@
 Public : administrateur fonctionnel de SIGTB (rôle `admin`). Sources :
 D-010, D-012, D-021, D-036, D-038 à D-040, D-045, D-046, D-064 ; migrations
 `20261108100000`, `20261110090000`, `20261112060000`, `20261114100000`,
-`20261114130000`, `20261115210000`, `20261121110000` ; écrans
+`20261114130000`, `20261115210000`, `20261121140000` ; écrans
 `src/components/Settings`, `src/components/Auth/SecuriteCompte.tsx`.
 
 D-064 (affectations multisites, délégations, journal de connexion,
