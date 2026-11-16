@@ -260,7 +260,7 @@ PR quand la dette diminue ; ne jamais les remonter.
   tant que le proprietaire n'a pas lance `creer-admin.sh`. Projet
   Supabase Bolt abandonne.
 - Donnees de demonstration en production (D-020) : identifiants
-  `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh purger`
+  `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh apercu` puis `CONFIRMER_PURGE=oui deploy/vps/demo/demo.sh purger` (D-074)
   obligatoire avant la premiere saisie reelle.
 - Cycle voyage (CDC 12, LOT 06) : `trips.etat` ne change que par
   `creer_voyage` / `avancer_voyage` (garde `trips_garde_cycle`), journal

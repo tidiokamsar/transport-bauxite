@@ -91,7 +91,7 @@ Procédure suivie à chaque déploiement du journal (section 11 de
    Seule la clé publique (`ANON_KEY`, `role: anon`) entre dans le bundle ;
    ne jamais utiliser une autre clé du `.env`.
 7. **Données de démonstration** (seulement tant qu'elles sont chargées) :
-   `bash deploy/vps/demo/demo.sh recharger`.
+   `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger`.
 8. **Contrôles**, comme dans le journal : `/` répond 200 ; `/rest/v1/...`
    répond 401 sans clé ; le bundle servi est identique au bundle construit
    et ne contient que le jeton `role: anon` ; nombre de fichiers pgTAP OK.
@@ -231,8 +231,20 @@ chaque opération) :
 | Commande | Effet |
 |---|---|
 | `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refusé s'il est déjà présent) et active le bandeau |
-| `bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour |
-| `bash deploy/vps/demo/demo.sh purger` | Supprime tout le jeu et retire le bandeau |
+| `bash deploy/vps/demo/demo.sh apercu` | Liste, table par table, ce qu'une purge supprimerait (lignes `dec0de00-` et lignes rattachées non étiquetées), sans rien modifier |
+| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour |
+| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et tout ce qui y est rattaché, retire le bandeau (sauvegarde avant) |
+
+> **Purge de la démonstration (D-074, 2026-11-16).** La purge suit les clés
+> étrangères : elle supprime aussi les lignes non étiquetées créées sur un
+> élément de démonstration (voyages préparés par le dispatch sur un chauffeur
+> de démo, fiches, postes, objectifs de test). Lancer d'abord `apercu` et
+> vérifier la colonne « rattachées » : aucune donnée réelle ne doit y figurer.
+> Testée le 2026-11-16 sur une copie restaurée de la production : aperçu
+> annulé sans effet ; purge de 20 282 lignes étiquetées et 58 rattachées,
+> plus aucune ligne `dec0de00-`, bandeau retiré ; rechargement possible
+> ensuite. La purge et la première saisie réelle restent une décision du
+> propriétaire (D-020, D-069).
 | `bash deploy/vps/demo/demo.sh etat` | Nombre de lignes de démonstration par table |
 
 La purge est obligatoire avant la première saisie réelle : une donnée
