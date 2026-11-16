@@ -22,7 +22,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(105);
+SELECT plan(111);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-a650-000000000001', 'contrats.d065@exemple.invalid'),
@@ -474,6 +474,49 @@ SELECT lives_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-00000000
   '00000000-0000-4000-a650-0000000000e5', 'non_tenu', 'montant', 10)$$, 'clause saisie sur un contrat en brouillon');
 SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d4', 'penalite', 'Clause tardive',
   '00000000-0000-4000-a650-0000000000e6', 'non_tenu', 'montant', 10)$$, '22023', NULL, 'clause refusee sur un contrat clos');
+
+-- R4 : contrat en brouillon : clause saisie, mais ni rapport, ni calcul, ni
+-- application ; contrat clos : un mois anterieur a la cloture reste du.
+SELECT throws_ok($$SELECT public.generer_rapport_performance('00000000-0000-4000-a650-0000000000c3', '2001-03-01', '2001-03-31')$$,
+  '22023', NULL, 'contrat en brouillon : aucun rapport de performance genere');
+RESET ROLE;
+INSERT INTO public.rapports_performance (id, contrat_id, periode_debut, periode_fin, contenu, statut, remis_le, remis_a) VALUES
+  ('00000000-0000-4000-a650-0000000003a1', '00000000-0000-4000-a650-0000000000c3', '2001-03-01', '2001-03-31',
+   '{"engagements": [{"engagement_id": "00000000-0000-4000-a650-0000000000e5", "conforme": false}]}', 'brouillon', NULL, NULL),
+  ('00000000-0000-4000-a650-0000000003a2', '00000000-0000-4000-a650-0000000000c3', '2001-04-01', '2001-04-30',
+   '{"engagements": [{"engagement_id": "00000000-0000-4000-a650-0000000000e5", "conforme": false}]}', 'remis', '2001-05-05', 'Client');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.marquer_rapport_remis('00000000-0000-4000-a650-0000000003a1', '2001-04-05', 'Client')$$,
+  '22023', NULL, 'contrat en brouillon : le rapport ne se remet pas');
+SELECT throws_ok($$SELECT public.calculer_clauses('00000000-0000-4000-a650-0000000003a2')$$, '22023', NULL,
+  'contrat en brouillon : aucune clause calculee');
+RESET ROLE;
+-- Un calcul anterieur (fixture) sur un contrat repasse en brouillon : decision refusee.
+INSERT INTO public.calculs_clauses (id, clause_id, rapport_id, contrat_id, periode_debut, periode_fin, type_clause, libelle, base, valeur,
+                                    montant_calcule_ht, montant_propose_ht, devise, statut)
+SELECT '00000000-0000-4000-a650-0000000004c1', k.id, '00000000-0000-4000-a650-0000000003a2', '00000000-0000-4000-a650-0000000000c3',
+       '2001-04-01', '2001-04-30', 'penalite', k.libelle, 'montant', 10, 10, 10, 'USD', 'propose'
+  FROM public.contrat_clauses k WHERE k.version_id = '00000000-0000-4000-a650-0000000000d3';
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.decider_clause('00000000-0000-4000-a650-0000000004c1', true, 'Due', p_taux_taxe => 0)$$, '22023', NULL,
+  'contrat en brouillon : aucune clause appliquee');
+RESET ROLE;
+-- Contrat clos : clause et rapport anterieurs a la cloture, toujours calculables et applicables.
+INSERT INTO public.contrat_clauses (id, version_id, type_clause, libelle, engagement_id, declenchement, base, valeur)
+VALUES ('00000000-0000-4000-a650-0000000004c2', '00000000-0000-4000-a650-0000000000d4', 'bonus', 'Clause avant cloture',
+        '00000000-0000-4000-a650-0000000000e6', 'tenu', 'montant', 40);
+INSERT INTO public.rapports_performance (id, contrat_id, periode_debut, periode_fin, contenu, statut, remis_le, remis_a) VALUES
+  ('00000000-0000-4000-a650-0000000003a3', '00000000-0000-4000-a650-0000000000c4', '2001-04-01', '2001-04-30',
+   '{"engagements": [{"engagement_id": "00000000-0000-4000-a650-0000000000e6", "conforme": true}]}', 'remis', '2001-05-05', 'Client');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000003a3'), 1, 'contrat clos : mois anterieur a la cloture calcule');
+CREATE TEMP TABLE fclos AS SELECT public.decider_clause(
+  (SELECT id FROM public.calculs_clauses WHERE clause_id = '00000000-0000-4000-a650-0000000004c2'), true, 'Du avant cloture', p_taux_taxe => 0) AS id;
+SELECT is((SELECT (type, statut, montant_ht)::text FROM public.factures WHERE id = (SELECT id FROM fclos)),
+  '(facture,brouillon,40.00)', 'contrat clos : bonus anterieur applique (facture brouillon)');
 
 -- R3 (contre-revue) : une facture de penalite du loueur ne compte pas comme facture CBG.
 CREATE TEMP TABLE ind_avant AS SELECT factures_emises FROM public.indicateurs_charge_contrats();

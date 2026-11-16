@@ -88,6 +88,10 @@
      `creer_avoir` (D-029) repris avec verrou et plafond apres
      avoirs ; `rapport_client` et `indicateurs_charge_contrats` reprises,
      limitees aux factures des contrats clients (`est_facture_client`).
+     Contrat en brouillon (non signe) : clauses saisissables, mais ni rapport
+     de performance (`generer_rapport_performance`, `marquer_rapport_remis`,
+     D-031, reprises), ni calcul, ni application ; suspendu ou clos : un mois
+     ecoule reste calculable.
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -538,6 +542,11 @@ BEGIN
     RAISE EXCEPTION 'Rapport non remis : les clauses se calculent sur un rapport fige et remis' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO c FROM public.contrats WHERE id = r.contrat_id;
+  -- Contrat non signe : aucune somme due. Suspendu ou clos : un mois ecoule
+  -- avant la suspension ou la cloture reste calculable.
+  IF c.statut = 'brouillon' THEN
+    RAISE EXCEPTION 'Contrat en brouillon (non signe) : aucune clause ne se calcule' USING ERRCODE = '22023';
+  END IF;
   IF c.devise IS NULL OR c.devise !~ '^[A-Z]{3}$' THEN
     RAISE EXCEPTION 'Devise du contrat non renseignee : aucun montant ne se calcule' USING ERRCODE = '22023';
   END IF;
@@ -671,6 +680,9 @@ BEGIN
   END IF;
 
   SELECT * INTO c FROM public.contrats WHERE id = k.contrat_id;
+  IF c.statut = 'brouillon' THEN
+    RAISE EXCEPTION 'Contrat en brouillon (non signe) : aucune clause ne s''applique' USING ERRCODE = '22023';
+  END IF;
   v_sens := CASE
     WHEN c.nature = 'client' AND k.type_clause = 'bonus' THEN 'facturer'
     WHEN c.nature = 'client' THEN 'deduire'
@@ -1875,3 +1887,79 @@ AS $$
 $$;
 REVOKE EXECUTE ON FUNCTION public.indicateurs_charge_contrats() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.indicateurs_charge_contrats() TO authenticated;
+
+-- 11. Rapport de performance (D-031, dernieres definitions `20261111180000`,
+-- non modifiees par D-072) : reprises a l'identique, refusees sur un contrat
+-- en brouillon (non signe), pour qu'aucune clause ne se calcule sur lui.
+CREATE OR REPLACE FUNCTION public.generer_rapport_performance(p_contrat_id uuid, p_du date, p_au date)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_existant public.rapports_performance;
+  v_contenu jsonb;
+  v_id uuid;
+BEGIN
+  IF NOT public.has_module_write('contracts') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.contrats WHERE id = p_contrat_id) OR p_du IS NULL OR p_au IS NULL OR p_au < p_du THEN
+    RAISE EXCEPTION 'Contrat et periode requis' USING ERRCODE = '22023';
+  END IF;
+  IF (SELECT statut FROM public.contrats WHERE id = p_contrat_id) = 'brouillon' THEN
+    RAISE EXCEPTION 'Contrat en brouillon (non signe) : aucun rapport de performance' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_existant FROM public.rapports_performance WHERE contrat_id = p_contrat_id AND periode_debut = p_du FOR UPDATE;
+  IF v_existant.statut = 'remis' THEN
+    RAISE EXCEPTION 'Rapport deja remis le % : il ne change plus', v_existant.remis_le USING ERRCODE = '22023';
+  END IF;
+
+  v_contenu := jsonb_build_object(
+    'genere_le', now(),
+    'engagements', coalesce((SELECT jsonb_agg(to_jsonb(c)) FROM public.comparer_engagements(p_contrat_id, p_du, p_au) c), '[]'::jsonb),
+    'mesures', (SELECT to_jsonb(r) FROM public.realise_engagements(p_du, p_au) r),
+    'reconciliations', coalesce((SELECT jsonb_agg(jsonb_build_object('debut', periode_debut, 'fin', periode_fin, 'statut', statut,
+        'tonnage_facturable', tonnage_facturable, 'voyages_facturables', voyages_facturables) ORDER BY periode_debut)
+      FROM public.reconciliations WHERE contrat_id = p_contrat_id AND periode_debut <= p_au AND periode_fin >= p_du), '[]'::jsonb),
+    'factures', coalesce((SELECT jsonb_agg(jsonb_build_object('numero', numero, 'type', type, 'statut', statut,
+        'montant_ttc', montant_ttc, 'devise', devise) ORDER BY prepare_le)
+      FROM public.factures WHERE contrat_id = p_contrat_id AND periode_debut <= p_au AND periode_fin >= p_du AND statut <> 'annulee'), '[]'::jsonb)
+  );
+
+  IF v_existant.id IS NOT NULL THEN
+    UPDATE public.rapports_performance SET contenu = v_contenu, periode_fin = p_au, genere_par = auth.uid(), genere_le = now()
+    WHERE id = v_existant.id RETURNING id INTO v_id;
+  ELSE
+    INSERT INTO public.rapports_performance (contrat_id, periode_debut, periode_fin, contenu, genere_par)
+    VALUES (p_contrat_id, p_du, p_au, v_contenu, auth.uid()) RETURNING id INTO v_id;
+  END IF;
+  RETURN v_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.marquer_rapport_remis(p_id uuid, p_date date, p_destinataire text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NOT public.has_module_write('contracts') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
+  END IF;
+  IF p_date IS NULL OR p_date > current_date OR nullif(btrim(coalesce(p_destinataire, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Date de remise (non future) et destinataire requis' USING ERRCODE = '22023';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.rapports_performance r JOIN public.contrats c ON c.id = r.contrat_id
+              WHERE r.id = p_id AND c.statut = 'brouillon') THEN
+    RAISE EXCEPTION 'Contrat en brouillon (non signe) : le rapport ne se remet pas' USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.rapports_performance SET statut = 'remis', remis_le = p_date, remis_a = btrim(p_destinataire), remis_par = auth.uid()
+  WHERE id = p_id AND statut = 'brouillon';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Rapport introuvable ou deja remis' USING ERRCODE = '22023';
+  END IF;
+END;
+$$;
