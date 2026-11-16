@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
 
@@ -20,8 +20,12 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, role: string) => Promise<void>;
   signOut: () => Promise<void>;
-  hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete' | 'approve') => boolean;
+  /** sansDelegation : droit propre seulement (un droit recu ne se redelegue pas, D-064). */
+  hasPermission: (module: string, action: 'view' | 'create' | 'edit' | 'delete' | 'approve', sansDelegation?: boolean) => boolean;
   canAccessModule: (moduleId: string) => boolean;
+  /** Erreur du dernier chargement des delegations recues (D-064), null si aucune. */
+  erreurDelegations: string | null;
+  rafraichirDelegations: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,6 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [droitsSpecifiques, setDroitsSpecifiques] = useState<{ module: string; niveau: string }[]>([]);
+  // Delegations recues en vigueur (D-064), statut calcule par le serveur.
+  const [delegationsRecues, setDelegationsRecues] = useState<{ module: string; niveau: string; donne_lecture: boolean }[]>([]);
+  const [erreurDelegations, setErreurDelegations] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,6 +71,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
           setPermissions([]);
           setDroitsSpecifiques([]);
+          setDelegationsRecues([]);
+          setErreurDelegations(null);
         }
       })();
     });
@@ -88,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data?.role) {
       await fetchPermissions(data.role);
       await fetchDroitsSpecifiques(userId);
+      await fetchDelegationsRecues(userId);
       await updateLastLogin(userId);
     }
   };
@@ -106,6 +116,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setDroitsSpecifiques(data ?? []);
+  };
+
+  // Delegations recues : une delegation commence, expire ou est revoquee sans
+  // action de l'utilisateur ; relues periodiquement et au retour sur l'onglet.
+  // Le serveur reste seul juge (has_module_*) ; l'erreur est exposee a l'ecran.
+  const fetchDelegationsRecues = async (userId: string) => {
+    const { data, error } = await supabase.rpc('mes_delegations');
+    if (error) {
+      console.error('Error fetching delegations:', error);
+      setErreurDelegations(error.message);
+      return;
+    }
+    setErreurDelegations(null);
+    setDelegationsRecues(((data ?? []) as { delegue: string; module: string; niveau: string; statut: string; donne_lecture: boolean }[])
+      .filter(d => d.delegue === userId && d.statut === 'active'));
   };
 
   const fetchPermissions = async (role: string) => {
@@ -129,7 +154,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .eq('id', userId);
   };
 
-  const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete' | 'approve'): boolean => {
+  const rafraichirDelegations = useCallback(async () => {
+    if (user?.id) await fetchDelegationsRecues(user.id);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const relire = () => { if (document.visibilityState === 'visible') void rafraichirDelegations(); };
+    const minuterie = window.setInterval(relire, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', relire);
+    return () => { window.clearInterval(minuterie); document.removeEventListener('visibilitychange', relire); };
+  }, [user?.id, rafraichirDelegations]);
+
+  const hasPermission = (module: string, action: 'view' | 'create' | 'edit' | 'delete' | 'approve', sansDelegation = false): boolean => {
     if (profile?.role === 'admin') return true;
 
     // Attribution specifique (D-036) : lecture ou ecriture, avant la matrice.
@@ -138,6 +175,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (action === 'view') return specifique.niveau === 'lecture' || specifique.niveau === 'ecriture';
       return specifique.niveau === 'ecriture';
     }
+
+    // Delegation en vigueur (D-064) : ecriture, et lecture du module si le
+    // delegant la detient (meme regle que has_module_view). L'approbation ne
+    // se delegue pas.
+    const delegations = sansDelegation ? [] : delegationsRecues.filter(d => d.module === module);
+    if (action === 'view' && delegations.some(d => d.donne_lecture)) return true;
+    if (action !== 'view' && action !== 'approve' && delegations.some(d => d.niveau === 'ecriture')) return true;
 
     const permission = permissions.find(p => p.module === module);
     if (!permission) return false;
@@ -219,6 +263,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'fuel-stocks': 'fuel',
       'incidents': 'reports',
       'controles-depart': 'trips',
+      'hse-prevention': 'trips',
       'alerts': 'reports',
       'sites': 'settings',
       'infrastructures': 'trips',
@@ -293,6 +338,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signOut,
         hasPermission,
         canAccessModule,
+        erreurDelegations,
+        rafraichirDelegations,
       }}
     >
       {children}

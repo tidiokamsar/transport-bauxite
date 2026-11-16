@@ -1,9 +1,9 @@
 # Guide flotte, maintenance et HSE
 
 Public : responsable de flotte, chef de maintenance, responsable HSE.
-Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054, D-066, D-067 ; migrations
+Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054, D-066, D-067, D-068 ; migrations
 `20261110210000`, `20261116120000`, `20261116180000`, `20261116210000`,
-`20261117120000`, `20261121100000`, `20261121130000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
+`20261117120000`, `20261121100000`, `20261121130000`, `20261121150000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
 `Hse`, `Incidents`.
 
 Rappel du contrat de location (D-022, D-027) : les engins (semi-remorques,
@@ -208,6 +208,26 @@ du chauffeur**.
   elles peuvent être la même personne (dérogation à confirmer par le
   propriétaire, D-066).
 
+## 9. Prévention HSE (D-068)
+
+Écran **RH & Sécurité > Prévention HSE**, quatre rubriques. Écriture :
+module `trips` en écriture (ou administrateur) dans le périmètre du site ;
+lecture : `trips` ou `reports` (EPI : aussi `hr`), dans le périmètre. Rien
+ne s'écrit directement dans les tables ; les numéros sont attribués par le
+serveur. Un objet d'un autre site est refusé avec le même message qu'un
+objet inexistant (« introuvable ou hors de votre périmètre »).
+
+| Rubrique | Fonctions | Règle principale |
+|---|---|---|
+| EPI | `remettre_epi`, `restituer_epi`, `annuler_dotation_epi` | Bénéficiaire (chauffeur du périmètre, employé ou nom saisi), type, quantité, remise non future ; échéance de renouvellement saisie (aucune durée de vie supposée) ; un renouvellement porte sur le même type et clôt l'ancienne dotation (« remplacée ») ; numéro `EPI`. `v_epi_a_renouveler` liste les dotations remises avec échéance. |
+| Registre des risques | `enregistrer_risque` | Danger, zone ou activité, gravité et probabilité saisies de 1 à 5 (criticité = produit), mesures, responsable, revue non future ; chaque révision crée une version motivée, l'ancienne reste ; numéro `RSQ`. |
+| Plans de prévention | `enregistrer_plan_prevention`, `signer_plan_prevention`, `annuler_plan_prevention` | Intervenant extérieur, périmètre, risques, mesures, validité ; le brouillon se modifie ; la signature revient à un titulaire du droit d'approbation sur `trips` (ou administrateur) autre que le rédacteur, avant la fin de validité ; un plan signé ne se modifie pas, il est remplacé par une nouvelle version (même numéro `PDP`). Les plans à signer apparaissent dans **Mes validations**. |
+| Inspections | `definir_programme_inspection`, `arreter_programme_inspection`, `planifier_inspection`, `realiser_inspection`, `annuler_inspection`, `ajouter_action_inspection` | Programme à fréquence saisie (une occurrence planifiée à la fois, la suivante à la réalisation ou à l'annulation) ou inspection ponctuelle ; réalisation datée non future et jamais antérieure à la planification, avec conclusion et constats (non modifiables) ; actions correctives rattachées à l'inspection, soldées par `solder_action_corrective` comme celles des incidents ; numéro `INS`. |
+
+Les EPI échus, les inspections en retard et les actions correctives en
+retard créent des alertes dans le **Centre des décisions** (voir le guide
+financier, section 11), sauf si l'administrateur a mis la règle hors service.
+
 ## Limites connues
 
 - Les écrans « Ordres de travail » et « Préventif », hérités de Bolt,
@@ -220,3 +240,9 @@ du chauffeur**.
   et modèle sont saisis sur la ligne du bon et regroupés sans tenir compte
   de la casse ni des espaces (D-067).
 - Incidents : pas de notification par courriel ou SMS (D-056).
+- Prévention HSE (D-068) : types d'EPI en liste fermée, échelle de
+  cotation des risques de 1 à 5 et fréquences d'inspection à confirmer par
+  le responsable HSE ; pas de photo ni de pièce jointe tant que le stockage
+  de fichiers n'est pas en place ; l'existence d'un employé désigné comme
+  bénéficiaire est contrôlée sans périmètre (les employés n'ont pas de
+  site).

@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { resultatControle, type PointControle } from './hse';
+import { criticite, etatEcheanceEpi, resultatControle, type PointControle } from './hse';
+
+describe('HSE complementaire (D-068)', () => {
+  it('echeance EPI : atteinte le jour meme, aucune echeance sans saisie', () => {
+    expect(etatEcheanceEpi('2026-11-15', '2026-11-15')).toBe('echue');
+    expect(etatEcheanceEpi('2026-12-01', '2026-11-15')).toBe('a_venir');
+    expect(etatEcheanceEpi(null, '2026-11-15')).toBeNull();
+  });
+  it('criticite : produit des cotations saisies, absente si une cotation manque', () => {
+    expect(criticite(4, 2)).toBe(8);
+    expect(criticite(null, 2)).toBeNull();
+  });
+});
 
 const points: PointControle[] = [
   { id: 'f', libelle: 'Freins', categorie: 'freinage', bloquant: true, ordre: 1, actif: true },

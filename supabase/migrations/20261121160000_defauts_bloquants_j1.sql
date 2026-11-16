@@ -695,7 +695,9 @@ BEGIN
     RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir, pas une rectification retroactive' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO e FROM public.v_tickets_pesee_cbg_effectifs WHERE id = t.id;
-  IF e.saisi_par IS NULL OR e.saisi_par = auth.uid() THEN
+  -- Separation etendue aux delegants (D-064, 20261121140000), conservee ici.
+  IF e.saisi_par IS NULL OR public.separation_violee(e.saisi_par, 'trips', 'trips', e.cree_le)
+     OR public.separation_violee(e.saisi_par, 'invoices', 'trips', e.cree_le) THEN
     RAISE EXCEPTION 'La rectification doit etre saisie par une autre personne que l''auteur du ticket' USING ERRCODE = '42501';
   END IF;
   PERFORM public.controler_ticket_cbg_libre(p_ticket, p_trip_id);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ParcoursCarburant } from './ParcoursCarburant';
 import { Check, Fuel, Plus, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -94,6 +95,7 @@ export const LivraisonsCbgView = () => {
   };
 
   return <div className="space-y-5">
+    <ParcoursCarburant vue="livraisons-cbg" />
     <header className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-2xl font-black text-stone-900">Livraisons carburant CBG</h2>
         <p className="text-sm text-stone-500">Prix saisi à chaque livraison ; factures rapprochées aux livraisons sélectionnées.</p></div>

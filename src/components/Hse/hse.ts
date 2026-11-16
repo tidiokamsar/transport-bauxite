@@ -50,3 +50,31 @@ export const resultatControle = (points: PointControle[], reponses: Record<strin
   }
   return bloquant ? 'non_conforme' : reserve ? 'reserves' : 'conforme';
 };
+
+// HSE complementaire (D-068) : EPI, risques, plans de prevention, inspections.
+export const TYPES_EPI: Record<string, string> = {
+  casque: 'Casque', chaussures: 'Chaussures de sécurité', gilet: 'Gilet haute visibilité', gants: 'Gants', lunettes: 'Lunettes',
+  protection_auditive: 'Protection auditive', masque: 'Masque', harnais: 'Harnais', combinaison: 'Combinaison', autre: 'Autre',
+};
+export const ETATS_RESTITUTION: Record<string, string> = { bon: 'Bon état', use: 'Usé', endommage: 'Endommagé', perdu: 'Perdu' };
+export const STATUTS_DOTATION: Record<string, { texte: string; teinte: TeintePuce }> = {
+  remis: { texte: 'Remis', teinte: 'bleu' }, restitue: { texte: 'Restitué', teinte: 'gris' },
+  remplace: { texte: 'Renouvelé', teinte: 'vert' }, annule: { texte: 'Annulé', teinte: 'gris' },
+};
+export const ETATS_PLAN: Record<string, { texte: string; teinte: TeintePuce }> = {
+  brouillon: { texte: 'À signer', teinte: 'orange' }, a_venir: { texte: 'Signé, à venir', teinte: 'bleu' },
+  en_vigueur: { texte: 'En vigueur', teinte: 'vert' }, expire: { texte: 'Expiré', teinte: 'rouge' },
+  remplace: { texte: 'Remplacé', teinte: 'gris' }, annule: { texte: 'Annulé', teinte: 'gris' },
+};
+export const STATUTS_INSPECTION: Record<string, { texte: string; teinte: TeintePuce }> = {
+  planifiee: { texte: 'Planifiée', teinte: 'bleu' }, realisee: { texte: 'Réalisée', teinte: 'vert' }, annulee: { texte: 'Annulée', teinte: 'gris' },
+};
+export const GRAVITES_CONSTAT: Record<string, string> = { observation: 'Observation', mineur: 'Mineur', majeur: 'Majeur', critique: 'Critique' };
+
+/** Echeance d'un EPI remis : atteinte (le jour meme compris) ou a venir ; null sans echeance saisie. */
+export const etatEcheanceEpi = (echeance: string | null, aujourdhui: string): 'echue' | 'a_venir' | null =>
+  !echeance ? null : echeance <= aujourdhui ? 'echue' : 'a_venir';
+
+/** Criticite affichee : produit des cotations saisies (1 a 5), sans classement suppose. */
+export const criticite = (gravite: number | null, probabilite: number | null) =>
+  gravite == null || probabilite == null ? null : gravite * probabilite;

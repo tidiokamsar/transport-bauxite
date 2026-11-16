@@ -26,11 +26,11 @@ Conventions :
 
 | Fonction | Type | Rôle |
 |---|---|---|
-| `has_module_view(module)` | DEFINER | Compte actif ET (attribution spécifique lecture ou écriture, sinon `can_view` du rôle) |
-| `has_module_write(module)` | DEFINER | Compte actif ET (attribution spécifique écriture, sinon `can_create` ou `can_edit` du rôle) |
-| `has_module_approve(module)` | DEFINER | Compte actif ET `can_approve` du rôle ET attribution spécifique absente ou « écriture » |
-| `site_permis(site)` | DEFINER | Compte actif sans site, ou site du compte égal au site donné |
-| `vehicule_permis(vehicule)`, `voyage_permis(voyage)` | DEFINER | Périmètre du site de l'engin ; du site de départ ou d'arrivée du voyage |
+| `has_module_view(module)` | DEFINER | Compte actif ET (attribution spécifique lecture ou écriture, sinon `can_view` du rôle), OU délégation en vigueur sur le module dont le délégant lit lui-même le module (D-064) |
+| `has_module_write(module)` | DEFINER | Compte actif ET (attribution spécifique écriture, sinon `can_create` ou `can_edit` du rôle), OU délégation d'écriture en vigueur (D-064) |
+| `has_module_approve(module)` | DEFINER | Compte actif ET `can_approve` du rôle ET attribution spécifique absente ou « écriture » ; ne lit pas les délégations (D-064 : l'approbation ne se délègue pas) |
+| `site_permis(site)` | DEFINER | Compte actif ET (global : sans site au profil et aucune affectation, même annulée ou expirée, créée depuis son dernier retour au périmètre global ; ou site du profil ; ou affectation non annulée en cours à ce site, fin incluse, D-064). `site_permis(NULL)` : comptes globaux seulement |
+| `vehicule_permis(vehicule)`, `voyage_permis(voyage)` | DEFINER | Périmètre du site de l'engin ; du site de départ ou d'arrivée du voyage. Compte global : toujours vrai. D-064 : règle de `site_permis` écrite en ligne (indicateur `profiles.perimetre_affecte`), même résultat |
 | `bon_commande_permis(depot)`, `pneu_permis(vehicule, site)`, `incident_permis(voyage, vehicule, site)` | DEFINER | Périmètre du dépôt, du pneu, de l'incident |
 | `site_ferme_le(site, jour)` | DEFINER interne (D-072) | Motif d'une fermeture du site entier qui couvre la journée ; lue par la garde du dispatch, non exécutable par les comptes |
 | `habilitations_manquantes(chauffeur, jour)` | DEFINER interne (D-072) | Types d'habilitation exigés et non valides à la date ; lue par les gardes du dispatch et des voyages |
@@ -193,8 +193,44 @@ réforme précoce sous `pneu_reforme_precoce_km`), pneus pris en compte et exclu
 | `declarer_incident(type, gravite, description, survenu_le, engin, chauffeur, voyage, site, lieu, cout_estime, controle)` | W(trips) ou admin, périmètre | Type, gravité, description, heure requis ; rattachement obligatoire ; numéro `INC` |
 | `analyser_incident(id, cause, motif)` | W(trips) ou admin, périmètre, incident non clos | Cause requise ; motif pour réviser une cause ; journal `incidents_journal` (D-072) |
 | `ajouter_action_corrective(incident, libelle, responsable, echeance)` | idem | Libellé, responsable, échéance |
-| `solder_action_corrective(action, realisee, texte, date)` | idem | Preuve ou motif ; date non future |
+| `solder_action_corrective(action, realisee, texte, date)` | idem (incident ou inspection d'origine, D-068) | Preuve ou motif ; date non future ; action introuvable ou hors périmètre : même message |
 | `cloturer_incident(id, conclusion)` | idem | Cause analysée, aucune action ouverte, conclusion |
+
+## Prévention HSE (D-068)
+
+Écriture : W(trips) ou admin et périmètre du site ; aucune écriture directe sur les tables ;
+séquences de numérotation fermées aux comptes. Le droit est contrôlé avant toute lecture et
+un objet (dotation, risque, plan, programme, inspection, action) introuvable ou hors
+périmètre rend un même message (D-075) ; le chauffeur d'une dotation est borné au périmètre.
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `remettre_epi(site, beneficiaire, type, quantite, remis_le, echeance, designation, taille, chauffeur, employe, remplace)` | W(trips) | Numéro `EPI` ; remise non future ; échéance saisie postérieure ; renouvellement : même type, l'ancienne dotation passe « remplacée » |
+| `restituer_epi(dotation, restitue_le, etat, note)` / `annuler_dotation_epi(dotation, motif)` | W(trips) | Dotation remise seulement ; état ou motif requis |
+| `enregistrer_risque(risque, site, danger, zone, gravite, probabilite, mesures, responsable, revue_le, prochaine_revue, statut, motif)` | W(trips) | Versionné (`risques_versions`) ; cotations saisies 1 à 5 ; révision motivée ; revue non future |
+| `enregistrer_plan_prevention(plan, site, intervenant, perimetre, risques, mesures, du, au, responsable, fournisseur, remplace)` | W(trips) | Brouillon modifiable ; plan signé remplacé par une nouvelle version (même numéro `PDP`) |
+| `signer_plan_prevention(plan)` | A(trips) ou admin, périmètre, autre que le rédacteur | Brouillon dont la validité n'est pas dépassée ; signataire figé ; la version remplacée passe « remplacée » |
+| `annuler_plan_prevention(plan, motif)` | W(trips) | Brouillon ou signé ; motif |
+| `definir_programme_inspection(site, libelle, frequence_jours, responsable, premiere, zone)` / `arreter_programme_inspection(programme, motif)` | W(trips) | Fréquence saisie ; une seule occurrence planifiée par programme |
+| `planifier_inspection(site, objet, responsable, prevue_le, zone)` | W(trips) | Inspection ponctuelle, numéro `INS` |
+| `realiser_inspection(inspection, realisee_le, conclusion, constats)` / `annuler_inspection(inspection, motif)` | W(trips) | Constats append-only ; occurrence suivante du programme à date prévue + fréquence |
+| `ajouter_action_inspection(inspection, libelle, responsable, echeance, constat)` | W(trips) | Inspection réalisée ; action corrective D-054 soldée par `solder_action_corrective` |
+
+## Alertes et centre des décisions (D-068)
+
+| Fonction | Type | Contenu |
+|---|---|---|
+| `actualiser_alertes(forcer)` | DEFINER, profil actif ; `forcer` : administrateur | Crée les alertes manquantes depuis les données réelles (une par règle et par objet), signale les conditions levées et les règles mises hors service ; sans effet si un calcul date de moins de 30 s ; ne renvoie rien |
+| `regles_alertes()` | DEFINER, profil actif | Catalogue des règles, réglage, seuil et état (une règle à seuil est inactive sans seuil saisi ; une règle sans seuil est active sauf réglage `false`) ; seule entrée des comptes vers les réglages d'alerte (`seuil_regle_alerte` et `regle_alerte_en_service` leur sont fermées) |
+| `prendre_en_compte_alerte(alerte)` / `resoudre_alerte(alerte, motif)` | DEFINER, W(module de la règle) ou admin, périmètre | Alerte introuvable ou hors lecture : même message ; résolution motivée, tracée ; une alerte résolue ne renaît pas pour le même objet |
+| `centre_decisions()` | INVOKER | Alertes visibles et `mes_validations()` par priorité ; une action corrective en retard n'est retirée des décisions que si une alerte non résolue et visible la porte |
+| `indicateurs_pilotage(debut, fin, site, shift, vehicule, partenaire)` | INVOKER | D-057 et D-072 R3 avec filtres ; indicateur sans la dimension filtrée : « sans données » et motif ; domaine illisible : « Non visible avec vos droits de lecture » (prime sur le motif) ; immobilisation annulée jamais comptée ; colonne `nature` (période ou instantané) ; remplace la signature à 3 arguments (appels à 2 ou 3 arguments valides) |
+
+Table `alerts` : écrite par `actualiser_alertes` seulement ; lue avec le droit de
+lecture du module de la règle et le périmètre de l'objet source
+(`alerte_objet_permis` : voyage, action corrective par son origine, sinon engin,
+sinon site) ; rien pour anon. Seuils d'alerte strictement positifs.
+`alertes_actualisation` : heure du dernier calcul, lisible par l'administrateur.
 
 ## Carburant (D-034, D-041, D-030)
 
@@ -326,8 +362,51 @@ dépassés. `valider_reglage` (reprise de D-063) ajoute
 
 | Fonction | Type | Contenu |
 |---|---|---|
-| `mes_validations()` | INVOKER | Ce qui attend la décision de l'appelant, calculé à chaque lecture selon ses droits et la séparation des tâches |
+| `mes_validations()` | INVOKER | Ce qui attend la décision de l'appelant, calculé à chaque lecture selon ses droits et la séparation des tâches ; colonne `objet_id` (D-068) |
 | `marquer_notifications_lues(ids)` | DEFINER | Marque lues les seules notifications de l'appelant |
+
+## Organisation et administration (D-064, à tester)
+
+Migration `20261121140000`, test 47, E2E `organisation`. En branche
+(`lot-02/organisation-integration`), ni fusionnée ni déployée à la date de
+cette révision.
+
+| Fonction | Type | Droit | Règle |
+|---|---|---|---|
+| `affecter_site(utilisateur, site, debut, fin, motif)` | DEFINER | admin | Affectation datée (fin incluse, NULL = sans terme) ; pas de chevauchement au même site ; verrou par compte ; journalisée |
+| `cloturer_affectation_site(id, fin, motif)` | DEFINER | admin | Nouvelle fin (au plus tôt le début) ; refusée pour une affectation antérieure au dernier retour au périmètre global ; journalisée avant et après |
+| `annuler_affectation_site(id, motif)` | DEFINER | admin | Motif obligatoire ; l'affectation ne donne plus aucun site ; le compte ne redevient pas global |
+| `retablir_perimetre_global(utilisateur, motif)` | DEFINER | admin | Motif obligatoire ; compte actif ; profil sans site ; aucune affectation en cours ou à venir ; compte pas déjà global ; consigné dans `retours_perimetre_global` (append-only) |
+| `perimetres_comptes()` | DEFINER | admin | Par compte : global ou non, sites du jour, retour possible, dernier retour (même règle que `site_permis`) |
+| `deleguer_droit(delegue, module, niveau, debut, fin, motif)` | DEFINER | droit propre détenu | Écriture seulement (`approbation` refusée, aussi par contrainte) ; début jamais dans le passé (ramené à l'instant présent) ; pas à soi-même, pas `settings`, pas de redélégation, délégué non restreint (D-036), périmètre du délégué inclus dans celui du délégant, motif obligatoire ; délégations identiques sérialisées par verrou ; journalisée |
+| `revoquer_delegation(id, motif)` | DEFINER | délégant ou admin | Motif obligatoire ; ni expirée ni déjà révoquée |
+| `mes_delegations()` | DEFINER | parties ou admin | Délégations avec statut (active, a_venir, expiree, revoquee, sans_effet, même règle que `has_module_*`) et `donne_lecture` |
+| `comptes_delegables()` | DEFINER | compte actif | Comptes actifs (nom, rôle), sans soi-même, dont le périmètre est inclus dans celui de l'appelant ; vide si l'appelant ne détient aucun droit d'écriture délégable |
+| `sessions_ouvertes()` | DEFINER | admin | Sessions GoTrue non expirées, sans clé ni jeton |
+| `enregistrer_devise(code, libelle, actif)`, `enregistrer_unite(code, libelle, actif)` | DEFINER | admin | Référentiels ; aucune contrainte sur les saisies existantes |
+| `codes_utilises()` | DEFINER | admin | Devises et unités saisies, confrontées au référentiel |
+| `sequences_numerotation()` | DEFINER | admin | Numérotations existantes, compteur et dernier numéro, en lecture |
+
+Vue `v_journal_connexions` (au propriétaire, filtrée par `is_admin()`) : date,
+compte, événement, catégorie, méthode, adresse IP lus dans
+`auth.audit_log_entries`. Fonctions internes non accordées :
+`droit_module_base` (droit propre, corps repris de main), `delegation_effective`,
+`delegation_en_vigueur`, `perimetre_global_de`, `sites_permis_de`,
+`perimetre_inclus` et les gardes `garde_journal_organisation`,
+`garde_affectation_site`, `garde_delegation`. Tables `affectations_sites`,
+`journal_affectations_sites`, `retours_perimetre_global`,
+`delegations_droits`, `journal_delegations`, `devises`, `unites_mesure` :
+lecture seule pour les comptes (parties ou administrateur), aucune
+écriture directe, ni DELETE ni TRUNCATE.
+
+Séparation des tâches et délégation (D-064, contre-revue R1) : `auteur_ou_delegant(auteur, module)`
+(interne) vaut vrai si l'auteur est l'appelant, ou le délégant d'une délégation d'écriture en
+période vers l'appelant sur ce module (`delegants_ecriture`) alors que l'appelant n'a pas le droit
+en propre. Utilisée par `valider_cloture_poste`, `cloturer_planification`, `valider_distance_voyage`,
+`decider_inventaire_carburant`, `decider_mouvement_carburant`, `valider_remise_en_service` et
+`rectifier_ticket_pesee_cbg`, via `separation_violee(auteur, module de l'appelant, module de l'acte, date de l'acte)`
+qui refuse aussi le sens inverse (auteur délégué de l'appelant à la date de son acte, sans droit propre),
+appliquée de plus à la signature de facture (`avancer_facture`). `affectation_en_cours` (interne) lit les affectations d'un compte affecté.
 
 ## Fonctions héritées encore accordées
 
