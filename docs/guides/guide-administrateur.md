@@ -257,7 +257,7 @@ consigner dans `docs/SIGTB_2.0_DECISIONS.md` avant de l'appliquer.
 Tant que la table `sigtb_demonstration` est active, un bandeau « DONNEES DE
 DEMONSTRATION » s'affiche sur tous les écrans. Les données fictives ont des
 identifiants qui commencent par `dec0de00-`. La purge
-(`deploy/vps/demo/demo.sh apercu`, puis `CONFIRMER_PURGE=oui deploy/vps/demo/demo.sh purger`, D-074) est obligatoire avant la première saisie
+(`deploy/vps/demo/demo.sh apercu`, puis `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> deploy/vps/demo/demo.sh purger`, D-074) est obligatoire avant la première saisie
 réelle (voir le guide de déploiement).
 
 ## Limites connues

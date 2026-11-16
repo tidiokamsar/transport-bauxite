@@ -90,8 +90,11 @@ Procédure suivie à chaque déploiement du journal (section 11 de
 
    Seule la clé publique (`ANON_KEY`, `role: anon`) entre dans le bundle ;
    ne jamais utiliser une autre clé du `.env`.
-7. **Données de démonstration** (seulement tant qu'elles sont chargées) :
-   `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger`.
+7. **Données de démonstration** (facultatif, seulement tant qu'elles sont
+   chargées, pour remettre les dates au jour) :
+   `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger`. Refusé tant
+   que des lignes non étiquetées sont rattachées à la démonstration (voir
+   `demo.sh apercu`) : dans ce cas, ne pas recharger.
 8. **Contrôles**, comme dans le journal : `/` répond 200 ; `/rest/v1/...`
    répond 401 sans clé ; le bundle servi est identique au bundle construit
    et ne contient que le jeton `role: anon` ; nombre de fichiers pgTAP OK.
@@ -239,20 +242,30 @@ chaque opération) :
 |---|---|
 | `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refusé s'il est déjà présent) et active le bandeau |
 | `bash deploy/vps/demo/demo.sh apercu` | Liste, table par table, ce qu'une purge supprimerait (lignes `dec0de00-` et lignes rattachées non étiquetées), sans rien modifier |
-| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour |
-| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et tout ce qui y est rattaché, retire le bandeau (sauvegarde avant) |
-
-> **Purge de la démonstration (D-074, 2026-11-16).** La purge suit les clés
-> étrangères : elle supprime aussi les lignes non étiquetées créées sur un
-> élément de démonstration (voyages préparés par le dispatch sur un chauffeur
-> de démo, fiches, postes, objectifs de test). Lancer d'abord `apercu` et
-> vérifier la colonne « rattachées » : aucune donnée réelle ne doit y figurer.
-> Testée le 2026-11-16 sur une copie restaurée de la production : aperçu
-> annulé sans effet ; purge de 20 282 lignes étiquetées et 58 rattachées,
-> plus aucune ligne `dec0de00-`, bandeau retiré ; rechargement possible
-> ensuite. La purge et la première saisie réelle restent une décision du
-> propriétaire (D-020, D-069).
+| `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour ; refusé s'il existe des lignes rattachées non étiquetées |
+| `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et les <n> lignes rattachées listées par l'aperçu, retire le bandeau (sauvegarde avant) ; refusée en cas de blocage |
 | `bash deploy/vps/demo/demo.sh etat` | Nombre de lignes de démonstration par table |
+
+> **Purge de la démonstration (D-074, 2026-11-16).** La purge part des
+> lignes étiquetées `dec0de00-` et suit les clés étrangères. Les lignes non
+> étiquetées rattachées à la démonstration (voyages préparés par le dispatch
+> sur un chauffeur de démo, fiches, postes, objectifs de test) ne sont
+> supprimées que dans les tables opérationnelles ; toute autre ligne
+> rattachée (comptes, profils, droits, référentiels, engins, contrats,
+> argent, tickets CBG) **bloque** la purge, qui la liste. Procédure :
+> 1. `bash deploy/vps/demo/demo.sh apercu` : lire le tableau, la liste des
+>    lignes rattachées (avec leurs identifiants) et la liste des blocages ;
+> 2. si des blocages apparaissent, décider de leur sort (les détacher de la
+>    démonstration) puis relancer l'aperçu ;
+> 3. `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<total affiché> bash deploy/vps/demo/demo.sh purger`.
+>
+> `recharger` refuse dès qu'une ligne rattachée existe. Testé le 2026-11-16
+> sur une copie restaurée de la production : aperçu annulé sans effet ;
+> mauvais total refusé ; profil réel rattaché à un site de démo bloquant ;
+> purge de 20 282 lignes étiquetées et 58 rattachées, profils et comptes
+> conservés, plus aucune valeur `dec0de00-` ; rechargement puis purge sans
+> ligne rattachée. La purge et la première saisie réelle restent une
+> décision du propriétaire (D-020, D-069).
 
 La purge est obligatoire avant la première saisie réelle : une donnée
 réelle rattachée à un élément de démonstration bloque la purge.
