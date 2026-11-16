@@ -9,7 +9,7 @@ const jeu = {
   stock_items: [{ id: 'a1', item_code: 'FLT-001', name: 'Filtre à huile', unit_of_measure: 'piece', unit_price: 15000, minimum_threshold: 5, quantity_in_stock: 4, active: true, category_id: null }],
   warehouses: [{ id: 'd1', code: 'MAG-A', name: 'Magasin', warehouse_type: 'main', site_id: null, active: true },
     { id: 'd2', code: 'ATL-A', name: 'Atelier', warehouse_type: 'garage', site_id: null, active: true }],
-  v_stock_depots: [{ stock_item_id: 'a1', warehouse_id: 'd1', quantite: 3 }, { stock_item_id: 'a1', warehouse_id: 'd2', quantite: 1 }],
+  v_stock_disponibilite: [{ stock_item_id: 'a1', warehouse_id: 'd1', quantite: 3, reserve: 0, libre: 3 }, { stock_item_id: 'a1', warehouse_id: 'd2', quantite: 1, reserve: 0, libre: 1 }],
   stock_movements: [{ id: 'm1', movement_number: 'MVT-2026-000001', movement_date: '2026-11-14T08:00:00Z', movement_type: 'entry', stock_item_id: 'a1', quantity: 4,
     from_warehouse_id: null, to_warehouse_id: 'd1', reference_piece: 'BL-001', motif: null, notes: null, annule_mouvement_id: null }],
   sites: [],

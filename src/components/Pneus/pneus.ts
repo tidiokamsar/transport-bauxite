@@ -13,6 +13,12 @@ export const ETATS_PNEU: Record<EtatPneu, { texte: string; teinte: TeintePuce }>
   retired: { texte: 'Réformé', teinte: 'gris' },
 };
 
+// Pneu sorti du registre par l'annulation de sa reception (D-067) : il porte
+// l'etat reforme cote serveur, mais l'ecran le distingue d'une reforme.
+export const MOTIF_ANNULATION_RECEPTION = 'Annulation de la reception ';
+export const etatAffiche = (etat: EtatPneu, annuleReception: boolean) =>
+  annuleReception ? { texte: 'Annulé (réception)', teinte: 'gris' as TeintePuce } : ETATS_PNEU[etat];
+
 export const TYPES_OPERATION: Record<string, string> = {
   entree: 'Entrée en stock',
   montage: 'Montage',
@@ -54,3 +60,6 @@ export const texteKm = (km: number | null, incomplet: boolean, nbMontages: numbe
 };
 
 export const texteCoutKm = (cout: number | null) => (cout === null ? 'Sans données' : `${nombre.format(cout)} GNF/km`);
+
+/** Mesure calculee par le serveur (D-067) : absente = sans donnees. */
+export const texteMesure = (valeur: number | null, unite: string) => (valeur === null ? 'Sans données' : `${nombre.format(Number(valeur))} ${unite}`);

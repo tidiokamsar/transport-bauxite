@@ -81,6 +81,12 @@ export const REGLAGES: Reglage[] = [
     ecran: { vue: 'tires', libelle: 'Pneus' },
   },
   {
+    cle: 'pneu_reforme_precoce_km', libelle: 'Pneus : seuil de réforme précoce', type: 'nombre', unite: 'km',
+    effet: 'Un pneu réformé avec moins de km parcourus compte comme réforme précoce dans la performance par marque et modèle.',
+    siAbsent: 'Taux de réforme précoce sans données.', lecteur: 'seuil_pneus, v_pneus_performance (D-067)',
+    ecran: { vue: 'tires', libelle: 'Pneus' },
+  },
+  {
     cle: 'fournisseurs_alerte_documents_jours', libelle: 'Fournisseurs : alerte avant expiration des documents', type: 'entier', unite: 'jours',
     effet: 'Un document administratif de fournisseur apparaît « à renouveler » quand il expire dans ce délai (aucun blocage automatique).',
     siAbsent: '30 jours.', lecteur: 'reglage_entier, v_documents_fournisseurs_echeance (D-059)',

@@ -5,6 +5,16 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
+## Purge de la démonstration (2026-11-16, D-076)
+
+- Les données de démonstration ont été supprimées et le bandeau retiré : la plateforme est vide et prête pour la première saisie réelle. Les comptes existants sont conservés.
+
+## 3bbfded (2026-11-16) : clauses, budgets, export comptable et évaluation Neemba (D-065, PR #90)
+
+- Contrats : clauses calculées (pénalités, bonus) proposées à partir des rapports de performance remis, appliquées par facture ou avoir, renonciation contrôlée par une seconde personne.
+- Un avoir ne peut plus dépasser le reste de la facture.
+- Budgets par site et suivi engagé / dépensé ; export comptable ; évaluation périodique de Neemba.
+
 ## 3dc77d4 (2026-11-16) : dispatch, voyages et infractions (D-066, PR #88)
 
 - Dispatch : affectation de plusieurs voyages en une fois (chaque ligne acceptée ou refusée avec sa raison), enchaînement du voyage suivant d'un camion livré, avertissement quand le chauffeur fait l'objet d'une sanction de conduite active.

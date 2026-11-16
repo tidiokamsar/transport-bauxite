@@ -259,7 +259,7 @@ PR quand la dette diminue ; ne jamais les remonter.
   `docs/SIGTB_2.0_HEBERGEMENT_VPS.md` sections 6 et 9. Aucun utilisateur
   tant que le proprietaire n'a pas lance `creer-admin.sh`. Projet
   Supabase Bolt abandonne.
-- Donnees de demonstration en production (D-020) : identifiants
+- Demonstration PURGEE le 2026-11-16 (D-076, ordre du proprietaire) : la production ne contient plus que les 3 comptes ; des la premiere saisie reelle, deploiement en production = « toujours demander » (bloc 1, section 4). Historique D-020 : identifiants
   `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh apercu` puis `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> deploy/vps/demo/demo.sh purger` (D-074)
   obligatoire avant la premiere saisie reelle.
 - Cycle voyage (CDC 12, LOT 06) : `trips.etat` ne change que par
