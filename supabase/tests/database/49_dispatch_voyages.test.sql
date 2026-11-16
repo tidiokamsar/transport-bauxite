@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(80);
+SELECT plan(87);
 
 -- Voyage affecte -> livre, toutes les etapes a l'heure de la transaction.
 CREATE FUNCTION pg_temp.livrer_maintenant(p_trip uuid) RETURNS void
@@ -59,7 +59,9 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
   ('00000000-0000-4000-a660-0000000000e1', 'TEST-D066-CHG', 'Test', 10, 'loader', 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000b4', 'TEST-D066-4', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000b5', 'TEST-D066-5', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
-  ('00000000-0000-4000-a660-0000000000b6', 'TEST-D066-6', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1');
+  ('00000000-0000-4000-a660-0000000000b6', 'TEST-D066-6', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000b7', 'TEST-D066-7', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a3'),
+  ('00000000-0000-4000-a660-0000000000b8', 'TEST-D066-8', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1');
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-a660-0000000000c1', 'Chauffeur un D-066', 'D066-1', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c2', 'Chauffeur deux D-066', 'D066-2', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
@@ -67,7 +69,9 @@ INSERT INTO public.drivers (id, name, license_number, license_category, license_
   ('00000000-0000-4000-a660-0000000000c4', 'Chauffeur depot B D-066', 'D066-4', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a3'),
   ('00000000-0000-4000-a660-0000000000c5', 'Chauffeur cinq D-066', 'D066-5', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c6', 'Chauffeur six D-066', 'D066-6', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
-  ('00000000-0000-4000-a660-0000000000c7', 'Chauffeur mute D-066', 'D066-7', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1');
+  ('00000000-0000-4000-a660-0000000000c7', 'Chauffeur mute D-066', 'D066-7', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000c8', 'Chauffeur depot B bis D-066', 'D066-8', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a3'),
+  ('00000000-0000-4000-a660-0000000000c9', 'Chauffeur neuf D-066', 'D066-9', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1');
 
 -- Responsable des operations (global)
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
@@ -191,6 +195,37 @@ SELECT throws_like($$SELECT public.enchainer_voyage((SELECT id FROM ancien), NUL
   'voyage livre ancien sans date : date du voyage suivant exigee');
 SELECT lives_ok($$SELECT public.enchainer_voyage((SELECT id FROM ancien), NULL, NULL, current_date)$$,
   'voyage livre ancien avec la date du jour : enchaine');
+
+-- 2 quater. Compte borne a la mine (D-075) : camion ou chauffeur d'un autre site refuses.
+CREATE TEMP TABLE e1 AS SELECT public.creer_voyage(current_date, '00000000-0000-4000-a660-0000000000a1', '00000000-0000-4000-a660-0000000000a2',
+  '00000000-0000-4000-a660-0000000000b7', '00000000-0000-4000-a660-0000000000c9') AS id;
+CREATE TEMP TABLE e2 AS SELECT public.creer_voyage(current_date, '00000000-0000-4000-a660-0000000000a1', '00000000-0000-4000-a660-0000000000a2',
+  '00000000-0000-4000-a660-0000000000b8', '00000000-0000-4000-a660-0000000000c8') AS id;
+SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM e1))$$, 'voyage livre avec un camion du depot B (compte global)');
+SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM e2))$$, 'voyage livre avec un chauffeur du depot B (compte global)');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000007');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE borne AS
+  SELECT * FROM public.affecter_en_groupe(jsonb_build_array(
+    jsonb_build_object('voyage', (SELECT id FROM lendemain), 'camion', '00000000-0000-4000-a660-0000000000b7',
+                       'chauffeur', '00000000-0000-4000-a660-0000000000c9'),
+    jsonb_build_object('voyage', (SELECT id FROM lendemain), 'camion', '00000000-0000-4000-a660-0000000000b8',
+                       'chauffeur', '00000000-0000-4000-a660-0000000000c8')));
+SELECT is((SELECT (count(*) FILTER (WHERE resultat = 'refuse'), (SELECT etat FROM public.trips WHERE id = (SELECT id FROM lendemain)))::text FROM borne),
+  '(2,PLANNED)', 'compte borne : affectation groupee refusee pour un camion ou un chauffeur d''un autre site');
+SELECT is((SELECT string_agg(DISTINCT raison, ' | ') FROM borne), 'Camion, engin ou chauffeur hors de votre perimetre',
+  'compte borne : message unique de D-075, sans detail sur la ressource');
+SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM e1), NULL)$$, '42501', 'Camion, engin ou chauffeur hors de votre perimetre',
+  'compte borne : enchainement refuse pour un camion d''un autre site');
+SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM e2), NULL)$$, '42501', 'Camion, engin ou chauffeur hors de votre perimetre',
+  'compte borne : enchainement refuse pour un chauffeur d''un autre site');
+RESET ROLE;
+SELECT is((SELECT count(*)::int FROM public.trips t WHERE t.notes IN (
+             SELECT 'Enchaîné après ' || x.reference FROM public.trips x WHERE x.id IN ((SELECT id FROM e1), (SELECT id FROM e2)))), 0,
+  'compte borne : enchainement refuse, aucun voyage cree');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
+SET LOCAL ROLE authenticated;
 
 -- 3. Durees, statistiques de trajets et rapports (annee 2001)
 CREATE TEMP TABLE v2001 (nom text, id uuid);
