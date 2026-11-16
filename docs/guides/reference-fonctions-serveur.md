@@ -91,6 +91,31 @@ comptes) : une journée close fige ses objectifs.
 | `creer_voyage(date, depart, arrivee, camion, chauffeur, chargeuse, remorque, shift, note)` | W(trips) ou admin | Date, origine, destination requises ; référence `VYG-AAMMJJ-NNN` ; état Affecté ou Planifié |
 | `avancer_voyage(voyage, etat, survenu_le, note, donnees)` | W(trips) ou admin | Transition autorisée ; heure non future et pas antérieure ; motif pour les exceptions ; pesée cohérente ; ticket unique ; tonnage accepté requis ; déclencheur : contrôle avant départ si exigé |
 
+## Dispatch groupé, enchaînement, rapports et infractions (D-066)
+
+Migration `20261121100000`. Les écritures passent par `decider_affectation`
+et `creer_voyage`, avec leurs déclencheurs (site fermé, habilitations,
+périmètre).
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `affecter_en_groupe(affectations)` | DEFINER, W(trips), périmètre | Tableau JSON `[{voyage, camion, chauffeur, engin, recommandation}]`, 1 à 300 lignes ; voyage préparé (Brouillon, Planifié) ; chaque ligne dans son propre sous-bloc : un refus n'annule que ce voyage ; rapport par voyage (`affecte` ou `refuse` et raison) ; référence jamais rendue hors périmètre |
+| `enchainer_voyage(voyage, chargeuse, suivant, date, shift, recommandation)` | DEFINER, W(trips), périmètre | Voyage livré (ou accepté, clôturé, en litige, rejeté) avec camion et chauffeur ; camion et chauffeur non engagés ailleurs (verrou par camion) ; voyage suivant désigné : préparé, sans camion, même site de chargement, pas antérieur ; sinon nouveau voyage sur le même trajet ; décision historisée (`regle` = `enchainement`) |
+| `durees_voyages(debut, fin)` | INVOKER | Par voyage visible : cycle (arrivée au chargement -> livraison) et rotation (-> arrivée au chargement suivante du même camion, même date et shift) mesurés sur `trip_events` ; NULL si non mesurable |
+| `statistiques_trajets(site, shift, jusqua, jours)` | INVOKER | Par destination, sur les journées antérieures à `jusqua` (1 à 90 jours) : voyages livrés, charge moyenne, cycle et rotation moyens, nombre de mesures |
+| `rapport_voyages(debut, fin, axe, site)` | INVOKER | Axe `camion`, `chauffeur`, `site` ou `shift` ; période d'au plus 367 jours ; voyages, livrés, annulés, tonnes (D-023), livrés sans poids, durées moyennes, incidents, litiges |
+| `chauffeur_permis(chauffeur)` | DEFINER | Périmètre du site du chauffeur |
+| `enregistrer_infraction(chauffeur, type, survenue_le, constat, source, lieu, voyage, engin, reference_source)` | DEFINER, W(drivers) ou W(trips) ou admin | Périmètre du voyage désigné, sinon du chauffeur, puis de l'engin ; type et source dans les listes fermées ; constat requis ; date non future ; voyage du même chauffeur, engin du voyage ; numéro `INF-AAAA-NNNNN` |
+| `annuler_infraction(infraction, motif)` | DEFINER, W(drivers) ou W(trips) ou admin, périmètre | Motif requis ; infraction non annulée ; si une sanction est active : A(drivers) ou admin, et la sanction est annulée avec elle |
+| `decider_sanction(infraction, sanction, motif, detail)` | DEFINER, A(drivers) ou admin, périmètre | Une seule décision active ; motif requis ; `autre` exige un détail ; aucune séparation avec le déclarant (dérogation à confirmer, D-066) |
+| `annuler_sanction(sanction, motif)` | DEFINER, A(drivers) ou admin, périmètre | Décision active ; motif requis |
+
+Tables `infractions_chauffeur` et `sanctions_infraction` : lecture R(drivers)
+ou R(trips), périmètre du chauffeur ou du voyage ; aucune écriture directe ;
+garde `garde_registre_infractions` (append-only, seule l'annulation motivée
+modifie une ligne). `infraction_accessible` est interne (non exécutable par
+les comptes).
+
 ## Fiches terrain (D-028, D-037)
 
 Droit selon le type de fiche : rotations W(trips), pointage W(maintenance),
