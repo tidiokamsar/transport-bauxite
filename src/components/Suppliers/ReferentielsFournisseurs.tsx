@@ -21,7 +21,7 @@ export const ReferentielsFournisseurs = ({ categories, onChange }: { categories:
   const [busy, setBusy] = useState(false);
 
   const charger = useCallback(async () => {
-    const { data } = await supabase.from('criteres_evaluation_fournisseur').select('id, libelle, description, poids, ordre, actif').order('ordre');
+    const { data } = await supabase.from('criteres_evaluation_fournisseur').select('id, libelle, description, poids, ordre, actif').eq('grille', 'fournisseur').order('ordre');
     setCriteres((data ?? []) as Critere[]);
   }, []);
   useEffect(() => { charger(); }, [charger]);

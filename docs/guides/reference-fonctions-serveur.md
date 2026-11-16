@@ -280,6 +280,41 @@ périmètre.
 | `controler_paiement(id, conforme, motif)` | A(invoices) ou admin | Paiement exécuté non contrôlé ; autre personne que proposant et exécutant ; anomalie motivée |
 | `reste_a_payer(facture, bon)` | DEFINER, lecture invoices ou contracts | Base (facture : moins le plus grand de la part réclamée et des avoirs et déductions ; bon : reçu et taxes au prorata du reçu), moins engagé et payé (D-072) |
 
+## Clauses, échéances, budgets, export comptable, évaluation du loueur (D-065)
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `enregistrer_echeance_contrat(contrat, evenement, date, motif, nouvelle_fin, document)` | W(contracts) | Contrat actif ou suspendu avec date de fin ; `renouvellement` (nouvelle fin postérieure, reportée sur le contrat et journalisée) ou `denonciation` (hors préavis signalé) ; date non future ; append-only |
+| `delai_alerte_echeances_contrats()` | DEFINER | Lit `contrats_alerte_echeance_jours` (0 si absent : alerte à la date clé seulement) |
+| `definir_clause(version, type, libelle, engagement, declenchement, base, valeur, plafond, article, ordre, id)` | W(contracts) | Pénalité, bonus ou retenue ; engagement mesuré de la même version (pas « autre ») ; montant HT positif ou taux de 0 à 100 % saisi ; plafond HT (`plafond_ht`) ; clause déjà calculée non modifiable ; journalisée ; une version ou un engagement qui conditionne une clause ne se supprime plus |
+| `desactiver_clause(id, motif)` | W(contracts) | Motif obligatoire |
+| `calculer_clauses(rapport)` | W(contracts) | Contrat non en brouillon (suspendu ou clos : calculable) ; rapport de performance remis, verrouillé ; une proposition HT par clause active de la version en vigueur, depuis la mesure figée ; taux appliqué à l'assiette HT (client : factures et avoirs émis dont la période est comprise dans celle du rapport, dans la devise du contrat, hors lignes produites par une clause ; location : factures du loueur contrôlées) ; plafond ; rien n'est appliqué ; une clause déjà proposée ou appliquée sur un rapport chevauchant donne « sans objet » (un calcul sans objet ou écarté ne couvre pas la période) ; clauses verrouillées ; calcul figé (garde `garde_calcul_clause`, sauf réouverture à l'annulation de la pièce produite) |
+| `decider_clause(calcul, appliquer, motif, facture, taux_taxe)` | Appliquer : W(contracts) et W(invoices). Écarter : A(contracts), autre personne que l'auteur du calcul, si `clauses_renonciation_separee` (exigée si absent) ; sinon comme appliquer | Contrat non en brouillon ; proposition seulement, sous verrou ; motif ; facture du même contrat et de la même devise ; à facturer : ligne sur un brouillon préparé par le décideur ou nouvelle facture brouillon (taux saisi, décideur préparateur) ; à déduire : `creer_avoir` sur une facture émise (au plus le reste HT après avoirs) ou ligne négative sur un brouillon préparé par le décideur ; ligne rattachée au calcul (`facture_lignes.calcul_clause_id`) ; signature D-029 inchangée (jamais le préparateur) ; bonus du loueur refusé ; décision journalisée (`calculs_clauses_journal`) ; facture ou avoir produit annulé : calcul rouvert « proposé » (`rouvrir_clauses_facture_annulee`) |
+| `definir_nature_depense(code, libelle, actif, id)`, `definir_compte_comptable(numero, libelle, actif, id)`, `associer_categorie_cout(categorie, nature)`, `definir_compte_tiers(compte, contrat, fournisseur)` | admin | Référentiels saisis : aucun numéro de compte ni nature supposés ; un compte de tiers retiré garde sa ligne (compte vide), aucune suppression |
+| `imputer_depense(source, piece, nature, motif)` | W(costs), W(purchases) ou W(contracts) selon la pièce, périmètre | Coût, bon de commande ou facture du loueur ; réimputation motivée, append-only |
+| `definir_budget(debut, fin, nature, devise, montant, site, note, remplace, motif)` | W(costs), périmètre du site (un budget sans site exige un profil global) | Nature active, devise, montant TTC positif (`montant_ttc`, deux décimales) ; pas de chevauchement pour le même centre, la même nature et la même devise (verrou) ; révision motivée qui remplace ; numéro `BUD` ; budget figé (garde `garde_budget`) |
+| `annuler_budget(id, motif)` | W(costs), périmètre | Budget courant ; motif |
+| `ecritures_gestion(du, au)` | INVOKER | Factures et avoirs émis, encaissements, paiements exécutés, coûts ; compte de tiers si paramétré |
+| `mesures_loueur(contrat, du, au)` | INVOKER | Disponibilité des engins du contrat, délai de prise en charge, interventions hors délai, écart des factures contrôlées ; NULL sans donnée |
+| `definir_critere_loueur(libelle, poids, indicateur, description, ordre, actif, id)` | admin | Grille « loueur » de `criteres_evaluation_fournisseur` (D-059) |
+| `evaluer_loueur(contrat, debut, fin, notes, commentaire, motif_correction)` | W(contracts), profil global | Contrat de location ; chaque critère actif noté de 1 à 5 ; mesures figées ; correction motivée qui remplace ; journal du contrat |
+| `evaluer_fournisseur(...)`, `definir_critere_evaluation(...)` (reprises de D-059) | W(purchases) ; admin | Ne lisent et ne modifient plus que la grille « fournisseur » |
+| `creer_avoir(facture, montant_ht, motif)` (reprise de D-029) | W(invoices) | Facture émise verrouillée ; montant au plus le HT de la facture moins les avoirs non annulés |
+| `est_facture_client(facture)` | DEFINER, lecture invoices ou contracts | Vrai si la facture porte sur un contrat client ; utilisée par `rapport_client` et `indicateurs_charge_contrats` (reprises), qui excluent les factures de pénalité du loueur |
+
+Vues : `v_echeances_contrats`, `v_budgets_courants`, `v_depenses_budgetaires`
+(engagé : bons approuvés ou reçus en partie, commande HT et taxes en GNF ;
+pièces payables non payées de `v_reste_a_payer` ; réalisé : paiements
+exécutés et coûts ; colonne `base_montant`), `v_suivi_budgets` (budget TTC,
+engagé, réalisé, disponible, dépassement, sources non visibles),
+`v_imputations_courantes`, `v_dettes_fournisseurs`,
+`v_evaluations_loueur_courantes` ; `v_evaluations_fournisseurs_courantes` ne
+montre plus que les fournisseurs. `mes_validations()` (reprise de D-056)
+ajoute les échéances de contrat, les clauses à décider et les budgets
+dépassés. `valider_reglage` (reprise de D-063) ajoute
+`contrats_alerte_echeance_jours` (entier) et `clauses_renonciation_separee`
+(booléen).
+
 ## Analyses de flotte (D-030)
 
 | Fonction | Type | Contenu |

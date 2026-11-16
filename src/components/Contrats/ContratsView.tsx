@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FilePlus2, History, PenLine, Plus, Trash2 } from 'lucide-react';
+import { Ban, CalendarClock, FilePlus2, History, PenLine, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
 import {
-  INDICATEURS, NATURES, PERIODICITES, STATUTS, UNITES_TARIF, libelleVersion, versionEnVigueur,
-  type Contrat, type Engagement, type EntreeJournal, type Tarif, type Version,
+  INDICATEURS, NATURES, PERIODICITES, RENOUVELLEMENTS, STATUTS, TYPES_CLAUSE, UNITES_TARIF, decrireClause, etatEcheance, libelleVersion,
+  versionEnVigueur, type Clause, type Contrat, type Echeance, type Engagement, type EntreeJournal, type Tarif, type Version,
 } from './types';
-import { FormulaireContrat, FormulaireEngagement, FormulaireTarif, FormulaireVersion } from './Formulaires';
+import { FormulaireClause, FormulaireContrat, FormulaireEngagement, FormulaireTarif, FormulaireVersion } from './Formulaires';
 
 // Dossier contractuel (phase 1 du poste « Charge de contrats et
 // facturation », D-026) : contrats CBG et Neemba, contrat initial et
@@ -21,10 +21,15 @@ type Fenetre =
   | { type: 'contrat'; contrat?: Contrat }
   | { type: 'version'; version?: Version }
   | { type: 'tarif'; versionId: string; tarif?: Tarif }
-  | { type: 'engagement'; versionId: string; engagement?: Engagement };
+  | { type: 'engagement'; versionId: string; engagement?: Engagement }
+  | { type: 'clause'; versionId: string; clause?: Clause }
+  | { type: 'echeance'; evenement: 'renouvellement' | 'denonciation' };
+
+interface EvenementEcheance { id: string; evenement: string; date_evenement: string; ancienne_fin: string | null; nouvelle_fin: string | null; hors_preavis: boolean | null; motif: string }
 
 const TABLES: Record<string, string> = {
   contrats: 'Contrat', contrat_versions: 'Version', contrat_tarifs: 'Tarif', contrat_engagements: 'Engagement',
+  contrat_clauses: 'Clause', evaluations_fournisseurs: 'Évaluation du loueur',
 };
 const ACTIONS: Record<string, string> = { INSERT: 'création', UPDATE: 'modification', DELETE: 'suppression' };
 
@@ -37,6 +42,9 @@ export const ContratsView = () => {
   const [tarifs, setTarifs] = useState<Tarif[]>([]);
   const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
+  const [clauses, setClauses] = useState<Clause[]>([]);
+  const [echeance, setEcheance] = useState<Echeance | null>(null);
+  const [evenements, setEvenements] = useState<EvenementEcheance[]>([]);
   const [journal, setJournal] = useState<EntreeJournal[]>([]);
   const [voirJournal, setVoirJournal] = useState(false);
   const [erreur, setErreur] = useState('');
@@ -45,7 +53,7 @@ export const ContratsView = () => {
 
   const chargerListe = useCallback(async () => {
     const { data, error } = await supabase.from('contrats')
-      .select('id, reference, intitule, nature, contrepartie, devise, date_debut, date_fin, statut, delai_paiement_jours, description')
+      .select('id, reference, intitule, nature, contrepartie, devise, date_debut, date_fin, statut, delai_paiement_jours, description, preavis_jours, renouvellement, renouvellement_duree_mois')
       .order('reference');
     if (error) setErreur('Contrats indisponibles : ' + error.message);
     const liste = (data ?? []) as Contrat[];
@@ -65,16 +73,26 @@ export const ContratsView = () => {
     setEngins((veh as { id: string; registration: string }[] | null) ?? []);
     const ids = liste.map((x) => x.id);
     if (ids.length > 0) {
-      const [t, e] = await Promise.all([
+      const [t, e, k] = await Promise.all([
         supabase.from('contrat_tarifs').select('*').in('version_id', ids).order('ordre'),
         supabase.from('contrat_engagements').select('*').in('version_id', ids).order('ordre'),
+        supabase.from('contrat_clauses').select('*').in('version_id', ids).order('ordre'),
       ]);
       setTarifs((t.data ?? []) as Tarif[]);
       setEngagements((e.data ?? []) as Engagement[]);
+      setClauses((k.data ?? []) as Clause[]);
     } else {
       setTarifs([]);
       setEngagements([]);
+      setClauses([]);
     }
+    const [ech, ev] = await Promise.all([
+      supabase.from('v_echeances_contrats').select('*').eq('contrat_id', choisi).maybeSingle(),
+      supabase.from('contrats_echeances').select('id, evenement, date_evenement, ancienne_fin, nouvelle_fin, hors_preavis, motif')
+        .eq('contrat_id', choisi).order('le', { ascending: false }),
+    ]);
+    setEcheance((ech.data as Echeance | null) ?? null);
+    setEvenements((ev.data ?? []) as EvenementEcheance[]);
     const { data: j } = await supabase.from('journal_contrats')
       .select('id, table_cible, action, avant, apres, le').eq('contrat_id', choisi).order('le', { ascending: false }).limit(100);
     setJournal((j ?? []) as EntreeJournal[]);
@@ -95,6 +113,14 @@ export const ContratsView = () => {
   };
 
   const fait = () => { setFenetre(null); chargerListe(); chargerDetail(); };
+
+  const desactiverClause = async (c: Clause) => {
+    const motif = window.prompt(`Motif de la désactivation de la clause « ${c.libelle} »`);
+    if (!motif?.trim()) return;
+    const { error } = await supabase.rpc('desactiver_clause', { p_id: c.id, p_motif: motif.trim() });
+    if (error) setErreur(error.message);
+    chargerDetail();
+  };
 
   return (
     <div className="space-y-6">
@@ -168,6 +194,37 @@ export const ContratsView = () => {
                 </p>
               </Panneau>
 
+              <Panneau titre="Échéance et renouvellement" action={peutEcrire && contrat.date_fin && ['actif', 'suspendu'].includes(contrat.statut) && (
+                <div className="flex gap-1">
+                  <button onClick={() => setFenetre({ type: 'echeance', evenement: 'renouvellement' })} className="flex items-center gap-1 rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50"><CalendarClock className="h-3.5 w-3.5" /> Renouveler</button>
+                  <button onClick={() => setFenetre({ type: 'echeance', evenement: 'denonciation' })} className="flex items-center gap-1 rounded-lg border border-stone-200 px-2.5 py-1 text-xs font-semibold text-stone-700 hover:bg-stone-50"><Ban className="h-3.5 w-3.5" /> Dénoncer</button>
+                </div>
+              )}>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
+                  <div><dt className="text-stone-500">Préavis</dt><dd className="font-semibold text-stone-900">{contrat.preavis_jours != null ? `${contrat.preavis_jours} jours` : 'Non saisi'}</dd></div>
+                  <div><dt className="text-stone-500">Renouvellement</dt><dd className="font-semibold text-stone-900">{contrat.renouvellement ? RENOUVELLEMENTS[contrat.renouvellement] : 'Non renseigné'}{contrat.renouvellement_duree_mois ? ` · ${contrat.renouvellement_duree_mois} mois` : ''}</dd></div>
+                  <div><dt className="text-stone-500">Date clé</dt><dd className="font-semibold text-stone-900">{echeance ? `${echeance.nature_echeance === 'limite_preavis' ? 'Préavis au' : 'Fin le'} ${date(echeance.date_cle)}` : contrat.date_fin ? '—' : 'Sans date de fin'}</dd></div>
+                  <div><dt className="text-stone-500">État</dt><dd>{echeance ? <Puce teinte={etatEcheance(echeance).teinte}>{etatEcheance(echeance).libelle}</Puce> : <span className="text-stone-400">Sans échéance suivie</span>}</dd></div>
+                </dl>
+                {echeance && (
+                  <p className="mt-2 text-xs text-stone-500">
+                    Alerte à partir du {date(echeance.date_alerte)} ({echeance.delai_alerte_jours > 0 ? `${echeance.delai_alerte_jours} jours avant, réglage administrateur` : 'à la date clé seulement : aucun délai réglé'})
+                    {echeance.fin_si_tacite ? ` · si renouvellement tacite : fin au ${date(echeance.fin_si_tacite)} (à confirmer par un renouvellement enregistré)` : ''}
+                  </p>
+                )}
+                {evenements.length > 0 && (
+                  <ul className="mt-3 divide-y divide-stone-100 text-sm" aria-label="Historique des échéances">
+                    {evenements.map((e) => (
+                      <li key={e.id} className="py-1.5">
+                        <b>{e.evenement === 'renouvellement' ? 'Renouvellement' : 'Dénonciation'}</b> le {date(e.date_evenement)}
+                        {e.nouvelle_fin ? ` · fin portée du ${date(e.ancienne_fin)} au ${date(e.nouvelle_fin)}` : ''}
+                        {e.hors_preavis ? ' · hors délai de préavis' : ''} · {e.motif}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panneau>
+
               {voirJournal && (
                 <Panneau titre="Journal du contrat">
                   {journal.length === 0 ? <SansDonnees message="Aucune entrée" /> : (
@@ -202,6 +259,7 @@ export const ContratsView = () => {
                     {[...versions].reverse().map((v) => {
                       const tv = tarifs.filter((t) => t.version_id === v.id);
                       const ev = engagements.filter((e) => e.version_id === v.id);
+                      const kv = clauses.filter((k) => k.version_id === v.id);
                       return (
                         <section key={v.id} className={`rounded-xl border p-4 ${enVigueur?.id === v.id ? 'border-green-300 bg-green-50/40' : 'border-stone-200'}`} aria-label={libelleVersion(v)}>
                           <header className="flex flex-wrap items-start justify-between gap-2">
@@ -266,6 +324,27 @@ export const ContratsView = () => {
                               )}
                             </div>
                           </div>
+                          <div className="mt-3">
+                            <div className="mb-1 flex items-center justify-between">
+                              <h4 className="text-sm font-semibold text-stone-700">Clauses chiffrées (pénalités, bonus, retenues)</h4>
+                              {peutEcrire && <button onClick={() => setFenetre({ type: 'clause', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter une clause</button>}
+                            </div>
+                            {kv.length === 0 ? <p className="text-xs text-stone-400">Aucune clause chiffrée : la conséquence d'un engagement reste en texte libre.</p> : (
+                              <ul className="space-y-1 text-sm" aria-label={`Clauses ${libelleVersion(v)}`}>
+                                {kv.map((k) => (
+                                  <li key={k.id} className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1 ${k.actif ? 'bg-stone-50' : 'bg-stone-50/40 text-stone-400 line-through'}`}>
+                                    <span><b>{TYPES_CLAUSE[k.type_clause]}</b> · {k.libelle} · {decrireClause(k, contrat.devise, ev.find((e) => e.id === k.engagement_id)?.libelle)}{k.article ? ` · art. ${k.article}` : ''}</span>
+                                    {peutEcrire && k.actif && (
+                                      <span className="flex items-center gap-1">
+                                        <button onClick={() => setFenetre({ type: 'clause', versionId: v.id, clause: k })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier la clause ${k.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>
+                                        <button onClick={() => desactiverClause(k)} className="rounded p-1 text-stone-400 hover:text-red-600" aria-label={`Désactiver la clause ${k.libelle}`}><Ban className="h-3.5 w-3.5" /></button>
+                                      </span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         </section>
                       );
                     })}
@@ -290,6 +369,54 @@ export const ContratsView = () => {
       )}
       {fenetre?.type === 'tarif' && <FormulaireTarif versionId={fenetre.versionId} tarif={fenetre.tarif} onFermer={() => setFenetre(null)} onFait={fait} />}
       {fenetre?.type === 'engagement' && <FormulaireEngagement versionId={fenetre.versionId} engagement={fenetre.engagement} onFermer={() => setFenetre(null)} onFait={fait} />}
+      {fenetre?.type === 'clause' && contrat && (
+        <FormulaireClause versionId={fenetre.versionId} engagements={engagements.filter((e) => e.version_id === fenetre.versionId)} devise={contrat.devise}
+          clause={fenetre.clause} onFermer={() => setFenetre(null)} onFait={fait} />
+      )}
+      {fenetre?.type === 'echeance' && contrat && (
+        <FenetreEcheance contrat={contrat} evenement={fenetre.evenement} onFermer={() => setFenetre(null)} onFait={fait} />
+      )}
+    </div>
+  );
+};
+
+/** Renouvellement ou denonciation (D-065) : enregistre par la fonction serveur, motif obligatoire. */
+const FenetreEcheance = ({ contrat, evenement, onFermer, onFait }: {
+  contrat: Contrat; evenement: 'renouvellement' | 'denonciation'; onFermer: () => void; onFait: () => void;
+}) => {
+  const [f, setF] = useState({ date: aujourdhui(), fin: '', motif: '', document: '' });
+  const [erreur, setErreur] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const renouveler = evenement === 'renouvellement';
+  const valide = Boolean(f.date && f.date <= aujourdhui() && f.motif.trim() && (!renouveler || (f.fin && contrat.date_fin && f.fin > contrat.date_fin)));
+  const enregistrer = async () => {
+    setEnCours(true);
+    setErreur('');
+    const { error } = await supabase.rpc('enregistrer_echeance_contrat', {
+      p_contrat: contrat.id, p_evenement: evenement, p_date: f.date, p_motif: f.motif.trim(),
+      p_nouvelle_fin: renouveler ? f.fin : null, p_document: f.document.trim() || null,
+    });
+    setEnCours(false);
+    if (error) setErreur(error.message);
+    else onFait();
+  };
+  const champ = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm';
+  return (
+    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
+      <form onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); if (valide) enregistrer(); }}
+        className="w-full max-w-lg space-y-3 rounded-2xl bg-white p-6 shadow-2xl text-sm" aria-label={renouveler ? 'Renouvellement du contrat' : 'Dénonciation du contrat'}>
+        <h2 className="text-xl font-black text-stone-900">{renouveler ? 'Renouvellement' : 'Dénonciation'} · {contrat.reference}</h2>
+        <p className="text-stone-500">Fin actuelle : {date(contrat.date_fin)}{contrat.preavis_jours != null ? ` · préavis ${contrat.preavis_jours} jours` : ''}</p>
+        <label className="block"><span className="mb-1 block font-medium">Date de l'événement *</span><input type="date" value={f.date} max={aujourdhui()} onChange={(e) => setF({ ...f, date: e.target.value })} className={champ} /></label>
+        {renouveler && <label className="block"><span className="mb-1 block font-medium">Nouvelle date de fin *</span><input type="date" value={f.fin} onChange={(e) => setF({ ...f, fin: e.target.value })} className={champ} /></label>}
+        <label className="block"><span className="mb-1 block font-medium">Motif *</span><input value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} placeholder="Avenant signé, courrier de dénonciation..." className={champ} /></label>
+        <label className="block"><span className="mb-1 block font-medium">Référence du document</span><input value={f.document} onChange={(e) => setF({ ...f, document: e.target.value })} className={champ} /></label>
+        {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700">{erreur}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onFermer} className="rounded-lg px-4 py-2 text-stone-600 hover:bg-stone-100">Annuler</button>
+          <button type="submit" disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 font-bold text-white disabled:opacity-50">Enregistrer</button>
+        </div>
+      </form>
     </div>
   );
 };
