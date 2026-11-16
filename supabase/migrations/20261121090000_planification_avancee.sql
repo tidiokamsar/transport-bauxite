@@ -47,7 +47,13 @@
   `planification_cloture_separee`. `simuler_objectif` ne passe plus par
   `site_ferme_le`, retiree aux comptes par D-072 (R1-7) : la fermeture est
   lue avec les droits de l'appelant (RLS de fermetures_site).
-  `cloturer_planification` verrouille les objectifs de la journee.
+  Cloture, ventilation et toute ecriture d'objectif d'une journee et d'un
+  site prennent le meme verrou consultatif (serialisation sans verrou de
+  ligne). Revue independante : separation et cause d'ecart sur toutes les
+  versions de la journee (annulees et remplacees comprises), simulation,
+  rapport et comparaison bornes au perimetre (les objectifs ne le sont pas,
+  D-023), tonnes ventilees arrondies avant le cumul, une seule forme de
+  ligne de ventilation par objectif.
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -164,6 +170,7 @@ DECLARE
   k public.contrats;
   v_total numeric := 0;
   v_n integer := 0;
+  v_forme text; v_forme_ligne text;
 BEGIN
   IF NOT public.has_module_write('planning') THEN
     RAISE EXCEPTION 'Droit d''ecriture sur la planification requis' USING ERRCODE = '42501';
@@ -175,6 +182,9 @@ BEGIN
   IF NOT public.site_permis(o.site_id) THEN
     RAISE EXCEPTION 'Hors perimetre : objectif d''un autre site' USING ERRCODE = '42501';
   END IF;
+  -- Meme verrou que cloturer_planification : une cloture concurrente attend
+  -- la ventilation, ou la ventilation voit la journee close.
+  PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || o.date_plan::text || '|' || o.site_id::text));
   IF EXISTS (SELECT 1 FROM public.clotures_planification c
               WHERE c.date_plan = o.date_plan AND c.site_id = o.site_id AND c.statut = 'close') THEN
     RAISE EXCEPTION 'Planification close pour ce site et cette date' USING ERRCODE = '22023';
@@ -190,10 +200,22 @@ BEGIN
   FOR l IN SELECT * FROM jsonb_array_elements(p_lignes) LOOP
     v_dest := nullif(l ->> 'destination_id', '')::uuid;
     v_contrat := nullif(l ->> 'contrat_id', '')::uuid;
-    v_tonnes := nullif(l ->> 'tonnes', '')::numeric;
+    -- Arrondi au stockage (numeric(12,2)) avant le cumul : la somme
+    -- controlee est celle qui est enregistree.
+    v_tonnes := round(nullif(l ->> 'tonnes', '')::numeric, 2);
     v_voyages := nullif(l ->> 'voyages', '')::integer;
     IF v_dest IS NULL AND v_contrat IS NULL THEN
       RAISE EXCEPTION 'Ligne de ventilation : destination ou contrat requis' USING ERRCODE = '22023';
+    END IF;
+    -- Une seule forme de ligne par objectif (destination seule, contrat
+    -- seul, ou destination et contrat) : les lignes forment une partition.
+    v_forme_ligne := CASE WHEN v_dest IS NOT NULL AND v_contrat IS NOT NULL THEN 'destination_contrat'
+                          WHEN v_dest IS NOT NULL THEN 'destination' ELSE 'contrat' END;
+    IF v_forme IS NULL THEN
+      v_forme := v_forme_ligne;
+    ELSIF v_forme <> v_forme_ligne THEN
+      RAISE EXCEPTION 'Ventilation : toutes les lignes portent la meme forme (destination seule, contrat seul, ou destination et contrat)'
+        USING ERRCODE = '22023';
     END IF;
     IF v_tonnes IS NULL OR v_tonnes <= 0 THEN
       RAISE EXCEPTION 'Ligne de ventilation : tonnes positives requises' USING ERRCODE = '22023';
@@ -265,7 +287,7 @@ LEFT JOIN LATERAL (
 ) r ON true
 WHERE o.statut = 'actif';
 
-REVOKE ALL ON public.v_realisation_ventilation FROM anon;
+REVOKE ALL ON public.v_realisation_ventilation FROM anon, authenticated;
 GRANT SELECT ON public.v_realisation_ventilation TO authenticated;
 
 -- 2. Durees de cycle observees ----------------------------------------------
@@ -377,6 +399,10 @@ BEGIN
   SELECT * INTO o FROM public.objectifs_production op WHERE op.id = p_objectif_id;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Objectif introuvable' USING ERRCODE = 'P0002';
+  END IF;
+  -- Les objectifs ne sont pas bornes au site (D-023) : la simulation l'est.
+  IF NOT public.site_permis(o.site_id) THEN
+    RAISE EXCEPTION 'Hors perimetre : objectif d''un autre site' USING ERRCODE = '42501';
   END IF;
   SELECT f.debut, f.fin INTO v_debut, v_fin FROM public.fenetre_planification(o.date_plan, o.shift_id) f;
   v_instant := least(greatest(coalesce(p_instant, now()), v_debut), v_fin);
@@ -708,6 +734,9 @@ SET search_path = ''
 AS $$
 BEGIN
   IF auth.uid() IS NULL THEN RETURN NEW; END IF;
+  -- Meme verrou que cloturer_planification : une creation, une revision ou
+  -- une annulation concurrente d'une cloture attend celle-ci, puis la voit.
+  PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || NEW.date_plan::text || '|' || NEW.site_id::text));
   IF EXISTS (SELECT 1 FROM public.clotures_planification c
               WHERE c.date_plan = NEW.date_plan AND c.site_id = NEW.site_id AND c.statut = 'close') THEN
     RAISE EXCEPTION 'Planification close pour ce site et cette date : annuler la cloture (motif) avant de modifier les objectifs'
@@ -743,6 +772,7 @@ AS $$
   WITH ob AS (
     SELECT o.shift_id, o.tonnes_cible FROM public.objectifs_production o
      WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'actif'
+       AND public.site_permis(o.site_id)
   ),
   niveau AS (
     SELECT CASE WHEN EXISTS (SELECT 1 FROM ob WHERE ob.shift_id IS NULL) THEN 'journee'
@@ -817,29 +847,51 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || p_date || '|' || p_site_id));
-  -- Les objectifs de la journee sont verrouilles : une ventilation ou une
-  -- revision concurrente attend la cloture et voit ensuite la journee close.
-  PERFORM 1 FROM public.objectifs_production o
-   WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'actif' FOR UPDATE;
+  -- Verrou de la journee et du site, pris aussi par ventiler_objectif et par
+  -- la garde de objectifs_production (creation, revision, annulation) : ces
+  -- ecritures et la cloture sont serialisees, sans verrou de ligne (pas
+  -- d'interblocage avec definir_objectif).
+  PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || p_date::text || '|' || p_site_id::text));
   IF EXISTS (SELECT 1 FROM public.clotures_planification c
               WHERE c.date_plan = p_date AND c.site_id = p_site_id AND c.statut = 'close') THEN
     RAISE EXCEPTION 'Planification deja close pour ce site et cette date' USING ERRCODE = '22023';
   END IF;
 
+  -- Separation : toutes les versions de la journee comptent, quel que soit
+  -- leur statut (auteur d'une version, auteur d'une revision ou d'une
+  -- annulation) ; une annulation ou une revision ne la contourne pas.
   SELECT coalesce((SELECT (s.value ->> 'value') = 'true' FROM public.settings s WHERE s.key = 'planification_cloture_separee'), false)
     INTO v_separee;
   IF v_separee AND EXISTS (SELECT 1 FROM public.objectifs_production o
-                            WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'actif'
-                              AND o.cree_par = auth.uid()) THEN
-    RAISE EXCEPTION 'La cloture revient a une autre personne que l''auteur des objectifs (reglage planification_cloture_separee)'
+                            WHERE o.date_plan = p_date AND o.site_id = p_site_id
+                              AND auth.uid() IN (o.cree_par, o.clos_par)) THEN
+    RAISE EXCEPTION 'La cloture revient a une autre personne que les auteurs des objectifs de la journee (reglage planification_cloture_separee)'
       USING ERRCODE = '42501';
   END IF;
 
+  -- Cause d'ecart exigee : realise sous l'objectif en vigueur, objectif de
+  -- la journee annule, ou version remplacee dont la cible depasse le realise
+  -- de son perimetre (une revision a la baisse ne dispense pas de cause).
   SELECT * INTO p FROM public.production_journee(p_date, p_site_id);
-  IF p.tonnes_cible IS NOT NULL AND p.tonnes_livrees < p.tonnes_cible AND jsonb_array_length(v_causes) = 0 THEN
-    RAISE EXCEPTION 'Realise sous l''objectif (% t sur % t) : au moins une cause d''ecart requise', p.tonnes_livrees, p.tonnes_cible
-      USING ERRCODE = '22023';
+  IF jsonb_array_length(v_causes) = 0 THEN
+    IF p.tonnes_cible IS NOT NULL AND p.tonnes_livrees < p.tonnes_cible THEN
+      RAISE EXCEPTION 'Realise sous l''objectif (% t sur % t) : au moins une cause d''ecart requise', p.tonnes_livrees, p.tonnes_cible
+        USING ERRCODE = '22023';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.objectifs_production o
+                WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'annule') THEN
+      RAISE EXCEPTION 'Objectif de la journee annule : au moins une cause d''ecart requise' USING ERRCODE = '22023';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.objectifs_production o
+                WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'remplace'
+                  AND o.tonnes_cible > (
+                    SELECT coalesce(sum(coalesce(t.accepted_tonnage, t.net_weight_reception, t.net_weight, t.load_weight)), 0)
+                      FROM public.trips t
+                     WHERE t.planned_date = p_date AND t.departure_site_id = p_site_id
+                       AND (o.shift_id IS NULL OR t.shift_id = o.shift_id)
+                       AND t.etat IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED'))) THEN
+      RAISE EXCEPTION 'Objectif revise sous une cible non atteinte : au moins une cause d''ecart requise' USING ERRCODE = '22023';
+    END IF;
   END IF;
 
   SELECT jsonb_build_object(
@@ -955,13 +1007,16 @@ AS $$
   jours AS (
     SELECT o.date_plan AS d, o.site_id AS s FROM public.objectifs_production o, bornes b
      WHERE o.statut = 'actif' AND o.date_plan BETWEEN b.d AND b.f AND (p_site IS NULL OR o.site_id = p_site)
+       AND public.site_permis(o.site_id)
     UNION
     SELECT c.date_plan, c.site_id FROM public.clotures_planification c, bornes b
      WHERE c.statut = 'close' AND c.date_plan BETWEEN b.d AND b.f AND (p_site IS NULL OR c.site_id = p_site)
+       AND public.site_permis(c.site_id)
     UNION
     SELECT t.planned_date, t.departure_site_id FROM public.trips t, bornes b
      WHERE t.planned_date BETWEEN b.d AND b.f AND t.departure_site_id IS NOT NULL
        AND t.etat IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED') AND (p_site IS NULL OR t.departure_site_id = p_site)
+       AND public.site_permis(t.departure_site_id)
   )
   SELECT j.d, j.s, si.name,
          CASE WHEN c.id IS NOT NULL THEN 'close' ELSE 'non_close' END,
@@ -1059,6 +1114,7 @@ AS $$
     SELECT r.shift_id, sum(r.tonnes_cible) AS cible, sum(r.tonnes_livrees) AS livre
       FROM public.v_realisation_objectifs r, bornes b
      WHERE r.shift_id IS NOT NULL AND r.date_plan BETWEEN b.d AND b.f AND (p_site IS NULL OR r.site_id = p_site)
+       AND public.site_permis(r.site_id)
      GROUP BY r.shift_id
   ),
   po AS (

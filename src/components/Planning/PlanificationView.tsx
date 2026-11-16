@@ -57,6 +57,8 @@ export const PlanificationView = () => {
   const [onglet, setOnglet] = useState<Onglet>('objectifs');
   const [ventilations, setVentilations] = useState<Ventilation[]>([]);
   const [contrats, setContrats] = useState<ContratClient[]>([]);
+  const [erreurVentilations, setErreurVentilations] = useState('');
+  const [erreurContrats, setErreurContrats] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -66,7 +68,13 @@ export const PlanificationView = () => {
     ]).then(([s, v, c]) => {
       setShifts((s.data ?? []) as ShiftHoraire[]);
       setEngins((v.data ?? []) as Engin[]);
-      setContrats((c.data ?? []) as ContratClient[]);
+      if (c.error) {
+        setErreurContrats('Contrats clients indisponibles : ' + c.error.message);
+        setContrats([]);
+      } else {
+        setErreurContrats('');
+        setContrats((c.data ?? []) as ContratClient[]);
+      }
     });
   }, []);
 
@@ -76,7 +84,13 @@ export const PlanificationView = () => {
     let requeteV = supabase.from('v_realisation_ventilation').select('*').eq('date_plan', date);
     if (siteId) requeteV = requeteV.eq('site_id', siteId);
     const [{ data, error }, v] = await Promise.all([requete, requeteV]);
-    setVentilations(v.error ? [] : ((v.data ?? []) as Ventilation[]));
+    if (v.error) {
+      setErreurVentilations('Ventilations indisponibles : ' + v.error.message);
+      setVentilations([]);
+    } else {
+      setErreurVentilations('');
+      setVentilations((v.data ?? []) as Ventilation[]);
+    }
     if (error) {
       setErreur('Objectifs indisponibles : ' + error.message);
       setObjectifs([]);
@@ -254,6 +268,7 @@ export const PlanificationView = () => {
               ventilation={
                 <BlocVentilation
                   lignes={ventilations.filter((v) => v.objectif_id === o.id)}
+                  erreur={erreurVentilations}
                   nomSite={(id) => nomSite.get(id) ?? 'Site inconnu'}
                   tonnesObjectif={Number(o.tonnes_cible)}
                   peutVentiler={peutEcrire}
@@ -290,6 +305,7 @@ export const PlanificationView = () => {
           libelle={fenetre.libelle}
           destinations={sites}
           contrats={contrats}
+          erreurContrats={erreurContrats}
           onFermer={() => setFenetre(null)}
           onEnregistre={() => { setFenetre(null); charger(); }}
         />

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { Panneau, Provenance, SansDonnees } from '../ui/Panneau';
 import type { Realisation } from './CarteObjectif';
 import { CHAMP } from './FenetresObjectif';
-import { grouperSimulation, scenarios, texteValeur, type LigneSimulation, type Scenario } from './planAvance';
+import { grouperSimulation, instantConakry, scenarios, texteValeur, type LigneSimulation, type Scenario } from './planAvance';
 
 // Simulation de capacite et scenarios de rattrapage (D-063) : le serveur
 // calcule (simuler_objectif) a partir des seules donnees observees ou
@@ -34,7 +34,7 @@ export const SimulationObjectifs = ({ date, objectifs, libelle, peutEcrire, onRe
     let actif = true;
     // Debut de periode : minuit de la date, ramene par le serveur au debut du shift ou de la journee.
     const p_instant = instant === 'maintenant' ? null
-      : new Date(`${date}T${instant === 'debut' ? '00:00' : heureChoisie}:00`).toISOString();
+      : instantConakry(date, instant === 'debut' ? '00:00' : heureChoisie);
     setLignes(null);
     supabase.rpc('simuler_objectif', { p_objectif_id: objectif.id, p_instant }).then(({ data, error }) => {
       if (!actif) return;
@@ -71,7 +71,7 @@ export const SimulationObjectifs = ({ date, objectifs, libelle, peutEcrire, onRe
           </label>
           {instant === 'choisi' && (
             <label className="block text-sm">
-              <span className="mb-1 block font-medium text-stone-700">Heure</span>
+              <span className="mb-1 block font-medium text-stone-700">Heure (Conakry, UTC+0)</span>
               <input type="time" value={heureChoisie} onChange={(e) => setHeureChoisie(e.target.value)} className={CHAMP} aria-label="Heure de la simulation" />
             </label>
           )}

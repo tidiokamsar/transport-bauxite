@@ -226,7 +226,7 @@ migrations 2026) :
 |---|---|---|---|
 | `mfa_exige` | `true` : session aal2 exigée pour droits, rectifications de tickets CBG, signature de facture | Aucune exigence | Sécurité du compte |
 | `controle_depart_exige` | `true` : un camion ne passe de « Affecté » à « Au chargement » qu'avec un contrôle avant départ du jour, conforme ou avec réserves | Non exigé | Contrôles avant départ, bouton « Exiger » / « Lever l'exigence » |
-| `planification_cloture_separee` | `true` : la clôture de planification d'une journée et d'un site revient à une autre personne que l'auteur des objectifs en vigueur (D-063) | Non exigée | Paramètres, réglages lus par le serveur |
+| `planification_cloture_separee` | `true` : la clôture de planification d'une journée et d'un site revient à une autre personne que l'auteur des objectifs en vigueur (D-063) | Non exigée (contrairement aux autres `*_separee`, à confirmer par le propriétaire) | Paramètres, réglages lus par le serveur |
 | `carburant_validation_separee` | Mouvements et inventaires de carburant validés par une autre personne que l'auteur ; `false` lève la règle | **Exigée** | Aucun écran : voir ci-dessous |
 | `kilometrage_validation_separee` | Distance d'un voyage validée par une autre personne que l'auteur des relevés ; `false` lève la règle | **Exigée** | Aucun écran |
 | `achats_validation_separee` | Bon de commande approuvé par une autre personne que le demandeur ; `false` lève la règle | **Exigée** | Aucun écran |

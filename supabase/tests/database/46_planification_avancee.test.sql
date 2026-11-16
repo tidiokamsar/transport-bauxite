@@ -21,7 +21,7 @@ LANGUAGE sql AS $$ SELECT s.valeur FROM public.simuler_objectif(p_id, p_instant)
 CREATE FUNCTION pg_temp.rem(p_id uuid, p_instant timestamptz, p_code text) RETURNS text
 LANGUAGE sql AS $$ SELECT coalesce(s.remarque, '-') FROM public.simuler_objectif(p_id, p_instant) s WHERE s.code = p_code; $$;
 
-SELECT plan(56);
+SELECT plan(75);
 
 -- Les departs de voyages ne dependent pas des reglages de la base.
 DELETE FROM public.settings WHERE key IN ('controle_depart_exige', 'planification_cloture_separee');
@@ -60,7 +60,8 @@ INSERT INTO public.infrastructures_site (site_id, type, code, libelle, capacite,
   ('00000000-0000-4000-a630-0000000000a1', 'point_chargement', 'PC-D063-2', 'Front 2', 500, 'm3');
 -- Fermeture du site sans moyens le jour J (lue par la simulation, D-072 R1-7).
 INSERT INTO public.fermetures_site (site_id, debut, fin, motif) VALUES
-  ('00000000-0000-4000-a630-0000000000a4', '2001-03-05 00:00+00', '2001-03-06 00:00+00', 'Fermeture test D-063');
+  ('00000000-0000-4000-a630-0000000000a4', '2001-03-05 00:00+00', '2001-03-06 00:00+00', 'Fermeture test D-063'),
+  ('00000000-0000-4000-a630-0000000000a1', '2001-02-01 00:00+00', '2001-02-02 00:00+00', 'Fermeture mine D-063');
 
 -- Historique : 4 jours, 2 camions, 3 voyages chacun (departs 07:00, 09:00,
 -- 11:00), 40 t, trajet 50 min, chargement 10 min (journal).
@@ -89,6 +90,10 @@ SELECT 'T-D063-J-' || k, '2001-03-05', '00000000-0000-4000-a630-0000000000b1', '
 INSERT INTO public.trips (reference, planned_date, vehicle_id, departure_site_id, arrival_site_id, shift_id, etat, net_weight) VALUES
   ('T-D063-J-SANS', '2001-03-05', '00000000-0000-4000-a630-0000000000b2', '00000000-0000-4000-a630-0000000000a1',
    '00000000-0000-4000-a630-0000000000a2', NULL, 'DELIVERED', 30);
+-- 2001-03-10 : un voyage livre de 40 t (revision a la baisse, m1).
+INSERT INTO public.trips (reference, planned_date, vehicle_id, departure_site_id, arrival_site_id, shift_id, etat, net_weight) VALUES
+  ('T-D063-R-1', '2001-03-10', '00000000-0000-4000-a630-0000000000b3', '00000000-0000-4000-a630-0000000000a1',
+   '00000000-0000-4000-a630-0000000000a2', NULL, 'DELIVERED', 40);
 -- Poste du shift jour la veille : 1 present en retard, 1 absent, 1 incident, 1 arret.
 INSERT INTO public.postes (id, date_poste, shift_id, site_id, statut, consignes_sortie, cloture_le) VALUES
   ('00000000-0000-4000-a630-0000000000d1', '2001-03-04', '00000000-0000-4000-a630-0000000000e1', '00000000-0000-4000-a630-0000000000a1',
@@ -195,7 +200,7 @@ SELECT is(pg_temp.rem((SELECT id FROM o4), NULL, 'site_ferme'), 'Fermeture test 
 -- Ventilation par destination et contrat
 SELECT is(public.ventiler_objectif((SELECT id FROM o1), jsonb_build_array(
     jsonb_build_object('destination_id', '00000000-0000-4000-a630-0000000000a2', 'contrat_id', '00000000-0000-4000-a630-0000000000c1', 'tonnes', 600),
-    jsonb_build_object('destination_id', '00000000-0000-4000-a630-0000000000a3', 'tonnes', 300))), 2,
+    jsonb_build_object('destination_id', '00000000-0000-4000-a630-0000000000a3', 'contrat_id', '00000000-0000-4000-a630-0000000000c1', 'tonnes', 300))), 2,
   'ventilation par destination et contrat : 2 lignes');
 SELECT is((SELECT string_agg(tonnes_livrees::text, '|' ORDER BY tonnes_cible DESC) FROM public.v_realisation_ventilation
             WHERE objectif_id = (SELECT id FROM o1)), '160.00|40.00', 'realise par destination tire des voyages');
@@ -211,7 +216,21 @@ SELECT is(public.ventiler_objectif((SELECT id FROM o4), '[{"contrat_id": "000000
   'ventilation par contrat seul acceptee');
 SELECT is((SELECT (NOT mesurable AND tonnes_livrees IS NULL)::text FROM public.v_realisation_ventilation WHERE objectif_id = (SELECT id FROM o4)),
   'true', 'contrat seul : realise non mesurable, jamais estime');
-SELECT throws_ok($$UPDATE public.objectifs_ventilation SET tonnes_cible = 1$$, '42501', NULL, 'ventilation non modifiable directement');
+CREATE TEMP TABLE o5 AS SELECT public.definir_objectif('2001-03-08', '00000000-0000-4000-a630-0000000000a1', NULL, 100) AS id;
+SELECT throws_ok($$SELECT public.ventiler_objectif((SELECT id FROM o5),
+  '[{"destination_id": "00000000-0000-4000-a630-0000000000a2", "tonnes": 50.005},
+    {"destination_id": "00000000-0000-4000-a630-0000000000a3", "tonnes": 49.995}]')$$,
+  '22023', NULL, 'tonnes arrondies avant le cumul : 50,01 + 50,00 depasse 100');
+SELECT throws_ok($$SELECT public.ventiler_objectif((SELECT id FROM o5),
+  '[{"destination_id": "00000000-0000-4000-a630-0000000000a2", "tonnes": 10},
+    {"contrat_id": "00000000-0000-4000-a630-0000000000c1", "tonnes": 10}]')$$,
+  '22023', NULL, 'formes de ligne melangees refusees (partition)');
+SELECT is((SELECT count(*)::int FROM public.objectifs_ventilation WHERE objectif_id = (SELECT id FROM o5)), 0,
+  'ventilation refusee : rien n''est enregistre');
+RESET ROLE;
+SELECT throws_ok($$UPDATE public.objectifs_ventilation SET tonnes_cible = 1$$, '42501', NULL,
+  'ventilation non modifiable (garde, compte connecte)');
+SET LOCAL ROLE authenticated;
 
 -- Droits
 SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000003');
@@ -220,6 +239,10 @@ SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-05', '00000000-
 SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000004');
 SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-05', '00000000-0000-4000-a630-0000000000a1', '[]', NULL)$$,
   '42501', NULL, 'cloture refusee hors perimetre site');
+SELECT throws_ok($$SELECT * FROM public.simuler_objectif((SELECT id FROM o1), NULL)$$, '42501', NULL,
+  'simulation d''un objectif hors perimetre refusee');
+SELECT is((SELECT count(*)::int FROM public.fermetures_site WHERE site_id = '00000000-0000-4000-a630-0000000000a1'), 0,
+  'motif d''une fermeture hors perimetre non visible');
 
 -- Cloture de planification
 SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
@@ -234,9 +257,30 @@ SELECT is((SELECT tonnes_cible || '|' || tonnes_livrees || '|' || ecart || '|' |
   '1000.00|200.00|-800.00|230.00', 'bilan fige : objectif du shift contre ses voyages ; site entier a part');
 SELECT throws_ok($$SELECT public.definir_objectif('2001-03-05', '00000000-0000-4000-a630-0000000000a1',
   '00000000-0000-4000-a630-0000000000e1', 800, p_motif => 'Apres cloture')$$, '22023', NULL, 'journee close : objectifs figes');
-SELECT throws_ok($$UPDATE public.clotures_planification SET ecart = 0$$, '42501', NULL, 'cloture non modifiable directement');
+SELECT throws_ok($$SELECT public.annuler_objectif((SELECT id FROM o1), 'Apres cloture')$$, '22023',
+  'Planification close pour ce site et cette date : annuler la cloture (motif) avant de modifier les objectifs',
+  'journee close : annulation d''objectif refusee');
+SELECT throws_ok($$SELECT public.ventiler_objectif((SELECT id FROM o1), '[{"destination_id": "00000000-0000-4000-a630-0000000000a2", "tonnes": 10}]')$$,
+  '22023', 'Planification close pour ce site et cette date', 'journee close : ventilation refusee');
 SELECT matches((SELECT statut || ' ' || causes FROM public.rapport_production('2001-03-05', '2001-03-05', '00000000-0000-4000-a630-0000000000a1')),
   '^close panne_camion \(300\.00 t\) : Deux camions en panne$', 'rapport de production : bilan fige et causes');
+RESET ROLE;
+SELECT throws_ok($$UPDATE public.clotures_planification SET ecart = 0$$, '42501', NULL,
+  'cloture non modifiable (garde, compte connecte)');
+SET LOCAL ROLE authenticated;
+
+-- Perimetre (site a4) sur la journee close du site a1
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000004');
+SELECT is((SELECT count(*)::int FROM public.clotures_planification_causes WHERE cloture_id = (SELECT id FROM c1)), 0,
+  'causes d''une cloture hors perimetre invisibles');
+SELECT throws_ok($$SELECT public.annuler_cloture_planification((SELECT id FROM c1), 'Hors perimetre')$$, '42501', NULL,
+  'annulation d''une cloture hors perimetre refusee');
+SELECT is((SELECT count(*)::int FROM public.rapport_production('2001-03-05', '2001-03-05', NULL)
+            WHERE site_id = '00000000-0000-4000-a630-0000000000a1'), 0,
+  'rapport de production borne au perimetre');
+SELECT is((SELECT count(*)::int FROM public.comparer_shifts('2001-03-01', '2001-03-05', NULL) WHERE tonnes_cible IS NOT NULL), 0,
+  'comparaison des shifts : objectifs hors perimetre exclus');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
 
 -- Separation (reglage) : l'auteur de l'objectif ne clot pas
 RESET ROLE;
@@ -252,6 +296,53 @@ SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-06', '00000000-
 SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000002');
 SELECT lives_ok($$SELECT public.cloturer_planification('2001-03-06', '00000000-0000-4000-a630-0000000000a1',
   '[{"categorie": "autre", "description": "Aucun voyage"}]', NULL)$$, 'separation active : une autre personne clot');
+-- m2 : A cree v1, B revise en v2 : ni A ni B ne clot.
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
+SELECT public.definir_objectif('2001-03-07', '00000000-0000-4000-a630-0000000000a1', NULL, 100);
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000002');
+SELECT public.definir_objectif('2001-03-07', '00000000-0000-4000-a630-0000000000a1', NULL, 90, p_motif => 'Revision par B');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-07', '00000000-0000-4000-a630-0000000000a1',
+  '[{"categorie": "autre", "description": "Aucun voyage"}]', NULL)$$, '42501', NULL,
+  'separation : l''auteur d''une version remplacee ne clot pas');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000002');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-07', '00000000-0000-4000-a630-0000000000a1',
+  '[{"categorie": "autre", "description": "Aucun voyage"}]', NULL)$$, '42501', NULL,
+  'separation : l''auteur de la revision ne clot pas');
+-- M1 : A cree puis annule : A ne clot pas.
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
+CREATE TEMP TABLE o11 AS SELECT public.definir_objectif('2001-03-11', '00000000-0000-4000-a630-0000000000a1', NULL, 500) AS id;
+SELECT public.annuler_objectif((SELECT id FROM o11), 'Annule apres la journee');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-11', '00000000-0000-4000-a630-0000000000a1',
+  '[{"categorie": "autre", "description": "Aucun voyage"}]', NULL)$$, '42501', NULL,
+  'separation : l''auteur d''un objectif annule ne clot pas');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000002');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-11', '00000000-0000-4000-a630-0000000000a1', '[]', NULL)$$,
+  '22023', 'Objectif de la journee annule : au moins une cause d''ecart requise',
+  'objectif annule : cause d''ecart exigee, meme sans objectif en vigueur');
+SELECT lives_ok($$SELECT public.cloturer_planification('2001-03-11', '00000000-0000-4000-a630-0000000000a1',
+  '[{"categorie": "autre", "description": "Production arretee, objectif annule"}]', NULL)$$,
+  'objectif annule : cloture par une autre personne avec cause');
+
+-- Separation levee : la cause reste exigee (M1, revision a la baisse)
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
+UPDATE public.settings SET value = '{"value": "false"}' WHERE key = 'planification_cloture_separee';
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000001');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE o9 AS SELECT public.definir_objectif('2001-03-09', '00000000-0000-4000-a630-0000000000a1', NULL, 500) AS id;
+SELECT public.annuler_objectif((SELECT id FROM o9), 'Annule apres la journee');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-09', '00000000-0000-4000-a630-0000000000a1', '[]', NULL)$$,
+  '22023', 'Objectif de la journee annule : au moins une cause d''ecart requise',
+  'M1 : annuler puis clore seul sans cause refuse');
+SELECT public.definir_objectif('2001-03-10', '00000000-0000-4000-a630-0000000000a1', NULL, 500);
+SELECT public.definir_objectif('2001-03-10', '00000000-0000-4000-a630-0000000000a1', NULL, 40, p_motif => 'Aligne sur le realise');
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-03-10', '00000000-0000-4000-a630-0000000000a1', '[]', NULL)$$,
+  '22023', 'Objectif revise sous une cible non atteinte : au moins une cause d''ecart requise',
+  'revision a la baisse sous le realise : cause d''ecart exigee');
+SELECT lives_ok($$SELECT public.cloturer_planification('2001-03-10', '00000000-0000-4000-a630-0000000000a1',
+  '[{"categorie": "panne_engin", "description": "Chargeuse en panne"}]', NULL)$$, 'revision a la baisse : cloture avec cause');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a630-000000000002');
 
 -- Annulation motivee puis revision
 SELECT throws_ok($$SELECT public.annuler_cloture_planification((SELECT id FROM c1), ' ')$$, '22023', NULL, 'annulation sans motif refusee');

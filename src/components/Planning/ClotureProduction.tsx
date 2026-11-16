@@ -70,15 +70,21 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
         .eq('date_plan', date).eq('site_id', site).eq('statut', 'close').maybeSingle(),
       supabase.rpc('production_journee', { p_date: date, p_site_id: site }),
     ]);
-    if (c.error) setErreur(c.error.message);
+    // Chaque erreur de chargement est affichee : jamais lue comme une
+    // journee non close, sans cause ou sans production.
+    const erreurs: string[] = [];
+    if (c.error) erreurs.push('Clôture indisponible : ' + c.error.message);
     const cl = (c.data ?? null) as Cloture | null;
-    setCloture(cl);
+    setCloture(c.error ? undefined : cl);
     if (cl) {
-      const { data } = await supabase.from('clotures_planification_causes').select('id, categorie, description, tonnes_impact')
+      const k = await supabase.from('clotures_planification_causes').select('id, categorie, description, tonnes_impact')
         .eq('cloture_id', cl.id).order('saisi_le');
-      setCausesFigees((data ?? []) as Cause[]);
+      if (k.error) erreurs.push('Causes indisponibles : ' + k.error.message);
+      setCausesFigees(k.error ? [] : ((k.data ?? []) as Cause[]));
     } else setCausesFigees([]);
+    if (p.error) erreurs.push('Production de la journée indisponible : ' + p.error.message);
     setProduction(!p.error && Array.isArray(p.data) ? ((p.data[0] as Production | undefined) ?? null) : null);
+    setErreur(erreurs.join(' ; '));
     setHeure(new Date());
   }, [date, site]);
   useEffect(() => { setCloture(undefined); charger(); }, [charger]);
@@ -137,7 +143,7 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
         {!site ? (
           <SansDonnees message="Choisissez un site" detail="La clôture porte sur une journée et un site." />
         ) : cloture === undefined ? (
-          <p className="text-sm text-stone-400">Chargement...</p>
+          erreur ? null : <p className="text-sm text-stone-400">Chargement...</p>
         ) : cloture ? (
           <div className="space-y-3 text-sm">
             <p className="flex items-center gap-2"><Puce teinte="vert">Close</Puce> le {new Date(cloture.cloture_le).toLocaleString('fr-FR')}</p>

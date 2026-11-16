@@ -27,8 +27,10 @@ export interface Ventilation {
 
 export interface ContratClient { id: string; reference: string; intitule: string }
 
-export const BlocVentilation = ({ lignes, nomSite, tonnesObjectif, peutVentiler, onVentiler }: {
+export const BlocVentilation = ({ lignes, erreur, nomSite, tonnesObjectif, peutVentiler, onVentiler }: {
   lignes: Ventilation[];
+  /** Erreur de chargement : affichee, jamais confondue avec « non ventile ». */
+  erreur?: string;
   nomSite: (id: string) => string;
   tonnesObjectif: number;
   peutVentiler: boolean;
@@ -39,11 +41,13 @@ export const BlocVentilation = ({ lignes, nomSite, tonnesObjectif, peutVentiler,
     <section className="mt-4 rounded-xl border border-stone-200 p-3 text-sm" aria-label="Ventilation de l'objectif">
       <header className="mb-2 flex items-center justify-between">
         <h4 className="flex items-center gap-1.5 font-semibold text-stone-700"><Split className="h-4 w-4" /> Destinations et contrats</h4>
-        {peutVentiler && lignes.length === 0 && (
+        {peutVentiler && !erreur && lignes.length === 0 && (
           <button onClick={onVentiler} className="rounded-lg px-2 py-1 text-xs font-semibold text-orange-700 hover:bg-orange-50">Ventiler</button>
         )}
       </header>
-      {lignes.length === 0 ? (
+      {erreur ? (
+        <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700" role="alert">{erreur}</p>
+      ) : lignes.length === 0 ? (
         <p className="text-xs text-stone-500">Non ventilé : l'objectif vaut pour toutes les destinations et tous les contrats.</p>
       ) : (
         <>
@@ -80,13 +84,15 @@ export const BlocVentilation = ({ lignes, nomSite, tonnesObjectif, peutVentiler,
 
 const LIGNE_VIDE: LigneVentilation = { destination_id: '', contrat_id: '', tonnes: '' };
 
-export const VentilerObjectif = ({ objectifId, siteChargement, tonnesObjectif, libelle, destinations, contrats, onFermer, onEnregistre }: {
+export const VentilerObjectif = ({ objectifId, siteChargement, tonnesObjectif, libelle, destinations, contrats, erreurContrats, onFermer, onEnregistre }: {
   objectifId: string;
   siteChargement: string;
   tonnesObjectif: number;
   libelle: string;
   destinations: { id: string; name: string }[];
   contrats: ContratClient[];
+  /** Erreur de chargement des contrats : affichee, jamais lue comme « aucun contrat ». */
+  erreurContrats?: string;
   onFermer: () => void;
   onEnregistre: () => void;
 }) => {
@@ -123,7 +129,10 @@ export const VentilerObjectif = ({ objectifId, siteChargement, tonnesObjectif, l
           {libelle} : {formatNombre(tonnesObjectif)} t. La somme des lignes ne dépasse pas l'objectif. La ventilation ne se modifie plus
           ensuite : pour la changer, révisez l'objectif.
         </p>
-        {contrats.length === 0 && (
+        {erreurContrats && (
+          <p className="rounded-lg bg-red-50 p-2 text-xs text-red-700" role="alert">{erreurContrats}</p>
+        )}
+        {!erreurContrats && contrats.length === 0 && (
           <p className="rounded-lg bg-stone-50 p-2 text-xs text-stone-500">Aucun contrat client actif visible avec vos droits : ventilation par destination seulement.</p>
         )}
         {lignes.map((l, i) => (

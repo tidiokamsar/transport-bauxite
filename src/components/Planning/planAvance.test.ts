@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  erreurCauses, erreurVentilation, grouperSimulation, lignesVentilationServeur, scenarios, tauxAbsence, texteValeur, tonnesParJour,
+  erreurCauses, erreurVentilation, grouperSimulation, instantConakry, lignesVentilationServeur, scenarios, tauxAbsence, texteValeur, tonnesParJour,
   type LigneShift, type LigneSimulation,
 } from './planAvance';
 
@@ -36,6 +36,11 @@ describe('simulation (D-063)', () => {
     expect(s[1].titre).toContain('4 camion(s)');
   });
 
+  it('heure choisie lue a Conakry (UTC+0), pas dans le fuseau du navigateur', () => {
+    expect(instantConakry('2001-03-05', '12:00')).toBe('2001-03-05T12:00:00.000Z');
+    expect(instantConakry('2001-03-05', '00:00')).toBe('2001-03-05T00:00:00.000Z');
+  });
+
   it('aucun scenario sans donnees ou si l\'objectif est tenable', () => {
     expect(scenarios([ligne('objectif_propose', null), ligne('camions_necessaires', null)], 1000)).toEqual([]);
     expect(scenarios([ligne('objectif_propose', null), ligne('camions_necessaires', 3), ligne('renfort_camions', 0), ligne('renfort_engins', 0)], 1000)).toEqual([]);
@@ -50,8 +55,15 @@ describe('ventilation (D-063)', () => {
     expect(erreurVentilation([l('mine', '', '10')], 100, 'mine')).toMatch(/diffère du site/);
     expect(erreurVentilation([l('d1', '', '0')], 100, 'mine')).toMatch(/supérieures à zéro/);
     expect(erreurVentilation([l('d1', '', '10'), l('d1', '', '5')], 100, 'mine')).toMatch(/même destination/);
-    expect(erreurVentilation([l('d1', '', '60'), l('d2', 'c1', '50')], 100, 'mine')).toMatch(/dépasse l'objectif/);
-    expect(erreurVentilation([l('d1', '', '60'), l('', 'c1', '40')], 100, 'mine')).toBeNull();
+    expect(erreurVentilation([l('d1', '', '60'), l('d2', '', '50')], 100, 'mine')).toMatch(/dépasse l'objectif/);
+    expect(erreurVentilation([l('d1', '', '60'), l('', 'c1', '40')], 100, 'mine')).toMatch(/même forme/);
+    expect(erreurVentilation([l('d1', 'c1', '60'), l('d2', '', '40')], 100, 'mine')).toMatch(/même forme/);
+    expect(erreurVentilation([l('d1', '', '60'), l('d2', '', '40')], 100, 'mine')).toBeNull();
+    expect(erreurVentilation([l('d1', 'c1', '60'), l('d2', 'c1', '40')], 100, 'mine')).toBeNull();
+  });
+  it('arrondit chaque ligne au centieme avant le cumul', () => {
+    expect(erreurVentilation([l('d1', '', '50,005'), l('d2', '', '49,995')], 100, 'mine')).toMatch(/dépasse l'objectif/);
+    expect(erreurVentilation([l('d1', '', '50,004'), l('d2', '', '49,996')], 100, 'mine')).toBeNull();
   });
   it('envoie null pour une dimension non choisie', () => {
     expect(lignesVentilationServeur([l('d1', '', '1 200,5')])).toEqual([{ destination_id: 'd1', contrat_id: null, tonnes: 1200.5 }]);

@@ -38,6 +38,14 @@ export const texteValeur = (l: LigneSimulation): string => {
   return l.unite ? `${nombreFr(Number(l.valeur))} ${l.unite}` : nombreFr(Number(l.valeur));
 };
 
+/**
+ * Instant d'une date et d'une heure saisies, lues dans le fuseau
+ * d'exploitation (Africa/Conakry, UTC+0 sans heure d'ete), quel que soit le
+ * fuseau du navigateur. Format ISO attendu par simuler_objectif.
+ */
+export const instantConakry = (date: string, heure: string): string =>
+  new Date(`${date}T${heure}:00+00:00`).toISOString();
+
 export interface Scenario {
   cle: 'revision' | 'renfort';
   titre: string;
@@ -93,24 +101,31 @@ export interface LigneVentilation {
   tonnes: string;
 }
 
+const centiemes = (n: number) => Math.round(Number(`${n}e2`));
+
 const nombreSaisi = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
 
 /** Meme regle que ventiler_objectif ; null si la saisie est recevable. */
 export const erreurVentilation = (lignes: LigneVentilation[], tonnesObjectif: number, siteChargement: string): string | null => {
   if (lignes.length === 0) return 'Ajoutez au moins une ligne.';
   const cles = new Set<string>();
+  const formes = new Set<string>();
   let total = 0;
   for (const l of lignes) {
     if (!l.destination_id && !l.contrat_id) return 'Chaque ligne indique une destination ou un contrat.';
+    formes.add(`${Boolean(l.destination_id)}|${Boolean(l.contrat_id)}`);
+    if (formes.size > 1) return 'Toutes les lignes ont la même forme : destination seule, contrat seul, ou destination et contrat.';
     if (l.destination_id && l.destination_id === siteChargement) return 'La destination diffère du site de chargement.';
     const t = nombreSaisi(l.tonnes);
     if (t === null || !(t > 0)) return 'Chaque ligne porte des tonnes supérieures à zéro.';
     const cle = `${l.destination_id}|${l.contrat_id}`;
     if (cles.has(cle)) return 'Deux lignes ont la même destination et le même contrat.';
     cles.add(cle);
-    total += t;
+    // Comme le serveur : tonnes arrondies au centieme avant le cumul
+    // (en centiemes entiers, sans erreur d'arrondi binaire).
+    total += centiemes(t);
   }
-  if (total > tonnesObjectif + 1e-9) return `La ventilation (${nombreFr(total)} t) dépasse l'objectif (${nombreFr(tonnesObjectif)} t).`;
+  if (total > centiemes(tonnesObjectif)) return `La ventilation (${nombreFr(total / 100)} t) dépasse l'objectif (${nombreFr(tonnesObjectif)} t).`;
   return null;
 };
 
