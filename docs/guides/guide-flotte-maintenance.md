@@ -39,7 +39,7 @@ imputation, description, référence d'intervention du loueur.
 | Action | Fonction | Règle principale |
 |---|---|---|
 | Déclarer | `declarer_immobilisation` | Droit `maintenance` ; description requise ; engin présent dans la flotte ; une seule immobilisation ouverte par engin ; heure non future. L'engin passe « immobilisé » (« en maintenance » si planifiée). |
-| Clôturer | `cloturer_immobilisation` | Heure de fin requise, après le début. L'engin redevient « actif ». |
+| Clôturer | `cloturer_immobilisation` | Heure de fin requise, après le début. L'engin redevient « actif ». Si une intervention du loueur est en cours, la clôture passe par la validation de la remise en service par une autre personne (D-072). |
 | Corriger | `corriger_immobilisation` | Motif obligatoire ; la fin se saisit par la clôture. |
 | Annuler | `annuler_immobilisation` | Motif obligatoire. |
 
@@ -126,7 +126,7 @@ périmètre (voyage, engin ou site) ; lecture : `trips` ou `reports`.
 | Étape | Fonction | Règle principale |
 |---|---|---|
 | Déclarer | `declarer_incident` | Type, gravité (mineure à critique), description et heure non future requis ; rattachement à un voyage, un engin ou un site obligatoire ; coût estimé positif ou absent (plus de coût par défaut). Numéro `INC` attribué. |
-| Analyser | `analyser_incident` | Cause requise ; l'incident passe « en analyse ». |
+| Analyser | `analyser_incident` | Cause requise ; l'incident passe « en analyse ». Réviser une cause exige un motif ; chaque analyse est journalisée (D-072). |
 | Ajouter une action corrective | `ajouter_action_corrective` | Libellé, responsable et échéance requis. |
 | Solder une action | `solder_action_corrective` | Réalisée avec preuve et date non future, ou annulée avec motif. |
 | Clôturer | `cloturer_incident` | Cause analysée, aucune action ouverte, conclusion requise. |

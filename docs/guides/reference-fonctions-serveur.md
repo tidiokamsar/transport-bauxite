@@ -32,9 +32,11 @@ Conventions :
 | `site_permis(site)` | DEFINER | Compte actif sans site, ou site du compte égal au site donné |
 | `vehicule_permis(vehicule)`, `voyage_permis(voyage)` | DEFINER | Périmètre du site de l'engin ; du site de départ ou d'arrivée du voyage |
 | `bon_commande_permis(depot)`, `pneu_permis(vehicule, site)`, `incident_permis(voyage, vehicule, site)` | DEFINER | Périmètre du dépôt, du pneu, de l'incident |
-| `site_ferme_le(site, jour)` | DEFINER | Vrai si une fermeture du site entier couvre la journée |
-| `habilitations_manquantes(chauffeur, jour)` | DEFINER | Types d'habilitation exigés et non valides à la date |
-| `controle_depart_du_jour(vehicule, jour)` | DEFINER | Dernier contrôle avant départ du jour |
+| `site_ferme_le(site, jour)` | DEFINER interne (D-072) | Motif d'une fermeture du site entier qui couvre la journée ; lue par la garde du dispatch, non exécutable par les comptes |
+| `habilitations_manquantes(chauffeur, jour)` | DEFINER interne (D-072) | Types d'habilitation exigés et non valides à la date ; lue par les gardes du dispatch et des voyages |
+| `controle_depart_du_jour(vehicule, jour)` | DEFINER interne (D-072) | Dernier contrôle avant départ du jour |
+| `ordre_travail_permis(site, vehicule)` | DEFINER | Site de l'ordre ET engin dans le périmètre (D-072) |
+| `rapport_fige_lisible(type)` | DEFINER | Lecture d'un rapport figé : rapports et droit du domaine (loueur : contrats ; client : factures ou contrats ; shift : voyages ou planification) |
 | `validation_carburant_separee()` | DEFINER | Lit le réglage `carburant_validation_separee` (vrai si absent) |
 | `seuil_pneus(cle)` | DEFINER | Lit `pneu_profondeur_min_mm` ou `pneu_inspection_max_jours` |
 | `normaliser_position_pneu(texte)` | INVOKER | Normalise une position de pneu |
@@ -106,7 +108,7 @@ carburant W(fuel).
 | Fonction | Droit | Règle principale |
 |---|---|---|
 | `declarer_immobilisation(engin, debut, cause, imputation, description, reference_loueur)` | W(maintenance) | Description requise ; engin en flotte ; une seule ouverte par engin ; pas de chevauchement ; heure non future |
-| `cloturer_immobilisation(id, fin, note)` | W(maintenance) | Immobilisation ouverte ; fin après le début |
+| `cloturer_immobilisation(id, fin, note)` | W(maintenance) | Immobilisation ouverte ; fin après le début ; refusée si une intervention du loueur est en cours (clôture par `valider_remise_en_service`, D-072) |
 | `corriger_immobilisation(id, cause, imputation, debut, fin, motif)` | W(maintenance) | Motif obligatoire ; la fin se saisit par la clôture |
 | `annuler_immobilisation(id, motif)` | W(maintenance) | Motif obligatoire |
 | `heures_immobilisation(du, au)` | INVOKER | Heures par engin, imputation et cause, bornées à la période |
@@ -139,7 +141,7 @@ opération du pneu.
 |---|---|---|
 | `enregistrer_controle_depart(engin, points, chauffeur, voyage, date, km, note)` | W(trips) ou admin, périmètre de l'engin | Liste de points paramétrée ; réponse à chaque point actif ; observation si non conforme ; résultat calculé |
 | `declarer_incident(type, gravite, description, survenu_le, engin, chauffeur, voyage, site, lieu, cout_estime, controle)` | W(trips) ou admin, périmètre | Type, gravité, description, heure requis ; rattachement obligatoire ; numéro `INC` |
-| `analyser_incident(id, cause)` | W(trips) ou admin, périmètre, incident non clos | Cause requise |
+| `analyser_incident(id, cause, motif)` | W(trips) ou admin, périmètre, incident non clos | Cause requise ; motif pour réviser une cause ; journal `incidents_journal` (D-072) |
 | `ajouter_action_corrective(incident, libelle, responsable, echeance)` | idem | Libellé, responsable, échéance |
 | `solder_action_corrective(action, realisee, texte, date)` | idem | Preuve ou motif ; date non future |
 | `cloturer_incident(id, conclusion)` | idem | Cause analysée, aucune action ouverte, conclusion |
@@ -170,7 +172,7 @@ périmètre.
 | `mouvement_stock(article, type, quantite, depot_source, depot_destination, date, prix_unitaire, reference, engin, ordre_maintenance, note)` | W(stock), dépôts du périmètre | Types entrée, sortie, transfert, retour ; pas de sortie au-delà du disponible ; numéro `MVT` |
 | `inventorier_stock(article, depot, quantite_comptee, motif)` | W(stock), dépôt | Motif si écart ; ajustement égal à l'écart |
 | `annuler_mouvement_stock(mouvement, motif)` | W(stock), dépôts | Contre-mouvement ; mouvement issu d'une réception refusé |
-| `stock_disponible(article, depot)` | DEFINER | Quantité disponible d'un article dans un dépôt |
+| `stock_disponible(article, depot)` | DEFINER interne (D-072) | Quantité disponible d'un article dans un dépôt ; lecture par les comptes via `v_stock_depots` |
 
 ## Achats (D-053)
 
@@ -220,7 +222,7 @@ périmètre.
 | `enregistrer_execution_paiement(id, date, mode, montant, reference)` | W(invoices) ou admin | Paiement approuvé ; date non future et après l'approbation ; référence pour virement et chèque ; au plus l'approuvé |
 | `annuler_paiement(id, motif)` | W(invoices) ou admin | Avant exécution ; motif |
 | `controler_paiement(id, conforme, motif)` | A(invoices) ou admin | Paiement exécuté non contrôlé ; autre personne que proposant et exécutant ; anomalie motivée |
-| `reste_a_payer(facture, bon)` | DEFINER | Base moins avoirs et déductions, moins part réclamée, moins engagé et payé |
+| `reste_a_payer(facture, bon)` | DEFINER, lecture invoices ou contracts | Base (facture : moins le plus grand de la part réclamée et des avoirs et déductions ; bon : reçu et taxes au prorata du reçu), moins engagé et payé (D-072) |
 
 ## Analyses de flotte (D-030)
 

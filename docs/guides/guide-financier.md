@@ -164,9 +164,13 @@ exécutés hors système, saisis depuis les relevés bancaires.
 | Annuler | `annuler_paiement` | Droit d'écriture `invoices` | Avant exécution, motif requis. |
 | Contrôler a posteriori | `controler_paiement` | Droit d'approbation `invoices` | Paiement exécuté, non encore contrôlé ; par une autre personne que le proposant et l'exécutant ; anomalie motivée. |
 
-Reste à payer (`reste_a_payer`, vue `v_reste_a_payer`) : base, moins avoirs
-et déductions, moins la part réclamée si la facture est notifiée, moins les
-montants déjà engagés et payés. Vue `v_paiements_a_controler` pour le
+Reste à payer (`reste_a_payer`, vue `v_reste_a_payer`) : base, moins le plus
+grand des avoirs et déductions et de la part réclamée si la facture est
+notifiée (jamais les deux), ou, pour un bon, montant reçu plus les taxes au
+prorata du reçu ; moins les montants déjà engagés et payés (D-072).
+L'approbation et l'exécution d'un paiement revérifient que la pièce est encore
+payable et couvre le paiement ; une réception ne s'annule pas sous un montant
+déjà engagé ou payé. Vue `v_paiements_a_controler` pour le
 contrôle.
 
 Rôles ayant l'approbation `invoices` : administrateur, directeur,
