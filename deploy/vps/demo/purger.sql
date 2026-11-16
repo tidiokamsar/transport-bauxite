@@ -10,10 +10,15 @@
      rien : Postgres detache la ligne, qui est conservee.
   3. Lignes rattachees non etiquetees : elles ne sont supprimees que dans les
      tables operationnelles de la liste ci-dessous (voyages, evenements,
-     dispatch, fiches, postes, objectifs, releves, suivi, controles,
-     incidents). Une ligne non etiquetee de toute autre table (comptes,
-     profils, droits, referentiels, engins, contrats, argent, tickets CBG qui
-     sont des preuves immuables...) ARRETE la purge, qui la liste.
+     dispatch, fiches, postes, objectifs, suivi des positions, alertes). Une
+     ligne non etiquetee de toute autre table (comptes, profils, droits,
+     referentiels, engins, contrats, argent, releves kilometriques, pointages,
+     pesees, registres HSE, tickets CBG qui sont des preuves immuables...)
+     ARRETE la purge, qui la liste.
+  3 bis. Une colonne uuid sans cle etrangere (reference_id, entity_id...)
+     d'une ligne non marquee qui contient un identifiant `dec0de00-` arrete
+     aussi la purge (liste avec l'identifiant de la ligne). Les lignes qui
+     seront detachees (cle ON DELETE SET NULL) sont listees.
   4. Suppression par passes jusqu'a epuisement ; controle final : plus aucune
      valeur `dec0de00-` dans une colonne uuid de `public`.
 
@@ -36,17 +41,19 @@ CREATE TEMP TABLE purge_marque (t regclass, id text, etiquetee boolean, via text
 CREATE TEMP TABLE purge_blocage (t text, id text, via text) ON COMMIT DROP;
 CREATE TEMP TABLE purge_compte (t text, etiquetees bigint, rattachees bigint) ON COMMIT DROP;
 CREATE TEMP TABLE purge_operationnelles (t regclass PRIMARY KEY) ON COMMIT DROP;
+CREATE TEMP TABLE purge_detache (t text, id text, colonne text) ON COMMIT DROP;
 
 -- Tables ou une ligne non etiquetee rattachee a la demonstration peut etre
 -- supprimee (donnees d'usage creees sur la demonstration).
+-- Les pieces de facturation (releves kilometriques, pointages, pesees,
+-- distances) et les registres HSE (controles, incidents) n'y figurent pas :
+-- une telle ligne rattachee a la demonstration bloque la purge.
 INSERT INTO purge_operationnelles
 SELECT to_regclass('public.' || x) FROM unnest(ARRAY[
   'trips', 'trip_events', 'decisions_dispatch', 'dispatch_assignments', 'mission_requirements',
   'fiches_terrain', 'postes', 'postes_equipe', 'postes_evenements', 'objectifs_production',
-  'distances_voyage', 'releves_compteur', 'trip_waypoints', 'trip_route_tracking', 'vehicle_tracking',
-  'tracking_events', 'geofence_violations', 'geofence_alerts', 'pointages_engins', 'weighings',
-  'controles_depart', 'controles_depart_points', 'incidents', 'incidents_journal', 'actions_correctives',
-  'eco_driving_scores', 'alerts']) x
+  'trip_waypoints', 'trip_route_tracking', 'vehicle_tracking', 'tracking_events',
+  'geofence_violations', 'geofence_alerts', 'eco_driving_scores', 'alerts']) x
 WHERE to_regclass('public.' || x) IS NOT NULL;
 
 DO $$
@@ -106,20 +113,48 @@ BEGIN
   INSERT INTO purge_blocage
   SELECT m.t::text, m.id, m.via FROM purge_marque m
    WHERE NOT m.etiquetee AND m.t NOT IN (SELECT t FROM purge_operationnelles);
+
+  -- 3 bis. Colonnes uuid des lignes non marquees qui contiennent un
+  -- identifiant de demonstration : detachement (SET NULL) ou blocage.
+  FOR r IN
+    SELECT c.oid::regclass AS t, a.attname AS col,
+           EXISTS (SELECT 1 FROM pg_attribute i WHERE i.attrelid = c.oid AND i.attname = 'id' AND NOT i.attisdropped) AS a_id,
+           EXISTS (SELECT 1 FROM pg_constraint fk WHERE fk.conrelid = c.oid AND fk.contype = 'f' AND fk.confdeltype IN ('n', 'd')
+                      AND a.attnum = ANY (fk.conkey)) AS detachee
+      FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid
+     WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
+       AND a.atttypid = 'uuid'::regtype AND a.attnum > 0 AND NOT a.attisdropped AND a.attname <> 'id'
+  LOOP
+    IF r.a_id THEN
+      EXECUTE format(
+        'INSERT INTO %s SELECT %L, x.id::text, %L FROM %s x
+          WHERE x.%I::text LIKE ''dec0de00-%%''
+            AND NOT EXISTS (SELECT 1 FROM purge_marque m WHERE m.t = %L::regclass AND m.id = x.id::text)',
+        CASE WHEN r.detachee THEN 'purge_detache' ELSE 'purge_blocage' END,
+        r.t::text, CASE WHEN r.detachee THEN r.col ELSE 'colonne ' || r.col || ' sans cle etrangere' END,
+        r.t, r.col, r.t);
+    ELSE
+      EXECUTE format('SELECT count(*) FROM %s x WHERE x.%I::text LIKE ''dec0de00-%%''', r.t, r.col) INTO n;
+      IF n > 0 AND NOT r.detachee THEN
+        INSERT INTO purge_blocage VALUES (r.t::text, '(table sans colonne id : ' || n || ' ligne(s))', 'colonne ' || r.col);
+      END IF;
+    END IF;
+  END LOOP;
 END $$;
 
 \echo '=== Lignes marquees (etiquetees dec0de00 / rattachees non etiquetees)'
 SELECT m.t::text AS table_nom, count(*) FILTER (WHERE m.etiquetee) AS etiquetees, count(*) FILTER (WHERE NOT m.etiquetee) AS rattachees
   FROM purge_marque m GROUP BY m.t ORDER BY count(*) FILTER (WHERE NOT m.etiquetee) DESC, 1;
-\echo '=== Lignes rattachees non etiquetees qui seraient supprimees (20 par table au plus)'
-SELECT t::text AS table_nom, id, via AS par_la_cle FROM (
-  SELECT m.*, row_number() OVER (PARTITION BY m.t ORDER BY m.id) AS rang FROM purge_marque m
-   WHERE NOT m.etiquetee AND m.t IN (SELECT t FROM purge_operationnelles)) x
- WHERE rang <= 20 ORDER BY 1, 2;
+\echo '=== Lignes rattachees non etiquetees qui seraient supprimees (toutes)'
+SELECT m.t::text AS table_nom, m.id, m.via AS par_la_cle FROM purge_marque m
+ WHERE NOT m.etiquetee AND m.t IN (SELECT t FROM purge_operationnelles) ORDER BY 1, 2;
+\echo '=== Lignes conservees mais detachees (ON DELETE SET NULL : la reference est videe)'
+SELECT * FROM purge_detache ORDER BY 1, 2;
 SELECT count(*) AS total_rattachees FROM purge_marque WHERE NOT etiquetee \gset
 \echo '=== Blocages (la purge s''arrete si cette liste n''est pas vide)'
 SELECT * FROM purge_blocage ORDER BY 1, 2;
 SELECT count(*) AS nb_blocages FROM purge_blocage \gset
+SELECT 'CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=' || :total_rattachees || ' bash deploy/vps/demo/demo.sh purger' AS commande_purge \gset
 \echo 'Total des lignes rattachees non etiquetees :' :total_rattachees ' ; blocages :' :nb_blocages
 
 SELECT (:nb_blocages = 0) AS sans_blocage, (:'mode' = 'purger') AS valider,
@@ -186,6 +221,7 @@ SELECT coalesce(sum(etiquetees), 0) AS total_etiquetees, coalesce(sum(rattachees
   \echo 'PURGE VALIDEE'
   COMMIT;
 \else
-  \echo 'APERCU : rien n''est modifie (annulation). Pour purger : CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=' :total_rattachees ' demo.sh purger'
+  \echo 'APERCU : rien n''est modifie (annulation). Pour purger, depuis /opt/sigtb/depot/courant :'
+  \echo :commande_purge
   ROLLBACK;
 \endif

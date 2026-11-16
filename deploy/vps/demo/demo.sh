@@ -38,7 +38,7 @@ appliquer() { /opt/sigtb/outils/sauvegarder.sh >/dev/null; psql_admin -1 -f - < 
 # purger.sql gere lui-meme sa transaction (COMMIT ou ROLLBACK selon le mode)
 purge() { psql_admin -v mode="$1" -v attendu="${2:--1}" -f - < "$ICI/purger.sql"; }
 exiger_confirmation() {
-  [ "${CONFIRMER_PURGE:-}" = oui ] || { echo "Purge refusee : lancer d'abord 'apercu', puis CONFIRMER_PURGE=oui $0 $1" >&2; exit 3; }
+  [ "${CONFIRMER_PURGE:-}" = oui ] || { echo "Purge refusee : lancer d'abord '$0 apercu', puis la commande qu'il affiche (CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> $0 $1)" >&2; exit 3; }
 }
 
 case "${1:-}" in

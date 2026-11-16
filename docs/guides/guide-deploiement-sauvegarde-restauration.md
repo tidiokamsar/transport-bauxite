@@ -243,21 +243,28 @@ chaque opération) :
 | `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refusé s'il est déjà présent) et active le bandeau |
 | `bash deploy/vps/demo/demo.sh apercu` | Liste, table par table, ce qu'une purge supprimerait (lignes `dec0de00-` et lignes rattachées non étiquetées), sans rien modifier |
 | `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour ; refusé s'il existe des lignes rattachées non étiquetées |
-| `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et les <n> lignes rattachées listées par l'aperçu, retire le bandeau (sauvegarde avant) ; refusée en cas de blocage |
+| `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et les <n> lignes rattachées listées par l'aperçu (<n> = total affiché), retire le bandeau (sauvegarde avant) ; refusée en cas de blocage |
 | `bash deploy/vps/demo/demo.sh etat` | Nombre de lignes de démonstration par table |
 
 > **Purge de la démonstration (D-074, 2026-11-16).** La purge part des
 > lignes étiquetées `dec0de00-` et suit les clés étrangères. Les lignes non
 > étiquetées rattachées à la démonstration (voyages préparés par le dispatch
-> sur un chauffeur de démo, fiches, postes, objectifs de test) ne sont
-> supprimées que dans les tables opérationnelles ; toute autre ligne
-> rattachée (comptes, profils, droits, référentiels, engins, contrats,
-> argent, tickets CBG) **bloque** la purge, qui la liste. Procédure :
-> 1. `bash deploy/vps/demo/demo.sh apercu` : lire le tableau, la liste des
->    lignes rattachées (avec leurs identifiants) et la liste des blocages ;
-> 2. si des blocages apparaissent, décider de leur sort (les détacher de la
->    démonstration) puis relancer l'aperçu ;
-> 3. `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<total affiché> bash deploy/vps/demo/demo.sh purger`.
+> sur un chauffeur de démo, fiches, postes, objectifs de test, suivi des
+> positions, alertes) ne sont supprimées que dans ces tables opérationnelles ;
+> toute autre ligne rattachée (comptes, profils, droits, référentiels, engins,
+> contrats, argent, relevés kilométriques, pointages, pesées, registres HSE,
+> tickets CBG), ou une colonne sans clé étrangère qui contient un identifiant
+> de démonstration, **bloque** la purge, qui la liste. Les lignes reliées par
+> une clé ON DELETE SET NULL sont conservées et détachées ; l'aperçu les liste.
+> Procédure :
+> 1. `bash deploy/vps/demo/demo.sh apercu` : lire le tableau, la liste complète
+>    des lignes rattachées (avec leurs identifiants), les lignes détachées et
+>    les blocages ;
+> 2. s'il y a des blocages : chaque ligne bloquante est une donnée à examiner ;
+>    le script ne la modifie pas. La décision (rattacher la ligne à un élément
+>    réel, ou la supprimer) appartient au propriétaire, puis relancer l'aperçu ;
+> 3. lancer la commande affichée à la fin de l'aperçu
+>    (`CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<total> bash deploy/vps/demo/demo.sh purger`).
 >
 > `recharger` refuse dès qu'une ligne rattachée existe. Testé le 2026-11-16
 > sur une copie restaurée de la production : aperçu annulé sans effet ;
@@ -272,8 +279,8 @@ réelle rattachée à un élément de démonstration bloque la purge.
 
 ## Limites connues
 
-- Aucune procédure de restauration testée dans le dépôt : la section 5 est
-  à valider par un test de restauration.
+- Restauration : testée en conteneur jetable (`tester-restauration.sh`,
+  D-073), jamais exécutée sur la base de production elle-même.
 - Copie des sauvegardes hors du serveur non organisée : l'emplacement reste
   à fournir par le propriétaire (`SIGTB_2.0_HEBERGEMENT_VPS.md`, section
   8). Les sauvegardes ne sont pas chiffrées par le script, alors que
