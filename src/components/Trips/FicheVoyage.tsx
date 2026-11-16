@@ -5,6 +5,8 @@ import { Puce } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { AVEC_MOTIF, AVEC_PESEE, ETATS, PHASES, actionsPossibles, estEtat, phaseDe, tonnageVoyage, type Etat } from './cycle';
 import type { Voyage } from './types';
+import { IncidentVoyage } from './IncidentVoyage';
+import { VoyageSuivant } from './VoyageSuivant';
 
 // Fiche d'un voyage : chronologie des evenements (CDC 12, CDC 31) et
 // transitions possibles. L'heure saisie est l'heure reelle de l'evenement,
@@ -221,6 +223,9 @@ export const FicheVoyage = ({
             )}
           </section>
         )}
+
+        {peutEcrire && <VoyageSuivant voyage={voyage} onModifie={onModifie} />}
+        <IncidentVoyage voyage={voyage} peutEcrire={peutEcrire} libelles={libelles} />
 
         <section className="px-6 py-4">
           <h3 className="mb-3 text-sm font-semibold text-stone-700">Chronologie</h3>

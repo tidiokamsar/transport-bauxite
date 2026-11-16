@@ -101,7 +101,10 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Disponibilité engins (immobilisations bloquantes) | `Dispatch/*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Disponibilité et habilitation des chauffeurs | Dispatch (refus serveur) | `habilitations_manquantes`, garde `garde_habilitations` (D-051) | DÉPLOYÉ | P1 | - |
 | Fermeture des points de chargement, capacité et files des dépôts | Dispatch (refus serveur) | `site_ferme_le`, garde `garde_site_ferme` (D-047) | DÉPLOYÉ | P1 | Saturation : pas de donnée observée |
-| Affectation groupée, réaffectation directe, simulation, comparaison de scénarios, optimisation | - | - | MANQUANT | P2-P3 | Réaffectation directe après livraison : à vérifier dans le cycle (module 07) |
+| Affectation groupée, rapport par voyage (affecté ou refusé avec la raison) | `Dispatch/DispatchView` | `affecter_en_groupe` sur `decider_affectation` (D-066, branche d'intégration) | À TESTER | P2 | - |
+| Réaffectation directe après livraison, sans retour au parking | `Trips/VoyageSuivant`, `Trips/enchainement.ts` | `enchainer_voyage` (D-066, branche d'intégration) | À TESTER | P2 | - |
+| Simulation et comparaison de scénarios | `Dispatch/SimulationScenarios`, `Dispatch/simulation.ts` | `statistiques_trajets`, `durees_voyages` (D-066, branche d'intégration) ; rien n'est écrit | À TESTER | P2 | Seuils par défaut (3 rotations, 14 jours) choisis par l'écran, non enregistrés comme réglage |
+| Optimisation des affectations | - | - | MANQUANT | P3 | Extension à déclencheur (mandat V2, section 9) |
 
 ### 07. Voyages et rotations
 
@@ -111,9 +114,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fiches terrain imprimables, numéro de fiche au journal | `Fiches/*` | `fiches_terrain`, `preparer_fiche`, `saisir_*` (D-028) | DÉPLOYÉ | P1 | - |
 | Ticket CBG rattaché, rectification auditée | `Fiches/*`, `Trips/*` | D-037, migrations `20261113*` | DÉPLOYÉ | P1 | Import de tickets (module 14) |
 | Relevés kilométriques sur le parcours | `Trips/KilometrageView` | `releves_compteur`, `distances_voyage`, `distances_reference`, `valider_distance_voyage` (D-043) | DÉPLOYÉ | P0 | Saisie depuis la fiche papier ; à intégrer à la saisie de la fiche rotations |
-| Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels), `Incidents/IncidentsView` | `trip_events`, `incidents.trip_id` (D-054) | PARTIEL | P1 | Déclaration d'incident depuis la fiche voyage |
+| Annulation motivée, litiges, incidents de voyage | `Trips/*` (états exceptionnels), `Trips/IncidentVoyage` (fiche voyage), `Incidents/IncidentsView` | `trip_events`, `incidents.trip_id`, `declarer_incident` (D-054, D-072 R3-8) ; déclaration depuis la fiche voyage (D-066, branche d'intégration) | À TESTER | P1 | - |
 | Dossier numérique du voyage | - | - | MANQUANT | P2 | Après GED |
-| Rapports par camion, chauffeur, site, shift | partiel | - | PARTIEL | P2 | - |
+| Rapports par camion, chauffeur, site, shift | `Trips/RapportsVoyages`, `Trips/rapports.ts` | `rapport_voyages`, `durees_voyages` (D-066, branche d'intégration) | À TESTER | P2 | - |
 
 ### 08. Fleet management
 
@@ -135,7 +138,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Permis, qualifications, habilitations, formations, alertes d'expiration | `Drivers/HabilitationsView` | `habilitations_chauffeur`, `habilitations_requises`, `v_habilitations_a_renouveler` (D-051) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers |
 | Présences, disponibilités | `HR/AttendanceView` (employés) | `employee_attendance`, `v_presences`, `enregistrer_presence`, `annuler_presence` (D-061) | À TESTER | P1 | Disponibilités non traitées |
 | Performance, historique des missions | `Analyses/AnalysesFlotte` | `performance_chauffeurs` | DÉPLOYÉ | P2 | - |
-| Incidents, infractions | `Incidents/IncidentsView` | `incidents` rattachés au chauffeur (D-054) | PARTIEL | P2 | Infractions |
+| Incidents, infractions | `Incidents/IncidentsView`, `Drivers/InfractionsChauffeur` (fiche chauffeur) | `incidents` rattachés au chauffeur (D-054) ; `infractions_chauffeur`, `sanctions_infraction`, `enregistrer_infraction`, `annuler_infraction`, `decider_sanction`, `annuler_sanction` (D-066, branche d'intégration) | À TESTER | P2 | Séparation déclarant / décideur non exigée (dérogation à confirmer, D-066) ; listes de types fermées |
 
 ### 10. Gestion Neemba Guinée
 
@@ -291,12 +294,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 12 |
+| À TESTER | 18 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 22 |
+| PARTIEL | 19 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
 | MANQUANT | 13 |
-| **Total** | **120** |
+| **Total** | **123** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
