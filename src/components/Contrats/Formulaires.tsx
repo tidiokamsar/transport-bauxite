@@ -237,7 +237,65 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
   );
 };
 
-export const FormulaireTarif = ({ versionId, tarif, onFermer, onFait }: { versionId: string; tarif?: Tarif; onFermer: () => void; onFait: () => void }) => {
+/**
+ * Tarif en vigueur d'un contrat qui n'est plus brouillon (D-033, D-079) : il
+ * ne se modifie pas sur place. Le formulaire cree un avenant (fonction
+ * serveur) qui reprend toute la grille, le tarif portant le nouveau prix.
+ */
+const FormulaireTarifParAvenant = ({ tarif, dateEffetVersion, onFermer, onFait }: {
+  tarif: Tarif; dateEffetVersion: string; onFermer: () => void; onFait: () => void;
+}) => {
+  const [f, setF] = useState({
+    prix: tarif.prix?.toString() ?? '', libelle: tarif.libelle, conditions: tarif.conditions ?? '',
+    intitule: '', date_effet: '', resume: '',
+  });
+  const [erreur, setErreur] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const prix = nombre(f.prix);
+  const valider = async () => {
+    setEnCours(true);
+    setErreur('');
+    const { error } = await supabase.rpc('modifier_tarif_par_avenant', {
+      p_tarif: tarif.id, p_prix: prix, p_intitule: f.intitule.trim(), p_date_effet: f.date_effet,
+      p_libelle: f.libelle.trim(), p_conditions: f.conditions.trim(), p_resume: texte(f.resume),
+    });
+    setEnCours(false);
+    if (error) setErreur(`Avenant refusé : ${error.message}`);
+    else onFait();
+  };
+  return (
+    <Fenetre
+      titre="Modifier un tarif en vigueur par avenant"
+      onFermer={onFermer}
+      enCours={enCours}
+      valide={Boolean(prix !== null && !Number.isNaN(prix) && prix >= 0 && f.libelle.trim() && f.intitule.trim() && f.date_effet && f.date_effet > dateEffetVersion)}
+      erreur={erreur}
+      onValider={valider}
+    >
+      <p className="rounded-lg bg-amber-50 p-3 text-amber-900 sm:col-span-2">
+        Ce tarif est en vigueur sur un contrat actif : il ne se modifie pas sur place. L'enregistrement crée un avenant
+        (nouvelle version) qui reprend toute la grille, avec le nouveau prix pour ce tarif. La version actuelle reste intacte.
+      </p>
+      <Champ libelle="Nouveau prix unitaire *"><input inputMode="decimal" value={f.prix} onChange={(e) => setF({ ...f, prix: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Libellé *"><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Conditions" large><input value={f.conditions} onChange={(e) => setF({ ...f, conditions: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Intitulé de l'avenant *" large><input value={f.intitule} onChange={(e) => setF({ ...f, intitule: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle={`Date d'effet de l'avenant * (après le ${dateEffetVersion})`}><input type="date" value={f.date_effet} onChange={(e) => setF({ ...f, date_effet: e.target.value })} className={CHAMP} /></Champ>
+      <Champ libelle="Résumé des changements"><input value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} className={CHAMP} /></Champ>
+    </Fenetre>
+  );
+};
+
+export const FormulaireTarif = ({ versionId, tarif, parAvenant, onFermer, onFait }: {
+  versionId: string; tarif?: Tarif; parAvenant?: { dateEffetVersion: string }; onFermer: () => void; onFait: () => void;
+}) => {
+  if (tarif && parAvenant) {
+    return <FormulaireTarifParAvenant tarif={tarif} dateEffetVersion={parAvenant.dateEffetVersion} onFermer={onFermer} onFait={onFait} />;
+  }
+  return <FormulaireTarifDirect versionId={versionId} tarif={tarif} onFermer={onFermer} onFait={onFait} />;
+};
+
+const FormulaireTarifDirect = ({ versionId, tarif, onFermer, onFait }: { versionId: string; tarif?: Tarif; onFermer: () => void; onFait: () => void }) => {
   const [f, setF] = useState({
     libelle: tarif?.libelle ?? '',
     unite: tarif?.unite ?? '',

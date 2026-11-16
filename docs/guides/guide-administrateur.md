@@ -19,12 +19,13 @@ tous les comptes se créent depuis l'application.
 
 | Action | Fonctionnement réel |
 |---|---|
-| Créer un compte | La fonction serveur `admin-utilisateurs` vérifie que l'appelant est un administrateur actif, puis crée le compte (adresse e-mail valide, nom complet, rôle de la liste, mot de passe de 12 caractères minimum). Une adresse déjà utilisée est refusée. |
+| Créer un compte | La fonction serveur `admin-utilisateurs` vérifie que l'appelant est un administrateur actif, puis crée le compte (adresse e-mail valide, nom complet, rôle de la liste, mot de passe de 12 caractères minimum, **site d'affectation obligatoire**). Une adresse déjà utilisée est refusée. Si le site est refusé, le compte est annulé (D-079). |
 | Réinitialiser un mot de passe | Même fonction serveur, action « mot de passe », 12 caractères minimum. Aucun courriel n'est envoyé (pas de serveur SMTP configuré). |
-| Changer le rôle ou le statut | Réservé à un administrateur actif : un déclencheur refuse ce changement à tout autre compte. |
+| Changer le rôle | Réservé à un administrateur actif ; jamais sur son propre compte ; le dernier administrateur actif garde son rôle (D-079). |
+| Désactiver, réactiver | Boutons « Désactiver » / « Réactiver » de la liste : motif obligatoire, journalisé (`journal_comptes`). Refusé sur son propre compte et sur le dernier administrateur actif. Un compte n'est jamais supprimé (il est l'auteur de pièces). Le statut ne se change plus dans le formulaire du compte (D-079). |
 | Statut | Actif, Inactif, Suspendu. Un compte qui n'est pas actif perd tous ses droits côté serveur, même si son rôle en donne. |
-| Site d'affectation | « Tous les sites (compte global) » ou un site précis (voir section 5). |
-| Droits d'accès aux modules | Visible à la modification d'un compte existant (voir section 4). |
+| Site d'affectation | Un site actif, ou « Compte global » coché avec un **motif obligatoire** (journalisé). Écrit par la fonction `definir_site_compte`, jamais par une mise à jour directe (voir section 5). |
+| Droits d'accès aux modules | Visible à la modification d'un compte existant (voir section 4) ; motif obligatoire dès qu'un droit change. |
 
 Rôles proposés à la création (enum `user_role`) :
 
@@ -132,7 +133,8 @@ section « Droits d'accès aux modules » propose, module par module :
 Fonctionnement :
 
 - L'écriture passe par la fonction `definir_droit_module`, réservée à
-  l'administrateur ; seuls les modules modifiés sont envoyés.
+  l'administrateur ; seuls les modules modifiés sont envoyés, avec le
+  motif saisi (obligatoire à l'écran depuis D-079).
 - L'attribution prime sur la matrice dans `has_module_view` et
   `has_module_write`, avec effet immédiat sur toutes les règles serveur.
 - Chaque attribution, retrait ou retour au rôle est journalisé dans
@@ -206,8 +208,9 @@ Exigence pour les opérations sensibles (réglage `mfa_exige`) :
 | Référentiel | Écran | Qui écrit (règle serveur) |
 |---|---|---|
 | Organisations | Paramètres > Organisations | Administrateur seulement ; chaque site s'y rattache. |
-| Sites | Sites | Droit d'écriture `settings`. Un site se désactive, il ne se supprime pas (D-042). |
-| Infrastructures et fermetures de site | Exploitation > Infrastructures et fermetures | Droit d'écriture `settings` ou administrateur, dans le périmètre. Une fermeture ne se modifie ni ne se supprime ; une levée anticipée demande date et motif. |
+| Sites | Exploitation > Sites | Droit d'écriture `settings`. Un site se désactive, il ne se supprime pas (D-042). Coordonnées GPS facultatives (latitude et longitude ensemble, degrés décimaux) ; capacité de stockage en tonnes ; responsable choisi parmi les comptes actifs ; le stock d'un site ne se saisit pas (D-079). Une modification conserve tous les champs non modifiés. |
+| Infrastructures et fermetures de site | Exploitation > Infrastructures et fermetures | Droit d'écriture `settings` ou administrateur, dans le périmètre. Une fermeture ne se modifie ni ne se supprime ; une levée anticipée demande date et motif. L'auteur (création, déclaration, levée) est renseigné par le serveur (D-079). |
+| Dossier contractuel | Contrats & Finance > Dossier contractuel | Droit d'écriture `contracts`. Suppression seulement d'un élément jamais utilisé d'un contrat brouillon, avec motif ; un tarif en vigueur d'un contrat actif se modifie par avenant (bouton crayon : « par avenant ») ; un contrat actif ne repasse pas en brouillon (D-079). |
 | Fiche société (identité légale imprimée) | Paramètres > Général | Droit d'écriture `settings` ou administrateur. Les champs non fournis restent « à saisir ». |
 | Points de contrôle avant départ | RH & Sécurité > Contrôles avant départ | Administrateur seulement (libellé, catégorie, bloquant ou non, ordre, actif). |
 | Habilitations exigées pour être affecté | Flotte > Habilitations chauffeurs | Administrateur seulement. Sans type exigé, aucune contrainte. |

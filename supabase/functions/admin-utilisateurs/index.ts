@@ -11,6 +11,7 @@ const ROLES = [
 ] as const;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LONGUEUR_MOT_DE_PASSE = 12;
 
 const reponse = (statut: number, corps: Record<string, unknown>) =>
@@ -57,6 +58,15 @@ Deno.serve(async (req: Request) => {
     if (motDePasse.length < LONGUEUR_MOT_DE_PASSE) {
       return reponse(400, { erreur: `Mot de passe de ${LONGUEUR_MOT_DE_PASSE} caractères minimum` });
     }
+    // Perimetre du compte (D-079) : un site, ou le perimetre global par
+    // choix explicite et motive de l'administrateur. Jamais global par defaut.
+    const global = corps.global === true;
+    const site = texte(corps.site_id, 64);
+    const motifGlobal = texte(corps.motif_global, 500);
+    if (global && site) return reponse(400, { erreur: 'Choisir un site ou le périmètre global, pas les deux' });
+    if (!global && !UUID.test(site)) return reponse(400, { erreur: "Site d'affectation requis (ou périmètre global motivé)" });
+    if (global && !motifGlobal) return reponse(400, { erreur: 'Périmètre global : motif obligatoire' });
+    // L'existence et l'activite du site sont controlees par definir_site_compte.
 
     const { data: cree, error: erreurCreation } = await service.auth.admin.createUser({
       email,
@@ -81,6 +91,19 @@ Deno.serve(async (req: Request) => {
     if (erreurProfil) {
       await service.auth.admin.deleteUser(cree.user.id);
       return reponse(500, { erreur: 'Profil non enregistré, compte annulé' });
+    }
+    // Site ou perimetre global : ecrit par la fonction serveur avec le jeton
+    // de l'administrateur (controle, journal_comptes, auteur). En cas de
+    // refus, le compte est annule : jamais de compte global par defaut.
+    const { error: erreurPerimetre } = await appelant.rpc('definir_site_compte', {
+      p_utilisateur: cree.user.id,
+      p_site: global ? null : site,
+      p_motif: global ? motifGlobal : null,
+    });
+    if (erreurPerimetre) {
+      await service.from('profiles').delete().eq('id', cree.user.id);
+      await service.auth.admin.deleteUser(cree.user.id);
+      return reponse(400, { erreur: `Périmètre refusé, compte annulé : ${erreurPerimetre.message}` });
     }
     return reponse(201, { id: cree.user.id });
   }
