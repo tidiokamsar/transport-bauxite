@@ -10,6 +10,7 @@ import {
   type Chauffeur, type Engin, type Recommandation, type VoyageShift,
 } from './recommandation';
 import { FenetreDecision, type ModeDecision } from './FenetreDecision';
+import { SimulationScenarios } from './SimulationScenarios';
 
 // Dispatch v1 (etape 4 de la reprise, CDC 11, D-024). Le systeme recommande
 // selon des regles fixes et affichees ; le dispatcher accepte, modifie ou
@@ -56,6 +57,7 @@ const DECISIONS: Record<string, { libelle: string; teinte: 'vert' | 'orange' | '
 };
 
 type Ouverte = { mode: ModeDecision; recommandation: Recommandation; reference: string; raison?: string } | null;
+interface LigneRapport { trip_id: string | null; reference: string | null; resultat: 'affecte' | 'refuse'; raison: string | null }
 
 export const DispatchView = () => {
   const { hasPermission } = useAuth();
@@ -78,6 +80,8 @@ export const DispatchView = () => {
   const [destination, setDestination] = useState('');
   const [nombre, setNombre] = useState('');
   const [enCours, setEnCours] = useState(false);
+  const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -210,6 +214,26 @@ export const DispatchView = () => {
     charger();
   };
 
+  // Affectation groupee (D-066) : une operation, chaque voyage passe par
+  // decider_affectation dans son propre sous-bloc ; rapport par voyage.
+  const affecterEnGroupe = async (ids: string[]) => {
+    const affectations = ids.flatMap((id) => {
+      const r = recommandations.get(id);
+      return r && !r.impossible && r.camion && r.chauffeur
+        ? [{ voyage: id, camion: r.camion.id, chauffeur: r.chauffeur.id, engin: r.engin?.id ?? null, recommandation: instantane(r) }]
+        : [];
+    });
+    if (affectations.length === 0) return;
+    setEnCours(true);
+    setErreur('');
+    const { data, error } = await supabase.rpc('affecter_en_groupe', { p_affectations: affectations });
+    setEnCours(false);
+    if (error) setErreur(error.message);
+    else setRapport(Array.isArray(data) ? (data as LigneRapport[]) : []);
+    setSelection(new Set());
+    charger();
+  };
+
   const preparer = async () => {
     setEnCours(true);
     setErreur('');
@@ -225,6 +249,8 @@ export const DispatchView = () => {
     const r = recommandations.get(v.id);
     return r && !r.impossible && r.camion && r.chauffeur;
   });
+
+  const selectionnes = acceptables.filter((v) => selection.has(v.id));
 
   const ligneRecommandation = (r: Recommandation | undefined) => r && (
     r.impossible ? <span className="font-medium text-red-700">{r.impossible}</span> : (
@@ -303,9 +329,14 @@ export const DispatchView = () => {
       <Panneau
         titre={`Recommandations (${aAffecter.length})`}
         action={peutEcrire && acceptables.length > 0 && (
-          <button onClick={() => accepter(acceptables.map((v) => v.id))} disabled={enCours} className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
-            <Check className="h-4 w-4" /> Tout accepter ({acceptables.length})
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => affecterEnGroupe(selectionnes.map((v) => v.id))} disabled={enCours || selectionnes.length === 0} className="flex items-center gap-2 rounded-xl border border-green-600 bg-white px-4 py-2 text-sm font-bold text-green-700 disabled:opacity-50">
+              <Check className="h-4 w-4" /> Accepter la sélection ({selectionnes.length})
+            </button>
+            <button onClick={() => affecterEnGroupe(acceptables.map((v) => v.id))} disabled={enCours} className="flex items-center gap-2 rounded-xl bg-green-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <Check className="h-4 w-4" /> Tout accepter ({acceptables.length})
+            </button>
+          </div>
         )}
       >
         {voyages === null ? (
@@ -317,6 +348,7 @@ export const DispatchView = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-stone-200 text-left text-stone-500">
+                  {peutEcrire && <th className="w-8 py-2 pr-2 font-medium"><span className="sr-only">Sélection</span></th>}
                   <th className="py-2 pr-3 font-medium">Voyage</th>
                   <th className="py-2 pr-3 font-medium">Destination</th>
                   <th className="py-2 pr-3 font-medium">Recommandation et raisons</th>
@@ -328,6 +360,18 @@ export const DispatchView = () => {
                   const r = recommandations.get(v.id);
                   return (
                     <tr key={v.id} className="border-b border-stone-100 align-top last:border-0">
+                      {peutEcrire && (
+                        <td className="py-2.5 pr-2">
+                          {r && !r.impossible && r.camion && r.chauffeur && (
+                            <input type="checkbox" aria-label={`Sélectionner ${v.reference}`} checked={selection.has(v.id)}
+                              onChange={(e) => {
+                                const suite = new Set(selection);
+                                if (e.target.checked) suite.add(v.id); else suite.delete(v.id);
+                                setSelection(suite);
+                              }} />
+                          )}
+                        </td>
+                      )}
                       <td className="py-2.5 pr-3 font-semibold text-stone-900">{v.reference}</td>
                       <td className="py-2.5 pr-3 text-stone-700">{nomSite.get(v.arrival_site_id ?? '') ?? '—'}</td>
                       <td className="py-2.5 pr-3">{ligneRecommandation(r)}</td>
@@ -354,6 +398,23 @@ export const DispatchView = () => {
           </div>
         )}
       </Panneau>
+
+      {rapport && (
+        <Panneau titre="Rapport de l'affectation groupée" action={<button onClick={() => setRapport(null)} className="text-sm text-stone-500 hover:text-stone-800">Fermer</button>}>
+          <p className="mb-2 text-sm text-stone-600">
+            {rapport.filter((l) => l.resultat === 'affecte').length} voyage(s) affecté(s), {rapport.filter((l) => l.resultat === 'refuse').length} refusé(s) par le serveur. Un refus n'annule que son voyage.
+          </p>
+          <ul className="divide-y divide-stone-100 text-sm" aria-label="Rapport par voyage">
+            {rapport.map((l, i) => (
+              <li key={`${l.trip_id ?? 'x'}-${i}`} className="flex flex-wrap items-center gap-2 py-2">
+                <span className="font-semibold text-stone-900">{l.reference ?? 'Voyage inconnu'}</span>
+                <Puce teinte={l.resultat === 'affecte' ? 'vert' : 'rouge'}>{l.resultat === 'affecte' ? 'Affecté' : 'Refusé'}</Puce>
+                {l.raison && <span className="text-stone-600">{l.raison}</span>}
+              </li>
+            ))}
+          </ul>
+        </Panneau>
+      )}
 
       {aReaffecter.length > 0 && (
         <Panneau titre={`À réaffecter (${aReaffecter.length})`}>
@@ -402,6 +463,8 @@ export const DispatchView = () => {
         )}
       </Panneau>
       <Provenance source="voyages du shift, flotte et chauffeurs ; recommandation par règles fixes (camion le moins chargé, chauffeur habituel sur 14 jours, file de chargement la plus courte) ; décisions historisées" heure={heure} />
+
+      {site && <SimulationScenarios date={date} site={site} shift={shift} shifts={shifts} nomSite={nomSite} camionsDisponibles={camionsSite.length} />}
 
       {ouverte && (
         <FenetreDecision

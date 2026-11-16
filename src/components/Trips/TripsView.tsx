@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Plus, Search } from 'lucide-react';
+import { BarChart3, Download, Plus, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -10,6 +10,7 @@ import { ETATS, PHASES, estEtat, phaseDe, tonnageVoyage, type Phase } from './cy
 import { COLONNES_VOYAGE, type Voyage } from './types';
 import { FicheVoyage } from './FicheVoyage';
 import { NouveauVoyage, type Option } from './NouveauVoyage';
+import { RapportsVoyages } from './RapportsVoyages';
 
 // Voyages & Rotations (etape 2 de la reprise, CDC 12). Les voyages du jour
 // choisi, par phase du cycle ; chaque changement d'etat passe par la fiche
@@ -39,6 +40,7 @@ export const TripsView = () => {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [creation, setCreation] = useState(false);
+  const [rapports, setRapports] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -146,6 +148,9 @@ export const TripsView = () => {
           <button onClick={exporter} disabled={visibles.length === 0} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-stone-50 disabled:opacity-50">
             <Download className="h-4 w-4" /> Exporter
           </button>
+          <button onClick={() => setRapports(!rapports)} aria-pressed={rapports} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium shadow-sm ${rapports ? 'border-orange-400 bg-orange-50 text-orange-800' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
+            <BarChart3 className="h-4 w-4" /> Rapports par axe
+          </button>
           {peutEcrire && (
             <button onClick={() => setCreation(true)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
               <Plus className="h-4 w-4" /> Nouveau voyage
@@ -153,6 +158,8 @@ export const TripsView = () => {
           )}
         </div>
       </div>
+
+      {rapports && <RapportsVoyages />}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
         <button
