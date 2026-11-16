@@ -4,7 +4,8 @@ import { Check, Fuel, Plus, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatNombre } from '../Dashboard/indicateurs';
-import { Panneau, SansDonnees } from '../ui/Panneau';
+import { Panneau, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SITE } from '../ui/referentiels';
 
 interface Livraison {
   id: string; reference: string; date_livraison: string; site_id: string; site?: { name: string } | null;
@@ -25,6 +26,7 @@ export const LivraisonsCbgView = () => {
   const [livraisons, setLivraisons] = useState<Livraison[] | null>(null);
   const [factures, setFactures] = useState<Facture[] | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
+  const [aucunSite, setAucunSite] = useState(false);
   const [livraisonsFacturees, setLivraisonsFacturees] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<string[]>([]);
   const [date, setDate] = useState(aujourdhui);
@@ -51,6 +53,7 @@ export const LivraisonsCbgView = () => {
     setLivraisons((l.data ?? []) as unknown as Livraison[]);
     setFactures((f.data ?? []) as Facture[]);
     setSites((s.data ?? []) as Site[]);
+    setAucunSite(!s.error && (s.data ?? []).length === 0);
     setLivraisonsFacturees(new Set((r.data ?? []).map((x) => x.livraison_id)));
   }, []);
   useEffect(() => { charger(); }, [charger]);
@@ -59,6 +62,7 @@ export const LivraisonsCbgView = () => {
     return new Set((livraisons ?? []).map((x) => x.id).filter((id) => !livraisonsFacturees.has(id)));
   }, [livraisons, livraisonsFacturees]);
   const enregistrerLivraison = async () => {
+    if (!siteId) { setErreur('Choisissez le site de livraison.'); return; }
     setBusy(true); setErreur(''); setMessage('');
     const { error } = await supabase.rpc('enregistrer_livraison_cbg', {
       p_reference: reference.trim(), p_date: date, p_site_id: siteId,
@@ -99,6 +103,8 @@ export const LivraisonsCbgView = () => {
     </header>
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
     {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
+
+    {aucunSite && <ReferentielVide>{SANS_SITE} Chaque livraison CBG est rattachée au site livré.</ReferentielVide>}
 
     {peutEcrire && <Panneau titre="Enregistrer une livraison CBG">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

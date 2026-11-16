@@ -105,6 +105,10 @@ export const DefinirObjectif = ({
 
   const valider = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.site) {
+      setErreur(sites.length === 0 ? 'Aucun site enregistré : créez d\'abord le site de chargement (Exploitation → Sites).' : 'Choisissez le site de chargement.');
+      return;
+    }
     const tonnes = nombre(form.tonnes);
     if (tonnes === null || !(tonnes > 0)) {
       setErreur('Indiquez un objectif en tonnes supérieur à zéro.');

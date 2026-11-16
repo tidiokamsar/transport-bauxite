@@ -41,7 +41,13 @@ export const FinanceView = () => {
   const { hasPermission, profile } = useAuth();
   const estAdmin = profile?.role === 'admin';
   const peutBudget = hasPermission('costs', 'create') || hasPermission('costs', 'edit');
-  const [onglet, setOnglet] = useState<Onglet>('budgets');
+  // Onglets alignes sur les politiques de lecture (D-078) : budgets, depenses,
+  // dettes et export pour costs, invoices ou reports ; referentiels (plan
+  // comptable, natures, comptes de tiers) aussi pour contracts.
+  const lectureFinance = estAdmin || ['costs', 'invoices', 'reports'].some((m) => hasPermission(m, 'view'));
+  const ongletsVisibles: Onglet[] = lectureFinance ? (Object.keys(ONGLETS) as Onglet[]) : ['referentiels'];
+  const [ongletChoisi, setOnglet] = useState<Onglet>('budgets');
+  const onglet: Onglet = ongletsVisibles.includes(ongletChoisi) ? ongletChoisi : ongletsVisibles[0];
   const [suivi, setSuivi] = useState<Suivi[] | null>(null);
   const [natures, setNatures] = useState<Nature[]>([]);
   const [sites, setSites] = useState<Ref[]>([]);
@@ -149,7 +155,7 @@ export const FinanceView = () => {
         <p className="text-stone-500">Budget, engagé, réalisé et disponible ; dettes fournisseurs ; export des écritures de gestion</p>
       </div>
       <nav className="flex flex-wrap gap-2" aria-label="Onglets finance">
-        {(Object.keys(ONGLETS) as Onglet[]).map((o) => (
+        {ongletsVisibles.map((o) => (
           <button key={o} onClick={() => setOnglet(o)} aria-pressed={onglet === o}
             className={`rounded-xl px-3 py-1.5 text-sm font-semibold ${onglet === o ? 'bg-orange-600 text-white' : 'border border-stone-200 bg-white text-stone-700'}`}>{ONGLETS[o]}</button>
         ))}

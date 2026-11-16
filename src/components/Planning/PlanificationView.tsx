@@ -3,7 +3,8 @@ import { Plus, Target } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
-import { Panneau, Provenance, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SITE } from '../ui/referentiels';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { fenetreJournee, fenetreShift, suivre, totalJournee, type ShiftHoraire, type StatistiquesRotation } from './plan';
 import { CarteObjectif, type Realisation } from './CarteObjectif';
@@ -43,7 +44,7 @@ type Fenetre =
 
 export const PlanificationView = () => {
   const { hasPermission } = useAuth();
-  const { siteId, sites } = useSite();
+  const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('planning', 'create') || hasPermission('planning', 'edit');
   const [date, setDate] = useState(aujourdhui);
   const [objectifs, setObjectifs] = useState<Realisation[] | null>(null);
@@ -179,7 +180,7 @@ export const PlanificationView = () => {
             aria-label="Date du plan"
           />
           {peutEcrire && (
-            <button onClick={() => setFenetre({ type: 'definir' })} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
+            <button onClick={() => setFenetre({ type: 'definir' })} disabled={aucunSite} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow disabled:opacity-50">
               <Plus className="h-4 w-4" /> Définir un objectif
             </button>
           )}
@@ -217,6 +218,7 @@ export const PlanificationView = () => {
         ))}
       </nav>
 
+      {aucunSite && <ReferentielVide>{SANS_SITE} Un objectif de production se définit par date, site de chargement et shift.</ReferentielVide>}
       {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
       {onglet === 'simulation' && (

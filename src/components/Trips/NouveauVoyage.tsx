@@ -50,7 +50,11 @@ export const NouveauVoyage = ({
 
   const valider = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.origine && form.origine === form.destination) {
+    if (!form.origine || !form.destination) {
+      setErreur('Choisissez l\'origine et la destination du voyage.');
+      return;
+    }
+    if (form.origine === form.destination) {
       setErreur('L\'origine et la destination doivent être différentes.');
       return;
     }
@@ -133,8 +137,8 @@ export const NouveauVoyage = ({
             <textarea value={form.note} onChange={maj('note')} rows={2} className={champ} />
           </label>
           {sites.length === 0 && (
-            <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900 sm:col-span-2">
-              Aucun site enregistré : créez d'abord les sites (Exploitation, Sites).
+            <p role="status" className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900 sm:col-span-2">
+              Aucun site enregistré : créez d'abord les sites de chargement et de déchargement (Exploitation → Sites).
             </p>
           )}
           {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{erreur}</p>}

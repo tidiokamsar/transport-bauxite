@@ -3,7 +3,9 @@ import { Check, ListPlus, PenLine, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
+import { LienVue } from '../ui/LienVue';
 import { formatNombre } from '../Dashboard/indicateurs';
 import {
   A_AFFECTER, TYPES_ENGIN, camionDisponible, chauffeurDisponible, instantane, raisonReaffectation, recommander, voyagesAPreparer,
@@ -62,11 +64,12 @@ interface LigneRapport { trip_id: string | null; reference: string | null; resul
 
 export const DispatchView = () => {
   const { hasPermission } = useAuth();
-  const { siteId, sites } = useSite();
+  const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
   const [date, setDate] = useState(aujourdhui);
   const [site, setSite] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [aucunShift, setAucunShift] = useState(false);
   const [shift, setShift] = useState('');
   const [engins, setEngins] = useState<Engin[]>([]);
   const [chauffeurs, setChauffeurs] = useState<Chauffeur[]>([]);
@@ -96,6 +99,8 @@ export const DispatchView = () => {
     ]).then(([s, v, d, rS]) => {
       const liste = (s.data ?? []) as Shift[];
       setShifts(liste);
+      setAucunShift(!s.error && liste.length === 0);
+      if (s.error) setErreur('Shifts indisponibles : ' + s.error.message);
       setShift((x) => x || shiftCourant(liste)?.id || '');
       setEngins((v.data ?? []) as Engin[]);
       setChauffeurs((d.data ?? []) as Chauffeur[]);
@@ -111,7 +116,16 @@ export const DispatchView = () => {
   }, [siteId, sites, site]);
 
   const charger = useCallback(async () => {
-    if (!site || !shift) return;
+    // Sans site ou sans shift (referentiel vide) : aucune requete, liste vide
+    // explicite, jamais d'identifiant vide envoye au serveur.
+    if (!site || !shift) {
+      setVoyages([]);
+      setDecisions([]);
+      setHabitudes(new Map());
+      setObjectif(null);
+      setCharge(null);
+      return;
+    }
     const [rV, rH, rO, rS] = await Promise.all([
       supabase.from('trips').select('id, reference, etat, departure_site_id, arrival_site_id, vehicle_id, driver_id, loader_vehicle_id')
         .eq('planned_date', date).eq('departure_site_id', site).eq('shift_id', shift).order('reference'),
@@ -244,6 +258,10 @@ export const DispatchView = () => {
   };
 
   const preparer = async () => {
+    if (!site || !shift || !destination) {
+      setErreur('Choisissez le site de chargement, le shift et la destination avant de créer des voyages.');
+      return;
+    }
     setEnCours(true);
     setErreur('');
     const { error } = await supabase.rpc('preparer_voyages', {
@@ -280,10 +298,12 @@ export const DispatchView = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
-          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site de chargement" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" disabled={Boolean(siteId)}>
+          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site de chargement" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" disabled={Boolean(siteId) || sites.length === 0}>
+            {sites.length === 0 && <option value="">Aucun site</option>}
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" disabled={shifts.length === 0} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+            {shifts.length === 0 && <option value="">Aucun shift</option>}
             {shifts.map((s) => <option key={s.id} value={s.id}>Shift {s.display_name}</option>)}
           </select>
         </div>
@@ -304,10 +324,12 @@ export const DispatchView = () => {
         ))}
       </section>
 
+      {aucunSite && <ReferentielVide>{SANS_SITE} Le dispatch prépare ensuite les voyages de ce site.</ReferentielVide>}
+      {aucunShift && <ReferentielVide>{SANS_SHIFT} <LienVue vue="shifts">Ouvrir la gestion des shifts</LienVue></ReferentielVide>}
       {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
       {erreurSanctions && <p role="alert" className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{erreurSanctions}</p>}
 
-      {peutEcrire && (
+      {peutEcrire && site && shift && (
         <Panneau titre="Préparer le shift">
           <p className="mb-3 text-sm text-stone-600">
             {objectif
@@ -328,12 +350,15 @@ export const DispatchView = () => {
             </label>
             <button
               onClick={preparer}
-              disabled={enCours || !destination || !(Number(nombre) >= 1)}
+              disabled={enCours || !site || !shift || !destination || !(Number(nombre) >= 1)}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               <ListPlus className="h-4 w-4" /> Créer les voyages
             </button>
           </div>
+          {!sites.some((s) => s.id !== site) && (
+            <div className="mt-3"><ReferentielVide>Aucune destination enregistrée : créez le site de déchargement (Exploitation → Sites).</ReferentielVide></div>
+          )}
         </Panneau>
       )}
 

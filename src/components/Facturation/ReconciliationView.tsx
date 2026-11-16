@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Download, FileCheck2, Lock, Plus, RefreshCw, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 import { ANOMALIES, BASES, STATUTS_LIGNE, bornesMoisCalendaires, statutLigne, type BaseTonnage, type StatutLigne } from './facturation';
@@ -37,6 +37,7 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
   const { hasPermission } = useAuth();
   const peutEcrire = hasPermission('invoices', 'create') || hasPermission('invoices', 'edit');
   const [contrats, setContrats] = useState<Contrat[]>([]);
+  const [aucunContrat, setAucunContrat] = useState(false);
   const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
   const [liste, setListe] = useState<Reconciliation[] | null>(null);
   const [choisie, setChoisie] = useState<string | null>(null);
@@ -58,6 +59,7 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
       supabase.from('reconciliations').select('*').order('periode_debut', { ascending: false }),
     ]);
     setContrats((c.data ?? []) as Contrat[]);
+    setAucunContrat(!c.error && (c.data ?? []).length === 0);
     setSites((s.data ?? []) as { id: string; name: string }[]);
     const l = (r.data ?? []) as Reconciliation[];
     setListe(l);
@@ -155,6 +157,8 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
         )}
       </div>
       {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
+
+      {aucunContrat && <ReferentielVide>Aucun contrat client enregistré : saisissez le contrat CBG (Contrats & Finance → Dossier contractuel) avant d'ouvrir une réconciliation.</ReferentielVide>}
 
       {ouverture && (
         <Panneau titre="Nouvelle réconciliation">
@@ -288,8 +292,8 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
             <p id="rectification-titre" className="mb-3 text-sm text-stone-600">Voyage {rectification.reference}. Le ticket initial restera conservé dans l’historique.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               <label>Numéro du ticket *<input value={correction.ticket} onChange={(e) => setCorrection({ ...correction, ticket: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-              <label>Poids brut (kg) *<input inputMode="decimal" value={correction.brut} onChange={(e) => setCorrection({ ...correction, brut: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-              <label>Tare (kg) *<input inputMode="decimal" value={correction.tare} onChange={(e) => setCorrection({ ...correction, tare: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label>Poids brut (t) *<input inputMode="decimal" value={correction.brut} onChange={(e) => setCorrection({ ...correction, brut: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+              <label>Tare (t) *<input inputMode="decimal" value={correction.tare} onChange={(e) => setCorrection({ ...correction, tare: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label>Référence du document<input value={correction.documentRef} onChange={(e) => setCorrection({ ...correction, documentRef: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
               <label className="sm:col-span-2">Motif obligatoire *<textarea value={correction.motif} onChange={(e) => setCorrection({ ...correction, motif: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2" rows={2} /></label>
             </div>

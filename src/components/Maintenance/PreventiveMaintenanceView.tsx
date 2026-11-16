@@ -84,6 +84,9 @@ export const PreventiveMaintenanceView = () => {
     setMessage(succes); setChamps(null); await charger();
   };
   const enregistrer = () => {
+    // Intervalle en jours : entier (colonne integer, D-078).
+    const jours = nombre(c('jours'));
+    if (jours !== null && !Number.isInteger(jours)) { setErreur('Intervalle en jours : nombre entier attendu (sans décimales)'); return; }
     const valeurs = {
       vehicle_id: c('engin'), title: c('titre').trim(), maintenance_type: c('type'), description: c('description').trim() || null,
       interval_km: nombre(c('km')), interval_days: nombre(c('jours')), last_maintenance_km: nombre(c('dernierKm')),

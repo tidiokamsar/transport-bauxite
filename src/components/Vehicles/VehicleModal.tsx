@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useSite } from '../../contexts/SiteContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Vehicle, VehiculeDescriptif } from '../../types/vehicle';
 import { TYPES_VEHICULE } from './flotte';
 
@@ -15,6 +16,10 @@ const vide = (v: string) => (v.trim() === '' ? null : v.trim());
 
 export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; onClose: (modifie: boolean) => void }) => {
   const { sites } = useSite();
+  const { profile } = useAuth();
+  // Profil borne : l'engin est enregistre sur son site ; « engin global »
+  // n'est propose qu'a un profil global (D-038, D-078).
+  const siteProfil = profile?.site_id ?? null;
   const [f, setF] = useState({
     registration: vehicle?.registration ?? '',
     brand_model: vehicle?.brand_model ?? '',
@@ -22,7 +27,7 @@ export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; on
     capacity_tonnes: vehicle ? String(vehicle.capacity_tonnes) : '',
     year: vehicle?.year ? String(vehicle.year) : '',
     chassis_number: vehicle?.chassis_number ?? '',
-    site_id: vehicle?.site_id ?? '',
+    site_id: vehicle?.site_id ?? siteProfil ?? '',
     insurance_expiry: vehicle?.insurance_expiry ?? '',
     technical_inspection_expiry: vehicle?.technical_inspection_expiry ?? '',
   });
@@ -38,7 +43,7 @@ export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; on
     const corps: VehiculeDescriptif = {
       registration: f.registration.trim(), brand_model: f.brand_model.trim(), vehicle_type: f.vehicle_type,
       capacity_tonnes: capacite, year: f.year ? Number(f.year) : null, chassis_number: vide(f.chassis_number),
-      site_id: f.site_id || null, insurance_expiry: f.insurance_expiry || null,
+      site_id: siteProfil ?? (f.site_id || null), insurance_expiry: f.insurance_expiry || null,
       technical_inspection_expiry: f.technical_inspection_expiry || null,
     };
     setBusy(true);
@@ -66,8 +71,8 @@ export const VehicleModal = ({ vehicle, onClose }: { vehicle: Vehicle | null; on
           <label>Capacité (t) *<input inputMode="decimal" value={f.capacity_tonnes} onChange={(e) => poser('capacity_tonnes', e.target.value)} className={CHAMP} /></label>
           <label>Année<input inputMode="numeric" value={f.year} onChange={(e) => poser('year', e.target.value.replace(/\D/g, ''))} className={CHAMP} /></label>
           <label>Numéro de châssis<input value={f.chassis_number} onChange={(e) => poser('chassis_number', e.target.value)} className={CHAMP} /></label>
-          <label>Site d'affectation<select value={f.site_id} onChange={(e) => poser('site_id', e.target.value)} className={CHAMP}>
-            <option value="">Aucun (engin global)</option>{sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+          <label>Site d'affectation<select value={siteProfil ?? f.site_id} onChange={(e) => poser('site_id', e.target.value)} disabled={Boolean(siteProfil)} className={CHAMP}>
+            {!siteProfil && <option value="">Aucun (engin global)</option>}{sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
           <span />
           <label>Expiration assurance<input type="date" value={f.insurance_expiry} onChange={(e) => poser('insurance_expiry', e.target.value)} className={CHAMP} /></label>
           <label>Expiration visite technique<input type="date" value={f.technical_inspection_expiry} onChange={(e) => poser('technical_inspection_expiry', e.target.value)} className={CHAMP} /></label>
