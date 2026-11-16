@@ -458,6 +458,9 @@ CREATE TABLE IF NOT EXISTS public.plans_prevention (
   valide_au date NOT NULL,
   statut text NOT NULL DEFAULT 'brouillon' CHECK (statut IN ('brouillon', 'signe', 'remplace', 'annule')),
   redige_par uuid REFERENCES auth.users(id),
+  -- Toute personne ayant redige ou modifie le brouillon (contre-revue D-068) :
+  -- aucune d'elles ne le signe.
+  contributeurs uuid[] NOT NULL DEFAULT '{}',
   redige_le timestamptz NOT NULL DEFAULT now(),
   signe_par uuid REFERENCES auth.users(id),
   signe_le timestamptz,
@@ -801,6 +804,7 @@ BEGIN
     END IF;
     IF o.statut <> 'remis' THEN RAISE EXCEPTION 'Dotation remplacee deja close' USING ERRCODE = '22023'; END IF;
     IF o.type_epi <> p_type THEN RAISE EXCEPTION 'Le remplacement porte sur le meme type d''EPI' USING ERRCODE = '22023'; END IF;
+    IF o.site_id IS DISTINCT FROM p_site THEN RAISE EXCEPTION 'Le renouvellement se fait sur le site de la dotation remplacee' USING ERRCODE = '22023'; END IF;
   END IF;
   IF coalesce(p_driver, o.driver_id) IS NOT NULL THEN
     -- Chauffeur du perimetre (D-075) : son nom n'est lu qu'apres ce controle.
@@ -813,7 +817,9 @@ BEGIN
   IF coalesce(p_employee, o.employee_id) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = coalesce(p_employee, o.employee_id)) THEN
     RAISE EXCEPTION 'Employe introuvable' USING ERRCODE = '22023';
   END IF;
-  IF p_employee IS NOT NULL AND p_driver IS NULL THEN
+  -- Nom d'un employe : lu seulement avec le droit de lecture RH (contre-revue
+  -- D-068) ; sans ce droit, le beneficiaire est saisi.
+  IF p_employee IS NOT NULL AND p_driver IS NULL AND (public.is_admin() OR public.has_module_view('hr')) THEN
     SELECT e.full_name INTO v_nom FROM public.employees e WHERE e.id = p_employee;
   END IF;
   -- Beneficiaire : nom saisi, sinon celui de la personne designee pour ce
@@ -951,6 +957,8 @@ SELECT r.id, r.numero, r.site_id, v.version, v.danger, v.zone_activite, v.gravit
   JOIN LATERAL (SELECT * FROM public.risques_versions x WHERE x.risque_id = r.id ORDER BY x.version DESC LIMIT 1) v ON true;
 GRANT SELECT ON public.v_risques_courants TO authenticated;
 
+ALTER TABLE public.plans_prevention ADD COLUMN IF NOT EXISTS contributeurs uuid[] NOT NULL DEFAULT '{}';
+
 -- 3i. Plans de prevention
 CREATE OR REPLACE FUNCTION public.enregistrer_plan_prevention(
   p_plan uuid, p_site uuid, p_intervenant text, p_perimetre text, p_risques text, p_mesures text,
@@ -980,7 +988,8 @@ BEGIN
     UPDATE public.plans_prevention SET intervenant = public.texte_requis(p_intervenant, 'Intervenant'),
            perimetre = public.texte_requis(p_perimetre, 'Perimetre'), risques = public.texte_requis(p_risques, 'Risques'),
            mesures = public.texte_requis(p_mesures, 'Mesures'), valide_du = p_valide_du, valide_au = p_valide_au,
-           responsable_intervenant = nullif(btrim(coalesce(p_responsable_intervenant, '')), ''), fournisseur_id = p_fournisseur
+           responsable_intervenant = nullif(btrim(coalesce(p_responsable_intervenant, '')), ''), fournisseur_id = p_fournisseur,
+           contributeurs = CASE WHEN auth.uid() = ANY (p.contributeurs) THEN p.contributeurs ELSE p.contributeurs || auth.uid() END
      WHERE id = p.id;
     RETURN p.id;
   END IF;
@@ -1000,11 +1009,12 @@ BEGIN
     PERFORM public.exiger_ecriture_hse(p_site);
   END IF;
   INSERT INTO public.plans_prevention (numero, version, remplace_plan_id, site_id, intervenant, fournisseur_id, responsable_intervenant,
-                                       perimetre, risques, mesures, valide_du, valide_au, redige_par)
+                                       perimetre, risques, mesures, valide_du, valide_au, redige_par, contributeurs)
   VALUES (coalesce(o.numero, 'PDP-' || to_char(p_valide_du, 'YYYY') || '-' || lpad(nextval('public.plans_prevention_numero_seq')::text, 5, '0')),
           coalesce(o.version + 1, 1), o.id, coalesce(o.site_id, p_site), public.texte_requis(p_intervenant, 'Intervenant'), p_fournisseur,
           nullif(btrim(coalesce(p_responsable_intervenant, '')), ''), public.texte_requis(p_perimetre, 'Perimetre'),
-          public.texte_requis(p_risques, 'Risques'), public.texte_requis(p_mesures, 'Mesures'), p_valide_du, p_valide_au, auth.uid())
+          public.texte_requis(p_risques, 'Risques'), public.texte_requis(p_mesures, 'Mesures'), p_valide_du, p_valide_au, auth.uid(),
+          ARRAY[auth.uid()])
   RETURNING id INTO v_id;
   RETURN v_id;
 END;
@@ -1027,7 +1037,7 @@ BEGIN
     RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF p.statut <> 'brouillon' THEN RAISE EXCEPTION 'Plan deja signe ou clos' USING ERRCODE = '22023'; END IF;
-  IF p.redige_par IS NOT DISTINCT FROM auth.uid() THEN
+  IF p.redige_par IS NOT DISTINCT FROM auth.uid() OR auth.uid() = ANY (p.contributeurs) THEN
     RAISE EXCEPTION 'Le redacteur d''un plan ne le signe pas : signature par une autre personne habilitee' USING ERRCODE = '42501';
   END IF;
   IF p.valide_au < current_date THEN RAISE EXCEPTION 'Periode de validite depassee' USING ERRCODE = '22023'; END IF;
@@ -1176,7 +1186,7 @@ AS $$
   SELECT 'HSE', 'Plan de prévention à signer', p.numero || ' v' || p.version, p.intervenant || ' · ' || p.perimetre, p.redige_le, 'hse-prevention', p.id
     FROM public.plans_prevention p, moi
    WHERE p.statut = 'brouillon' AND p.valide_au >= current_date AND (public.has_module_approve('trips') OR moi.admin)
-     AND moi.id IS DISTINCT FROM p.redige_par
+     AND moi.id IS DISTINCT FROM p.redige_par AND NOT (moi.id = ANY (p.contributeurs))
   UNION ALL
   SELECT 'Contrats',
          CASE WHEN e.echu THEN 'Contrat échu : renouvellement ou clôture à décider'

@@ -21,7 +21,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(104);
+SELECT plan(109);
 
 CREATE FUNCTION pg_temp.actualiser() RETURNS void
 LANGUAGE sql SECURITY DEFINER AS $$
@@ -389,6 +389,42 @@ SELECT public.signer_plan_prevention((SELECT id FROM p2));
 SELECT is((SELECT string_agg(version || ':' || etat, ',' ORDER BY version) FROM public.v_plans_prevention WHERE numero = (SELECT numero FROM public.plans_prevention WHERE id = (SELECT id FROM p1))),
   '1:remplace,2:en_vigueur', 'nouvelle version signee : la precedente est remplacee');
 RESET ROLE;
+
+-- Contre-revue D-068, constat 1 : qui a modifie le brouillon d'un autre ne le signe pas.
+SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE p3 AS SELECT public.enregistrer_plan_prevention(NULL, '00000000-0000-4000-a680-0000000000a1', 'Sous-traitant', 'Aire de lavage',
+  'Glissade', 'Tapis', current_date, current_date + 30) AS id;
+RESET ROLE;
+GRANT SELECT ON p3 TO authenticated;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.enregistrer_plan_prevention((SELECT id FROM p3), NULL, 'Sous-traitant', 'Aire de lavage', 'Glissade', 'Tapis et balisage',
+  current_date, current_date + 30);
+SELECT is((SELECT count(*)::integer FROM public.mes_validations() WHERE objet_id = (SELECT id FROM p3)), 0,
+  'contre-revue 1 : plan modifie non propose a la signature de son modificateur');
+SELECT throws_ok($$SELECT public.signer_plan_prevention((SELECT id FROM p3))$$, '42501', NULL,
+  'contre-revue 1 : qui a modifie le brouillon ne le signe pas');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.signer_plan_prevention((SELECT id FROM p3))$$, 'contre-revue 1 : un tiers habilite signe');
+RESET ROLE;
+
+-- Contre-revue D-068, constat 2 : sans droit de lecture RH, le nom d'un employe n'est pas recopie.
+INSERT INTO public.employees (id, employee_number, first_name, last_name, "position", department)
+VALUES ('00000000-0000-4000-a680-0000000000e1', 'D068-E1', 'Aissatou', 'Diallo', 'Agent', 'Exploitation') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.droits_utilisateur (utilisateur, module, niveau) VALUES ('00000000-0000-4000-a680-000000000002', 'hr', 'aucun')
+ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', '', 'gants', 1, current_date,
+  p_employee => '00000000-0000-4000-a680-0000000000e1')$$, '22023', 'Beneficiaire requis',
+  'contre-revue 2 : sans droit RH, le beneficiaire doit etre saisi (nom de l''employe non lu)');
+SELECT lives_ok($$SELECT public.remettre_epi('00000000-0000-4000-a680-0000000000a1', 'Nom saisi', 'gants', 1, current_date,
+  p_employee => '00000000-0000-4000-a680-0000000000e1')$$, 'contre-revue 2 : beneficiaire saisi accepte');
+RESET ROLE;
+DELETE FROM public.droits_utilisateur WHERE utilisateur = '00000000-0000-4000-a680-000000000002' AND module = 'hr';
 
 -- 8. Inspections planifiees, constats et actions correctives
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
