@@ -97,6 +97,7 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     const ecritures = [...await capturer(page, 'affecter_en_groupe'), ...await capturer(page, 'decider_affectation')];
     await ouvrir(page, 'Dispatch', 'Dispatch');
     await expect.poll(() => stats.length).toBeGreaterThan(0);
+    expect(stats.every((s) => s.p_shift_id === SHIFT)).toBe(true);
     expect(stats[0]).toMatchObject({ p_site_id: SITE_MINE, p_shift_id: SHIFT, p_jours: 14 });
     const comparaison = page.getByRole('table', { name: 'Comparaison des scénarios' });
     const versDepot = comparaison.getByRole('row').filter({ hasText: 'Toutes les rotations vers Dépôt' }).first();

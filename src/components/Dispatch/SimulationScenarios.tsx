@@ -40,9 +40,11 @@ export const SimulationScenarios = ({
   useEffect(() => { setCamions(String(camionsDisponibles)); }, [camionsDisponibles]);
 
   const charger = useCallback(async () => {
-    if (!site) return;
+    // Horizon shift : attendre le shift, pour ne pas montrer les statistiques
+    // de toute la journee comme celles du shift.
+    if (!site || (horizon === 'shift' && !shift)) return;
     const [rS, rC] = await Promise.all([
-      supabase.rpc('statistiques_trajets', { p_site_id: site, p_shift_id: horizon === 'shift' ? shift || null : null, p_jusqua: date, p_jours: jours }),
+      supabase.rpc('statistiques_trajets', { p_site_id: site, p_shift_id: horizon === 'shift' ? shift : null, p_jusqua: date, p_jours: jours }),
       supabase.from('infrastructures_site').select('site_id, type, code, capacite, unite_capacite, actif'),
     ]);
     setErreur(rS.error ? `Statistiques indisponibles : ${rS.error.message}` : '');
