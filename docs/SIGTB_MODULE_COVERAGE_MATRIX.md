@@ -151,7 +151,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Immobilisations, imputation loueur | `Maintenance/Immobilisations*` | `immobilisations` (D-025) | DÉPLOYÉ | P1 | - |
 | Déclarations de panne, demandes d'intervention, techniciens, rapports, pièces, validation de remise en service | `Maintenance/InterventionsLoueurView` | `interventions_loueur`, `interventions_pieces`, `interventions_journal`, `v_interventions_loueur` (D-049) | DÉPLOYÉ | P1 | Délai contractuel à reprendre du contrat |
 | Contrôle des factures, écarts, réclamations, régularisations, avoirs | `Contrats/FacturesNeembaView` | `factures_fournisseur*`, `regularisations_fournisseur` (D-032, D-033) | DÉPLOYÉ | P1 | - |
-| Évaluation périodique de Neemba | `Contrats/EngagementsView` (rapport) | `rapports_performance` (D-031) | PARTIEL | P2 | Grille d'évaluation dédiée |
+| Évaluation périodique de Neemba | `Contrats/EvaluationLoueurView` (menu « Évaluation Neemba »), `Contrats/EngagementsView` (rapport) | `rapports_performance` (D-031) ; grille D-059 `grille = 'loueur'`, `definir_critere_loueur`, `mesures_loueur`, `evaluer_loueur`, `v_evaluations_loueur_courantes` (D-065, branche d'intégration) | À TESTER | P2 | Grille à saisir par l'administrateur ; mesures vides tant que `vehicles.contrat_id` n'est pas renseigné (D-062) |
 
 ### 11. Maintenance et fiabilité
 
@@ -227,7 +227,7 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Contrats clients, fournisseurs, location ; parties ; versions et avenants ; tarifs et unités | `Contrats/*` | D-026, D-033 | DÉPLOYÉ | P1 | - |
 | Engagements, conformité, rapport de performance | `Contrats/EngagementsView` | `contrat_engagements`, `comparer_engagements` (D-031) | DÉPLOYÉ | P1 | - |
 | Comités et actions | `Contrats/ComitesView` | `comites_contrat`, `comite_actions` | DÉPLOYÉ | P2 | - |
-| Pénalités, bonus, retenues, échéances, renouvellements, alertes | - | conséquence en texte libre | PARTIEL | P2 | Clauses chiffrées et alertes d'échéance |
+| Pénalités, bonus, retenues, échéances, renouvellements, alertes | `Contrats/ContratsView`, `Contrats/Formulaires` (clauses), `Contrats/ClausesCalculees` (engagements) | `contrat_clauses`, `calculs_clauses`, `definir_clause`, `calculer_clauses`, `decider_clause` (ligne de facture ou avoir par le circuit D-029, réglage `clauses_renonciation_separee`) ; `contrats_echeances`, `enregistrer_echeance_contrat`, `v_echeances_contrats`, réglage `contrats_alerte_echeance_jours` (D-065, branche d'intégration) | À TESTER | P2 | Valeurs des clauses à saisir depuis les contrats signés (D-065) |
 
 ### 20. Finance et facturation
 
@@ -237,9 +237,9 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Encaissements, créances, relances | `Facturation/RecouvrementView` | `encaissements`, `relances`, `v_creances` (D-031) | DÉPLOYÉ | P1 | - |
 | Factures Neemba, régularisations | `Contrats/FacturesNeembaView` | D-032, D-033 | DÉPLOYÉ | P1 | - |
 | Paiements exécutés et contrôle a posteriori | `Paiements/PaiementsView` | `paiements_fournisseur`, `reste_a_payer`, `proposer_paiement`, `decider_paiement`, `enregistrer_execution_paiement`, `controler_paiement`, `v_reste_a_payer`, `v_paiements_a_controler` (D-055) | DÉPLOYÉ | P1 | Pièces jointes après stockage de fichiers ; table héritée `payments` à retirer |
-| Dettes, budgets, engagements budgétaires | - | - | MANQUANT | P2 | - |
+| Dettes, budgets, engagements budgétaires | `Finance/FinanceView` (menu « Budgets et comptabilité ») | `natures_depense`, `imputations_budgetaires`, `budgets` (TTC), `definir_budget`, `annuler_budget`, `imputer_depense`, `v_depenses_budgetaires`, `v_suivi_budgets`, `v_dettes_fournisseurs` (D-065, branche d'intégration) | À TESTER | P2 | Bons en GNF par convention (D-055) ; coûts au montant saisi (HT ou TTC non précisé, D-058) |
 | Coûts directs, coût par tonne, rentabilité | `Costs/CostsView`, `Reports/ReportsView` (rapport mensuel), `Analyses` (`tco-analysis`) | `costs` (site, devise, statut), `enregistrer_cout`, `annuler_cout`, coût par tonne livrée dans `indicateurs_exploitation` (D-058) | DÉPLOYÉ | P2 | Rentabilité (factures CBG moins coûts, même devise) non calculée ; location Neemba hors coûts directs |
-| Export comptable, états de gestion | - | - | MANQUANT | P2 | - |
+| Export comptable, états de gestion | `Finance/FinanceView` (export CSV) | `plan_comptable`, `comptes_tiers`, `ecritures_gestion` (D-065, branche d'intégration) | À TESTER | P2 | Plan de comptes et comptes de tiers à saisir par l'administrateur ; pas d'écriture en partie double |
 
 ### 21. Reporting et BI
 
@@ -294,12 +294,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 18 |
+| À TESTER | 22 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 19 |
+| PARTIEL | 17 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
-| MANQUANT | 13 |
+| MANQUANT | 11 |
 | **Total** | **123** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
