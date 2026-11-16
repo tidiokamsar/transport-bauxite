@@ -132,6 +132,10 @@ tail -n 20 /var/log/sigtb-sauvegarde.log
 >
 > Un premier essai sur la sauvegarde prise juste avant un déploiement montrait une migration de moins, et donc moins de politiques et de fonctions. C'est le comportement attendu : `deployer` sauvegarde avant d'appliquer les migrations.
 
+> **Erratum du 2026-11-16 (D-073).** Le test du 2026-11-15 ne comparait que des comptages. La restauration simple qu'il utilisait rouvrait les fonctions internes : 289 fonctions exécutables par `anon` après restauration, contre 65 en production. Cause : l'image Supabase accorde par défaut à `anon`, `authenticated` et `service_role` tous les droits sur les objets créés dans `public`, et le dump n'enregistre pas les retraits de droits faits ensuite. La procédure ci-dessous passe désormais par `deploy/vps/restaurer.sh`, qui neutralise ces droits par défaut pendant la restauration puis les rétablit.
+>
+> **Test du 2026-11-16** (même sauvegarde `sigtb-20261115T224535Z.dump`, nouveau script) : 0 erreur `pg_restore`, 3 s ; 19 contrôles identiques à la production, dont 65 fonctions exécutables par `anon`, 240 par `authenticated`, et les empreintes des droits des fonctions, des tables et des droits par défaut. Les 7 erreurs « role supabase_functions_admin does not exist » ont disparu : la restauration est limitée aux schémas `public`, `auth` et `supabase_migrations`.
+
 Une restauration remet la base à l'état du dump : toute saisie postérieure
 est perdue. Elle exige l'autorisation explicite du propriétaire.
 
@@ -146,13 +150,18 @@ docker exec -i sigtb-db pg_restore --list < "$DUMP" > /dev/null && echo "dump li
 ### Étape 2 : test dans un conteneur jetable (sans effet sur la production)
 
 Script versionné `deploy/vps/tester-restauration.sh`, à lancer sur le serveur
-(`bash tester-restauration.sh`). Il restaure la dernière sauvegarde dans un
-conteneur de la même image, sans réseau, compare les comptages avec la
-production (lecture seule), puis détruit le conteneur. Pour tester une autre
-sauvegarde que la dernière, adapter la variable `DUMP` en tête du script.
+(`bash tester-restauration.sh [fichier.dump]`, la dernière sauvegarde par
+défaut). Il restaure la sauvegarde dans un conteneur de la même image, sans
+réseau, avec `restaurer.sh`, le script même de l'étape 3. Il compare ensuite
+avec la production (lecture seule) les comptages, le nombre de fonctions
+exécutables par `anon` et `authenticated`, les droits sur les tables et trois
+empreintes de droits, puis détruit le conteneur. Il se termine par
+« RESTAURATION IDENTIQUE » (code 0) ou par le nombre d'écarts (code 1).
 
-Consigner le résultat (erreurs éventuelles, comptages) avant de passer à
-l'étape 3.
+Consigner le résultat avant de passer à l'étape 3. Sur une sauvegarde
+antérieure au dernier déploiement, les écarts de migrations, de politiques,
+de fonctions et d'empreintes sont attendus : les noter, puis vérifier qu'ils
+disparaissent à l'étape 3.5.
 
 ### Étape 3 : restauration en production
 
@@ -164,10 +173,11 @@ l'étape 3.
 cd /opt/sigtb/pile
 docker compose stop api-gw functions rest auth
 
-# 3.3 Restaurer en une seule transaction : en cas d'erreur, rien n'est modifié
-docker exec -i sigtb-db pg_restore -U supabase_admin -d postgres \
-  --clean --if-exists --single-transaction --exit-on-error \
-  -n public -n auth -n supabase_migrations < "$DUMP"
+# 3.3 Restaurer en une seule transaction (en cas d'erreur, rien n'est modifié),
+#     droits conservés (D-073). Ne jamais lancer pg_restore directement : les
+#     fonctions internes redeviendraient exécutables par anon et authenticated.
+CONFIRMER_RESTAURATION_PRODUCTION=oui \
+  bash /opt/sigtb/depot/courant/deploy/vps/restaurer.sh sigtb-db "$DUMP"
 
 # 3.4 Redémarrer et faire relire le schéma à l'API
 docker compose start auth rest functions api-gw
@@ -183,6 +193,9 @@ bash /opt/sigtb/depot/courant/deploy/vps/appliquer-migrations.sh --tests
 - `/` répond 200, `/rest/v1/...` 401 sans clé ;
 - connexion d'un administrateur ;
 - comptages des tables principales cohérents avec ceux relevés à l'étape 2 ;
+- droits : `restaurer.sh` affiche l'empreinte des droits par défaut avant et
+  après, elle doit être identique ; le nombre de fonctions exécutables par
+  `anon` doit être celui relevé à l'étape 2 ;
 - consigner la restauration (fichier, heure, raison, résultat) dans le
   journal du serveur.
 
