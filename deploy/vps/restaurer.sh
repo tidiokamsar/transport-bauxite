@@ -61,11 +61,31 @@ FICHIER_RETOUR=/root/sigtb-droits-par-defaut-$(date -u +%Y%m%dT%H%M%SZ).sql
 printf '%s\n' "$RETOUR" > "$FICHIER_RETOUR" || { echo "ECHEC ecriture de $FICHIER_RETOUR"; exit 1; }
 echo "droits par defaut releves dans $FICHIER_RETOUR"
 
+# Sauvegarde anterieure a D-071 restauree sur une base posterieure : les
+# tables archivees (archive_bolt) ont des cles etrangeres vers public que le
+# dump ne connait pas, et pg_restore --clean ne pourrait pas supprimer les
+# tables de public. Elles sont remises dans public (reversible) ; la migration
+# D-071, reappliquee a l'etape 3.5 du guide, les archive a nouveau.
+archive_dump=$(docker exec -i "$CONTENEUR" pg_restore --list < "$DUMP" | grep -c ' TABLE archive_bolt ')
+archive_cible=$($PSQL -tA -c "select count(*) from pg_tables where schemaname = 'archive_bolt'")
+if [ "$archive_dump" -eq 0 ] && [ "$archive_cible" -gt 0 ]; then
+  echo "sauvegarde anterieure a D-071 : $archive_cible table(s) d'archive_bolt remises dans public avant la restauration"
+  $PSQL -c "DO \$\$ DECLARE t text; BEGIN FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'archive_bolt' LOOP
+              EXECUTE format('ALTER TABLE archive_bolt.%I SET SCHEMA public', t); END LOOP; END \$\$;" \
+    || { echo "ECHEC retour des tables archivees dans public"; exit 1; }
+  echo "en cas d'echec de la restauration, rearchiver par la migration 20261120120000 (appliquer-migrations.sh)"
+fi
+
 # 1. Neutralisation des droits par defaut du schema public (tous les
-#    beneficiaires autres que le role proprietaire)
+#    beneficiaires autres que le role proprietaire). Les CREATE SCHEMA
+#    ci-dessous sont hors de la transaction de restauration : en cas d'echec,
+#    un schema vide peut rester, sans effet.
 $PSQL <<'SQL' || { echo "ECHEC neutralisation : rejouer $FICHIER_RETOUR"; exit 1; }
--- schema absent d'une image vierge ; pg_restore -n ne le cree pas
+-- schemas absents d'une image vierge ; pg_restore -n ne les cree pas.
+-- archive_bolt (D-071) : des cles etrangeres de public y pointent.
 CREATE SCHEMA IF NOT EXISTS supabase_migrations;
+CREATE SCHEMA IF NOT EXISTS archive_bolt;
+REVOKE ALL ON SCHEMA archive_bolt FROM PUBLIC, anon, authenticated;
 DO $$
 DECLARE x record;
 BEGIN
@@ -84,7 +104,7 @@ SQL
 debut=$(date +%s)
 docker exec -i "$CONTENEUR" pg_restore -U supabase_admin $HOTE -d postgres \
   --clean --if-exists --single-transaction --exit-on-error \
-  -n public -n auth -n supabase_migrations < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
+  -n public -n auth -n supabase_migrations -n archive_bolt < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
 code=$?
 echo "pg_restore : code $code, $(grep -c 'error:' /tmp/sigtb-restauration.log) erreur(s), $(( $(date +%s) - debut )) s"
 grep 'error:' /tmp/sigtb-restauration.log | sort | uniq -c | sort -rn | head -5 | sed 's/^/    /'

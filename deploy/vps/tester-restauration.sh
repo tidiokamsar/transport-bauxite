@@ -32,6 +32,7 @@ REQ="select 'migrations', count(*)::text from supabase_migrations.schema_migrati
  union all select 'contrats', count(*)::text from public.contrats
  union all select 'factures', count(*)::text from public.factures
  union all select 'stock_movements', count(*)::text from public.stock_movements
+ union all select 'tables_archive_bolt', count(*)::text from pg_tables where schemaname = 'archive_bolt'
  union all select 'politiques_rls', count(*)::text from pg_policies where schemaname = 'public'
  union all select 'fonctions_public', count(*)::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'
  union all select 'fonctions_executables_anon', count(*) filter (where has_function_privilege('anon', p.oid, 'EXECUTE'))::text from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'
