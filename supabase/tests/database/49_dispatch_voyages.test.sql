@@ -173,8 +173,8 @@ SELECT throws_like($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n =
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000005');
 SET LOCAL ROLE authenticated;
-SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 3), NULL)$$, '22023', 'Chauffeur deja engage sur un autre voyage',
-  'compte borne : reference du voyage engageant hors perimetre non revelee');
+SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 3), NULL)$$, '42501', 'Camion, engin ou chauffeur hors de votre perimetre',
+  'compte borne : ressource hors perimetre, ni engagement ni reference revele (message unique D-075)');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
 SET LOCAL ROLE authenticated;

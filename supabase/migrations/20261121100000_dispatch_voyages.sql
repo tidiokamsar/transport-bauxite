@@ -249,6 +249,12 @@ BEGIN
   IF v.vehicle_id IS NULL OR v.driver_id IS NULL THEN
     RAISE EXCEPTION 'Voyage sans camion ou sans chauffeur' USING ERRCODE = '22023';
   END IF;
+  -- Ressources hors perimetre : message unique de D-075 avant toute lecture
+  -- de leur engagement (aucun oracle sur leur etat).
+  IF NOT public.vehicule_permis(v.vehicle_id)
+     OR NOT public.site_permis((SELECT d.site_id FROM public.drivers d WHERE d.id = v.driver_id)) THEN
+    RAISE EXCEPTION 'Camion, engin ou chauffeur hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
 
   -- Un seul enchainement a la fois par camion.
   PERFORM pg_advisory_xact_lock(hashtext('sigtb.enchainement.' || v.vehicle_id::text));
