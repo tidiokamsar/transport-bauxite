@@ -826,9 +826,10 @@ END $$;
 -- Etat : quantite q, quantite non valorisee qnv, valeur v des quantites
 -- valorisees (numeric, sans arrondi intermediaire) ; cmp = v / (q - qnv).
 --   entree avec prix : v += q x prix ; entree sans prix : qnv += q ;
---   retour, excedent d'inventaire, annulation d'une sortie : entree au cmp,
---     meme composition que le stock present (non valorisee si aucun stock
---     valorise) ;
+--   retour, excedent d'inventaire : entree au cmp, meme composition que le
+--     stock present (non valorisee si aucun stock valorise) ;
+--   annulation d'une sortie ou d'un manquant : reintegree au cmp et dans la
+--     composition memorises a la sortie d'origine (contre-revue R1) ;
 --   sortie, manquant d'inventaire, annulation d'un retour : sortie au cmp
 --     (v et qnv reduits en proportion) ; stock nul : remise a zero ;
 --   annulation d'une entree juste apres elle (aucun autre mouvement de
@@ -852,7 +853,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE e record; v_art uuid; v_dernier uuid; q numeric := 0; qnv numeric := 0; v numeric := 0; f numeric;
-        v_verif boolean := false; v_action text;
+        v_verif boolean := false; v_action text; v_memo jsonb := '{}'::jsonb; v_orig jsonb; v_cmp_o numeric; v_part_o numeric;
 BEGIN
   IF NOT (public.has_module_view('stock') OR public.is_admin()) THEN RETURN; END IF;
   FOR e IN
@@ -878,9 +879,10 @@ BEGIN
              WHEN s.movement_type = 'exit' OR s.movement_type = 'adjustment' THEN 'sortie_cmp'
              WHEN o.movement_type = 'entry' AND o.unit_price IS NOT NULL THEN 'retrait_prix'
              WHEN o.movement_type = 'entry' THEN 'retrait_sans_prix'
-             WHEN o.movement_type = 'exit' OR (o.movement_type = 'adjustment' AND o.quantity < 0) THEN 'entree_cmp'
+             WHEN o.movement_type = 'exit' OR (o.movement_type = 'adjustment' AND o.quantity < 0) THEN 'reprise_sortie'
              ELSE 'sortie_cmp'
            END AS action,
+           s.movement_type AS type_mvt,
            s.unit_price::numeric AS prix
       FROM public.stock_movements s
       LEFT JOIN public.stock_movements o ON o.id = s.annule_mouvement_id
@@ -896,7 +898,7 @@ BEGIN
         a_verifier := v_verif;
         RETURN NEXT;
       END IF;
-      v_art := e.art; q := 0; qnv := 0; v := 0; v_verif := false; v_dernier := NULL;
+      v_art := e.art; q := 0; qnv := 0; v := 0; v_verif := false; v_dernier := NULL; v_memo := '{}'::jsonb;
     END IF;
     -- Annulation d'une entree apres d'autres mouvements : sortie au cmp (C1).
     v_action := e.action;
@@ -904,7 +906,30 @@ BEGIN
       v_action := 'sortie_cmp';
       v_verif := true;
     END IF;
+    -- Sortie ou manquant d'inventaire : cout et composition du moment
+    -- memorises, pour reintegrer une annulation au cout de la sortie (R1).
+    IF v_action = 'sortie_cmp' AND e.type_mvt IN ('exit', 'adjustment') AND q > 0 THEN
+      v_memo := v_memo || jsonb_build_object(e.id::text,
+        jsonb_build_array(CASE WHEN q - qnv > 0 THEN v / (q - qnv) END, qnv / q));
+    END IF;
+    -- Annulation d'une sortie : reintegree au cout et dans la composition de
+    -- la sortie d'origine (contre-revue R1) ; origine inconnue : au cmp du
+    -- moment et « a verifier ».
+    IF v_action = 'reprise_sortie' THEN
+      v_orig := v_memo -> e.origine::text;
+      IF v_orig IS NULL THEN
+        v_action := 'entree_cmp';
+        v_verif := true;
+      ELSE
+        v_cmp_o := (v_orig ->> 0)::numeric;
+        v_part_o := (v_orig ->> 1)::numeric;
+        IF v_cmp_o IS NULL THEN qnv := qnv + abs(e.qte);
+        ELSE v := v + abs(e.qte) * (1 - v_part_o) * v_cmp_o; qnv := qnv + abs(e.qte) * v_part_o; END IF;
+        q := q + abs(e.qte);
+      END IF;
+    END IF;
     CASE v_action
+      WHEN 'reprise_sortie' THEN NULL;
       WHEN 'entree_prix' THEN v := v + e.qte * e.prix; q := q + e.qte;
       WHEN 'entree_sans_prix' THEN qnv := qnv + e.qte; q := q + e.qte;
       WHEN 'entree_cmp' THEN

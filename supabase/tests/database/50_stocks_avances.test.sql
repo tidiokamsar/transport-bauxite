@@ -19,7 +19,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(94);
+SELECT plan(95);
 
 -- Donnees de test (sans JWT : gardes inactives).
 INSERT INTO auth.users (id, email) VALUES
@@ -72,7 +72,8 @@ INSERT INTO public.stock_items (id, item_code, name, unit_of_measure, suivi) VAL
   ('00000000-0000-4000-d067-0000000000ed', 'TEST-C2-D067', 'C2 D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000ee', 'TEST-C3-D067', 'C3 D-067', 'piece', 'aucun'),
   ('00000000-0000-4000-d067-0000000000ef', 'TEST-C7-D067', 'C7 D-067', 'piece', 'aucun'),
-  ('00000000-0000-4000-d067-0000000000f0', 'TEST-RES-D067', 'Reservation D-067', 'piece', 'aucun');
+  ('00000000-0000-4000-d067-0000000000f0', 'TEST-RES-D067', 'Reservation D-067', 'piece', 'aucun'),
+  ('00000000-0000-4000-d067-0000000000f2', 'TEST-R1-D067', 'R1 D-067', 'piece', 'aucun');
 DELETE FROM public.settings WHERE key IN ('pneu_reforme_precoce_km', 'achats_validation_separee');
 INSERT INTO public.settings (key, value, category) VALUES ('pneu_reforme_precoce_km', '{"value": "10000"}', 'pneus');
 SELECT throws_ok($$INSERT INTO public.settings (key, value) VALUES ('pneu_reforme_precoce_km', '{"value": "abc"}')
@@ -452,6 +453,14 @@ SELECT public.annuler_mouvement_stock((SELECT id FROM c1d), 'Doublon');
 SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
             WHERE stock_item_id = '00000000-0000-4000-d067-0000000000ec'),
   'complete 10 100.00 1000', 'C1 : entree annulee juste apres elle : retrait exact a son prix, complete');
+-- R1 (contre-revue) : sortie annulee apres d'autres mouvements.
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f2', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 100);
+CREATE TEMP TABLE r1 AS SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f2', 'exit', 10, '00000000-0000-4000-d067-0000000000c1') AS id;
+SELECT public.mouvement_stock('00000000-0000-4000-d067-0000000000f2', 'entry', 10, NULL, '00000000-0000-4000-d067-0000000000c1', now(), 500);
+SELECT public.annuler_mouvement_stock((SELECT id FROM r1), 'Sortie saisie par erreur');
+SELECT is((SELECT statut || ' ' || quantite || ' ' || cmp || ' ' || valeur FROM public.v_valorisation_articles
+            WHERE stock_item_id = '00000000-0000-4000-d067-0000000000f2'),
+  'complete 20 300.00 6000', 'R1 : 10 a 100, sortie 10, 10 a 500, annulation de la sortie : reintegree a 100, 6000 pour 6000 d''achats');
 RESET ROLE;
 
 -- C2 : ordre d'enregistrement (enregistre_le), pas created_at (debut de transaction).

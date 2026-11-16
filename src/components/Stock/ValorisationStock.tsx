@@ -66,6 +66,6 @@ export const ValorisationStock = ({ version, article, depot }: { version: number
             {x.statut === 'partielle' && x.quantite_non_valorisee !== null && <span className="block text-xs text-stone-500">{x.quantite_non_valorisee} unité(s) sans prix, réparties au prorata des quantités entre dépôts, non valorisée(s)</span>}</td>
         </tr>)}</tbody></table></div>}
     </>}
-    <Provenance source="registre des mouvements, entrées valorisées au prix saisi ou de réception ; coût moyen de l'article tous dépôts, dans l'ordre d'enregistrement, recalculé par le serveur ; part sans prix répartie au prorata des quantités ; retours et annulations au coût moyen du moment ; GNF, stock à date" heure={heure} />
+    <Provenance source="registre des mouvements, entrées valorisées au prix saisi ou de réception ; coût moyen de l'article tous dépôts, dans l'ordre d'enregistrement, recalculé par le serveur ; part sans prix répartie au prorata des quantités ; retours au coût moyen du moment, sortie annulée au coût de la sortie ; GNF, stock à date" heure={heure} />
   </Panneau>;
 };

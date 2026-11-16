@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import {
-  ETATS_PNEU, LIBELLES_ACTION, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
+  ETATS_PNEU, LIBELLES_ACTION, MOTIF_ANNULATION_RECEPTION, etatAffiche, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
   type ActionPneu, type EtatPneu,
 } from './pneus';
 import { PerformancePneus } from './PerformancePneus';
@@ -38,6 +38,7 @@ export const PneusView = () => {
   const estAdmin = profile?.role === 'admin';
   const peutEcrire = estAdmin || hasPermission('vehicles', 'edit') || hasPermission('maintenance', 'edit');
   const [pneus, setPneus] = useState<Pneu[] | null>(null);
+  const [annulesReception, setAnnulesReception] = useState<Set<string>>(new Set());
   const [alertes, setAlertes] = useState<Alerte[]>([]);
   const [engins, setEngins] = useState<Lib[]>([]);
   const [sites, setSites] = useState<Lib[]>([]);
@@ -54,14 +55,18 @@ export const PneusView = () => {
   const [busy, setBusy] = useState(false);
 
   const charger = useCallback(async () => {
-    const [p, a, v, s, f] = await Promise.all([
+    const [p, a, v, s, f, ar] = await Promise.all([
       supabase.from('v_pneus').select('*').order('tire_number'),
       supabase.from('v_pneus_a_surveiller').select('id, tire_number, motif, derniere_profondeur_mm, last_inspection_date, installation_date'),
       supabase.from('vehicles').select('id, registration').order('registration'),
       supabase.from('sites').select('id, name').order('name'),
       supabase.from('suppliers').select('id, company_name').order('company_name'),
+      supabase.from('pneus_operations').select('tire_id, type, motif').eq('type', 'annulation').like('motif', `${MOTIF_ANNULATION_RECEPTION}%`),
     ]);
-    setErreur(p.error?.message ?? a.error?.message ?? '');
+    setErreur(p.error?.message ?? a.error?.message ?? ar.error?.message ?? '');
+    setAnnulesReception(new Set((ar.data ?? [])
+      .filter((x) => x.type === 'annulation' && String(x.motif ?? '').startsWith(MOTIF_ANNULATION_RECEPTION))
+      .map((x) => x.tire_id as string)));
     setPneus((p.data ?? []) as Pneu[]);
     setAlertes((a.data ?? []) as Alerte[]);
     setEngins((v.data ?? []).map((x) => ({ id: x.id as string, libelle: x.registration as string })));
@@ -256,7 +261,7 @@ export const PneusView = () => {
           <th className="py-2 pr-3">Coût au km</th><th className="py-2 pr-3">Profondeur</th><th className="py-2 pr-3">Rechapages</th><th /></tr></thead>
           <tbody>{liste.map((p) => <tr key={p.id} className="border-b border-stone-100 align-top">
             <td className="py-2 pr-3"><b>{p.tire_number}</b><span className="block text-xs text-stone-500">{p.brand} {p.model}{p.dimension ? ` · ${p.dimension}` : ''}</span></td>
-            <td className="py-2 pr-3"><Puce teinte={ETATS_PNEU[p.status].teinte}>{ETATS_PNEU[p.status].texte}</Puce></td>
+            <td className="py-2 pr-3">{(() => { const e = etatAffiche(p.status, annulesReception.has(p.id)); return <Puce teinte={e.teinte}>{e.texte}</Puce>; })()}</td>
             <td className="py-2 pr-3">{emplacement(p)}</td>
             <td className="py-2 pr-3">{texteKm(p.km_parcourus, p.km_incomplet, p.nb_montages)}</td>
             <td className="py-2 pr-3">{texteCoutKm(p.cout_km)}</td>

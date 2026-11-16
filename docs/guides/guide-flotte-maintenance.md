@@ -106,7 +106,8 @@ pneus n'a que son entrée : l'entrée est annulée avec motif (journal), le pneu
 passe à l'état réformé et son numéro est suffixé `-ANNULE-REC-…` (le numéro
 saisi redevient libre) ; dès qu'un pneu a été monté ou mouvementé,
 l'annulation est refusée avec la liste des pneus (dérogation à D-052, à
-confirmer par le propriétaire).
+confirmer par le propriétaire). L'écran Pneus affiche un tel pneu
+« Annulé (réception) ».
 
 **Performance par marque et modèle (D-067).** Panneau Performance,
 `v_pneus_performance` : sur les seuls pneus réformés aux mesures complètes

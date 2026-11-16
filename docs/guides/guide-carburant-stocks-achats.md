@@ -162,8 +162,8 @@ dépôt.
   (D-044). Coût moyen pondéré depuis D-067 : calculé dans l'ordre
   d'enregistrement (une entrée saisie après coup avec une date ancienne
   n'est pas replacée à sa date) ; part non valorisée répartie entre dépôts
-  au prorata des quantités ; annulation d'une sortie réintégrée au coût
-  moyen du moment ; recalcul complet à chaque lecture.
+  au prorata des quantités ; une sortie annulée est réintégrée au coût de la
+  sortie d'origine ; recalcul complet à chaque lecture.
 - Réception de pneus : annulable seulement tant que ses pneus n'ont que
   leur entrée ; un pneu annulé garde l'état réformé (pas d'état dédié) ;
   pas de référentiel des modèles de pneus (marque et modèle saisis sur la

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionsPossibles, normaliserPosition, texteCoutKm, texteKm, texteMesure } from './pneus';
+import { actionsPossibles, etatAffiche, normaliserPosition, texteCoutKm, texteKm, texteMesure } from './pneus';
 
 describe('pneus (D-052)', () => {
   it('normalise la position comme le serveur', () => {
@@ -23,5 +23,9 @@ describe('pneus (D-052)', () => {
   it('performance par modele (D-067) : mesure absente = sans donnees', () => {
     expect(texteMesure(null, 'km')).toBe('Sans données');
     expect(texteMesure(27500, 'km')).toMatch(/27\s500 km/);
+  });
+  it("pneu annule a la reception (D-067) : distingue d'une reforme", () => {
+    expect(etatAffiche('retired', true).texte).toBe('Annulé (réception)');
+    expect(etatAffiche('retired', false).texte).toBe('Réformé');
   });
 });
