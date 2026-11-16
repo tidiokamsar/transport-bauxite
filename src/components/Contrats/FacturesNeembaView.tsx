@@ -102,20 +102,21 @@ export const FacturesNeembaView = () => {
     if (!c || !entete.numero.trim() || !entete.date || !entete.debut || !entete.fin || ht === null) { setMessage({ ok: false, texte: 'En-tête incomplet : contrat, numéro, date, période et montant HT requis' }); return; }
     const remplies = lignesSaisie.filter((l) => l.vehicule || l.libelle.trim());
     if (remplies.length === 0 || remplies.some((l) => nombre(l.montant) === null)) { setMessage({ ok: false, texte: 'Chaque ligne demande un engin ou un libellé, et son montant' }); return; }
-    const id = crypto.randomUUID();
-    const { error } = await supabase.from('factures_fournisseur').insert({
-      id, contrat_id: c.id, numero_fournisseur: entete.numero.trim(), date_facture: entete.date,
-      periode_debut: entete.debut, periode_fin: entete.fin, devise: c.devise, montant_ht_facture: ht,
+    // En-tete et lignes en une seule transaction serveur (D-078) : une ligne
+    // refusee annule toute la facture, aucune facture orpheline.
+    const { data, error } = await supabase.rpc('saisir_facture_fournisseur', {
+      p_contrat_id: c.id, p_numero: entete.numero.trim(), p_date: entete.date,
+      p_debut: entete.debut, p_fin: entete.fin, p_montant_ht: ht,
+      p_lignes: remplies.map((l) => ({
+        vehicle_id: l.vehicule || null, libelle: l.libelle.trim() || immat.get(l.vehicule) || 'Ligne',
+        categorie_materiel: l.categorie || null, quantite_facturee: nombre(l.quantite), unite_facturee: l.quantite.trim() === '' ? null : l.unite,
+        taux_facture: nombre(l.taux), montant_facture: nombre(l.montant),
+      })),
     });
     if (error) { setMessage({ ok: false, texte: error.code === '23505' ? 'Ce numéro de facture existe déjà pour ce contrat' : error.message }); return; }
-    const { error: e2 } = await supabase.from('factures_fournisseur_lignes').insert(remplies.map((l) => ({
-      facture_id: id, vehicle_id: l.vehicule || null, libelle: l.libelle.trim() || immat.get(l.vehicule) || 'Ligne',
-      categorie_materiel: l.categorie || null, quantite_facturee: nombre(l.quantite), unite_facturee: l.quantite.trim() === '' ? null : l.unite,
-      taux_facture: nombre(l.taux), montant_facture: nombre(l.montant),
-    })));
-    setMessage(e2 ? { ok: false, texte: `Facture créée, lignes refusées : ${e2.message}` } : { ok: true, texte: 'Facture saisie : lancez le contrôle' });
+    setMessage({ ok: true, texte: 'Facture saisie : lancez le contrôle' });
     setSaisie(false);
-    setChoisie(id);
+    setChoisie(data as string);
     charger();
   };
   const appeler = async (fonction: string, parametres: Record<string, unknown>, succes: string) => {

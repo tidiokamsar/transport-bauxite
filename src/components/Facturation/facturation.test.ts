@@ -10,6 +10,10 @@ describe('facturation', () => {
     expect(statutLigne(null, ['sans_double_pesee'])).toBe('a_examiner');
     expect(statutLigne('exclue', ['litige'])).toBe('exclue');
     expect(statutLigne('facturable', ['ecart_hors_tolerance'])).toBe('facturable');
+    // D-078 : sans ticket, ticket rectifie et net au-dessus de la capacite attendent une decision.
+    expect(statutLigne(null, ['sans_ticket_cbg'])).toBe('a_examiner');
+    expect(statutLigne(null, ['ticket_rectifie'])).toBe('a_examiner');
+    expect(statutLigne(null, ['net_superieur_capacite'])).toBe('a_examiner');
   });
 
   it('bornes d\'un mois, fevrier bissextile compris', () => {

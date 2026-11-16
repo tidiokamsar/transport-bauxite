@@ -116,3 +116,10 @@ reste absente et le responsable décide.
   refaite. L'indicateur hors ligne et la file `src/lib/offline.ts`,
   hérités de Bolt, ne sont pas utilisés par ces écrans.
 - Les messages du serveur sont affichés tels quels, sans accents.
+
+## Ticket CBG et pesee a l'arrivee (D-078)
+
+- La fiche de rotations est preparee au site de chargement et suit le camion : le ticket CBG emis au depot d'arrivee se saisit sur cette fiche (colonnes Ticket CBG, Brut (t), Tare (t)).
+- Brut et tare se saisissent en **tonnes**, comme sur le ticket et le releve CBG. Un net superieur a la capacite du camion (saisie en kg par exemple) est signale en reconciliation.
+- La pesee a l'arrivee n'existe pas sans ticket CBG : sans numero de ticket, la ligne n'enregistre pas la pesee.
+- Ticket remis apres la livraison : fiche du voyage > « Rattacher le ticket CBG », avec le motif du retard. Sans ticket, le voyage n'est pas facturable.

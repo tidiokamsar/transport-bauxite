@@ -30,6 +30,9 @@ interface Lib { id: string; libelle: string }
 const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
 const num = (v: string) => (v.trim() === '' ? undefined : Number(v.replace(',', '.')));
 const texte = (v: string) => (v.trim() === '' ? undefined : v.trim());
+// Montants en GNF et nombre de rechapages : entiers (colonnes bigint et
+// integer, D-078) ; une decimale est refusee avec un message, jamais arrondie.
+const ENTIERS: Record<string, string> = { p_prix_achat: 'Prix d\'achat (GNF)', p_cout: 'Coût (GNF)', p_rechapages_max: 'Rechapages maximum' };
 const quand = (v: string) => (v ? new Date(v).toISOString() : undefined);
 const date = (v: string) => new Date(v).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 
@@ -96,6 +99,11 @@ export const PneusView = () => {
     setHistorique({ pneu, operations: (data ?? []) as Operation[] });
   };
   const executer = async (fonction: string, args: Record<string, unknown>, succes: string) => {
+    for (const [cle, libelle] of Object.entries(ENTIERS)) {
+      const v = args[cle];
+      if (typeof v === 'number' && Number.isNaN(v)) { setErreur(`${libelle} : nombre illisible`); return false; }
+      if (typeof v === 'number' && !Number.isInteger(v)) { setErreur(`${libelle} : nombre entier attendu (sans décimales)`); return false; }
+    }
     setBusy(true); setErreur(''); setMessage('');
     const { error } = await supabase.rpc(fonction, Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined)));
     setBusy(false);

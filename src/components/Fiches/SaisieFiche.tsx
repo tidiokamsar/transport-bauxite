@@ -25,8 +25,10 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
   const [enCours, setEnCours] = useState<string | null>(null);
 
   const charger = useCallback(async () => {
+    // Fiche sans camion : aucune requete (jamais vehicle_id=eq. vide).
+    if (!fiche.vehicle_id) { setVoyages([]); return; }
     const { data } = await supabase.from('trips').select('id, reference, etat')
-      .eq('vehicle_id', fiche.vehicle_id ?? '').eq('planned_date', fiche.date_fiche).order('reference');
+      .eq('vehicle_id', fiche.vehicle_id).eq('planned_date', fiche.date_fiche).order('reference');
     setVoyages((data ?? []) as { id: string; reference: string; etat: string | null }[]);
   }, [fiche.vehicle_id, fiche.date_fiche]);
   useEffect(() => { charger(); }, [charger]);
@@ -52,7 +54,7 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
           <th className="py-1 pr-2">Voyage</th>
           {COLONNES_ROTATION.map((c) => <th key={c.cle} className="py-1 pr-1 font-medium">{c.libelle}</th>)}
           <th className="py-1 pr-1 font-medium">Pesée CBG au dépôt</th>
-          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (kg)</th><th className="py-1 pr-1 font-medium">Tare (kg)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
+          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (t)</th><th className="py-1 pr-1 font-medium">Tare (t)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
         </tr></thead>
         <tbody>
           {voyages.map((v) => {

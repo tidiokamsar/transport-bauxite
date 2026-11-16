@@ -3,7 +3,8 @@ import { BarChart3, Download, Plus, Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SITE } from '../ui/referentiels';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 import { ETATS, PHASES, estEtat, phaseDe, tonnageVoyage, type Phase } from './cycle';
@@ -27,7 +28,7 @@ interface Shift { id: string; display_name: string }
 
 export const TripsView = () => {
   const { hasPermission } = useAuth();
-  const { siteId, sites } = useSite();
+  const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
   const [date, setDate] = useState(aujourdhui);
   const [phase, setPhase] = useState<Phase | 'toutes'>('toutes');
@@ -158,6 +159,8 @@ export const TripsView = () => {
           )}
         </div>
       </div>
+
+      {aucunSite && <ReferentielVide>{SANS_SITE} Un voyage relie un site de chargement à un site de déchargement.</ReferentielVide>}
 
       {rapports && <RapportsVoyages />}
 

@@ -71,6 +71,7 @@ const IncidentsView = lazy(() => import('./components/Incidents/IncidentsView').
 const CentreDecisionsView = lazy(() => import('./components/Decisions/CentreDecisionsView').then(m => ({ default: m.CentreDecisionsView })));
 const HsePreventionView = lazy(() => import('./components/Hse/HsePreventionView').then(m => ({ default: m.HsePreventionView })));
 const SitesView = lazy(() => import('./components/Sites/SitesView').then(m => ({ default: m.SitesView })));
+const ShiftsView = lazy(() => import('./components/Shifts/ShiftsView').then(m => ({ default: m.ShiftsView })));
 const InfrastructuresView = lazy(() => import('./components/Sites/InfrastructuresView').then(m => ({ default: m.InfrastructuresView })));
 const PredictiveMaintenanceView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.FiabiliteEnginsView })));
 const DriverBehaviorAnalyticsView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.PerformanceChauffeursView })));
@@ -237,6 +238,8 @@ const MainApp = () => {
         return <SitesView />;
       case 'infrastructures':
         return <InfrastructuresView />;
+      case 'shifts':
+        return <ShiftsView />;
       case 'predictive-maintenance':
         return <PredictiveMaintenanceView />;
       case 'driver-behavior':

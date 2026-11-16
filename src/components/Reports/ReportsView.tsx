@@ -172,7 +172,7 @@ export const ReportsView = () => {
         title={type === 'shift' && posteChoisi?.statut === 'ouvert' ? 'Un rapport de shift se fige après la clôture du poste' : undefined}
         className="flex items-center gap-1 rounded-lg bg-orange-700 px-3 py-1.5 text-sm font-bold text-white disabled:opacity-50"><Lock className="h-4 w-4" /> Figer</button>}
     </div>}>
-      {!args ? <SansDonnees message={type === 'shift' ? 'Aucun poste ce jour' : 'Paramètres incomplets'} detail={type === 'shift' ? 'Choisissez un jour où un poste a été ouvert.' : 'Vérifiez la période.'} />
+      {!args ? <SansDonnees message={type === 'shift' ? 'Aucun poste ce jour' : 'Paramètres incomplets'} detail={type === 'shift' ? 'Choisissez un jour où un poste a été ouvert (Postes de travail).' : 'Vérifiez la période.'} />
         : lignes === null ? <p className="text-sm text-stone-500">Calcul…</p>
         : vide ? <SansDonnees detail="Aucun enregistrement pour ces paramètres dans votre périmètre." />
         : <div className="space-y-4">{sections.map((s) => <div key={s.section}>

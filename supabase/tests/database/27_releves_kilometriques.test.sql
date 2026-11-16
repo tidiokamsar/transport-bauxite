@@ -83,10 +83,14 @@ SELECT is(public.valider_distance_voyage('00000000-0000-4000-9900-000000000012',
   'distance de reference retenue avec motif');
 
 -- Controle de facture au km
+RESET ROLE;
+-- D-078 : facture du loueur ecrite par saisir_facture_fournisseur seulement ;
+-- le jeu d'essai est pose hors role authenticated.
 INSERT INTO public.factures_fournisseur (id, contrat_id, numero_fournisseur, date_facture, periode_debut, periode_fin, devise, montant_ht_facture)
 VALUES ('00000000-0000-4000-9900-000000000101', '00000000-0000-4000-9900-0000000000c1', 'NB-D043-09', '2001-10-02', '2001-09-01', '2001-09-30', 'GNF', 1100000);
 INSERT INTO public.factures_fournisseur_lignes (facture_id, vehicle_id, libelle, quantite_facturee, unite_facturee, taux_facture, montant_facture)
 VALUES ('00000000-0000-4000-9900-000000000101', '00000000-0000-4000-9900-0000000000b1', 'TEST-KM-D043', 220, 'km', 5000, 1100000);
+SET LOCAL ROLE authenticated;
 SELECT public.controler_facture_fournisseur('00000000-0000-4000-9900-000000000101');
 SELECT is((SELECT (quantite_attendue IS NULL, constat)::text FROM public.factures_fournisseur_lignes WHERE libelle = 'TEST-KM-D043'),
   '(t,"Regle du retour a vide non renseignee au tarif : kilometres non verifiables")', 'regle du retour a confirmer : rien n''est estime');
