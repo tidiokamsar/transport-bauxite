@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
+import { COLONNES_BOITIER } from '../IoT/boitiers';
 import {
   X, Truck, User, Fuel, Gauge, MapPin, Calendar, Clock, Weight,
   Navigation2, Activity, TrendingUp, AlertTriangle, CheckCircle, Package,
@@ -184,7 +185,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
       // Fetch IoT device info
       const { data: deviceData } = await supabase
         .from('iot_devices')
-        .select('*')
+        .select(COLONNES_BOITIER)
         .eq('vehicle_id', vehicleId)
         .eq('device_type', 'gps_tracker')
         .maybeSingle();

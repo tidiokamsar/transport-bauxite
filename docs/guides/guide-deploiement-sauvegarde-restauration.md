@@ -189,6 +189,13 @@ docker exec sigtb-db psql -U supabase_admin -d postgres -X -c "NOTIFY pgrst, 're
 bash /opt/sigtb/depot/courant/deploy/vps/appliquer-migrations.sh --tests
 ```
 
+> **Sauvegarde antérieure à D-071 (archivage des tables héritées).** Si la
+> sauvegarde ne contient pas le schéma `archive_bolt` alors que la base cible
+> l'a, `restaurer.sh` remet d'abord les tables archivées dans `public`
+> (réversible) ; l'étape 3.5 les archive à nouveau. Testé le 2026-11-16 en
+> conteneur jetable : restauration sans erreur, 38 tables archivées après
+> réapplication de la migration.
+
 ### Étape 4 : contrôles après restauration
 
 - `docker compose ps` : tous les services en bonne santé ;
