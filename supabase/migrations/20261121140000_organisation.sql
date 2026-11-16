@@ -256,19 +256,30 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE v_utilisateurs uuid[];
 BEGIN
+  -- Insertion, modification ou suppression (contre-revue R3) : l'ancien et le
+  -- nouveau compte sont recalcules.
+  v_utilisateurs := CASE TG_OP WHEN 'INSERT' THEN ARRAY[NEW.utilisateur]
+                               WHEN 'DELETE' THEN ARRAY[OLD.utilisateur]
+                               ELSE ARRAY[NEW.utilisateur, OLD.utilisateur] END;
   UPDATE public.profiles SET perimetre_affecte = public.perimetre_affecte_calcule(id)
-   WHERE id = NEW.utilisateur AND perimetre_affecte IS DISTINCT FROM public.perimetre_affecte_calcule(id);
+   WHERE id = ANY (v_utilisateurs) AND perimetre_affecte IS DISTINCT FROM public.perimetre_affecte_calcule(id);
   RETURN NULL;
 END;
 $$;
 
 DROP TRIGGER IF EXISTS rafraichir_perimetre_affecte ON public.affectations_sites;
-CREATE TRIGGER rafraichir_perimetre_affecte AFTER INSERT ON public.affectations_sites
+CREATE TRIGGER rafraichir_perimetre_affecte AFTER INSERT OR UPDATE OR DELETE ON public.affectations_sites
   FOR EACH ROW EXECUTE FUNCTION public.rafraichir_perimetre_affecte();
 DROP TRIGGER IF EXISTS rafraichir_perimetre_affecte ON public.retours_perimetre_global;
-CREATE TRIGGER rafraichir_perimetre_affecte AFTER INSERT ON public.retours_perimetre_global
+CREATE TRIGGER rafraichir_perimetre_affecte AFTER INSERT OR UPDATE OR DELETE ON public.retours_perimetre_global
   FOR EACH ROW EXECUTE FUNCTION public.rafraichir_perimetre_affecte();
+
+-- La colonne n'est jamais saisie : droits de colonne retires (le declencheur
+-- du profil reste la garde effective, les droits de table existants sur
+-- profiles couvrant toutes les colonnes).
+REVOKE INSERT (perimetre_affecte), UPDATE (perimetre_affecte) ON public.profiles FROM anon, authenticated;
 
 REVOKE EXECUTE ON FUNCTION public.perimetre_affecte_calcule(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.profil_perimetre_affecte() FROM PUBLIC, anon, authenticated;
@@ -1339,3 +1350,418 @@ BEGIN
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated, service_role', f);
   END LOOP;
 END $$;
+
+-- 5. Separation des taches et delegation d'ecriture (contre-revue R1) -------
+--
+-- Une delegation d'ecriture ne doit pas permettre au delegue de valider ce
+-- que son delegant a lui-meme saisi ou clos (le delegant obtiendrait la
+-- validation de son propre acte par personne interposee). Regle : un
+-- controle de separation fonde sur l'ecriture refuse si l'auteur concerne
+-- est l'appelant, ou s'il est le delegant d'une delegation d'ecriture en
+-- periode vers l'appelant sur le module exerce, alors que l'appelant n'a pas
+-- ce droit en propre (`droit_module_base`). Les separations fondees sur
+-- l'approbation ne sont pas concernees : l'approbation ne se delegue pas.
+-- Les fonctions ci-dessous sont reprises de leur DERNIERE definition sur
+-- main, seul le controle de separation change.
+
+-- Delegants des delegations d'ecriture en periode vers l'appelant, sur ce
+-- module (revoquees exclues ; une delegation sans effet compte quand meme,
+-- par prudence). Interne.
+CREATE OR REPLACE FUNCTION public.delegants_ecriture(p_module text)
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT g.delegant FROM public.delegations_droits g
+   WHERE g.delegue = auth.uid() AND g.module = p_module AND g.niveau = 'ecriture'
+     AND g.revoquee_le IS NULL AND g.debut <= now() AND now() < g.fin;
+$$;
+
+-- L'auteur est l'appelant, ou son delegant sur ce module sans droit propre
+-- de l'appelant. Auteur inconnu (NULL) : false, comme l'egalite d'origine.
+CREATE OR REPLACE FUNCTION public.auteur_ou_delegant(p_auteur uuid, p_module text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT p_auteur IS NOT NULL
+     AND (p_auteur = auth.uid()
+          OR (p_auteur IN (SELECT public.delegants_ecriture(p_module))
+              AND NOT public.droit_module_base(auth.uid(), p_module, 'ecriture')));
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.delegants_ecriture(text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.auteur_ou_delegant(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delegants_ecriture(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.auteur_ou_delegant(uuid, text) TO service_role;
+
+-- valider_cloture_poste : reprise de D-048 (20261116090000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.valider_cloture_poste(p_poste_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE p public.postes := public.poste_ecrivable(p_poste_id, 'planning', 'cloture');
+BEGIN
+  IF public.auteur_ou_delegant(p.cloture_par, 'planning') THEN
+    RAISE EXCEPTION 'La validation revient a une autre personne que celle qui a clos le poste' USING ERRCODE = '42501';
+  END IF;
+  UPDATE public.postes SET statut = 'valide', valide_par = auth.uid(), valide_le = now() WHERE id = p.id;
+END;
+$$;
+
+-- cloturer_planification : reprise de D-063 (20261121090000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.cloturer_planification(
+  p_date date,
+  p_site_id uuid,
+  p_causes jsonb DEFAULT '[]'::jsonb,
+  p_commentaire text DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_fin timestamptz;
+  v_separee boolean;
+  p record;
+  v_bilan jsonb;
+  v_id uuid;
+  l jsonb;
+  v_obj uuid;
+  v_causes jsonb := coalesce(p_causes, '[]'::jsonb);
+BEGIN
+  IF NOT public.has_module_write('planning') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur la planification requis' USING ERRCODE = '42501';
+  END IF;
+  IF p_date IS NULL OR p_site_id IS NULL THEN
+    RAISE EXCEPTION 'Date et site requis' USING ERRCODE = '22023';
+  END IF;
+  IF NOT public.site_permis(p_site_id) THEN
+    RAISE EXCEPTION 'Hors perimetre : site non autorise' USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(v_causes) <> 'array' THEN
+    RAISE EXCEPTION 'Causes : liste attendue' USING ERRCODE = '22023';
+  END IF;
+  SELECT f.fin INTO v_fin FROM public.fenetre_planification(p_date, NULL) f;
+  IF v_fin > now() THEN
+    RAISE EXCEPTION 'La journee n''est pas terminee (fin %)', to_char(v_fin AT TIME ZONE 'Africa/Conakry', 'DD/MM/YYYY HH24:MI')
+      USING ERRCODE = '22023';
+  END IF;
+
+  -- Verrou de la journee et du site, pris aussi par ventiler_objectif et par
+  -- la garde de objectifs_production (creation, revision, annulation) : ces
+  -- ecritures et la cloture sont serialisees, sans verrou de ligne (pas
+  -- d'interblocage avec definir_objectif).
+  PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || p_date::text || '|' || p_site_id::text));
+  IF EXISTS (SELECT 1 FROM public.clotures_planification c
+              WHERE c.date_plan = p_date AND c.site_id = p_site_id AND c.statut = 'close') THEN
+    RAISE EXCEPTION 'Planification deja close pour ce site et cette date' USING ERRCODE = '22023';
+  END IF;
+
+  -- Separation : toutes les versions de la journee comptent, quel que soit
+  -- leur statut (auteur d'une version, auteur d'une revision ou d'une
+  -- annulation) ; une annulation ou une revision ne la contourne pas.
+  SELECT coalesce((SELECT (s.value ->> 'value') = 'true' FROM public.settings s WHERE s.key = 'planification_cloture_separee'), false)
+    INTO v_separee;
+  IF v_separee AND EXISTS (SELECT 1 FROM public.objectifs_production o
+                            WHERE o.date_plan = p_date AND o.site_id = p_site_id
+                              AND (public.auteur_ou_delegant(o.cree_par, 'planning')
+                                   OR public.auteur_ou_delegant(o.clos_par, 'planning'))) THEN
+    RAISE EXCEPTION 'La cloture revient a une autre personne que les auteurs des objectifs de la journee (reglage planification_cloture_separee)'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- Cause d'ecart exigee : realise sous l'objectif en vigueur, objectif de
+  -- la journee annule, ou version remplacee dont la cible depasse le realise
+  -- de son perimetre (une revision a la baisse ne dispense pas de cause).
+  SELECT * INTO p FROM public.production_journee(p_date, p_site_id);
+  IF jsonb_array_length(v_causes) = 0 THEN
+    IF p.tonnes_cible IS NOT NULL AND p.tonnes_livrees < p.tonnes_cible THEN
+      RAISE EXCEPTION 'Realise sous l''objectif (% t sur % t) : au moins une cause d''ecart requise', p.tonnes_livrees, p.tonnes_cible
+        USING ERRCODE = '22023';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.objectifs_production o
+                WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'annule') THEN
+      RAISE EXCEPTION 'Objectif de la journee annule : au moins une cause d''ecart requise' USING ERRCODE = '22023';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public.objectifs_production o
+                WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'remplace'
+                  AND o.tonnes_cible > (
+                    SELECT coalesce(sum(coalesce(t.accepted_tonnage, t.net_weight_reception, t.net_weight, t.load_weight)), 0)
+                      FROM public.trips t
+                     WHERE t.planned_date = p_date AND t.departure_site_id = p_site_id
+                       AND (o.shift_id IS NULL OR t.shift_id = o.shift_id)
+                       AND t.etat IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED'))) THEN
+      RAISE EXCEPTION 'Objectif revise sous une cible non atteinte : au moins une cause d''ecart requise' USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
+  SELECT jsonb_build_object(
+    'perimetre', p.perimetre,
+    'tonnes_cible', p.tonnes_cible,
+    'tonnes_livrees', p.tonnes_livrees,
+    'ecart', p.tonnes_livrees - p.tonnes_cible,
+    'voyages_livres', p.voyages_livres,
+    'voyages_sans_poids', p.voyages_sans_poids,
+    'tonnes_livrees_site', p.tonnes_livrees_site,
+    'voyages_non_termines', p.voyages_non_termines,
+    'objectifs', coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'id', r.id, 'shift_id', r.shift_id, 'version', r.version, 'tonnes_cible', r.tonnes_cible,
+        'tonnes_cible_initial', r.tonnes_cible_initial, 'tonnes_livrees', r.tonnes_livrees,
+        'tonnes_acceptees', r.tonnes_acceptees, 'voyages_cible', r.voyages_cible, 'voyages_livres', r.voyages_livres,
+        'voyages_sans_poids', r.voyages_sans_poids, 'motif', r.motif) ORDER BY r.shift_id NULLS FIRST)
+      FROM public.v_realisation_objectifs r WHERE r.date_plan = p_date AND r.site_id = p_site_id), '[]'::jsonb),
+    'ventilation', coalesce((SELECT jsonb_agg(jsonb_build_object(
+        'objectif_id', w.objectif_id, 'destination_id', w.destination_id, 'contrat_id', w.contrat_id,
+        'contrat_reference', w.contrat_reference, 'tonnes_cible', w.tonnes_cible, 'tonnes_livrees', w.tonnes_livrees,
+        'voyages_livres', w.voyages_livres, 'mesurable', w.mesurable, 'realise_partage', w.realise_partage))
+      FROM public.v_realisation_ventilation w WHERE w.date_plan = p_date AND w.site_id = p_site_id), '[]'::jsonb),
+    'postes', coalesce((SELECT jsonb_agg(jsonb_build_object('id', x.id, 'shift_id', x.shift_id, 'statut', x.statut))
+      FROM public.postes x WHERE x.date_poste = p_date AND x.site_id = p_site_id), '[]'::jsonb),
+    'fige_le', now())
+  INTO v_bilan;
+
+  INSERT INTO public.clotures_planification (date_plan, site_id, tonnes_cible, tonnes_livrees, ecart, bilan, commentaire, cloture_par)
+  VALUES (p_date, p_site_id, p.tonnes_cible, p.tonnes_livrees, p.tonnes_livrees - p.tonnes_cible, v_bilan,
+          nullif(btrim(coalesce(p_commentaire, '')), ''), auth.uid())
+  RETURNING id INTO v_id;
+
+  FOR l IN SELECT * FROM jsonb_array_elements(v_causes) LOOP
+    v_obj := nullif(l ->> 'objectif_id', '')::uuid;
+    IF v_obj IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.objectifs_production o
+                                          WHERE o.id = v_obj AND o.date_plan = p_date AND o.site_id = p_site_id) THEN
+      RAISE EXCEPTION 'Cause rattachee a un objectif d''une autre journee ou d''un autre site' USING ERRCODE = '22023';
+    END IF;
+    IF nullif(btrim(coalesce(l ->> 'description', '')), '') IS NULL THEN
+      RAISE EXCEPTION 'Cause : description requise' USING ERRCODE = '22023';
+    END IF;
+    INSERT INTO public.clotures_planification_causes (cloture_id, objectif_id, categorie, description, tonnes_impact, saisi_par)
+    VALUES (v_id, v_obj, l ->> 'categorie', btrim(l ->> 'description'), nullif(l ->> 'tonnes', '')::numeric, auth.uid());
+  END LOOP;
+  RETURN v_id;
+END;
+$$;
+
+-- valider_distance_voyage : reprise de D-043 (20261115150000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.valider_distance_voyage(
+  p_trip_id uuid, p_charge_km numeric, p_retour_km numeric DEFAULT NULL,
+  p_declaree_km numeric DEFAULT NULL, p_motif text DEFAULT NULL
+) RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE t public.trips; m record; v_motif text := nullif(btrim(coalesce(p_motif, '')), ''); v_version integer;
+        v_separee boolean;
+BEGIN
+  IF NOT public.has_module_write('contracts') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis pour valider une distance' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO t FROM public.trips WHERE id = p_trip_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Voyage introuvable' USING ERRCODE = '22023'; END IF;
+  IF NOT (public.site_permis(t.departure_site_id) OR public.site_permis(t.arrival_site_id)) THEN
+    RAISE EXCEPTION 'Hors perimetre : voyage d''un autre site' USING ERRCODE = '42501';
+  END IF;
+  IF t.etat NOT IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED') THEN
+    RAISE EXCEPTION 'Seul un voyage livre recoit une distance validee' USING ERRCODE = '22023';
+  END IF;
+  IF p_charge_km IS NULL OR p_charge_km < 0 OR (p_retour_km IS NOT NULL AND p_retour_km < 0) THEN
+    RAISE EXCEPTION 'Distances positives requises' USING ERRCODE = '22023';
+  END IF;
+  SELECT coalesce((SELECT (s.value ->> 'value') <> 'false' FROM public.settings s
+                    WHERE s.key = 'kilometrage_validation_separee'), true) INTO v_separee;
+  IF v_separee AND EXISTS (SELECT 1 FROM public.v_releves_compteur r WHERE r.trip_id = p_trip_id
+                                                                 AND public.auteur_ou_delegant(r.saisi_par, 'contracts')) THEN
+    RAISE EXCEPTION 'La validation revient a une autre personne que l''auteur des releves' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO m FROM public.mesures_voyage(p_trip_id);
+  IF (m.mesure_charge_km IS DISTINCT FROM p_charge_km
+      OR (p_retour_km IS NOT NULL AND m.mesure_retour_km IS DISTINCT FROM p_retour_km))
+     AND v_motif IS NULL THEN
+    RAISE EXCEPTION 'Distance differente de la mesure ou mesure absente : motif requis' USING ERRCODE = '22023';
+  END IF;
+  SELECT coalesce(max(version), 0) + 1 INTO v_version FROM public.distances_voyage WHERE trip_id = p_trip_id;
+  INSERT INTO public.distances_voyage (trip_id, version, distance_reference_km, distance_declaree_km, mesure_charge_km,
+    mesure_retour_km, validee_charge_km, validee_retour_km, motif, valide_par)
+  VALUES (p_trip_id, v_version, m.distance_reference_km, p_declaree_km, m.mesure_charge_km, m.mesure_retour_km,
+          p_charge_km, p_retour_km, v_motif, auth.uid());
+  RETURN v_version;
+END;
+$$;
+
+-- decider_inventaire_carburant : reprise de D-041 (20261115090000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.decider_inventaire_carburant(p_id uuid, p_valider boolean, p_motif text DEFAULT NULL)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE i public.inventaires_carburant; s public.stockages_carburant;
+        v_motif text := nullif(btrim(coalesce(p_motif, '')), ''); v_actuel numeric;
+BEGIN
+  SELECT * INTO i FROM public.inventaires_carburant WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND OR i.statut <> 'a_valider' THEN
+    RAISE EXCEPTION 'Inventaire introuvable ou deja decide' USING ERRCODE = '22023';
+  END IF;
+  s := public.stockage_ecrivable(i.stockage_id);
+  IF public.validation_carburant_separee() AND public.auteur_ou_delegant(i.cree_par, 'fuel') THEN
+    RAISE EXCEPTION 'La decision revient a une autre personne que l''auteur de la saisie' USING ERRCODE = '42501';
+  END IF;
+  IF NOT coalesce(p_valider, false) THEN
+    IF v_motif IS NULL THEN
+      RAISE EXCEPTION 'Motif de rejet requis' USING ERRCODE = '22023';
+    END IF;
+    UPDATE public.inventaires_carburant SET statut = 'rejete', motif_decision = v_motif,
+      decide_par = auth.uid(), decide_le = now() WHERE id = p_id;
+    RETURN 'rejete';
+  END IF;
+  v_actuel := public.solde_stockage_carburant(s.id);
+  IF v_actuel IS DISTINCT FROM i.solde_theorique THEN
+    RAISE EXCEPTION 'Le solde a change depuis la mesure : saisissez un nouvel inventaire' USING ERRCODE = '22023';
+  END IF;
+  -- Ajustement egal a l'ecart. Un premier inventaire ouvre le stock ; a zero
+  -- il ne cree aucun mouvement (variation non nulle exigee).
+  IF i.ecart <> 0 THEN
+    INSERT INTO public.mouvements_carburant (stockage_id, type, variation, date_mouvement, reference_piece,
+      inventaire_id, statut, note, saisi_par, decide_par, decide_le)
+    VALUES (s.id, 'ajustement_inventaire', i.ecart, i.date_mesure, 'INV-' || left(i.id::text, 8), i.id, 'valide',
+            coalesce(v_motif, i.note), i.cree_par, auth.uid(), now());
+  END IF;
+  UPDATE public.inventaires_carburant SET statut = 'valide', motif_decision = v_motif,
+    decide_par = auth.uid(), decide_le = now() WHERE id = p_id;
+  RETURN 'valide';
+END;
+$$;
+
+-- decider_mouvement_carburant : reprise de D-041 (20261115090000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.decider_mouvement_carburant(p_id uuid, p_valider boolean, p_motif text DEFAULT NULL)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE m public.mouvements_carburant; v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
+        v_ids uuid[]; v_id uuid; n integer;
+BEGIN
+  SELECT * INTO m FROM public.mouvements_carburant WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND OR m.statut <> 'a_valider' THEN
+    RAISE EXCEPTION 'Mouvement introuvable ou deja decide' USING ERRCODE = '22023';
+  END IF;
+  IF m.type = 'ajustement_inventaire' THEN
+    RAISE EXCEPTION 'Un ajustement se decide par l''inventaire' USING ERRCODE = '22023';
+  END IF;
+  -- Un transfert se decide en bloc (sortie et entree).
+  IF m.transfert_id IS NOT NULL THEN
+    SELECT array_agg(id) INTO v_ids FROM public.mouvements_carburant
+     WHERE transfert_id = m.transfert_id AND statut = 'a_valider';
+  ELSE
+    v_ids := ARRAY[m.id];
+  END IF;
+  FOREACH v_id IN ARRAY v_ids LOOP
+    SELECT * INTO m FROM public.mouvements_carburant WHERE id = v_id FOR UPDATE;
+    PERFORM public.stockage_ecrivable(m.stockage_id);
+    IF public.validation_carburant_separee() AND public.auteur_ou_delegant(m.saisi_par, 'fuel') THEN
+      RAISE EXCEPTION 'La decision revient a une autre personne que l''auteur de la saisie' USING ERRCODE = '42501';
+    END IF;
+  END LOOP;
+  IF NOT coalesce(p_valider, false) AND v_motif IS NULL THEN
+    RAISE EXCEPTION 'Motif de rejet requis' USING ERRCODE = '22023';
+  END IF;
+  -- Valider exige un stock ouvert par un inventaire : sinon le solde
+  -- ignorerait le contenu initial du stockage.
+  IF coalesce(p_valider, false) AND EXISTS (
+       SELECT 1 FROM public.mouvements_carburant x WHERE x.id = ANY(v_ids)
+          AND public.solde_stockage_carburant(x.stockage_id) IS NULL) THEN
+    RAISE EXCEPTION 'Stockage non ouvert : validez d''abord un inventaire initial' USING ERRCODE = '22023';
+  END IF;
+  UPDATE public.mouvements_carburant
+     SET statut = CASE WHEN coalesce(p_valider, false) THEN 'valide' ELSE 'rejete' END,
+         motif_decision = v_motif, decide_par = auth.uid(), decide_le = now()
+   WHERE id = ANY(v_ids);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RETURN n;
+END;
+$$;
+
+-- valider_remise_en_service : reprise de D-072 (20261120101000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.valider_remise_en_service(p_id uuid, p_valider boolean, p_motif text DEFAULT NULL)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE i public.interventions_loueur := public.intervention_ecrivable(p_id, 'terminee');
+        v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
+BEGIN
+  IF public.auteur_ou_delegant(i.fin_saisie_par, 'maintenance') THEN
+    RAISE EXCEPTION 'La remise en service est validee par une autre personne que celle qui a saisi la fin' USING ERRCODE = '42501';
+  END IF;
+  IF NOT coalesce(p_valider, false) THEN
+    IF v_motif IS NULL THEN RAISE EXCEPTION 'Motif du refus requis' USING ERRCODE = '22023'; END IF;
+    UPDATE public.interventions_loueur SET statut = 'prise_en_charge', fin_le = NULL, fin_saisie_par = NULL WHERE id = p_id;
+    PERFORM public.journaliser_intervention(p_id, 'remise_refusee', 'terminee', 'prise_en_charge', v_motif);
+    RETURN 'prise_en_charge';
+  END IF;
+  PERFORM set_config('sigtb.remise_en_service', i.immobilisation_id::text, true);
+  PERFORM public.cloturer_immobilisation(i.immobilisation_id, i.fin_le,
+    concat_ws(' : ', 'Remise en service validee, intervention ' || i.numero, v_motif));
+  PERFORM set_config('sigtb.remise_en_service', '', true);
+  UPDATE public.interventions_loueur SET statut = 'remise_validee', remise_validee_le = now(), valide_par = auth.uid() WHERE id = p_id;
+  PERFORM public.journaliser_intervention(p_id, 'remise_validee', 'terminee', 'remise_validee', v_motif);
+  RETURN 'remise_validee';
+END;
+$$;
+
+-- rectifier_ticket_pesee_cbg : reprise de D-037 (20261113100000), controle de separation etendu aux delegants.
+CREATE OR REPLACE FUNCTION public.rectifier_ticket_pesee_cbg(
+  p_trip_id uuid, p_ticket text, p_brut numeric, p_tare numeric,
+  p_document_ref text, p_motif text
+)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  t public.tickets_pesee_cbg;
+  e public.v_tickets_pesee_cbg_effectifs;
+  v_id uuid;
+BEGIN
+  IF NOT (public.has_module_write('trips') AND public.has_module_write('invoices')) THEN
+    RAISE EXCEPTION 'Droits voyages et facturation requis pour rectifier une pesee' USING ERRCODE = '42501';
+  END IF;
+  IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Motif de rectification obligatoire' USING ERRCODE = '22023';
+  END IF;
+  IF nullif(btrim(coalesce(p_ticket, '')), '') IS NULL OR p_brut IS NULL OR p_tare IS NULL
+     OR p_brut <= p_tare OR p_tare < 0 THEN
+    RAISE EXCEPTION 'Ticket, poids brut et tare coherents requis' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO t FROM public.tickets_pesee_cbg WHERE trip_id = p_trip_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Ticket CBG introuvable pour ce voyage' USING ERRCODE = 'P0002'; END IF;
+  IF EXISTS (SELECT 1 FROM public.reconciliations r JOIN public.reconciliation_lignes l ON l.reconciliation_id = r.id
+    WHERE l.trip_id = p_trip_id AND r.statut = 'cloturee') THEN
+    RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir, pas une rectification retroactive' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO e FROM public.v_tickets_pesee_cbg_effectifs WHERE id = t.id;
+  IF e.saisi_par IS NULL OR public.auteur_ou_delegant(e.saisi_par, 'trips')
+     OR public.auteur_ou_delegant(e.saisi_par, 'invoices') THEN
+    RAISE EXCEPTION 'La rectification doit etre saisie par une autre personne que l''auteur du ticket' USING ERRCODE = '42501';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(upper(btrim(p_ticket)), 0));
+  IF EXISTS (
+    SELECT 1 FROM public.v_tickets_pesee_cbg_effectifs x
+    WHERE upper(btrim(x.ticket)) = upper(btrim(p_ticket)) AND x.trip_id <> p_trip_id
+  ) THEN RAISE EXCEPTION 'Ticket deja rattache a un autre voyage' USING ERRCODE = '23505'; END IF;
+  INSERT INTO public.rectifications_tickets_pesee_cbg
+    (ticket_id, ancien_ticket, ancien_brut, ancienne_tare, ancien_net, ancien_document_ref,
+     nouveau_ticket, nouveau_brut, nouvelle_tare, nouveau_document_ref, motif, corrige_par)
+  VALUES (t.id, e.ticket, e.brut, e.tare, e.net, e.document_ref,
+    btrim(p_ticket), p_brut, p_tare, nullif(btrim(coalesce(p_document_ref, '')), ''), btrim(p_motif), auth.uid())
+  RETURNING id INTO v_id;
+  RETURN v_id;
+END;
+$$;

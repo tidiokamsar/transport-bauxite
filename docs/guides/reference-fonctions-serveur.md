@@ -363,6 +363,13 @@ compte, événement, catégorie, méthode, adresse IP lus dans
 lecture seule pour les comptes (parties ou administrateur), aucune
 écriture directe, ni DELETE ni TRUNCATE.
 
+Séparation des tâches et délégation (D-064, contre-revue R1) : `auteur_ou_delegant(auteur, module)`
+(interne) vaut vrai si l'auteur est l'appelant, ou le délégant d'une délégation d'écriture en
+période vers l'appelant sur ce module (`delegants_ecriture`) alors que l'appelant n'a pas le droit
+en propre. Utilisée par `valider_cloture_poste`, `cloturer_planification`, `valider_distance_voyage`,
+`decider_inventaire_carburant`, `decider_mouvement_carburant`, `valider_remise_en_service` et
+`rectifier_ticket_pesee_cbg`. `affectation_en_cours` (interne) lit les affectations d'un compte affecté.
+
 ## Fonctions héritées encore accordées
 
 Accordées par `20261109120000_fermer_fonctions_definer.sql`, définies dans

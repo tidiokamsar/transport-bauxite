@@ -152,7 +152,7 @@ BEGIN
 END;
 $$;
 
-SELECT plan(141);
+SELECT plan(142);
 
 -- 0. Integration : signatures, volatilite, securite, droits d'execution ----
 
@@ -767,6 +767,10 @@ UPDATE public.profiles SET perimetre_affecte = false WHERE id = '00000000-0000-4
 SELECT is((SELECT perimetre_affecte FROM public.profiles WHERE id = '00000000-0000-4000-b640-00000000000e'), true,
   'perimetre_affecte : une ecriture directe est recalculee (indicateur derive)');
 SELECT pg_temp.se_connecter(NULL);
+-- R3 : suppression hors navigateur (contexte interne) : indicateur recalcule.
+DELETE FROM public.affectations_sites WHERE utilisateur = '00000000-0000-4000-b640-00000000000e';
+SELECT is((SELECT perimetre_affecte FROM public.profiles WHERE id = '00000000-0000-4000-b640-00000000000e'), false,
+  'R3 : la suppression d''une affectation recalcule l''indicateur');
 
 -- 3. Journal de connexion et sessions -------------------------------------
 

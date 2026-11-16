@@ -194,7 +194,10 @@ Règles appliquées par le serveur (`deleguer_droit`, `has_module_*`) :
 - elle donne la lecture du module seulement si le délégant la détient ;
 - le délégué agit en son nom : il reste l'auteur de ses actes et la
   séparation des tâches s'applique à lui (un délégué n'approuve pas son
-  propre bon) ;
+  propre bon) ; il ne valide pas non plus ce que son délégant a saisi ou
+  clos sur le module délégué (poste, clôture de planification, distance,
+  carburant, remise en service, rectification de ticket), sauf s'il détient
+  ce droit en propre ;
 - révocation par le délégant ou l'administrateur, motif obligatoire, tant
   que la délégation n'est pas expirée ; création et révocation sont
   journalisées (`journal_delegations`).
