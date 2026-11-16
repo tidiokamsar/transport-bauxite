@@ -1,5 +1,5 @@
 // Registre des infractions des chauffeurs (D-066) : memes listes fermees
-// que les contraintes serveur (migration 20261119180000).
+// que les contraintes serveur (migration 20261121100000).
 
 export const TYPES_INFRACTION: Record<string, string> = {
   exces_vitesse: 'Excès de vitesse',

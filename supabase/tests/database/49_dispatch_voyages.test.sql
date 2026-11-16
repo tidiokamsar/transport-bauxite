@@ -1,7 +1,7 @@
 -- Tests (D-066) : affectation groupee (rapport par voyage), reaffectation
 -- directe apres livraison, statistiques de trajets pour la simulation,
 -- rapports par axe, registre des infractions et sanctions (migration
--- 20261119180000_dispatch_voyages). Tout est annule.
+-- 20261121100000_dispatch_voyages). Tout est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(49);
+SELECT plan(65);
 
 -- Voyage affecte -> livre, toutes les etapes a l'heure de la transaction.
 CREATE FUNCTION pg_temp.livrer_maintenant(p_trip uuid) RETURNS void
@@ -54,7 +54,8 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-a660-0000000000c1', 'Chauffeur un D-066', 'D066-1', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c2', 'Chauffeur deux D-066', 'D066-2', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
-  ('00000000-0000-4000-a660-0000000000c3', 'Chauffeur expire D-066', 'D066-3', 'C', current_date - 1, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1');
+  ('00000000-0000-4000-a660-0000000000c3', 'Chauffeur expire D-066', 'D066-3', 'C', current_date - 1, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
+  ('00000000-0000-4000-a660-0000000000c4', 'Chauffeur depot B D-066', 'D066-4', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a3');
 
 -- Responsable des operations (global)
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
@@ -119,6 +120,34 @@ SELECT lives_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 2)
   'enchainement sur un voyage deja prepare du shift');
 SELECT is((SELECT (etat, vehicle_id)::text FROM public.trips WHERE id = (SELECT id FROM vs WHERE n = 3)),
   '(ASSIGNED,00000000-0000-4000-a660-0000000000b2)', 'le voyage prepare est affecte au camion qui vient de livrer');
+
+-- 2 bis. Habilitations (D-072 R2-C2) : un chauffeur non habilite est refuse a
+-- l'affectation groupee et a l'enchainement.
+RESET ROLE;
+INSERT INTO public.habilitations_requises (type, note) VALUES ('visite_medicale', 'Test D-066');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.preparer_voyages(current_date + 1, '00000000-0000-4000-a660-0000000000a1',
+  '00000000-0000-4000-a660-0000000000a2', NULL, 1), 1, 'un voyage prepare pour le lendemain');
+CREATE TEMP TABLE lendemain AS
+  SELECT id FROM public.trips WHERE departure_site_id = '00000000-0000-4000-a660-0000000000a1'
+     AND planned_date = current_date + 1;
+CREATE TEMP TABLE hab AS
+  SELECT * FROM public.affecter_en_groupe(jsonb_build_array(jsonb_build_object(
+    'voyage', (SELECT id FROM lendemain),
+    'camion', '00000000-0000-4000-a660-0000000000b2', 'chauffeur', '00000000-0000-4000-a660-0000000000c2')));
+SELECT is((SELECT (resultat, raison LIKE 'Chauffeur non habilite%')::text FROM hab), '(refuse,t)',
+  'affectation groupee : chauffeur non habilite refuse, raison rapportee');
+SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM vs WHERE n = 3))$$, 'le troisieme voyage est livre');
+SELECT throws_like($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 3), NULL)$$, '%non habilite%',
+  'enchainement refuse : chauffeur non habilite a la date du voyage suivant');
+SELECT is((SELECT count(*)::int FROM public.trips WHERE notes LIKE 'Enchaîné après %'
+             AND driver_id = '00000000-0000-4000-a660-0000000000c2'), 0,
+  'enchainement refuse : aucun voyage cree ni affecte');
+RESET ROLE;
+DELETE FROM public.habilitations_requises;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000001');
+SET LOCAL ROLE authenticated;
 
 -- 3. Durees, statistiques de trajets et rapports (annee 2001)
 CREATE TEMP TABLE v2001 (nom text, id uuid);
@@ -192,11 +221,15 @@ SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660
   'Telephone au volant', 'constat_interne')$$, '22023', NULL, 'date future refusee');
 SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c1', 'telephone', now(), ' ', 'constat_interne')$$,
   '22023', NULL, 'constat obligatoire');
-SELECT throws_ok($$UPDATE public.infractions_chauffeur SET constat = 'autre' WHERE id = (SELECT id FROM inf)$$, '42501', NULL,
-  'aucune modification directe du registre');
 SELECT throws_ok($$SELECT public.decider_sanction((SELECT id FROM inf), 'avertissement', 'Premiere infraction')$$, '42501', NULL,
   'sans droit d''approbation, pas de sanction');
 RESET ROLE;
+-- Garde du registre (proprietaire avec session utilisateur ; les comptes n'ont
+-- aucun droit d'ecriture, verifie par has_table_privilege plus bas, D-072).
+SELECT throws_ok($$UPDATE public.infractions_chauffeur SET constat = 'autre' WHERE id = (SELECT id FROM inf)$$, '42501', NULL,
+  'garde du registre : aucune modification hors annulation');
+SELECT throws_ok($$DELETE FROM public.infractions_chauffeur WHERE id = (SELECT id FROM inf)$$, '42501', NULL,
+  'garde du registre : aucune suppression');
 
 -- Directeur : sanction
 SELECT pg_temp.se_connecter('00000000-0000-4000-a660-000000000002');
@@ -243,7 +276,51 @@ SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660
   'Ceinture non bouclee', 'constat_interne')$$, '42501', NULL, 'chauffeur d''un autre site hors perimetre');
 SELECT is((SELECT count(*)::int FROM public.infractions_chauffeur WHERE driver_id = '00000000-0000-4000-a660-0000000000c1'), 0,
   'le registre d''un chauffeur d''un autre site n''est pas visible');
+SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c1', 'ceinture', now(),
+  'Ceinture non bouclee', 'constat_interne', NULL, (SELECT id FROM vs WHERE n = 2))$$, '42501',
+  'Voyage hors de votre perimetre', 'voyage hors perimetre : refus de perimetre avant tout controle de coherence');
+SELECT throws_ok($$SELECT public.enregistrer_infraction('00000000-0000-4000-a660-0000000000c4', 'ceinture', now(),
+  'Ceinture non bouclee', 'constat_interne', NULL, NULL, '00000000-0000-4000-a660-0000000000b1')$$, '42501',
+  'Engin hors de votre perimetre', 'chauffeur du site mais engin hors perimetre refuse');
+CREATE TEMP TABLE hors AS
+  SELECT * FROM public.affecter_en_groupe(jsonb_build_array(jsonb_build_object(
+    'voyage', (SELECT id FROM lendemain),
+    'camion', '00000000-0000-4000-a660-0000000000b2', 'chauffeur', '00000000-0000-4000-a660-0000000000c2')));
+SELECT is((SELECT (resultat, reference IS NULL, raison)::text FROM hors), '(refuse,t,"Voyage hors de votre perimetre")',
+  'affectation groupee hors perimetre : refusee, aucune reference revelee');
 RESET ROLE;
+
+-- Droits (D-072 : un droit retire se verifie par has_*_privilege, jamais par un appel sous SET ROLE)
+SELECT is((SELECT bool_or(has_table_privilege(r, t, p))
+             FROM unnest(ARRAY['anon', 'authenticated']) r,
+                  unnest(ARRAY['public.infractions_chauffeur', 'public.sanctions_infraction']) t,
+                  unnest(ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p), false,
+  'aucune ecriture directe, ni DELETE ni TRUNCATE, sur le registre');
+SELECT is((SELECT bool_or(has_table_privilege('anon', t, 'SELECT'))
+             FROM unnest(ARRAY['public.infractions_chauffeur', 'public.sanctions_infraction']) t), false,
+  'registre illisible par anon');
+SELECT is((SELECT relrowsecurity FROM pg_class WHERE oid = 'public.infractions_chauffeur'::regclass)
+          AND (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.sanctions_infraction'::regclass)
+          AND (SELECT count(*) FROM pg_policies WHERE schemaname = 'public'
+                 AND tablename IN ('infractions_chauffeur', 'sanctions_infraction') AND cmd = 'SELECT') = 2,
+  true, 'RLS active, une politique de lecture par table');
+SELECT is(has_sequence_privilege('authenticated', 'public.infractions_numero_seq', 'USAGE'), false,
+  'sequence des numeros fermee aux comptes');
+SELECT is(has_function_privilege('authenticated', 'public.infraction_accessible(uuid)', 'EXECUTE')
+          OR has_function_privilege('authenticated', 'public.garde_registre_infractions()', 'EXECUTE'), false,
+  'fonctions internes du registre non executables par les comptes');
+SELECT is((SELECT bool_or(has_function_privilege('anon', f, 'EXECUTE')) FROM unnest(ARRAY[
+    'public.durees_voyages(date, date)', 'public.statistiques_trajets(uuid, uuid, date, integer)',
+    'public.affecter_en_groupe(jsonb)', 'public.enchainer_voyage(uuid, uuid, uuid, date, uuid, jsonb)',
+    'public.rapport_voyages(date, date, text, uuid)', 'public.chauffeur_permis(uuid)',
+    'public.enregistrer_infraction(uuid, text, timestamptz, text, text, text, uuid, uuid, text)',
+    'public.annuler_infraction(uuid, text)', 'public.decider_sanction(uuid, text, text, text)',
+    'public.annuler_sanction(uuid, text)']) f), false, 'aucune fonction du lot executable par anon');
+SELECT is((SELECT bool_and(p.prosecdef AND p.proconfig @> ARRAY['search_path=""'])
+             FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+              AND p.proname IN ('affecter_en_groupe', 'enchainer_voyage', 'chauffeur_permis', 'enregistrer_infraction',
+                                'infraction_accessible', 'annuler_infraction', 'decider_sanction', 'annuler_sanction')),
+  true, 'ecritures en SECURITY DEFINER a search_path vide');
 
 SELECT * FROM finish();
 ROLLBACK;

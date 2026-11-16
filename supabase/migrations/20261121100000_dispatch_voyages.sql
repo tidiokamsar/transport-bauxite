@@ -43,6 +43,23 @@
 
   Droits : voyages et dispatch W(trips) ; infractions W(drivers) ou
   W(trips) ; sanctions A(drivers) ou administrateur. Idempotent.
+
+  Integration sur main apres D-072, D-071 et D-063 (renumerotee au-dessus
+  de 20261121090000, D-070). Aucune fonction existante n'est recreee :
+  `decider_affectation`, `creer_voyage` et `avancer_voyage` sont appelees
+  telles quelles, avec leurs gardes (D-039 site, D-047 site ferme, D-072
+  R2-C2 `garde_habilitations_voyage` sur trips et
+  `garde_dispatch_habilitations` sur decisions_dispatch) : un chauffeur non
+  habilite est refuse a l'affectation groupee (ligne « refuse ») et a
+  l'enchainement (l'operation entiere est annulee). Les lectures INVOKER
+  n'appellent aucune fonction retiree aux comptes (`site_rattache`, bornee
+  au perimetre par D-072 R3-7, reste executable). Ajouts de l'integration :
+  perimetre du voyage controle avant toute lecture dans
+  `affecter_en_groupe` (aucune reference hors perimetre dans le rapport) ;
+  `enchainer_voyage` refuse un chauffeur engage sur un autre voyage et un
+  voyage suivant hors perimetre ; `enregistrer_infraction` controle le
+  perimetre du voyage et de l'engin avant leur coherence (pas d'oracle) ;
+  sequence et garde du registre fermees aux comptes.
 */
 
 -- 1. Durees mesurees par voyage
@@ -151,8 +168,18 @@ BEGIN
     v_trip := NULL; v_ref := NULL; v_etat := NULL; v_decision := NULL;
     BEGIN
       v_trip := (e ->> 'voyage')::uuid;
+      IF v_trip IS NULL THEN
+        RAISE EXCEPTION 'Voyage requis' USING ERRCODE = '22023';
+      END IF;
+      -- Perimetre avant toute lecture : aucune reference hors perimetre dans le rapport.
+      IF NOT public.voyage_permis(v_trip) THEN
+        RAISE EXCEPTION 'Voyage hors de votre perimetre' USING ERRCODE = '42501';
+      END IF;
       SELECT t.reference, t.etat INTO v_ref, v_etat FROM public.trips t WHERE t.id = v_trip;
-      IF v_etat IS NOT NULL AND v_etat NOT IN ('DRAFT', 'PLANNED') THEN
+      IF NOT FOUND THEN
+        RAISE EXCEPTION 'Voyage introuvable' USING ERRCODE = 'P0002';
+      END IF;
+      IF v_etat NOT IN ('DRAFT', 'PLANNED') THEN
         RAISE EXCEPTION 'Voyage deja affecte ou engage : une reaffectation se decide une par une, avec motif'
           USING ERRCODE = '22023';
       END IF;
@@ -216,8 +243,20 @@ BEGIN
   IF v_engage IS NOT NULL THEN
     RAISE EXCEPTION 'Camion deja engage sur le voyage %', v_engage USING ERRCODE = '22023';
   END IF;
+  -- Le chauffeur suit le camion : il ne doit pas etre engage ailleurs.
+  SELECT t.reference INTO v_engage FROM public.trips t
+   WHERE t.driver_id = v.driver_id AND t.id <> v.id
+     AND t.etat IN ('ASSIGNED', 'AT_LOADING', 'LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT',
+                    'AT_DESTINATION', 'UNLOADING', 'WEIGHED_IN', 'INTERRUPTED')
+   ORDER BY t.planned_date, t.reference LIMIT 1;
+  IF v_engage IS NOT NULL THEN
+    RAISE EXCEPTION 'Chauffeur deja engage sur le voyage %', v_engage USING ERRCODE = '22023';
+  END IF;
 
   IF p_suivant IS NOT NULL THEN
+    IF NOT public.voyage_permis(p_suivant) THEN
+      RAISE EXCEPTION 'Voyage suivant hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
     SELECT * INTO s FROM public.trips WHERE id = p_suivant FOR UPDATE;
     IF NOT FOUND OR s.etat NOT IN ('DRAFT', 'PLANNED') OR s.vehicle_id IS NOT NULL
        OR s.departure_site_id IS DISTINCT FROM v.departure_site_id OR s.planned_date < v.planned_date THEN
@@ -334,6 +373,9 @@ REVOKE EXECUTE ON FUNCTION public.chauffeur_permis(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.chauffeur_permis(uuid) TO authenticated, service_role;
 
 CREATE SEQUENCE IF NOT EXISTS public.infractions_numero_seq;
+-- Numerotation par la seule fonction serveur (SECURITY DEFINER).
+REVOKE ALL ON SEQUENCE public.infractions_numero_seq FROM PUBLIC, anon, authenticated;
+GRANT ALL ON SEQUENCE public.infractions_numero_seq TO service_role;
 
 CREATE TABLE IF NOT EXISTS public.infractions_chauffeur (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -411,6 +453,7 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.garde_registre_infractions() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS garde_registre ON public.infractions_chauffeur;
 CREATE TRIGGER garde_registre BEFORE UPDATE OR DELETE ON public.infractions_chauffeur
   FOR EACH ROW EXECUTE FUNCTION public.garde_registre_infractions();
@@ -451,6 +494,18 @@ BEGIN
   IF p_survenue_le IS NULL OR p_survenue_le > now() + interval '5 minutes' THEN
     RAISE EXCEPTION 'Date de l''infraction requise, pas dans le futur' USING ERRCODE = '22023';
   END IF;
+  -- Perimetre d'abord (chauffeur, ou voyage designe), puis coherence : un
+  -- voyage ou un engin hors perimetre ne se revele pas par le message.
+  IF p_trip IS NOT NULL THEN
+    IF NOT public.voyage_permis(p_trip) THEN
+      RAISE EXCEPTION 'Voyage hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
+  ELSIF NOT public.chauffeur_permis(p_driver) THEN
+    RAISE EXCEPTION 'Chauffeur hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
+  IF p_trip IS NULL AND v_vehicle IS NOT NULL AND NOT public.vehicule_permis(v_vehicle) THEN
+    RAISE EXCEPTION 'Engin hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF p_trip IS NOT NULL THEN
     SELECT * INTO t FROM public.trips WHERE id = p_trip;
     IF NOT FOUND THEN RAISE EXCEPTION 'Voyage introuvable' USING ERRCODE = '22023'; END IF;
@@ -464,9 +519,6 @@ BEGIN
   END IF;
   IF v_vehicle IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.vehicles v WHERE v.id = v_vehicle) THEN
     RAISE EXCEPTION 'Engin introuvable' USING ERRCODE = '22023';
-  END IF;
-  IF NOT (public.chauffeur_permis(p_driver) OR (p_trip IS NOT NULL AND public.voyage_permis(p_trip))) THEN
-    RAISE EXCEPTION 'Chauffeur hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   v_site := coalesce(t.departure_site_id, (SELECT v.site_id FROM public.vehicles v WHERE v.id = v_vehicle), d.site_id);
 
