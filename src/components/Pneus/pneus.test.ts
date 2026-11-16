@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionsPossibles, normaliserPosition, texteCoutKm, texteKm } from './pneus';
+import { actionsPossibles, normaliserPosition, texteCoutKm, texteKm, texteMesure } from './pneus';
 
 describe('pneus (D-052)', () => {
   it('normalise la position comme le serveur', () => {
@@ -18,5 +18,10 @@ describe('pneus (D-052)', () => {
     expect(texteKm(null, false, 0)).toBe('Jamais monté');
     expect(texteKm(40000, true, 2)).toContain('incomplet');
     expect(texteCoutKm(null)).toBe('Sans données');
+  });
+
+  it('performance par modele (D-067) : mesure absente = sans donnees', () => {
+    expect(texteMesure(null, 'km')).toBe('Sans données');
+    expect(texteMesure(27500, 'km')).toMatch(/27\s500 km/);
   });
 });

@@ -38,7 +38,7 @@ Conventions :
 | `ordre_travail_permis(site, vehicule)` | DEFINER | Site de l'ordre ET engin dans le périmètre (D-072) |
 | `rapport_fige_lisible(type)` | DEFINER | Lecture d'un rapport figé : rapports et droit du domaine (loueur : contrats ; client : factures ou contrats ; shift : voyages ou planification) |
 | `validation_carburant_separee()` | DEFINER | Lit le réglage `carburant_validation_separee` (vrai si absent) |
-| `seuil_pneus(cle)` | DEFINER | Lit `pneu_profondeur_min_mm` ou `pneu_inspection_max_jours` |
+| `seuil_pneus(cle)` | DEFINER | Lit `pneu_profondeur_min_mm`, `pneu_inspection_max_jours` ou `pneu_reforme_precoce_km` |
 | `normaliser_position_pneu(texte)` | INVOKER | Normalise une position de pneu |
 | `definir_droit_module(utilisateur, module, niveau, motif)` | DEFINER | **admin** ; niveau `aucun`, `lecture`, `ecriture` ou `defaut` ; module connu ; journalisé (D-036) ; aal2 si `mfa_exige` |
 
@@ -181,6 +181,10 @@ opération du pneu.
 | `reformer_pneu(pneu, motif, date)` | Pneu démonté ; motif ; définitif |
 | `annuler_operation_pneu(operation, motif)` | Dernière opération seulement ; l'entrée ne s'annule pas |
 
+Vue `v_pneus_performance` (D-067) : par marque et modèle, pneus réformés aux
+mesures complètes seulement (km moyens, coût au km, durée de vie, taux de
+réforme précoce sous `pneu_reforme_precoce_km`), pneus pris en compte et exclus.
+
 ## HSE (D-054)
 
 | Fonction | Droit | Règle principale |
@@ -215,10 +219,16 @@ périmètre.
 
 | Fonction | Droit | Règle principale |
 |---|---|---|
-| `mouvement_stock(article, type, quantite, depot_source, depot_destination, date, prix_unitaire, reference, engin, ordre_maintenance, note)` | W(stock), dépôts du périmètre | Types entrée, sortie, transfert, retour ; pas de sortie au-delà du disponible ; numéro `MVT` |
-| `inventorier_stock(article, depot, quantite_comptee, motif)` | W(stock), dépôt | Motif si écart ; ajustement égal à l'écart |
-| `annuler_mouvement_stock(mouvement, motif)` | W(stock), dépôts | Contre-mouvement ; mouvement issu d'une réception refusé |
+| `mouvement_stock(article, type, quantite, depot_source, depot_destination, date, prix_unitaire, reference, engin, ordre_maintenance, note, lots, reservation)` | W(stock), dépôts du périmètre | Types entrée, sortie, transfert, retour ; pas de sortie au-delà du disponible ; sans réservation, pas au-delà du stock libre ; avec réservation, périmètre du dépôt contrôlé avant toute lecture de la réservation ; lots ou séries exigés pour un article suivi (D-067) ; numéro `MVT`. Une seule signature (13 arguments, D-067) : les appels à 11 arguments ou par nom restent valides |
+| `inventorier_stock(article, depot, quantite_comptee, motif)` | W(stock), dépôt | Motif si écart ; ajustement égal à l'écart ; refusé pour un article suivi |
+| `inventorier_lot_stock(article, depot, code, quantite_comptee, motif)` | W(stock), dépôt | Article suivi (D-067) ; écart du lot ou de la série ; motif si écart |
+| `annuler_mouvement_stock(mouvement, motif)` | W(stock), dépôts | Contre-mouvement (lots repris) ; mouvement issu d'une réception refusé ; refusé s'il laisse une réservation sans stock |
+| `reserver_stock(article, depot, quantite, ordre_maintenance, engin, affectation, note)` | W(stock), dépôt, ordre et engin du périmètre | Ordre ouvert ou en cours (verrou partagé de l'ordre), engin ou affectation requis ; jamais au-delà du stock libre ; ordre ou engin hors périmètre : message unique ; numéro `RES` (D-067) |
+| `lever_reservation_stock(reservation, motif)` | W(stock), périmètre du dépôt | Réservation active ; motif ; hors périmètre : message unique |
+| `lever_reservations_ordre()` | Déclencheur interne (D-067) | À la clôture d'un ordre de travail (terminé ou annulé), lève ses réservations encore actives avec un motif citant l'ordre |
 | `stock_disponible(article, depot)` | DEFINER interne (D-072) | Quantité disponible d'un article dans un dépôt ; lecture par les comptes via `v_stock_depots` |
+| `stock_reserve(article, depot)`, `stock_libre(article, depot)`, `stock_lot_disponible(article, depot, code)` | DEFINER interne (D-067) | Réservé non consommé ; stock moins réservations ; quantité d'un lot ; lecture par les comptes via `v_stock_disponibilite` et `v_stock_lots` |
+| `valorisation_articles_stock()` | DEFINER, R(stock) ou admin | Coût unitaire moyen pondéré de l'article (tous dépôts) et part non valorisée, sans quantité ni valeur (D-067) ; quantités et valeurs des dépôts visibles par les vues `v_valorisation_stock`, `v_valorisation_articles`, `v_valorisation_depots` (GNF) |
 
 ## Achats (D-053)
 
@@ -229,8 +239,8 @@ périmètre.
 | `decider_bon_commande(id, approuver, motif)` | A(purchases) ou admin, périmètre | Bon soumis ; autre personne que le demandeur (réglage) ; rejet motivé |
 | `annuler_bon_commande(id, motif)` | W(purchases) ou admin | Avant toute réception ; motif |
 | `solder_bon_commande(id, motif)` | W(purchases) ou admin | Bon reçu en partie ; motif |
-| `receptionner_bon_commande(id, lignes, bon_livraison, date, note)` | W(stock) ou admin, dépôt | Bon approuvé ; jamais au-delà de la commande ; motif de refus ; entrée en stock |
-| `annuler_reception(livraison, motif)` | W(stock) ou admin | Motif ; bon non soldé |
+| `receptionner_bon_commande(id, lignes, bon_livraison, date, note)` | W(stock) ou admin, dépôt | Bon approuvé ; jamais au-delà de la commande ; motif de refus ; entrée en stock ; lots des articles suivis ; ligne de pneus : un numéro par pneu, `enregistrer_pneu` (droit des pneus requis, dépôt rattaché à un site) (D-067) |
+| `annuler_reception(livraison, motif)` | W(stock) ou admin | Motif ; bon non soldé ; refusée si la base payable du bon descendrait sous l'engagé et le payé (D-072 R3-5) ; refusée si la réception a enregistré des pneus (D-067) |
 
 ## Contrats, suivi et recouvrement (D-031, D-032, D-033)
 

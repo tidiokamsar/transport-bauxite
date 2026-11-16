@@ -6,6 +6,7 @@ import { exportToCSV } from '../../lib/exports';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Panneau, Puce, SansDonnees, type TeintePuce } from '../ui/Panneau';
 import { PRIORITES_ORDRE, STATUTS_ORDRE, TYPES_ORDRE, coutPieces, type PieceOrdre } from './ordres';
+import { lotsPourMouvement, type SuiviArticle } from '../Stock/stock';
 
 // Ordres de travail (D-061). Numero attribue par le serveur ; une erreur ne
 // se supprime pas : l'ordre s'annule avec un motif (annuler_ordre_travail).
@@ -21,7 +22,8 @@ interface Ordre {
 }
 interface Engin { id: string; registration: string; brand_model: string }
 interface Lib { id: string; libelle: string }
-interface Article { id: string; item_code: string; name: string; unit_of_measure: string; unit_price: number | null }
+interface Article { id: string; item_code: string; name: string; unit_of_measure: string; unit_price: number | null; suivi?: SuiviArticle | null }
+interface ReservationOrdre { id: string; numero: string; stock_item_id: string; warehouse_id: string; quantite_restante: number }
 interface Depot { id: string; code: string; name: string }
 
 const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2';
@@ -46,6 +48,7 @@ export const MaintenanceView = () => {
   const [pieces, setPieces] = useState<PieceOrdre[] | null>(null);
   const [erreurPieces, setErreurPieces] = useState('');
   const [saisiePiece, setSaisiePiece] = useState<Record<string, string> | null>(null);
+  const [reservationsOrdre, setReservationsOrdre] = useState<ReservationOrdre[]>([]);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -65,7 +68,11 @@ export const MaintenanceView = () => {
 
   const chargerPieces = useCallback(async (id: string) => {
     setPieces(null); setErreurPieces('');
-    const { data, error } = await supabase.rpc('pieces_ordre_travail', { p_ordre: id });
+    const [{ data, error }, r] = await Promise.all([
+      supabase.rpc('pieces_ordre_travail', { p_ordre: id }),
+      supabase.from('v_reservations_stock').select('id, numero, stock_item_id, warehouse_id, quantite_restante').eq('maintenance_order_id', id).eq('statut', 'active'),
+    ]);
+    setReservationsOrdre((r.data ?? []) as ReservationOrdre[]);
     if (error) { setErreurPieces(error.message); setPieces([]); return; }
     // Les contre-mouvements d'annulation portent l'ordre (D-072) : le mouvement
     // annule est deja affiche barre, ils ne forment pas une ligne de plus.
@@ -75,7 +82,7 @@ export const MaintenanceView = () => {
   useEffect(() => {
     if (!peutStock) return;
     Promise.all([
-      supabase.from('stock_items').select('id, item_code, name, unit_of_measure, unit_price, active').order('item_code'),
+      supabase.from('stock_items').select('id, item_code, name, unit_of_measure, unit_price, active, suivi').order('item_code'),
       supabase.from('warehouses').select('id, code, name, active').order('code'),
     ]).then(([a, d]) => {
       setArticles(((a.data ?? []) as (Article & { active: boolean | null })[]).filter((x) => x.active !== false));
@@ -143,6 +150,7 @@ export const MaintenanceView = () => {
       p_depot_source: sortie ? sp('depot') : null, p_depot_destination: sortie ? null : sp('depot'),
       p_date: new Date().toISOString(), p_prix_unitaire: sortie && a?.unit_price !== null && a?.unit_price !== undefined ? a.unit_price : null,
       p_reference: null, p_vehicle_id: ordreChoisi.vehicle_id, p_ordre_maintenance: ordreChoisi.id, p_note: sp('note').trim() || null,
+      p_lots: lotsPiece && lotsPiece.length ? lotsPiece : null, p_reservation: sortie && sp('reservation') ? sp('reservation') : null,
     }), sortie ? 'Pièce sortie du stock pour l\'ordre.' : 'Pièce retournée au stock.', () => setSaisiePiece(null));
     if (ok) chargerPieces(ordreChoisi.id);
   };
@@ -161,7 +169,11 @@ export const MaintenanceView = () => {
   const pret = champs && c('engin') && c('titre').trim() && c('type');
   const cout = pieces ? coutPieces(pieces) : null;
   const ouvertAuxPieces = ordreChoisi && ['open', 'in_progress'].includes(ordreChoisi.status);
-  const pretPiece = saisiePiece && sp('article') && sp('depot') && (entier(sp('quantite')) ?? 0) > 0;
+  // D-067 : lots ou series d'un article suivi, reservation de l'ordre consommee par la sortie.
+  const suiviPiece: SuiviArticle = articles.find((x) => x.id === sp('article'))?.suivi ?? 'aucun';
+  const lotsPiece = lotsPourMouvement(suiviPiece, sp('lots'), entier(sp('quantite')));
+  const reservationsPiece = reservationsOrdre.filter((r) => r.stock_item_id === sp('article') && r.warehouse_id === sp('depot'));
+  const pretPiece = saisiePiece && sp('article') && sp('depot') && (entier(sp('quantite')) ?? 0) > 0 && lotsPiece !== null;
 
   return <div className="space-y-5">
     <header className="flex flex-wrap items-center justify-between gap-3">
@@ -257,6 +269,10 @@ export const MaintenanceView = () => {
           <option value="">Choisir</option>{depots.map((d) => <option key={d.id} value={d.id}>{d.code} · {d.name}</option>)}</select></label>
         <label className="text-sm">Quantité *<input inputMode="numeric" value={sp('quantite')} onChange={(e) => setSaisiePiece({ ...saisiePiece, quantite: e.target.value })} className={CHAMP} /></label>
         <label className="text-sm">Note<input value={sp('note')} onChange={(e) => setSaisiePiece({ ...saisiePiece, note: e.target.value })} className={CHAMP} /></label>
+        {sp('type') === 'exit' && reservationsPiece.length > 0 && <label className="text-sm">Réservation de l'ordre<select value={sp('reservation')} onChange={(e) => setSaisiePiece({ ...saisiePiece, reservation: e.target.value })} className={CHAMP}>
+          <option value="">Aucune (stock libre)</option>{reservationsPiece.map((r) => <option key={r.id} value={r.id}>{r.numero} · reste {r.quantite_restante}</option>)}</select></label>}
+        {suiviPiece !== 'aucun' && <label className="text-sm sm:col-span-2">{suiviPiece === 'serie' ? 'Numéros de série (un par ligne) *' : 'Lots (un par ligne : CODE QUANTITÉ) *'}
+          <textarea rows={2} value={sp('lots')} onChange={(e) => setSaisiePiece({ ...saisiePiece, lots: e.target.value })} className={CHAMP} /></label>}
         <p className="text-xs text-stone-500 sm:col-span-2 xl:col-span-4">{sp('type') === 'exit' ? 'Sortie valorisée au prix de référence de l\'article s\'il est renseigné ; refusée au-delà du stock disponible du dépôt.' : 'Retour limité aux pièces déjà sorties pour cet ordre.'}</p>
         <div className="flex gap-2 sm:col-span-2 xl:col-span-4">
           <button disabled={busy || !pretPiece} onClick={mouvementPiece} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
