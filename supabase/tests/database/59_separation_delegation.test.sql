@@ -1,7 +1,8 @@
 -- Tests (D-064, contre-revue R1) : une delegation d'ecriture ne contourne pas
 -- les separations des taches fondees sur l'ecriture. Le delegue ne valide pas
 -- ce que son delegant a saisi ou clos, sauf s'il detient le droit en propre
--- (migration 20261121140000, section 5). Tout est annule.
+-- (migration 20261121140000, section 5), ni l'inverse (R1b : le delegant ne
+-- valide pas l'acte fait par son delegue sous son autorite). Tout est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -15,7 +16,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(22);
+SELECT plan(33);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-b659-000000000001', 'admin.r1@exemple.invalid'),
@@ -44,14 +45,15 @@ DELETE FROM public.settings WHERE key IN ('carburant_validation_separee', 'kilom
 
 SELECT ok(NOT has_function_privilege('authenticated', 'public.auteur_ou_delegant(uuid, text)', 'EXECUTE')
           AND NOT has_function_privilege('authenticated', 'public.delegants_ecriture(text)', 'EXECUTE')
-          AND NOT has_function_privilege('anon', 'public.auteur_ou_delegant(uuid, text)', 'EXECUTE'),
+          AND NOT has_function_privilege('anon', 'public.auteur_ou_delegant(uuid, text)', 'EXECUTE')
+          AND NOT has_function_privilege('authenticated', 'public.separation_violee(uuid, text, text, timestamptz)', 'EXECUTE'),
   'fonctions de separation internes, non executables par les comptes');
 SELECT is((SELECT count(*)::int FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
             AND p.proname IN ('valider_cloture_poste', 'cloturer_planification', 'valider_distance_voyage',
                               'decider_inventaire_carburant', 'decider_mouvement_carburant',
-                              'valider_remise_en_service', 'rectifier_ticket_pesee_cbg')
-            AND p.prosrc LIKE '%auteur_ou_delegant%'), 7,
-  'les sept controles de separation fondes sur l''ecriture lisent les delegants');
+                              'valider_remise_en_service', 'rectifier_ticket_pesee_cbg', 'avancer_facture')
+            AND p.prosrc LIKE '%separation_violee%'), 8,
+  'les huit controles de separation lisent les delegations dans les deux sens');
 
 -- Le chef delegue l'ecriture planning au chauffeur (sans ce droit par son role).
 SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
@@ -230,6 +232,168 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
 SELECT ok(NOT public.auteur_ou_delegant('00000000-0000-4000-b659-000000000006', 'fuel'),
   'delegue detenant le droit en propre : la delegation ne change rien');
 SELECT pg_temp.se_connecter(NULL);
+
+-- 8. Sens inverse (contre-revue R1b) : le delegant ne valide pas l'acte fait
+--    par son delegue sous son autorite, meme apres la fin de la delegation.
+
+INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-b659-000000000007', 'dg.r1@exemple.invalid'),
+  ('00000000-0000-4000-b659-000000000008', 'tiers.r1@exemple.invalid');
+INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
+  ('00000000-0000-4000-b659-000000000007', 'director', 'DG R1', 'active', NULL),
+  ('00000000-0000-4000-b659-000000000008', 'operations_manager', 'Tiers R1', 'active', NULL)
+ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
+INSERT INTO public.work_shifts (id, name, display_name, start_time, end_time, shift_order) VALUES
+  ('00000000-0000-4000-b659-0000000000e2', 'r1_nuit', 'Nuit R1', '18:00', '06:00', 95);
+
+-- Poste : le chauffeur (delegue planning du chef) clot, le chef valide.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT public.deleguer_droit('00000000-0000-4000-b659-000000000003', 'trips', 'ecriture',
+  now(), now() + interval '1 day', 'Inverse R1b');
+CREATE TEMP TABLE pg2 AS SELECT public.ouvrir_poste(current_date, '00000000-0000-4000-b659-0000000000e2',
+  '00000000-0000-4000-b659-0000000000a1') AS id;
+GRANT SELECT ON pg2 TO authenticated;
+CREATE TEMP TABLE mg2 AS SELECT public.affecter_au_poste((SELECT id FROM pg2), '00000000-0000-4000-b659-0000000000c1') AS id;
+GRANT SELECT ON mg2 TO authenticated;
+SELECT public.pointer_presence((SELECT id FROM mg2), true);
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.cloturer_poste((SELECT id FROM pg2), 'Consignes du delegue', 'RAS');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.valider_cloture_poste((SELECT id FROM pg2))$$, '42501', NULL,
+  'R1b poste : le delegant ne valide pas le poste clos par son delegue');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000008');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.valider_cloture_poste((SELECT id FROM pg2))$$,
+  'R1b poste : un tiers avec le droit propre valide');
+RESET ROLE;
+
+-- Planification : le delegue fixe l'objectif, le delegant clot.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.definir_objectif('2001-04-06', '00000000-0000-4000-b659-0000000000a1', NULL, 100);
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000002');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.cloturer_planification('2001-04-06', '00000000-0000-4000-b659-0000000000a1',
+  '[{"categorie": "autre", "description": "Aucun voyage"}]', NULL)$$, '42501', NULL,
+  'R1b planification : le delegant ne clot pas la journee dont son delegue a fixe l''objectif');
+RESET ROLE;
+
+-- Distance : le delegue saisit les releves, le delegant (contrats) valide.
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.trips (id, reference, planned_date, vehicle_id, etat, departure_site_id, arrival_site_id) VALUES
+  ('00000000-0000-4000-b659-000000000012', 'TEST-R1-T2', '2001-04-06', '00000000-0000-4000-b659-0000000000b1', 'DELIVERED',
+   '00000000-0000-4000-b659-0000000000a1', '00000000-0000-4000-b659-0000000000a1');
+INSERT INTO public.releves_compteur (vehicle_id, trip_id, moment, valeur_km, releve_le, source, saisi_par) VALUES
+  ('00000000-0000-4000-b659-0000000000b1', '00000000-0000-4000-b659-000000000012', 'depart_charge', 20000,
+   '2001-04-06 06:00+00', 'fiche', '00000000-0000-4000-b659-000000000003');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000004');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.valider_distance_voyage('00000000-0000-4000-b659-000000000012', 52, 53, NULL, 'Reference')$$,
+  '42501', NULL, 'R1b distance : le delegant ne valide pas les releves de son delegue');
+RESET ROLE;
+
+-- Carburant : delegation (module quelconque) revoquee depuis l'acte, et
+-- delegation expiree couvrant la date de l'acte : toujours refuse ; tiers sans
+-- lien de delegation avec l'auteur : accepte.
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.stockages_carburant (id, code, libelle, type, site_id, capacite_litres) VALUES
+  ('00000000-0000-4000-b659-0000000000f9', 'R1B-CUVE', 'Cuve R1b', 'cuve_fixe', '00000000-0000-4000-b659-0000000000a1', 10000);
+INSERT INTO public.inventaires_carburant (id, stockage_id, date_mesure, volume_mesure, methode_mesure, statut, cree_par, cree_le) VALUES
+  ('00000000-0000-4000-b659-0000000000f5', '00000000-0000-4000-b659-0000000000f9', now() - interval '5 days', 0, 'jauge',
+   'a_valider', '00000000-0000-4000-b659-000000000003', now() - interval '5 days'),
+  ('00000000-0000-4000-b659-0000000000f6', '00000000-0000-4000-b659-0000000000f9', now() - interval '5 days', 0, 'jauge',
+   'a_valider', '00000000-0000-4000-b659-000000000003', now() - interval '5 days');
+INSERT INTO public.mouvements_carburant (id, stockage_id, type, variation, date_mouvement, statut, saisi_par, transfert_id, saisi_le) VALUES
+  ('00000000-0000-4000-b659-0000000000f7', '00000000-0000-4000-b659-0000000000f9', 'transfert_entree', 500,
+   now() - interval '20 days', 'a_valider', '00000000-0000-4000-b659-000000000003', '00000000-0000-4000-b659-0000000000f8',
+   now() - interval '20 days');
+INSERT INTO public.delegations_droits (delegant, delegue, module, niveau, debut, fin, motif, revoquee_le, revoquee_par, motif_revocation) VALUES
+  ('00000000-0000-4000-b659-000000000006', '00000000-0000-4000-b659-000000000003', 'esg', 'ecriture',
+   now() - interval '10 days', now() + interval '10 days', 'Mission', now() - interval '1 day',
+   '00000000-0000-4000-b659-000000000006', 'Fin de mission');
+INSERT INTO public.delegations_droits (delegant, delegue, module, niveau, debut, fin, motif) VALUES
+  ('00000000-0000-4000-b659-000000000006', '00000000-0000-4000-b659-000000000003', 'stock', 'ecriture',
+   now() - interval '30 days', now() - interval '10 days', 'Delegation ancienne');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000006');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.decider_inventaire_carburant('00000000-0000-4000-b659-0000000000f5', true)$$, '42501', NULL,
+  'R1b inventaire : delegation revoquee depuis, l''acte fait sous delegation reste refuse au delegant');
+SELECT throws_ok($$SELECT public.decider_mouvement_carburant('00000000-0000-4000-b659-0000000000f7', true)$$, '42501', NULL,
+  'R1b mouvement : delegation expiree couvrant la date de la saisie, refuse');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000008');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$SELECT public.decider_inventaire_carburant('00000000-0000-4000-b659-0000000000f6', true)$$,
+  'R1b inventaire : un tiers sans lien de delegation avec l''auteur decide');
+RESET ROLE;
+
+-- Remise en service : le delegue saisit la fin, le delegant valide.
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.immobilisations (id, vehicle_id, debut, cause, imputation, description) VALUES
+  ('00000000-0000-4000-b659-0000000000d2', '00000000-0000-4000-b659-0000000000b1', now() - interval '10 hours',
+   'panne', 'loueur', 'Fuite R1b');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000005');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE i2 AS SELECT public.demander_intervention_loueur('00000000-0000-4000-b659-0000000000d2',
+  now() - interval '9 hours', 'courriel', 'Fuite R1b') AS id;
+GRANT SELECT ON i2 TO authenticated;
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000003');
+SET LOCAL ROLE authenticated;
+SELECT public.prendre_en_charge_intervention((SELECT id FROM i2), now() - interval '3 hours', 'Technicien');
+SELECT public.terminer_intervention((SELECT id FROM i2), now() - interval '1 hour', 'Flexible remplace');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000005');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.valider_remise_en_service((SELECT id FROM i2), true)$$, '42501', NULL,
+  'R1b remise en service : le delegant ne valide pas la fin saisie par son delegue');
+RESET ROLE;
+
+-- Ticket CBG : saisi par le delegue de l'administrateur, rectifie par celui-ci.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT public.deleguer_droit('00000000-0000-4000-b659-000000000003', 'trips', 'ecriture',
+  now(), now() + interval '1 day', 'Saisie des tickets');
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.tickets_pesee_cbg (trip_id, site_id, ticket, brut, tare, mesure_le, saisi_par) VALUES
+  ('00000000-0000-4000-b659-000000000012', '00000000-0000-4000-b659-0000000000a1', 'R1B-TK-1', 60, 20,
+   '2001-04-06 10:00+00', '00000000-0000-4000-b659-000000000003');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.rectifier_ticket_pesee_cbg('00000000-0000-4000-b659-000000000012', 'R1B-TK-1', 61, 20,
+  'DOC-R1B', 'Erreur de lecture')$$, '42501', NULL,
+  'R1b ticket : le delegant ne rectifie pas le ticket saisi par son delegue');
+RESET ROLE;
+
+-- Signature de facture : preparee par le delegue du DG, signee par le DG.
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT public.deleguer_droit('00000000-0000-4000-b659-000000000003', 'invoices', 'ecriture',
+  now(), now() + interval '1 day', 'Preparation des factures');
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
+INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devise, date_debut) VALUES
+  ('00000000-0000-4000-b659-000000000020', 'TEST-R1B-CTR', 'Contrat R1b', 'autre', 'Test', 'GNF', '2001-01-01');
+INSERT INTO public.factures (id, type, contrat_id, objet, devise, taux_taxe_pct, statut, prepare_par) VALUES
+  ('00000000-0000-4000-b659-000000000021', 'facture', '00000000-0000-4000-b659-000000000020', 'Facture R1b', 'GNF', 0, 'a_signer',
+   '00000000-0000-4000-b659-000000000003'),
+  ('00000000-0000-4000-b659-000000000022', 'facture', '00000000-0000-4000-b659-000000000020', 'Facture tiers R1b', 'GNF', 0, 'a_signer',
+   '00000000-0000-4000-b659-000000000004');
+SELECT pg_temp.se_connecter('00000000-0000-4000-b659-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.avancer_facture('00000000-0000-4000-b659-000000000021', 'signer')$$, '42501',
+  'Le signataire ne peut pas etre le preparateur de la facture',
+  'R1b signature : le DG ne signe pas la facture preparee par son delegue');
+SELECT lives_ok($$SELECT public.avancer_facture('00000000-0000-4000-b659-000000000022', 'signer')$$,
+  'R1b signature : facture preparee par un tiers sans lien de delegation, signee');
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;

@@ -368,7 +368,9 @@ Séparation des tâches et délégation (D-064, contre-revue R1) : `auteur_ou_de
 période vers l'appelant sur ce module (`delegants_ecriture`) alors que l'appelant n'a pas le droit
 en propre. Utilisée par `valider_cloture_poste`, `cloturer_planification`, `valider_distance_voyage`,
 `decider_inventaire_carburant`, `decider_mouvement_carburant`, `valider_remise_en_service` et
-`rectifier_ticket_pesee_cbg`. `affectation_en_cours` (interne) lit les affectations d'un compte affecté.
+`rectifier_ticket_pesee_cbg`, via `separation_violee(auteur, module de l'appelant, module de l'acte, date de l'acte)`
+qui refuse aussi le sens inverse (auteur délégué de l'appelant à la date de son acte, sans droit propre),
+appliquée de plus à la signature de facture (`avancer_facture`). `affectation_en_cours` (interne) lit les affectations d'un compte affecté.
 
 ## Fonctions héritées encore accordées
 

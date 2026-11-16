@@ -197,7 +197,8 @@ Règles appliquées par le serveur (`deleguer_droit`, `has_module_*`) :
   propre bon) ; il ne valide pas non plus ce que son délégant a saisi ou
   clos sur le module délégué (poste, clôture de planification, distance,
   carburant, remise en service, rectification de ticket), sauf s'il détient
-  ce droit en propre ;
+  ce droit en propre ; à l'inverse, le délégant ne valide pas (ni ne signe)
+  ce que son délégué a fait sous délégation, même après la fin de celle-ci ;
 - révocation par le délégant ou l'administrateur, motif obligatoire, tant
   que la délégation n'est pas expirée ; création et révocation sont
   journalisées (`journal_delegations`).

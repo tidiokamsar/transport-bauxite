@@ -1394,6 +1394,32 @@ AS $$
               AND NOT public.droit_module_base(auth.uid(), p_module, 'ecriture')));
 $$;
 
+-- Les deux sens (contre-revue R1b) : refus aussi quand l'auteur de l'acte
+-- etait, a la date de son acte, delegue de l'appelant (delegation d'ecriture
+-- sur un module quelconque, en periode et non revoquee a cette date) sans
+-- droit propre sur le module de l'acte : le delegant validerait alors l'acte
+-- fait sous son autorite. Date de l'acte inconnue (NULL) : toute delegation
+-- de l'appelant vers l'auteur compte, par prudence.
+CREATE OR REPLACE FUNCTION public.separation_violee(p_auteur uuid, p_module_appelant text, p_module_acte text,
+                                                    p_acte_le timestamptz)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT public.auteur_ou_delegant(p_auteur, p_module_appelant)
+      OR (p_auteur IS NOT NULL AND p_auteur <> auth.uid()
+          AND EXISTS (SELECT 1 FROM public.delegations_droits g
+                       WHERE g.delegant = auth.uid() AND g.delegue = p_auteur AND g.niveau = 'ecriture'
+                         AND (p_acte_le IS NULL
+                              OR (g.debut <= p_acte_le AND p_acte_le < g.fin
+                                  AND (g.revoquee_le IS NULL OR g.revoquee_le > p_acte_le))))
+          AND NOT public.droit_module_base(p_auteur, p_module_acte, 'ecriture'));
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.separation_violee(uuid, text, text, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.separation_violee(uuid, text, text, timestamptz) TO service_role;
 REVOKE EXECUTE ON FUNCTION public.delegants_ecriture(text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.auteur_ou_delegant(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.delegants_ecriture(text) TO service_role;
@@ -1408,7 +1434,7 @@ SET search_path = ''
 AS $$
 DECLARE p public.postes := public.poste_ecrivable(p_poste_id, 'planning', 'cloture');
 BEGIN
-  IF public.auteur_ou_delegant(p.cloture_par, 'planning') THEN
+  IF public.separation_violee(p.cloture_par, 'planning', 'planning', p.cloture_le) THEN
     RAISE EXCEPTION 'La validation revient a une autre personne que celle qui a clos le poste' USING ERRCODE = '42501';
   END IF;
   UPDATE public.postes SET statut = 'valide', valide_par = auth.uid(), valide_le = now() WHERE id = p.id;
@@ -1472,8 +1498,8 @@ BEGIN
     INTO v_separee;
   IF v_separee AND EXISTS (SELECT 1 FROM public.objectifs_production o
                             WHERE o.date_plan = p_date AND o.site_id = p_site_id
-                              AND (public.auteur_ou_delegant(o.cree_par, 'planning')
-                                   OR public.auteur_ou_delegant(o.clos_par, 'planning'))) THEN
+                              AND (public.separation_violee(o.cree_par, 'planning', 'planning', o.cree_le)
+                                   OR public.separation_violee(o.clos_par, 'planning', 'planning', o.clos_le))) THEN
     RAISE EXCEPTION 'La cloture revient a une autre personne que les auteurs des objectifs de la journee (reglage planification_cloture_separee)'
       USING ERRCODE = '42501';
   END IF;
@@ -1578,7 +1604,7 @@ BEGIN
   SELECT coalesce((SELECT (s.value ->> 'value') <> 'false' FROM public.settings s
                     WHERE s.key = 'kilometrage_validation_separee'), true) INTO v_separee;
   IF v_separee AND EXISTS (SELECT 1 FROM public.v_releves_compteur r WHERE r.trip_id = p_trip_id
-                                                                 AND public.auteur_ou_delegant(r.saisi_par, 'contracts')) THEN
+                                                                 AND public.separation_violee(r.saisi_par, 'contracts', 'trips', r.saisi_le)) THEN
     RAISE EXCEPTION 'La validation revient a une autre personne que l''auteur des releves' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO m FROM public.mesures_voyage(p_trip_id);
@@ -1611,7 +1637,7 @@ BEGIN
     RAISE EXCEPTION 'Inventaire introuvable ou deja decide' USING ERRCODE = '22023';
   END IF;
   s := public.stockage_ecrivable(i.stockage_id);
-  IF public.validation_carburant_separee() AND public.auteur_ou_delegant(i.cree_par, 'fuel') THEN
+  IF public.validation_carburant_separee() AND public.separation_violee(i.cree_par, 'fuel', 'fuel', i.cree_le) THEN
     RAISE EXCEPTION 'La decision revient a une autre personne que l''auteur de la saisie' USING ERRCODE = '42501';
   END IF;
   IF NOT coalesce(p_valider, false) THEN
@@ -1667,7 +1693,7 @@ BEGIN
   FOREACH v_id IN ARRAY v_ids LOOP
     SELECT * INTO m FROM public.mouvements_carburant WHERE id = v_id FOR UPDATE;
     PERFORM public.stockage_ecrivable(m.stockage_id);
-    IF public.validation_carburant_separee() AND public.auteur_ou_delegant(m.saisi_par, 'fuel') THEN
+    IF public.validation_carburant_separee() AND public.separation_violee(m.saisi_par, 'fuel', 'fuel', m.saisi_le) THEN
       RAISE EXCEPTION 'La decision revient a une autre personne que l''auteur de la saisie' USING ERRCODE = '42501';
     END IF;
   END LOOP;
@@ -1700,7 +1726,7 @@ AS $$
 DECLARE i public.interventions_loueur := public.intervention_ecrivable(p_id, 'terminee');
         v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
 BEGIN
-  IF public.auteur_ou_delegant(i.fin_saisie_par, 'maintenance') THEN
+  IF public.separation_violee(i.fin_saisie_par, 'maintenance', 'maintenance', NULL) THEN
     RAISE EXCEPTION 'La remise en service est validee par une autre personne que celle qui a saisi la fin' USING ERRCODE = '42501';
   END IF;
   IF NOT coalesce(p_valider, false) THEN
@@ -1747,8 +1773,8 @@ BEGIN
     RAISE EXCEPTION 'Reconciliation cloturee : utiliser le circuit d''avoir, pas une rectification retroactive' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO e FROM public.v_tickets_pesee_cbg_effectifs WHERE id = t.id;
-  IF e.saisi_par IS NULL OR public.auteur_ou_delegant(e.saisi_par, 'trips')
-     OR public.auteur_ou_delegant(e.saisi_par, 'invoices') THEN
+  IF e.saisi_par IS NULL OR public.separation_violee(e.saisi_par, 'trips', 'trips', e.cree_le)
+     OR public.separation_violee(e.saisi_par, 'invoices', 'trips', e.cree_le) THEN
     RAISE EXCEPTION 'La rectification doit etre saisie par une autre personne que l''auteur du ticket' USING ERRCODE = '42501';
   END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended(upper(btrim(p_ticket)), 0));
@@ -1763,5 +1789,81 @@ BEGIN
     btrim(p_ticket), p_brut, p_tare, nullif(btrim(coalesce(p_document_ref, '')), ''), btrim(p_motif), auth.uid())
   RETURNING id INTO v_id;
   RETURN v_id;
+END;
+$$;
+
+-- avancer_facture : reprise de D-029 (20261111120000), seule definition ;
+-- le signataire n'est ni le preparateur ni le delegant d'un preparateur
+-- delegue a la date de la preparation (contre-revue R1b).
+CREATE OR REPLACE FUNCTION public.avancer_facture(p_id uuid, p_action text, p_motif text DEFAULT NULL, p_date date DEFAULT NULL)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  f public.factures;
+  v_role text;
+  v_prefixe text;
+  v_suite integer;
+  v_date date := coalesce(p_date, current_date);
+BEGIN
+  SELECT * INTO f FROM public.factures WHERE id = p_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Facture introuvable' USING ERRCODE = 'P0002';
+  END IF;
+  SELECT pr.role::text INTO v_role FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.status = 'active';
+
+  IF p_action = 'signer' THEN
+    IF v_role IS DISTINCT FROM 'director' THEN
+      RAISE EXCEPTION 'Seul le Directeur General signe les factures' USING ERRCODE = '42501';
+    END IF;
+    IF public.separation_violee(f.prepare_par, 'invoices', 'invoices', f.prepare_le) THEN
+      RAISE EXCEPTION 'Le signataire ne peut pas etre le preparateur de la facture' USING ERRCODE = '42501';
+    END IF;
+    IF f.statut <> 'a_signer' THEN
+      RAISE EXCEPTION 'Facture non soumise a signature (%)', f.statut USING ERRCODE = '22023';
+    END IF;
+    UPDATE public.factures SET statut = 'signee', signee_par = auth.uid(), signee_le = now() WHERE id = p_id;
+  ELSIF p_action = 'renvoyer' THEN
+    IF v_role IS DISTINCT FROM 'director' THEN
+      RAISE EXCEPTION 'Seul le Directeur General renvoie une facture' USING ERRCODE = '42501';
+    END IF;
+    IF f.statut <> 'a_signer' OR nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+      RAISE EXCEPTION 'Renvoi d''une facture a signer, motif obligatoire' USING ERRCODE = '22023';
+    END IF;
+    UPDATE public.factures SET statut = 'brouillon', soumise_le = NULL WHERE id = p_id;
+  ELSE
+    IF NOT public.has_module_write('invoices') THEN
+      RAISE EXCEPTION 'Droit d''ecriture sur la facturation requis' USING ERRCODE = '42501';
+    END IF;
+    IF p_action = 'soumettre' AND f.statut = 'brouillon' THEN
+      IF NOT EXISTS (SELECT 1 FROM public.facture_lignes WHERE facture_id = p_id) THEN
+        RAISE EXCEPTION 'Facture sans ligne' USING ERRCODE = '22023';
+      END IF;
+      UPDATE public.factures SET statut = 'a_signer', soumise_le = now() WHERE id = p_id;
+    ELSIF p_action = 'emettre' AND f.statut = 'signee' THEN
+      IF v_date > current_date THEN
+        RAISE EXCEPTION 'Date d''emission dans le futur' USING ERRCODE = '22023';
+      END IF;
+      v_prefixe := CASE f.type WHEN 'avoir' THEN 'AV-' ELSE 'FAC-' END || to_char(v_date, 'YYYY') || '-';
+      PERFORM pg_advisory_xact_lock(hashtext('sigtb.facture.' || v_prefixe));
+      SELECT coalesce(max(substring(numero FROM '-(\d+)$')::int), 0) + 1 INTO v_suite
+        FROM public.factures WHERE numero LIKE v_prefixe || '%';
+      UPDATE public.factures SET statut = 'emise', emise_par = auth.uid(), emise_le = now(),
+        numero = v_prefixe || lpad(v_suite::text, 4, '0'), date_emission = v_date,
+        date_echeance = CASE WHEN delai_paiement_jours IS NOT NULL THEN v_date + delai_paiement_jours END
+      WHERE id = p_id;
+    ELSIF p_action = 'annuler' AND f.statut IN ('brouillon', 'a_signer') THEN
+      IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+        RAISE EXCEPTION 'Motif obligatoire pour annuler' USING ERRCODE = '22023';
+      END IF;
+      UPDATE public.factures SET statut = 'annulee', motif = btrim(p_motif) WHERE id = p_id;
+    ELSE
+      RAISE EXCEPTION 'Action % impossible sur une facture %', p_action, f.statut USING ERRCODE = '22023';
+    END IF;
+  END IF;
+  PERFORM public.journaliser_facture(p_id, p_action, nullif(btrim(coalesce(p_motif, '')), ''));
+  RETURN (SELECT statut FROM public.factures WHERE id = p_id);
 END;
 $$;
