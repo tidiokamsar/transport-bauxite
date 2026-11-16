@@ -50,6 +50,27 @@ Conventions :
 | `annuler_objectif(id, motif)` | W(planning) | Motif obligatoire ; objectif actif |
 | `statistiques_rotation(site, shift, jusqua, jours)` | INVOKER | Charge moyenne et rotations par camion sur la période, pour l'estimation des camions |
 
+## Planification avancée (D-063)
+
+Migration `20261121090000`.
+
+| Fonction | Droit | Règle principale |
+|---|---|---|
+| `ventiler_objectif(objectif, lignes)` | DEFINER, W(planning), périmètre | Objectif actif, journée non close, une seule ventilation par version ; ligne : destination (différente du site) ou contrat client actif à la date ; tonnes positives ; somme au plus égale à l'objectif |
+| `cloturer_planification(date, site, causes, commentaire)` | DEFINER, W(planning), périmètre | Journée terminée ; une clôture active par date et site (verrou) ; objectifs de la journée verrouillés ; cause d'écart requise si réalisé sous l'objectif ; autre personne que l'auteur des objectifs si `planification_cloture_separee` vaut `true` ; bilan figé |
+| `annuler_cloture_planification(cloture, motif)` | DEFINER, W(planning), périmètre | Motif obligatoire ; clôture active |
+| `simuler_objectif(objectif, instant)` | INVOKER | Hypothèses sourcées, situation, besoin en camions et engins, tonnage atteignable, objectif proposé ; « Données insuffisantes » sous les seuils d'échantillon ; n'écrit rien |
+| `durees_cycle_observees(site, shift, jusqua, jours)` | INVOKER | Médianes de rotation, de chargement et de trajet sur la période (1 à 90 jours) |
+| `production_journee(date, site)` | INVOKER | Objectif de journée, sinon somme des objectifs de shift ; réalisé sur le même périmètre |
+| `rapport_production(debut, fin, site)` | INVOKER | Bilan figé d'une journée close, calcul à la lecture sinon ; période bornée à 366 jours |
+| `comparer_shifts(debut, fin, site)` | INVOKER | Par shift : voyages, tonnes, durées, objectifs, postes, incidents, arrêts, retards, absences ; période bornée à 366 jours |
+| `fenetre_planification(date, shift)`, `unite_debit(unite)` | INVOKER | Fenêtre d'exploitation (heure de Conakry) ; unité de débit reconnue (t/h, camions/h) |
+
+Vue `v_realisation_ventilation` (security_invoker) : réalisé par destination
+des lignes ventilées ; contrat seul non mesurable. Garde
+`garde_objectif_journee_close` (DEFINER interne, non exécutable par les
+comptes) : une journée close fige ses objectifs.
+
 ## Postes de travail (D-048)
 
 | Fonction | Droit | Règle principale |
