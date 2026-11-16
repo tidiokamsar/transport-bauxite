@@ -19,15 +19,15 @@ export const Fenetre = ({ titre, onFermer, children, pied, largeur = 'max-w-2xl'
   largeur?: string;
 }) => (
   <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-    <div onClick={(e) => e.stopPropagation()} className={`w-full ${largeur} rounded-2xl bg-white shadow-2xl`} role="dialog" aria-modal="true" aria-label={titre}>
-      <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+    <div onClick={(e) => e.stopPropagation()} className={`flex max-h-[90vh] w-full flex-col ${largeur} rounded-2xl bg-white shadow-2xl`} role="dialog" aria-modal="true" aria-label={titre}>
+      <header className="flex shrink-0 items-center justify-between border-b border-stone-200 px-6 py-4">
         <h2 className="text-xl font-black text-stone-900">{titre}</h2>
         <button type="button" onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer">
           <X className="h-5 w-5" />
         </button>
       </header>
-      {children}
-      {pied && <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">{pied}</footer>}
+      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      {pied && <footer className="flex shrink-0 justify-end gap-2 border-t border-stone-200 px-6 py-4">{pied}</footer>}
     </div>
   </div>
 );
