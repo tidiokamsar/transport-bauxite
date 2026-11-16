@@ -26,10 +26,10 @@ Conventions :
 
 | Fonction | Type | Rôle |
 |---|---|---|
-| `has_module_view(module)` | DEFINER | Compte actif ET (attribution spécifique lecture ou écriture, sinon `can_view` du rôle), OU délégation en vigueur sur le module (D-064) |
+| `has_module_view(module)` | DEFINER | Compte actif ET (attribution spécifique lecture ou écriture, sinon `can_view` du rôle), OU délégation en vigueur sur le module dont le délégant lit lui-même le module (D-064) |
 | `has_module_write(module)` | DEFINER | Compte actif ET (attribution spécifique écriture, sinon `can_create` ou `can_edit` du rôle), OU délégation d'écriture en vigueur (D-064) |
 | `has_module_approve(module)` | DEFINER | Compte actif ET `can_approve` du rôle ET attribution spécifique absente ou « écriture », OU délégation d'approbation en vigueur (D-064) |
-| `site_permis(site)` | DEFINER | Compte actif ET (global : sans site au profil ni affectation non annulée ; ou site du profil ; ou affectation non annulée en cours à ce site, D-064) |
+| `site_permis(site)` | DEFINER | Compte actif ET (global : sans site au profil et aucune affectation, même annulée ou expirée, créée depuis son dernier retour au périmètre global ; ou site du profil ; ou affectation non annulée en cours à ce site, fin incluse, D-064). `site_permis(NULL)` : comptes globaux seulement |
 | `vehicule_permis(vehicule)`, `voyage_permis(voyage)` | DEFINER | Périmètre du site de l'engin ; du site de départ ou d'arrivée du voyage |
 | `bon_commande_permis(depot)`, `pneu_permis(vehicule, site)`, `incident_permis(voyage, vehicule, site)` | DEFINER | Périmètre du dépôt, du pneu, de l'incident |
 | `site_ferme_le(site, jour)` | DEFINER interne (D-072) | Motif d'une fermeture du site entier qui couvre la journée ; lue par la garde du dispatch, non exécutable par les comptes |
@@ -284,17 +284,23 @@ périmètre.
 | `mes_validations()` | INVOKER | Ce qui attend la décision de l'appelant, calculé à chaque lecture selon ses droits et la séparation des tâches |
 | `marquer_notifications_lues(ids)` | DEFINER | Marque lues les seules notifications de l'appelant |
 
-## Organisation et administration (D-064)
+## Organisation et administration (D-064, à tester)
+
+Migration `20261121110000`, test 47, E2E `organisation`. En branche
+(`lot-02/organisation-integration`), ni fusionnée ni déployée à la date de
+cette révision.
 
 | Fonction | Type | Droit | Règle |
 |---|---|---|---|
-| `affecter_site(utilisateur, site, debut, fin, motif)` | DEFINER | admin | Affectation datée (fin incluse, NULL = sans terme) ; pas de chevauchement au même site ; journalisée |
-| `cloturer_affectation_site(id, fin, motif)` | DEFINER | admin | Nouvelle fin (au plus tôt le début) ; journalisée avant et après |
-| `annuler_affectation_site(id, motif)` | DEFINER | admin | Motif obligatoire ; l'affectation annulée est réputée n'avoir jamais existé |
-| `deleguer_droit(delegue, module, niveau, debut, fin, motif)` | DEFINER | droit propre détenu | Écriture ou approbation ; pas à soi-même, pas `settings`, pas de redélégation, motif obligatoire ; journalisée |
+| `affecter_site(utilisateur, site, debut, fin, motif)` | DEFINER | admin | Affectation datée (fin incluse, NULL = sans terme) ; pas de chevauchement au même site ; verrou par compte ; journalisée |
+| `cloturer_affectation_site(id, fin, motif)` | DEFINER | admin | Nouvelle fin (au plus tôt le début) ; refusée pour une affectation antérieure au dernier retour au périmètre global ; journalisée avant et après |
+| `annuler_affectation_site(id, motif)` | DEFINER | admin | Motif obligatoire ; l'affectation ne donne plus aucun site ; le compte ne redevient pas global |
+| `retablir_perimetre_global(utilisateur, motif)` | DEFINER | admin | Motif obligatoire ; profil sans site ; aucune affectation en cours ou à venir ; compte pas déjà global ; consigné dans `retours_perimetre_global` (append-only) |
+| `perimetres_comptes()` | DEFINER | admin | Par compte : global ou non, sites du jour, retour possible, dernier retour (même règle que `site_permis`) |
+| `deleguer_droit(delegue, module, niveau, debut, fin, motif)` | DEFINER | droit propre détenu | Écriture ou approbation ; pas à soi-même, pas `settings`, pas de redélégation, délégué non restreint (D-036), périmètre du délégué inclus dans celui du délégant, motif obligatoire ; journalisée |
 | `revoquer_delegation(id, motif)` | DEFINER | délégant ou admin | Motif obligatoire ; ni expirée ni déjà révoquée |
-| `mes_delegations()` | DEFINER | parties ou admin | Délégations avec statut : active, a_venir, expiree, revoquee, sans_effet |
-| `comptes_delegables()` | DEFINER | compte actif | Comptes actifs (nom, rôle), sans soi-même |
+| `mes_delegations()` | DEFINER | parties ou admin | Délégations avec statut (active, a_venir, expiree, revoquee, sans_effet, même règle que `has_module_*`) et `donne_lecture` |
+| `comptes_delegables()` | DEFINER | compte actif | Comptes actifs (nom, rôle), sans soi-même, dont le périmètre est inclus dans celui de l'appelant |
 | `sessions_ouvertes()` | DEFINER | admin | Sessions GoTrue non expirées, sans clé ni jeton |
 | `enregistrer_devise(code, libelle, actif)`, `enregistrer_unite(code, libelle, actif)` | DEFINER | admin | Référentiels ; aucune contrainte sur les saisies existantes |
 | `codes_utilises()` | DEFINER | admin | Devises et unités saisies, confrontées au référentiel |
@@ -303,7 +309,14 @@ périmètre.
 Vue `v_journal_connexions` (au propriétaire, filtrée par `is_admin()`) : date,
 compte, événement, catégorie, méthode, adresse IP lus dans
 `auth.audit_log_entries`. Fonctions internes non accordées :
-`droit_module_base`, `delegation_en_vigueur`.
+`droit_module_base` (droit propre, corps repris de main), `delegation_effective`,
+`delegation_en_vigueur`, `perimetre_global_de`, `sites_permis_de`,
+`perimetre_inclus` et les gardes `garde_journal_organisation`,
+`garde_affectation_site`, `garde_delegation`. Tables `affectations_sites`,
+`journal_affectations_sites`, `retours_perimetre_global`,
+`delegations_droits`, `journal_delegations`, `devises`, `unites_mesure` :
+lecture seule pour les comptes (parties ou administrateur), aucune
+écriture directe, ni DELETE ni TRUNCATE.
 
 ## Fonctions héritées encore accordées
 
