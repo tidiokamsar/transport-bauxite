@@ -123,6 +123,22 @@ Les rapports de fin de session comptent les fonctionnalités par état. « Dépl
 
 ### 6. Standard de module : à la demande, pas par défaut
 
+> **Remplacé le 2026-11-16 par D-077 (demande du propriétaire).** Le
+> standard complet en 12 blocs (dashboard, liste, CRUD, fiche détaillée,
+> modals et formulaires, actions métier, workflows, documents, rapports,
+> historique, notifications, paramétrage) est la cible de chaque module, avec
+> la bibliothèque commune de composants (DataTable, CreateModal, EditModal,
+> DetailDrawer, DeleteDialog, ArchiveDialog, ActionDialog, AttachmentModal,
+> ImportWizard, ExportModal, HistoryDrawer, CommentThread, AssignmentModal,
+> BulkActionBar), le catalogue maître `docs/catalogue/` (une fiche de 20
+> sections par module, modèle `docs/catalogue/MODELE_FICHE_MODULE.md`) et la
+> matrice de couverture. Spécification : `docs/specs/SIGTB_STANDARD_MODULES.md`.
+> Restent en vigueur : aucune suppression physique d'une pièce métier
+> (correction par opération tracée), écriture par fonction serveur, aucune
+> donnée inventée, ordre des jalons comme ordre de réalisation, revue
+> indépendante, accord du propriétaire avant tout déploiement après la
+> première saisie réelle. Le tableau ci-dessous est conservé pour mémoire.
+
 | Toujours | Sur besoin nommé par un utilisateur | Interdit sans décision consignée |
 |---|---|---|
 | Liste avec recherche, filtres, tri, pagination, export | Vues enregistrées, favoris, colonnes configurables, duplication, actions groupées, brouillons | Suppression physique d'un enregistrement métier |
