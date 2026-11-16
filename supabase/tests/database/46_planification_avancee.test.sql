@@ -1,7 +1,7 @@
 -- Tests (D-063) : ventilation des objectifs par destination et contrat,
 -- durees de cycle observees, simulation de capacite et rattrapage, cloture
 -- de planification et rapport de production, comparaison des shifts
--- (migration 20261119090000). Periode 2001 : la production contient des
+-- (migration 20261121090000). Periode 2001 : la production contient des
 -- donnees de demonstration. Tout est annule.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
@@ -21,7 +21,7 @@ LANGUAGE sql AS $$ SELECT s.valeur FROM public.simuler_objectif(p_id, p_instant)
 CREATE FUNCTION pg_temp.rem(p_id uuid, p_instant timestamptz, p_code text) RETURNS text
 LANGUAGE sql AS $$ SELECT coalesce(s.remarque, '-') FROM public.simuler_objectif(p_id, p_instant) s WHERE s.code = p_code; $$;
 
-SELECT plan(47);
+SELECT plan(56);
 
 -- Les departs de voyages ne dependent pas des reglages de la base.
 DELETE FROM public.settings WHERE key IN ('controle_depart_exige', 'planification_cloture_separee');
@@ -58,6 +58,9 @@ INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devi
 INSERT INTO public.infrastructures_site (site_id, type, code, libelle, capacite, unite_capacite) VALUES
   ('00000000-0000-4000-a630-0000000000a1', 'point_chargement', 'PC-D063-1', 'Front 1', 100, 't/h'),
   ('00000000-0000-4000-a630-0000000000a1', 'point_chargement', 'PC-D063-2', 'Front 2', 500, 'm3');
+-- Fermeture du site sans moyens le jour J (lue par la simulation, D-072 R1-7).
+INSERT INTO public.fermetures_site (site_id, debut, fin, motif) VALUES
+  ('00000000-0000-4000-a630-0000000000a4', '2001-03-05 00:00+00', '2001-03-06 00:00+00', 'Fermeture test D-063');
 
 -- Historique : 4 jours, 2 camions, 3 voyages chacun (departs 07:00, 09:00,
 -- 11:00), 40 t, trajet 50 min, chargement 10 min (journal).
@@ -96,6 +99,44 @@ INSERT INTO public.postes_equipe (poste_id, vehicle_id, present, retard_minutes,
 INSERT INTO public.postes_evenements (poste_id, survenu_le, categorie, description) VALUES
   ('00000000-0000-4000-a630-0000000000d1', '2001-03-04 09:00+00', 'incident', 'Crevaison'),
   ('00000000-0000-4000-a630-0000000000d1', '2001-03-04 10:00+00', 'arret', 'Pluie');
+
+-- Droits (D-072) : verifies par has_function_privilege et has_table_privilege.
+SELECT ok(NOT has_function_privilege('anon', 'public.ventiler_objectif(uuid, jsonb)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.cloturer_planification(date, uuid, jsonb, text)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.annuler_cloture_planification(uuid, text)', 'EXECUTE'),
+  'fonctions d''ecriture non executables par anon');
+SELECT ok(has_function_privilege('authenticated', 'public.ventiler_objectif(uuid, jsonb)', 'EXECUTE')
+          AND has_function_privilege('authenticated', 'public.cloturer_planification(date, uuid, jsonb, text)', 'EXECUTE')
+          AND has_function_privilege('authenticated', 'public.annuler_cloture_planification(uuid, text)', 'EXECUTE'),
+  'fonctions d''ecriture executables par les comptes (controles internes)');
+SELECT ok(NOT has_function_privilege('anon', 'public.simuler_objectif(uuid, timestamptz)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.rapport_production(date, date, uuid)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.comparer_shifts(date, date, uuid)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.durees_cycle_observees(uuid, uuid, date, integer)', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.production_journee(date, uuid)', 'EXECUTE'),
+  'fonctions de lecture non executables par anon');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.garde_objectif_journee_close()', 'EXECUTE')
+          AND NOT has_function_privilege('anon', 'public.garde_objectif_journee_close()', 'EXECUTE'),
+  'garde SECURITY DEFINER non executable par les comptes');
+SELECT ok(NOT has_function_privilege('authenticated', 'public.site_ferme_le(uuid, date)', 'EXECUTE'),
+  'site_ferme_le reste retire aux comptes (D-072 R1-7)');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.objectifs_ventilation', 'INSERT')
+          AND NOT has_table_privilege('authenticated', 'public.objectifs_ventilation', 'UPDATE')
+          AND NOT has_table_privilege('authenticated', 'public.objectifs_ventilation', 'DELETE')
+          AND NOT has_table_privilege('authenticated', 'public.objectifs_ventilation', 'TRUNCATE'),
+  'ventilation : aucune ecriture directe pour les comptes');
+SELECT ok(NOT has_table_privilege('authenticated', 'public.clotures_planification', 'INSERT')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification', 'UPDATE')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification', 'DELETE')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification', 'TRUNCATE')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification_causes', 'INSERT')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification_causes', 'DELETE')
+          AND NOT has_table_privilege('authenticated', 'public.clotures_planification_causes', 'TRUNCATE'),
+  'clotures et causes : aucune ecriture directe pour les comptes');
+SELECT ok(NOT has_table_privilege('anon', 'public.objectifs_ventilation', 'SELECT')
+          AND NOT has_table_privilege('anon', 'public.clotures_planification', 'SELECT')
+          AND NOT has_table_privilege('anon', 'public.v_realisation_ventilation', 'SELECT'),
+  'anon ne lit ni ventilation ni clotures');
 
 -- Fonctions utilitaires
 SELECT is(public.unite_debit('Camions par heure') || '|' || public.unite_debit(' t / h ') || '|' || coalesce(public.unite_debit('m3'), 'NULL'),
@@ -148,6 +189,8 @@ SELECT is(pg_temp.sim((SELECT id FROM o4), NULL, 'charge_par_voyage') IS NULL
           AND pg_temp.sim((SELECT id FROM o4), NULL, 'camions_necessaires') IS NULL, true,
   'sans historique ni camion : aucune estimation');
 SELECT is(pg_temp.rem((SELECT id FROM o4), NULL, 'camions_necessaires'), 'Données insuffisantes', 'donnees insuffisantes annoncees');
+SELECT is(pg_temp.rem((SELECT id FROM o4), NULL, 'site_ferme'), 'Fermeture test D-063',
+  'fermeture du site lue par un compte, sans site_ferme_le (D-072 R1-7)');
 
 -- Ventilation par destination et contrat
 SELECT is(public.ventiler_objectif((SELECT id FROM o1), jsonb_build_array(

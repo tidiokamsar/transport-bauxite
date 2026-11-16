@@ -41,6 +41,14 @@
      durees de rotation et de trajet, objectifs, postes, incidents, arrets,
      retards, absences (postes D-048).
 
+  Integration sur main apres D-072 (version renumerotee, D-070) : seule
+  `valider_reglage` existait deja (derniere definition : 20261118180000,
+  non modifiee par D-072) ; elle est reprise a l'identique, plus la cle
+  `planification_cloture_separee`. `simuler_objectif` ne passe plus par
+  `site_ferme_le`, retiree aux comptes par D-072 (R1-7) : la fermeture est
+  lue avec les droits de l'appelant (RLS de fermetures_site).
+  `cloturer_planification` verrouille les objectifs de la journee.
+
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
 
@@ -407,7 +415,14 @@ BEGIN
      AND NOT EXISTS (SELECT 1 FROM public.fermetures_site f
                       WHERE f.infrastructure_id = i.id AND f.debut <= v_instant
                         AND coalesce(least(f.fin, f.levee_le), 'infinity'::timestamptz) > v_instant);
-  v_ferme := public.site_ferme_le(o.site_id, o.date_plan);
+  -- Meme regle que site_ferme_le, lue avec les droits de l'appelant :
+  -- site_ferme_le n'est plus executable par les comptes (D-072, R1-7) et la
+  -- RLS de fermetures_site borne le motif au perimetre.
+  SELECT f.motif INTO v_ferme FROM public.fermetures_site f
+   WHERE f.site_id = o.site_id AND f.infrastructure_id IS NULL
+     AND f.debut < (o.date_plan + 1)::timestamptz
+     AND coalesce(least(f.fin, f.levee_le), 'infinity'::timestamptz) > o.date_plan::timestamptz
+   ORDER BY f.debut DESC LIMIT 1;
 
   -- Situation a l'instant
   SELECT coalesce(sum(coalesce(t.accepted_tonnage, t.net_weight_reception, t.net_weight, t.load_weight)), 0),
@@ -803,6 +818,10 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtext('cloture_planification|' || p_date || '|' || p_site_id));
+  -- Les objectifs de la journee sont verrouilles : une ventilation ou une
+  -- revision concurrente attend la cloture et voit ensuite la journee close.
+  PERFORM 1 FROM public.objectifs_production o
+   WHERE o.date_plan = p_date AND o.site_id = p_site_id AND o.statut = 'actif' FOR UPDATE;
   IF EXISTS (SELECT 1 FROM public.clotures_planification c
               WHERE c.date_plan = p_date AND c.site_id = p_site_id AND c.statut = 'close') THEN
     RAISE EXCEPTION 'Planification deja close pour ce site et cette date' USING ERRCODE = '22023';
@@ -1095,7 +1114,8 @@ REVOKE EXECUTE ON FUNCTION public.comparer_shifts(date, date, uuid) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.comparer_shifts(date, date, uuid) TO authenticated;
 
 -- 6. Reglage de separation de la cloture : format controle ------------------
--- Reprend toutes les cles de la migration 20261118180000 et ajoute
+-- Reprend toutes les cles de la migration 20261118180000 (derniere
+-- definition, non modifiee par D-072) et ajoute
 -- `planification_cloture_separee` (booleen ; absent = non exigee).
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
