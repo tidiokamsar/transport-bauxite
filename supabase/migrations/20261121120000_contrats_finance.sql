@@ -80,6 +80,13 @@
   7. `valider_reglage` reprise avec toutes ses cles (derniere definition :
      D-063, `20261121090000`) plus `contrats_alerte_echeance_jours` (entier)
      et `clauses_renonciation_separee` (booleen).
+  8. Revue independante de l'integration (2026-11-16) : calcul rouvert
+     (« propose », journalise dans `calculs_clauses_journal`) quand la
+     facture ou l'avoir qu'il a produit est annule ; une clause n'est
+     proposee qu'une fois pour des rapports dont les periodes se
+     chevauchent ; `creer_avoir` (D-029) repris avec verrou et plafond apres
+     avoirs ; `rapport_client` et `indicateurs_charge_contrats` reprises,
+     limitees aux factures des contrats clients (`est_facture_client`).
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -294,6 +301,10 @@ CREATE INDEX IF NOT EXISTS idx_calculs_clauses_contrat ON public.calculs_clauses
 
 -- Un calcul est fige : seule la decision (propose -> applique ou ecarte)
 -- change son statut et ses champs de decision ; il ne se supprime pas.
+-- Exception explicite : un calcul applique revient a « propose », champs de
+-- decision vides, quand la facture ou l'avoir qu'il a produit est annule
+-- (`rouvrir_clauses_facture_annulee`) : le montant ne disparait jamais sans
+-- nouvelle decision.
 CREATE OR REPLACE FUNCTION public.garde_calcul_clause()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -302,6 +313,13 @@ AS $$
 BEGIN
   IF auth.uid() IS NULL THEN RETURN coalesce(NEW, OLD); END IF;
   IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'Un calcul de clause ne se supprime pas' USING ERRCODE = '42501'; END IF;
+  IF OLD.statut = 'applique' AND NEW.statut = 'propose'
+     AND EXISTS (SELECT 1 FROM public.factures f WHERE f.id = OLD.facture_id AND f.statut = 'annulee')
+     AND NEW.decide_par IS NULL AND NEW.decide_le IS NULL AND NEW.motif_decision IS NULL AND NEW.facture_id IS NULL
+     AND (to_jsonb(NEW) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id'])
+         = (to_jsonb(OLD) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id']) THEN
+    RETURN NEW;
+  END IF;
   IF OLD.statut <> 'propose' OR NEW.statut NOT IN ('applique', 'ecarte')
      OR (to_jsonb(NEW) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id'])
         IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id']) THEN
@@ -319,6 +337,96 @@ CREATE TRIGGER garde_calcul_clause BEFORE UPDATE OR DELETE ON public.calculs_cla
 ALTER TABLE public.facture_lignes ADD COLUMN IF NOT EXISTS calcul_clause_id uuid REFERENCES public.calculs_clauses(id);
 CREATE INDEX IF NOT EXISTS idx_facture_lignes_calcul_clause ON public.facture_lignes (calcul_clause_id) WHERE calcul_clause_id IS NOT NULL;
 
+-- Historique des decisions sur un calcul (append-only) : application,
+-- renonciation, reouverture apres annulation de la piece produite.
+CREATE TABLE IF NOT EXISTS public.calculs_clauses_journal (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  calcul_id uuid NOT NULL REFERENCES public.calculs_clauses(id),
+  evenement text NOT NULL CHECK (evenement IN ('applique', 'ecarte', 'reouvert')),
+  facture_id uuid REFERENCES public.factures(id),
+  motif text NOT NULL CHECK (btrim(motif) <> ''),
+  par uuid REFERENCES auth.users(id),
+  le timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE INDEX IF NOT EXISTS idx_calculs_clauses_journal ON public.calculs_clauses_journal (calcul_id, le);
+
+-- Facture ou avoir annule (brouillon ou a signer, D-029) : chaque calcul
+-- applique qui l'a produit et dont une ligne y figure revient a « propose »,
+-- journalise. Vaut pour toute facture portant une ligne de clause
+-- (facture de reconciliation comprise).
+CREATE OR REPLACE FUNCTION public.rouvrir_clauses_facture_annulee()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE k record;
+BEGIN
+  IF NEW.statut = 'annulee' AND OLD.statut IS DISTINCT FROM 'annulee' THEN
+    FOR k IN SELECT c.id FROM public.calculs_clauses c
+              WHERE c.statut = 'applique' AND c.facture_id = NEW.id
+                AND c.id IN (SELECT l.calcul_clause_id FROM public.facture_lignes l
+                              WHERE l.facture_id = NEW.id AND l.calcul_clause_id IS NOT NULL)
+              ORDER BY c.id FOR UPDATE LOOP
+      UPDATE public.calculs_clauses SET statut = 'propose', decide_par = NULL, decide_le = NULL, motif_decision = NULL, facture_id = NULL
+       WHERE id = k.id;
+      INSERT INTO public.calculs_clauses_journal (calcul_id, evenement, facture_id, motif, par)
+      VALUES (k.id, 'reouvert', NEW.id,
+              CASE NEW.type WHEN 'avoir' THEN 'Avoir' ELSE 'Facture' END || ' annule(e) : '
+                || coalesce(nullif(btrim(coalesce(NEW.motif, '')), ''), 'sans motif'), auth.uid());
+    END LOOP;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+DROP TRIGGER IF EXISTS rouvrir_clauses_facture_annulee ON public.factures;
+CREATE TRIGGER rouvrir_clauses_facture_annulee AFTER UPDATE OF statut ON public.factures
+  FOR EACH ROW EXECUTE FUNCTION public.rouvrir_clauses_facture_annulee();
+
+-- Avoir (D-029, derniere definition `20261111120000`, non modifiee par
+-- D-072) : reprise a l'identique, plus le verrou de la facture et le
+-- plafond = HT de la facture moins les avoirs deja crees non annules (deux
+-- avoirs ne depassent plus la facture).
+CREATE OR REPLACE FUNCTION public.creer_avoir(p_facture_id uuid, p_montant_ht numeric, p_motif text)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  f public.factures;
+  v_id uuid;
+  v_reste numeric;
+BEGIN
+  IF NOT public.has_module_write('invoices') THEN
+    RAISE EXCEPTION 'Droit d''ecriture sur la facturation requis' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO f FROM public.factures WHERE id = p_facture_id FOR UPDATE;
+  IF NOT FOUND OR f.type <> 'facture' OR f.statut <> 'emise' THEN
+    RAISE EXCEPTION 'Un avoir corrige une facture emise' USING ERRCODE = '22023';
+  END IF;
+  IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN
+    RAISE EXCEPTION 'Motif obligatoire pour un avoir' USING ERRCODE = '22023';
+  END IF;
+  v_reste := f.montant_ht + coalesce((SELECT sum(a.montant_ht) FROM public.factures a
+                                       WHERE a.facture_origine_id = f.id AND a.type = 'avoir' AND a.statut <> 'annulee'), 0);
+  IF p_montant_ht IS NULL OR p_montant_ht <= 0 OR p_montant_ht > v_reste THEN
+    RAISE EXCEPTION 'Montant de l''avoir positif et au plus egal au reste HT de la facture apres avoirs (% %)', v_reste, f.devise
+      USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.factures (type, contrat_id, facture_origine_id, objet, periode_debut, periode_fin, devise,
+    taux_taxe_pct, delai_paiement_jours, prepare_par, motif)
+  VALUES ('avoir', f.contrat_id, f.id, 'Avoir sur la facture ' || f.numero, f.periode_debut, f.periode_fin, f.devise,
+    f.taux_taxe_pct, f.delai_paiement_jours, auth.uid(), btrim(p_motif))
+  RETURNING id INTO v_id;
+  INSERT INTO public.facture_lignes (facture_id, libelle, quantite, unite, prix_unitaire, montant)
+  VALUES (v_id, btrim(p_motif), 1, 'forfait', -p_montant_ht, -p_montant_ht);
+  PERFORM public.recalculer_facture(v_id);
+  PERFORM public.journaliser_facture(v_id, 'generation', btrim(p_motif));
+  RETURN v_id;
+END;
+$$;
+
 -- p_id NULL : nouvelle clause ; sinon modification d'une clause sans calcul.
 CREATE OR REPLACE FUNCTION public.definir_clause(
   p_version uuid, p_type text, p_libelle text, p_engagement uuid, p_declenchement text, p_base text, p_valeur numeric,
@@ -328,13 +436,17 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE g public.contrat_engagements; v_id uuid;
+DECLARE g public.contrat_engagements; v_id uuid; v_statut text;
 BEGIN
   IF NOT (public.has_module_write('contracts') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.contrat_versions WHERE id = p_version) THEN
-    RAISE EXCEPTION 'Version du contrat introuvable' USING ERRCODE = '22023';
+  -- Verrou de la version : saisies de clauses et calculs serialises.
+  SELECT c.statut INTO v_statut FROM public.contrat_versions v JOIN public.contrats c ON c.id = v.contrat_id
+   WHERE v.id = p_version FOR UPDATE OF v;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Version du contrat introuvable' USING ERRCODE = '22023'; END IF;
+  IF v_statut <> 'actif' THEN
+    RAISE EXCEPTION 'Contrat % : une clause chiffree se saisit sur un contrat actif', v_statut USING ERRCODE = '22023';
   END IF;
   IF p_type IS NULL OR p_type NOT IN ('penalite', 'bonus', 'retenue') THEN
     RAISE EXCEPTION 'Type de clause : penalite, bonus ou retenue' USING ERRCODE = '22023';
@@ -354,13 +466,19 @@ BEGIN
   IF p_valeur IS NULL OR p_valeur <= 0 OR (p_base = 'taux' AND p_valeur > 100) THEN
     RAISE EXCEPTION 'Valeur saisie requise : montant positif ou taux de 0 a 100 %%' USING ERRCODE = '22023';
   END IF;
-  IF p_plafond IS NOT NULL AND p_plafond <= 0 THEN RAISE EXCEPTION 'Plafond positif ou absent' USING ERRCODE = '22023'; END IF;
+  IF (p_base = 'montant' AND p_valeur <> round(p_valeur, 2)) OR (p_base = 'taux' AND p_valeur <> round(p_valeur, 4)) THEN
+    RAISE EXCEPTION 'Montant HT a deux decimales au plus, taux a quatre decimales au plus' USING ERRCODE = '22023';
+  END IF;
+  IF p_plafond IS NOT NULL AND (p_plafond <= 0 OR p_plafond <> round(p_plafond, 2)) THEN
+    RAISE EXCEPTION 'Plafond HT positif a deux decimales au plus, ou absent' USING ERRCODE = '22023';
+  END IF;
   IF p_id IS NULL THEN
     INSERT INTO public.contrat_clauses (version_id, type_clause, libelle, engagement_id, declenchement, base, valeur, plafond_ht, article, ordre, cree_par)
     VALUES (p_version, p_type, btrim(p_libelle), p_engagement, p_declenchement, p_base, p_valeur, p_plafond,
             public.texte_ou_null(p_article), coalesce(p_ordre, 0), auth.uid())
     RETURNING id INTO v_id;
   ELSE
+    PERFORM 1 FROM public.contrat_clauses WHERE id = p_id FOR UPDATE;
     IF EXISTS (SELECT 1 FROM public.calculs_clauses WHERE clause_id = p_id) THEN
       RAISE EXCEPTION 'Clause deja calculee : la desactiver et en saisir une nouvelle' USING ERRCODE = '22023';
     END IF;
@@ -407,7 +525,7 @@ AS $$
 DECLARE
   r public.rapports_performance; c public.contrats; v_version uuid; cl public.contrat_clauses; e jsonb;
   v_conforme boolean; v_decl boolean; v_assiette numeric(18,2); v_source text; v_calc numeric(18,2); v_prop numeric(18,2);
-  v_raison text; n integer := 0;
+  v_raison text; n integer := 0; v_couvert record;
 BEGIN
   IF NOT (public.has_module_write('contracts') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
@@ -429,7 +547,7 @@ BEGIN
 
   FOR cl IN SELECT * FROM public.contrat_clauses k WHERE k.version_id = v_version AND k.actif
              AND NOT EXISTS (SELECT 1 FROM public.calculs_clauses x WHERE x.clause_id = k.id AND x.rapport_id = r.id)
-             ORDER BY k.ordre, k.libelle LOOP
+             ORDER BY k.ordre, k.libelle FOR UPDATE OF k LOOP
     e := NULL;
     SELECT x.valeur INTO e FROM jsonb_array_elements(coalesce(r.contenu -> 'engagements', '[]'::jsonb)) AS x(valeur)
      WHERE x.valeur ->> 'engagement_id' = cl.engagement_id::text LIMIT 1;
@@ -437,7 +555,16 @@ BEGIN
     v_decl := CASE WHEN v_conforme IS NULL THEN NULL
                    WHEN cl.declenchement = 'non_tenu' THEN NOT v_conforme ELSE v_conforme END;
     v_assiette := NULL; v_source := NULL; v_calc := NULL; v_prop := NULL; v_raison := NULL;
-    IF e IS NULL THEN
+    -- Rapports dont les periodes se chevauchent : une clause n'est proposee
+    -- qu'une fois pour une meme periode (tout calcul non ecarte compte).
+    SELECT x.periode_debut, x.periode_fin INTO v_couvert FROM public.calculs_clauses x
+     WHERE x.clause_id = cl.id AND x.rapport_id <> r.id AND x.statut <> 'ecarte'
+       AND x.periode_debut <= r.periode_fin AND x.periode_fin >= r.periode_debut
+     ORDER BY x.calcule_le LIMIT 1;
+    IF FOUND THEN
+      v_raison := 'Periode deja couverte par le calcul du ' || to_char(v_couvert.periode_debut, 'DD/MM/YYYY')
+                  || ' au ' || to_char(v_couvert.periode_fin, 'DD/MM/YYYY');
+    ELSIF e IS NULL THEN
       v_raison := 'Engagement absent du rapport fige';
     ELSIF v_decl IS NULL THEN
       v_raison := 'Engagement non mesurable sur la periode';
@@ -536,6 +663,7 @@ BEGIN
     END IF;
     UPDATE public.calculs_clauses SET statut = 'ecarte', decide_par = auth.uid(), decide_le = now(), motif_decision = btrim(p_motif)
      WHERE id = k.id;
+    INSERT INTO public.calculs_clauses_journal (calcul_id, evenement, motif, par) VALUES (k.id, 'ecarte', btrim(p_motif), auth.uid());
     RETURN NULL;
   END IF;
 
@@ -609,6 +737,8 @@ BEGIN
   UPDATE public.calculs_clauses SET statut = 'applique', decide_par = auth.uid(), decide_le = now(),
     motif_decision = btrim(p_motif), facture_id = v_id
    WHERE id = k.id;
+  INSERT INTO public.calculs_clauses_journal (calcul_id, evenement, facture_id, motif, par)
+  VALUES (k.id, 'applique', v_id, btrim(p_motif), auth.uid());
   RETURN v_id;
 END;
 $$;
@@ -985,7 +1115,7 @@ SELECT 'realise', 'paiement', p.id, p.numero, p.execute_le, w.site_id, im.nature
   LEFT JOIN public.v_imputations_courantes im
          ON (im.source = 'bon_commande' AND im.piece_id = p.purchase_order_id)
          OR (im.source = 'facture_loueur' AND im.piece_id = p.facture_fournisseur_id)
- WHERE p.statut = 'execute'
+ WHERE p.statut = 'execute' AND (p.purchase_order_id IS NULL OR po.id IS NOT NULL)
 UNION ALL
 SELECT 'realise', 'cout', c.id, c.numero, c.date, c.site_id, coalesce(im.nature_id, cc.nature_depense_id), c.devise,
        c.amount::numeric(18,2), 'Montant saisi (cout D-058)', NULL::text, 'cout', c.id
@@ -1287,6 +1417,10 @@ BEGIN
   IF NOT (public.has_module_write('contracts') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
   END IF;
+  -- Mesures figees sur tous les sites du contrat : profil global requis.
+  IF NOT public.site_permis(NULL) THEN
+    RAISE EXCEPTION 'Evaluation du loueur : profil global requis (mesures de tous les sites)' USING ERRCODE = '42501';
+  END IF;
   SELECT * INTO c FROM public.contrats WHERE id = p_contrat FOR UPDATE;
   IF NOT FOUND OR c.nature <> 'location' THEN RAISE EXCEPTION 'Contrat de location requis' USING ERRCODE = '22023'; END IF;
   IF p_debut IS NULL OR p_fin IS NULL OR p_fin < p_debut THEN RAISE EXCEPTION 'Periode evaluee invalide' USING ERRCODE = '22023'; END IF;
@@ -1350,7 +1484,7 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY['contrats_echeances', 'contrat_clauses', 'calculs_clauses', 'plan_comptable', 'natures_depense',
-                           'comptes_tiers', 'imputations_budgetaires', 'budgets'] LOOP
+                           'comptes_tiers', 'imputations_budgetaires', 'budgets', 'calculs_clauses_journal'] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT ON public.%I TO authenticated', t);
@@ -1365,6 +1499,8 @@ CREATE POLICY lecture ON public.contrat_clauses FOR SELECT TO authenticated
   USING (public.has_module_view('contracts') OR public.is_admin());
 CREATE POLICY lecture ON public.calculs_clauses FOR SELECT TO authenticated
   USING (public.has_module_view('contracts') OR public.has_module_view('invoices') OR public.is_admin());
+CREATE POLICY lecture ON public.calculs_clauses_journal FOR SELECT TO authenticated
+  USING (EXISTS (SELECT 1 FROM public.calculs_clauses k WHERE k.id = calcul_id));
 CREATE POLICY lecture ON public.plan_comptable FOR SELECT TO authenticated
   USING (public.has_module_view('invoices') OR public.has_module_view('costs') OR public.has_module_view('contracts') OR public.is_admin());
 CREATE POLICY lecture ON public.natures_depense FOR SELECT TO authenticated
@@ -1382,7 +1518,7 @@ CREATE POLICY lecture ON public.budgets FOR SELECT TO authenticated
 DO $$
 DECLARE t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['contrats_echeances', 'imputations_budgetaires'] LOOP
+  FOREACH t IN ARRAY ARRAY['contrats_echeances', 'imputations_budgetaires', 'calculs_clauses_journal'] LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS garde_append_only ON public.%I', t);
     EXECUTE format('CREATE TRIGGER garde_append_only BEFORE UPDATE OR DELETE ON public.%I
                     FOR EACH ROW EXECUTE FUNCTION public.garde_append_only_finance()', t);
@@ -1420,7 +1556,8 @@ BEGIN
     'definir_critere_loueur(text, integer, text, text, integer, boolean, uuid)',
     'evaluer_fournisseur(uuid, date, date, jsonb, text, text)',
     'definir_critere_evaluation(text, integer, text, integer, boolean, uuid)',
-    'evaluer_loueur(uuid, date, date, jsonb, text, text)'
+    'evaluer_loueur(uuid, date, date, jsonb, text, text)',
+    'creer_avoir(uuid, numeric, text)'
   ] LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', s);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', s);
@@ -1429,6 +1566,7 @@ END $$;
 REVOKE EXECUTE ON FUNCTION public.garde_append_only_finance() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.garde_budget() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.garde_calcul_clause() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.rouvrir_clauses_facture_annulee() FROM PUBLIC, anon, authenticated;
 
 -- 8. Mes validations (D-056, derniere definition `20261117180000`, non
 -- modifiee par D-072) : branches existantes reprises a l'identique, plus
@@ -1557,3 +1695,180 @@ $$;
 DROP TRIGGER IF EXISTS valider_reglage ON public.settings;
 CREATE TRIGGER valider_reglage BEFORE INSERT OR UPDATE ON public.settings
   FOR EACH ROW EXECUTE FUNCTION public.valider_reglage();
+
+-- 10. Factures clientes (CBG) distinctes des factures de penalite du loueur --
+-- Une penalite du loueur appliquee par clause (D-065) est une facture D-029
+-- au contrat de location : elle ne compte ni dans le rapport client ni dans
+-- les indicateurs d'emission du poste. Le recouvrement (`v_creances`) et
+-- l'export comptable la gardent : c'est une creance reelle.
+
+-- Nature du contrat d'une facture, avec le meme droit que la lecture des
+-- factures (D-029) : rien n'est revele au-dela de la facture visible.
+CREATE OR REPLACE FUNCTION public.est_facture_client(p_facture uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT CASE WHEN public.has_module_view('invoices') OR public.has_module_view('contracts') OR public.is_admin()
+              THEN (SELECT c.nature = 'client' FROM public.factures f JOIN public.contrats c ON c.id = f.contrat_id WHERE f.id = p_facture)
+         END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.est_facture_client(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.est_facture_client(uuid) TO authenticated;
+
+-- rapport_client (D-058, derniere definition `20261118090000`, non modifiee
+-- par D-072) : reprise a l'identique, factures des contrats clients seules.
+CREATE OR REPLACE FUNCTION public.rapport_client(p_debut date, p_fin date, p_site uuid DEFAULT NULL)
+RETURNS TABLE (rang integer, section text, indicateur text, valeur numeric, unite text, manquants integer, source text, remarque text)
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH dr AS (
+    SELECT (a OR public.has_module_view('trips')) AS trips,
+           (a OR public.has_module_view('trips') OR public.has_module_view('invoices')) AS releves,
+           (a OR public.has_module_view('invoices') OR public.has_module_view('contracts')) AS factures
+      FROM (SELECT public.is_admin() AS a) x
+  ),
+  v AS (
+    SELECT t.id, t.etat, t.net_weight, t.net_weight_reception, t.accepted_tonnage
+      FROM public.trips t
+     WHERE t.planned_date BETWEEN p_debut AND p_fin
+       AND t.etat IN ('DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED')
+       AND (p_site IS NULL OR t.departure_site_id = p_site OR t.arrival_site_id = p_site)
+  ),
+  va AS (
+    SELECT count(*) AS livres,
+           sum(net_weight) AS chargees, count(*) FILTER (WHERE net_weight IS NULL) AS sans_chargee,
+           sum(net_weight_reception) AS recues, count(*) FILTER (WHERE net_weight_reception IS NULL) AS sans_recue,
+           sum(accepted_tonnage) FILTER (WHERE etat IN ('ACCEPTED', 'CLOSED')) AS acceptees,
+           count(*) FILTER (WHERE etat IN ('ACCEPTED', 'CLOSED') AND accepted_tonnage IS NULL) AS sans_acceptee,
+           count(*) FILTER (WHERE etat = 'DELIVERED') AS en_attente,
+           count(*) FILTER (WHERE etat = 'DISPUTED') AS litiges
+      FROM v
+  ),
+  tk AS (
+    SELECT count(k.id) AS tickets, count(*) FILTER (WHERE k.est_rectifie) AS rectifies,
+           count(*) FILTER (WHERE k.id IS NULL) AS sans_ticket, sum(k.net) AS net
+      FROM v LEFT JOIN public.v_tickets_pesee_cbg_effectifs k ON k.trip_id = v.id
+  ),
+  rl AS (
+    SELECT r.id FROM public.releves_cbg r
+     WHERE r.periode_debut <= p_fin AND r.periode_fin >= p_debut AND (p_site IS NULL OR r.site_id = p_site)
+  ),
+  ec AS (
+    SELECT (SELECT count(*) FROM rl) AS releves,
+           (SELECT count(*) FROM public.releves_cbg_lignes x WHERE x.releve_id IN (SELECT id FROM rl)) AS lignes,
+           count(*) FILTER (WHERE e.nature = 'concordant') AS concordants,
+           count(*) FILTER (WHERE e.nature <> 'concordant') AS anomalies,
+           count(*) FILTER (WHERE e.nature = 'ecart_poids') AS ecarts_poids,
+           count(*) FILTER (WHERE e.nature IN ('absent_sigtb', 'manquant_releve')) AS absents,
+           count(*) FILTER (WHERE e.nature NOT IN ('concordant', 'ecart_poids', 'absent_sigtb', 'manquant_releve')) AS autres,
+           count(*) FILTER (WHERE e.nature <> 'concordant' AND e.decision = 'accepte') AS acceptes,
+           count(*) FILTER (WHERE e.nature <> 'concordant' AND e.decision = 'litige') AS litiges,
+           count(*) FILTER (WHERE e.nature <> 'concordant' AND e.decision IS NULL) AS sans_decision,
+           sum(e.ecart_net) FILTER (WHERE e.nature = 'ecart_poids') AS ecart_net
+      FROM public.ecarts_releve_cbg e WHERE e.releve_id IN (SELECT id FROM rl)
+  ),
+  fa AS (
+    SELECT f.devise,
+           count(*) FILTER (WHERE f.type = 'facture') AS factures,
+           sum(f.montant_ht) FILTER (WHERE f.type = 'facture') AS ht,
+           count(*) FILTER (WHERE f.type = 'avoir') AS avoirs,
+           sum(f.montant_ht) FILTER (WHERE f.type = 'avoir') AS ht_avoirs
+      FROM public.factures f
+     WHERE f.statut = 'emise' AND f.periode_debut <= p_fin AND f.periode_fin >= p_debut
+       AND public.est_facture_client(f.id)
+     GROUP BY f.devise
+  ),
+  lignes AS (
+    SELECT l.* FROM dr, va, tk, ec, LATERAL (VALUES
+      (10, 'Livraisons', 'Voyages livrés', va.livres::numeric, 'voyages', NULL::integer, 'trips', 'Au départ ou à l''arrivée du site', dr.trips),
+      (11, 'Livraisons', 'Tonnes chargées (pesée départ)', va.chargees, 't', va.sans_chargee::integer, 'voyages livrés', NULL::text, dr.trips),
+      (12, 'Livraisons', 'Tonnes reçues (pesée arrivée)', va.recues, 't', va.sans_recue::integer, 'voyages livrés', NULL, dr.trips),
+      (13, 'Livraisons', 'Tonnes acceptées', va.acceptees, 't', va.sans_acceptee::integer, 'voyages acceptés ou clos', NULL, dr.trips),
+      (14, 'Livraisons', 'Livrés en attente d''acceptation', va.en_attente::numeric, 'voyages', NULL, 'trips', NULL, dr.trips),
+      (15, 'Livraisons', 'En litige', va.litiges::numeric, 'voyages', NULL, 'trips', NULL, dr.trips),
+      (20, 'Tickets CBG', 'Tickets de pesée', tk.tickets::numeric, 'tickets', NULL, 'tickets effectifs (D-037)', NULL, dr.trips),
+      (21, 'Tickets CBG', 'Poids net des tickets', tk.net, 't', NULL, 'tickets effectifs (D-037)', NULL, dr.trips),
+      (22, 'Tickets CBG', 'Dont tickets rectifiés', tk.rectifies::numeric, 'tickets', NULL, 'rectifications (D-037)', NULL, dr.trips),
+      (23, 'Tickets CBG', 'Voyages livrés sans ticket', tk.sans_ticket::numeric, 'voyages', NULL, 'voyages livrés', NULL, dr.trips),
+      (30, 'Relevés CBG', 'Relevés importés', ec.releves::numeric, 'relevés', NULL, 'releves_cbg (D-050)', 'Relevés dont la période recoupe la période', dr.releves),
+      (31, 'Relevés CBG', 'Lignes de relevé', ec.lignes::numeric, 'lignes', NULL, 'releves_cbg_lignes', NULL, dr.releves),
+      (32, 'Relevés CBG', 'Lignes concordantes', ec.concordants::numeric, 'lignes', NULL, 'rapprochement (D-050)', NULL, dr.releves),
+      (33, 'Relevés CBG', 'Anomalies de rapprochement', ec.anomalies::numeric, 'écarts', NULL, 'rapprochement (D-050)', NULL, dr.releves),
+      (34, 'Relevés CBG', 'Dont écarts de poids', ec.ecarts_poids::numeric, 'écarts', NULL, 'rapprochement (D-050)', NULL, dr.releves),
+      (35, 'Relevés CBG', 'Dont tickets absents d''un côté', ec.absents::numeric, 'écarts', NULL, 'rapprochement (D-050)', NULL, dr.releves),
+      (36, 'Relevés CBG', 'Dont autres écarts', ec.autres::numeric, 'écarts', NULL, 'rapprochement (D-050)', 'Camion, date ou ligne illisible', dr.releves),
+      (37, 'Relevés CBG', 'Écart de poids net cumulé', ec.ecart_net, 't', NULL, 'rapprochement (D-050)', NULL, dr.releves),
+      (38, 'Relevés CBG', 'Anomalies acceptées', ec.acceptes::numeric, 'écarts', NULL, 'décisions (D-050)', NULL, dr.releves),
+      (39, 'Relevés CBG', 'Anomalies en litige', ec.litiges::numeric, 'écarts', NULL, 'décisions (D-050)', NULL, dr.releves),
+      (40, 'Relevés CBG', 'Anomalies sans décision', ec.sans_decision::numeric, 'écarts', NULL, 'décisions (D-050)', NULL, dr.releves)
+    ) AS l(rang, section, indicateur, valeur, unite, manquants, source, remarque, visible)
+    UNION ALL
+    SELECT 50 + (row_number() OVER (ORDER BY fa.devise))::integer * 10 + k.r, 'Factures CBG', k.libelle || ' (' || fa.devise || ')', k.v, k.u,
+           NULL::integer, 'factures émises (D-029)', k.rq, dr.factures
+      FROM fa, dr, LATERAL (VALUES
+        (0, 'Factures émises', fa.factures::numeric, 'factures', 'Factures dont la période recoupe la période'),
+        (1, 'Montant HT facturé', fa.ht, fa.devise, NULL::text),
+        (2, 'Avoirs émis', fa.avoirs::numeric, 'avoirs', NULL),
+        (3, 'Montant HT des avoirs', fa.ht_avoirs, fa.devise, NULL)
+      ) AS k(r, libelle, v, u, rq)
+    UNION ALL
+    SELECT 60, 'Factures CBG', 'Factures émises', NULL::numeric, 'factures', NULL::integer, 'factures émises (D-029)', NULL, dr.factures
+      FROM dr WHERE NOT EXISTS (SELECT 1 FROM fa)
+  )
+  SELECT l.rang, l.section, l.indicateur,
+         CASE WHEN l.visible THEN l.valeur END, l.unite, CASE WHEN l.visible THEN l.manquants END, l.source,
+         CASE WHEN NOT l.visible THEN 'Non visible avec vos droits de lecture'
+              ELSE coalesce(l.remarque, CASE WHEN l.valeur IS NULL THEN 'Sans données' END) END
+    FROM lignes l
+   ORDER BY l.rang;
+$$;
+
+-- indicateurs_charge_contrats (D-032, derniere definition `20261111200000`) :
+-- reprise a l'identique, delai et nombre de factures emises sur les contrats
+-- clients seuls.
+CREATE OR REPLACE FUNCTION public.indicateurs_charge_contrats()
+RETURNS TABLE (
+  delai_emission_jours numeric, factures_emises integer,
+  ecart_tonnage_pct numeric, reconciliations_closes integer,
+  delai_rapport_jours numeric, rapports_remis integer,
+  delai_recouvrement_jours numeric, factures_soldees integer,
+  creances_en_retard integer, montant_en_retard numeric,
+  factures_a_signer integer,
+  ecarts_detectes numeric, ecarts_recouvres numeric, factures_fournisseur_controlees integer)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+  SELECT
+    (SELECT round(avg(date_emission - periode_fin), 1) FROM public.factures
+      WHERE type = 'facture' AND statut = 'emise' AND date_emission >= current_date - 365 AND periode_fin IS NOT NULL
+        AND public.est_facture_client(id)),
+    (SELECT count(*)::integer FROM public.factures WHERE type = 'facture' AND statut = 'emise' AND date_emission >= current_date - 365
+        AND public.est_facture_client(id)),
+    (SELECT round((x.releve - x.facture) / nullif(x.releve, 0) * 100, 2) FROM (
+       SELECT (SELECT sum(l.tonnage_charge) FROM public.reconciliation_lignes l JOIN public.reconciliations r ON r.id = l.reconciliation_id
+                WHERE r.statut = 'cloturee' AND r.cloturee_le >= now() - interval '365 days') AS releve,
+              (SELECT sum(r.tonnage_facturable) FROM public.reconciliations r
+                WHERE r.statut = 'cloturee' AND r.cloturee_le >= now() - interval '365 days') AS facture) x),
+    (SELECT count(*)::integer FROM public.reconciliations WHERE statut = 'cloturee' AND cloturee_le >= now() - interval '365 days'),
+    (SELECT round(avg(remis_le - periode_fin), 1) FROM public.rapports_performance WHERE statut = 'remis' AND remis_le >= current_date - 365),
+    (SELECT count(*)::integer FROM public.rapports_performance WHERE statut = 'remis' AND remis_le >= current_date - 365),
+    (SELECT round(avg(dernier_encaissement - date_emission), 1) FROM public.v_creances WHERE reste <= 0 AND dernier_encaissement >= current_date - 365),
+    (SELECT count(*)::integer FROM public.v_creances WHERE reste <= 0 AND dernier_encaissement >= current_date - 365),
+    (SELECT count(*)::integer FROM public.v_creances WHERE jours_retard > 0),
+    (SELECT coalesce(sum(reste), 0) FROM public.v_creances WHERE jours_retard > 0),
+    (SELECT count(*)::integer FROM public.factures WHERE statut = 'a_signer'),
+    (SELECT coalesce(sum(montant_reclame), 0) FROM public.factures_fournisseur
+      WHERE statut IN ('notifiee', 'regularisee') AND notifiee_le >= current_date - 365),
+    (SELECT coalesce(sum(r.montant), 0) FROM public.regularisations_fournisseur r
+      WHERE r.date_regularisation >= current_date - 365),
+    (SELECT count(*)::integer FROM public.factures_fournisseur WHERE controle_le >= now() - interval '365 days');
+$$;
+REVOKE EXECUTE ON FUNCTION public.indicateurs_charge_contrats() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.indicateurs_charge_contrats() TO authenticated;
