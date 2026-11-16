@@ -54,15 +54,15 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 |---|---|---|---|---|---|
 | Société exploitante | `Settings/FicheSociete` | `societe` | DÉPLOYÉ | P1 | Compléter RCCM, NIF, signataire (données propriétaire) |
 | Organisations (référentiel) | `Settings/AdminSettingsView` | `organisations` (D-038, admin) | DÉPLOYÉ | P2 | Filiales, directions, départements, centres de coûts : MANQUANT |
-| Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion absent |
+| Utilisateurs | `Settings/UserModal`, Edge `admin-utilisateurs` | `profiles`, `auth.users` | DÉPLOYÉ | P1 | Création par l'administrateur ; journal de connexion : ligne « Gestion des sessions » (D-064) |
 | Rôles et permissions (rôle x module) | Paramètres > Rôles | `role_permissions`, `has_module_view/write` (D-012) | DÉPLOYÉ | P0 | Permission par action et par état de dossier : MANQUANT |
 | Droits par utilisateur | Paramètres > Utilisateurs | `droits_utilisateur`, `definir_droit_module`, `journal_droits_modules` (D-036) | DÉPLOYÉ | P1 | - |
-| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046 | DÉPLOYÉ | P0 | RH et achats restent hors périmètre |
-| Affectations multisites, délégations temporaires | - | - | MANQUANT | P2 | Table de périmètres multiples, délégations datées |
+| Périmètre site (lecture et écriture) | - | `site_permis`, gardes D-038 / D-039, dépôts D-044, extension et retrait des politiques administrateur non bornées D-046, lectures J1/J2 D-075 | DÉPLOYÉ | P0 | RH et achats restent hors périmètre ; `site_permis` étendu aux affectations datées par D-064 (À TESTER, ligne suivante) |
+| Affectations multisites, délégations temporaires | `Settings/AffectationsSites`, `Settings/Delegations` (Paramètres et Sécurité du compte > Mes délégations) | `affectations_sites`, `affecter_site`, `cloturer_affectation_site`, `annuler_affectation_site`, `retablir_perimetre_global`, `perimetres_comptes`, `site_permis` ; `delegations_droits`, `deleguer_droit`, `revoquer_delegation`, `mes_delegations`, `has_module_*` via `droit_module_base` (D-064, migration `20261121110000`, test 47, E2E `organisation`) | À TESTER | P2 | Branche `lot-02/organisation-integration`, revue indépendante puis fusion ; durée maximale de délégation et `v_droits_modules` avec délégations : à décider |
 | MFA et politiques d'accès | `Auth/SecuriteCompte`, `Auth/VerificationMfa` | TOTP GoTrue, `garde_aal2` (D-040), réglage `mfa_exige` (D-045) | DÉPLOYÉ | P0 | Inscription des comptes sensibles puis activation par l'administrateur |
-| Gestion des sessions, journal de connexion | - | `user_activity_logs` | PARTIEL | P1 | Journal des connexions consultable |
+| Gestion des sessions, journal de connexion | `Settings/JournalConnexions` | `v_journal_connexions` (auth.audit_log_entries, administrateur), `sessions_ouvertes()` (D-064) | À TESTER | P1 | Tentatives échouées absentes (GoTrue ne les journalise pas) ; `auth.sessions` non vérifiée hors production |
 | Paramètres généraux | `AdminSettingsView`, `ReglagesServeur` | `settings` (admin), `valider_reglage` (D-061) | À TESTER | P2 | Séquences de numérotation et devises (ligne suivante) |
-| Séquences de numérotation, devises, unités, modèles | - | numérotations codées par fonction | MANQUANT | P2 | Référentiel des séquences et devises |
+| Séquences de numérotation, devises, unités, modèles | `Settings/Referentiels` | `devises`, `unites_mesure`, `enregistrer_devise`, `enregistrer_unite`, `codes_utilises()`, `sequences_numerotation()` en lecture (D-064) | À TESTER | P2 | Formats de numérotation non paramétrables ; modèles de documents : MANQUANT ; libellés des devises à saisir |
 
 ### 03. Sites et infrastructures
 
@@ -291,12 +291,12 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Statut | Fonctionnalités (lignes) |
 |---|---|
 | DÉPLOYÉ | 69 |
-| À TESTER | 9 |
+| À TESTER | 12 |
 | EXISTANT / EXISTANT À AMÉLIORER | 4 |
-| PARTIEL | 23 |
+| PARTIEL | 22 |
 | À CORRIGER | 0 |
 | NON CONFORME | 0 |
-| MANQUANT | 15 |
+| MANQUANT | 13 |
 | **Total** | **120** |
 
 Non-conformité restante : aucune depuis D-056 (centre de notifications corrigé) ; relevés kilométriques et distances validées : D-043.
