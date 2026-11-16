@@ -100,9 +100,13 @@ l'administrateur dans l'écran ; sans seuil, aucune alerte).
 commande peut porter un modèle de pneu (marque, modèle, dimension), sans
 article du magasin. À la réception, un numéro est saisi par pneu reçu ;
 chaque pneu entre au registre au prix de la ligne, avec le fournisseur du
-bon, le site du dépôt et la pièce de réception. Une réception qui a
-enregistré des pneus ne s'annule pas : un pneu saisi par erreur se réforme
-avec motif.
+bon, le site du dépôt et la pièce de réception ; le droit d'écriture flotte
+ou maintenance est requis. Une réception s'annule tant que chacun de ses
+pneus n'a que son entrée : l'entrée est annulée avec motif (journal), le pneu
+passe à l'état réformé et son numéro est suffixé `-ANNULE-REC-…` (le numéro
+saisi redevient libre) ; dès qu'un pneu a été monté ou mouvementé,
+l'annulation est refusée avec la liste des pneus (dérogation à D-052, à
+confirmer par le propriétaire).
 
 **Performance par marque et modèle (D-067).** Panneau Performance,
 `v_pneus_performance` : sur les seuls pneus réformés aux mesures complètes

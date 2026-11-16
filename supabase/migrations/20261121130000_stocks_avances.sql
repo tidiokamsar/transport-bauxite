@@ -27,15 +27,18 @@
      de la reception D-053). Une entree sans prix ajoute une quantite non
      valorisee : la valeur devient « partielle » (valeur des seules
      quantites valorisees), jamais estimee ; le prix de reference de
-     l'article n'est pas utilise. Vues `v_valorisation_articles`,
+     l'article n'est pas utilise. Une entree annulee apres d'autres
+     mouvements sort au cout moyen du moment et rend l'article « a
+     verifier » (revue C1). Vues `v_valorisation_articles`,
      `v_valorisation_stock` (article x depot), `v_valorisation_depots`.
   4. Reception de pneus : une ligne de bon de commande peut porter un
      modele de pneu (marque, modele, dimension). A la reception, chaque
      pneu recu est enregistre par `enregistrer_pneu` (numero saisi, prix
      de la ligne, fournisseur du bon, site du depot, numero de
      reception) ; lien `receptions_achat_pneus`. Une reception comportant
-     des pneus ne s'annule pas (l'entree d'un pneu ne s'annule pas,
-     D-052).
+     des pneus s'annule tant que chacun n'a que son entree : l'entree est
+     annulee par une operation motivee (derogation a D-052, revue C3) ;
+     sinon refus listant les pneus montes ou mouvementes.
   5. `v_pneus_performance` : par marque et modele (et par marque), sur les
      pneus reformes aux mesures completes de `v_pneus` : km moyens, cout au
      km, duree de vie, taux de reforme precoce (seuil
@@ -56,12 +59,12 @@
     (`garde_mouvement_ordre`, `garde_annulation_mouvement_ordre`) sont des
     declencheurs et restent inchanges.
   - `annuler_reception` part de 20261120102000 (D-072 R3-5 : refus si la base
-    payable du bon descend sous l'engage et le paye), plus le refus d'une
-    reception avec pneus.
+    payable du bon descend sous l'engage et le paye) ; une reception avec
+    pneus s'annule tant que chaque pneu n'a que son entree (revue C3).
   - `receptionner_bon_commande`, `enregistrer_bon_commande` (20261117090000).
-  - `valider_reglage` part de 20261121090000 (cle
-    `planification_cloture_separee`, D-063), avec par avance les deux cles de
-    D-065 (20261121120000) ; `seuil_pneus` de 20261116210000.
+  - `valider_reglage` part de 20261121120000 (D-065, toutes les cles de main
+    dont `planification_cloture_separee` de D-063) ; `seuil_pneus` de
+    20261116210000.
   - D-072 R1-6 : `stock_disponible` reste retiree aux comptes ; les nouvelles
     fonctions de quantite (`stock_reserve`, `stock_libre`,
     `stock_lot_disponible`) le sont aussi ; les quantites se lisent par les
@@ -1295,13 +1298,9 @@ SELECT r.marque, r.modele,
 GRANT SELECT ON public.v_pneus_performance TO authenticated;
 
 -- 10. Reglage lu par le serveur : format controle -----------------------------
--- Reprise a l'identique de la derniere definition sur main (20261121090000,
--- D-063 : cle planification_cloture_separee), plus pneu_reforme_precoce_km.
--- Les deux cles de D-065 (20261121120000, en integration au moment de
--- celle-ci : clauses_renonciation_separee, contrats_alerte_echeance_jours)
--- sont reprises par avance : cette migration passe apres la sienne et ne
--- doit pas les retirer, quel que soit l'ordre de fusion. Sans D-065, elles
--- ne sont lues par aucune fonction (controle de format seulement).
+-- Reprise a l'identique de la derniere definition sur main (20261121120000,
+-- D-065 : toutes les cles de D-063 et de D-061, plus clauses_renonciation_separee
+-- et contrats_alerte_echeance_jours), plus pneu_reforme_precoce_km.
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
 LANGUAGE plpgsql

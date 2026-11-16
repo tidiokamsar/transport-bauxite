@@ -222,13 +222,13 @@ périmètre.
 | `mouvement_stock(article, type, quantite, depot_source, depot_destination, date, prix_unitaire, reference, engin, ordre_maintenance, note, lots, reservation)` | W(stock), dépôts du périmètre | Types entrée, sortie, transfert, retour ; pas de sortie au-delà du disponible ; sans réservation, pas au-delà du stock libre ; avec réservation, périmètre du dépôt contrôlé avant toute lecture de la réservation ; lots ou séries exigés pour un article suivi (D-067) ; numéro `MVT`. Une seule signature (13 arguments, D-067) : les appels à 11 arguments ou par nom restent valides |
 | `inventorier_stock(article, depot, quantite_comptee, motif)` | W(stock), dépôt | Motif si écart ; ajustement égal à l'écart ; refusé pour un article suivi |
 | `inventorier_lot_stock(article, depot, code, quantite_comptee, motif)` | W(stock), dépôt | Article suivi (D-067) ; écart du lot ou de la série ; motif si écart |
-| `annuler_mouvement_stock(mouvement, motif)` | W(stock), dépôts | Contre-mouvement (lots repris) ; mouvement issu d'une réception refusé ; refusé s'il laisse une réservation sans stock |
+| `annuler_mouvement_stock(mouvement, motif)` | W(stock), dépôts | Contre-mouvement (lots repris) ; mouvement issu d'une réception refusé ; refusé s'il laisse une réservation sans stock, ou s'il est sans lot sur un article passé depuis en suivi par lot ou série (D-067) |
 | `reserver_stock(article, depot, quantite, ordre_maintenance, engin, affectation, note)` | W(stock), dépôt, ordre et engin du périmètre | Ordre ouvert ou en cours (verrou partagé de l'ordre), engin ou affectation requis ; jamais au-delà du stock libre ; ordre ou engin hors périmètre : message unique ; numéro `RES` (D-067) |
 | `lever_reservation_stock(reservation, motif)` | W(stock), périmètre du dépôt | Réservation active ; motif ; hors périmètre : message unique |
 | `lever_reservations_ordre()` | Déclencheur interne (D-067) | À la clôture d'un ordre de travail (terminé ou annulé), lève ses réservations encore actives avec un motif citant l'ordre |
 | `stock_disponible(article, depot)` | DEFINER interne (D-072) | Quantité disponible d'un article dans un dépôt ; lecture par les comptes via `v_stock_depots` |
 | `stock_reserve(article, depot)`, `stock_libre(article, depot)`, `stock_lot_disponible(article, depot, code)` | DEFINER interne (D-067) | Réservé non consommé ; stock moins réservations ; quantité d'un lot ; lecture par les comptes via `v_stock_disponibilite` et `v_stock_lots` |
-| `valorisation_articles_stock()` | DEFINER, R(stock) ou admin | Coût unitaire moyen pondéré de l'article (tous dépôts) et part non valorisée, sans quantité ni valeur (D-067) ; quantités et valeurs des dépôts visibles par les vues `v_valorisation_stock`, `v_valorisation_articles`, `v_valorisation_depots` (GNF) |
+| `valorisation_articles_stock()` | DEFINER, R(stock) ou admin | Pour les articles présents dans un dépôt du périmètre : coût unitaire moyen pondéré de l'article (tous dépôts, ordre `enregistre_le`), part non valorisée et indicateur « à vérifier » (entrée annulée après d'autres mouvements), sans quantité ni valeur (D-067) ; quantités et valeurs des dépôts visibles par les vues `v_valorisation_stock`, `v_valorisation_articles`, `v_valorisation_depots` (GNF) |
 
 ## Achats (D-053)
 
@@ -240,7 +240,7 @@ périmètre.
 | `annuler_bon_commande(id, motif)` | W(purchases) ou admin | Avant toute réception ; motif |
 | `solder_bon_commande(id, motif)` | W(purchases) ou admin | Bon reçu en partie ; motif |
 | `receptionner_bon_commande(id, lignes, bon_livraison, date, note)` | W(stock) ou admin, dépôt | Bon approuvé ; jamais au-delà de la commande ; motif de refus ; entrée en stock ; lots des articles suivis ; ligne de pneus : un numéro par pneu, `enregistrer_pneu` (droit des pneus requis, dépôt rattaché à un site) (D-067) |
-| `annuler_reception(livraison, motif)` | W(stock) ou admin | Motif ; bon non soldé ; refusée si la base payable du bon descendrait sous l'engagé et le payé (D-072 R3-5) ; refusée si la réception a enregistré des pneus (D-067) |
+| `annuler_reception(livraison, motif)` | W(stock) ou admin | Motif ; bon non soldé ; refusée si la base payable du bon descendrait sous l'engagé et le payé (D-072 R3-5) ; réception avec pneus : permise tant que chaque pneu n'a que son entrée (entrée annulée avec motif, pneu réformé, numéro suffixé), sinon refus listant les pneus ; droit flotte ou maintenance requis (D-067) |
 
 ## Contrats, suivi et recouvrement (D-031, D-032, D-033)
 

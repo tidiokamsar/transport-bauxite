@@ -108,7 +108,11 @@ mouvements, à partir des seules entrées valorisées (prix saisi ou prix de
 réception du bon de commande). Une entrée sans prix rend la valeur
 **partielle** : la valeur affichée est celle des seules quantités
 valorisées, jamais estimée ; le prix de référence de l'article n'est pas
-utilisé. Sans aucune entrée valorisée : « sans données ». Montants en GNF.
+utilisé. Sans aucune entrée valorisée : « sans données ». Une entrée annulée
+après d'autres mouvements de l'article sort au coût moyen du moment : ses
+pièces ne sont plus identifiables dans le stock, l'article est signalé
+**à vérifier** jusqu'au retour à un stock nul (une entrée annulée juste
+après elle est retirée exactement, à son prix). Montants en GNF.
 Un compte affecté à un site voit les quantités et les valeurs de ses seuls
 dépôts ; le coût moyen est celui de l'article.
 
@@ -130,7 +134,7 @@ annulé.
 | Soumettre | `soumettre_bon_commande` | Droit d'écriture `purchases` | Seul un brouillon avec au moins une ligne se soumet. |
 | Approuver ou rejeter | `decider_bon_commande` | Droit d'approbation `purchases` du rôle (administrateur, directeur, comptable) | Bon soumis, dans le périmètre ; par une **autre personne** que le demandeur (réglage `achats_validation_separee`, exigé si absent) ; rejet motivé. |
 | Réceptionner | `receptionner_bon_commande` | Droit d'écriture `stock` | Bon approuvé ; numéro de réception ; bon de livraison ; par ligne quantité reçue et quantité refusée (motif du refus) ; jamais au-delà de la commande. Les articles reçus entrent au dépôt du bon par `mouvement_stock`, au prix commandé, avec leurs lots ou séries si l'article est suivi (D-067). Ligne de pneus (D-067) : un numéro par pneu reçu ; chaque pneu est enregistré au registre des pneus (prix de la ligne, fournisseur du bon, site du dépôt, pièce de réception) ; exige aussi le droit d'écriture flotte ou maintenance. |
-| Annuler une réception | `annuler_reception` | Droit d'écriture `stock` | Motif requis ; annule les mouvements correspondants ; impossible si le bon est soldé ou clos, si un paiement engagé ou payé dépasserait le reçu restant (D-072), ou si la réception a enregistré des pneus (un pneu enregistré par erreur se réforme avec motif, D-052). |
+| Annuler une réception | `annuler_reception` | Droit d'écriture `stock` | Motif requis ; annule les mouvements correspondants ; impossible si le bon est soldé ou clos, si un paiement engagé ou payé dépasserait le reçu restant (D-072), Réception avec pneus (D-067) : permise tant que chaque pneu n'a que son entrée ; l'entrée de chaque pneu est annulée avec le motif (journal des pneus), le pneu passe à l'état réformé et son numéro est suffixé `-ANNULE-REC-…` pour libérer le numéro saisi ; refusée, avec la liste des pneus, dès qu'un pneu a été monté ou mouvementé ; droit d'écriture flotte ou maintenance requis. |
 | Annuler le bon | `annuler_bon_commande` | Droit d'écriture `purchases` | Motif requis ; avant toute réception. |
 | Solder le bon | `solder_bon_commande` | Droit d'écriture `purchases` | Seul un bon reçu en partie se solde ; motif requis (reliquat non livré). |
 
@@ -160,8 +164,12 @@ dépôt.
   n'est pas replacée à sa date) ; part non valorisée répartie entre dépôts
   au prorata des quantités ; annulation d'une sortie réintégrée au coût
   moyen du moment ; recalcul complet à chaque lecture.
-- Réception de pneus : non annulable ; pas de référentiel des modèles de
-  pneus (marque et modèle saisis sur la ligne du bon) (D-067).
+- Réception de pneus : annulable seulement tant que ses pneus n'ont que
+  leur entrée ; un pneu annulé garde l'état réformé (pas d'état dédié) ;
+  pas de référentiel des modèles de pneus (marque et modèle saisis sur la
+  ligne du bon) (D-067).
+- Quantité affichée sur l'article (`quantity_in_stock`) : total tous dépôts,
+  lisible par un compte affecté à un site (correction dans un lot séparé).
 - Achats : pas de contrôle budgétaire ni d'avoirs d'achat (D-053) ; la
   consultation de fournisseurs existe depuis D-059. Taxes des offres :
   saisie toutes taxes comprises, à confirmer par le propriétaire (D-072).
