@@ -80,12 +80,14 @@ test.describe('Droits par utilisateur', () => {
 
     await page.getByLabel('Droits Voyages et fiches terrain').selectOption('ecriture');
     await page.getByLabel('Droits Carburant').selectOption('defaut');
+    // D-079 : motif obligatoire, transmis a la fonction serveur.
+    await page.getByLabel('Motif du changement de droits *').fill('Renfort ponctuel');
     await page.getByRole('button', { name: 'Mettre à jour' }).click();
 
     await expect.poll(() => appels.length).toBe(2);
     expect(appels).toEqual(expect.arrayContaining([
-      expect.objectContaining({ p_utilisateur: 'u1', p_module: 'trips', p_niveau: 'ecriture' }),
-      expect.objectContaining({ p_utilisateur: 'u1', p_module: 'fuel', p_niveau: 'defaut' }),
+      expect.objectContaining({ p_utilisateur: 'u1', p_module: 'trips', p_niveau: 'ecriture', p_motif: 'Renfort ponctuel' }),
+      expect.objectContaining({ p_utilisateur: 'u1', p_module: 'fuel', p_niveau: 'defaut', p_motif: 'Renfort ponctuel' }),
     ]));
     await expect(page.getByRole('heading', { name: 'Modifier Utilisateur' })).toBeHidden();
   });

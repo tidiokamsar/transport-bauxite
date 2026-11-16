@@ -13,6 +13,29 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
 
+-- D-079 : une clause ne se saisit plus dans une version en vigueur d'un
+-- contrat engage (grille figee). Ce test, anterieur, saisit ses clauses sur
+-- des versions de 2001 : la saisie se fait le temps de l'appel en brouillon
+-- (la vraie saisie a lieu avant l'activation ou par avenant), puis le
+-- contrat reprend son statut pour les calculs. Les controles de
+-- definir_clause restent ceux de la fonction serveur.
+CREATE FUNCTION pg_temp.clause_en_brouillon(
+  p_version uuid, p_type text, p_libelle text, p_engagement uuid, p_declenchement text, p_base text, p_valeur numeric,
+  p_plafond numeric DEFAULT NULL, p_article text DEFAULT NULL, p_ordre integer DEFAULT 0, p_id uuid DEFAULT NULL
+) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
+DECLARE v_contrat uuid; v_statut text; v_id uuid;
+BEGIN
+  SELECT c.id, c.statut INTO v_contrat, v_statut FROM public.contrat_versions v JOIN public.contrats c ON c.id = v.contrat_id
+   WHERE v.id = p_version;
+  UPDATE public.contrats SET statut = 'brouillon' WHERE id = v_contrat AND statut = 'actif';
+  v_id := public.definir_clause(p_version, p_type, p_libelle, p_engagement, p_declenchement, p_base, p_valeur,
+                                p_plafond, p_article, p_ordre, p_id);
+  UPDATE public.contrats SET statut = v_statut WHERE id = v_contrat;
+  RETURN v_id;
+END;
+$f$;
+
 CREATE FUNCTION pg_temp.se_connecter(p_id uuid) RETURNS void
 LANGUAGE sql AS $$
   SELECT set_config('request.jwt.claim.sub', coalesce(p_id::text, ''), true),
@@ -102,15 +125,15 @@ RESET ROLE;
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e2',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e2',
   'non_tenu', 'montant', 10)$$, '22023', NULL, 'un engagement « autre » ne conditionne pas une clause');
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e3',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e3',
   'non_tenu', 'montant', 10)$$, '22023', NULL, 'engagement d''une autre version refuse');
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e1',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e1',
   'non_tenu', 'taux', 120)$$, '22023', NULL, 'taux au-dela de 100 % refuse');
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e1',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e1',
   'non_tenu', 'montant', 10.555)$$, '22023', NULL, 'montant HT a plus de deux decimales refuse');
-CREATE TEMP TABLE k1 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Penalite disponibilite',
+CREATE TEMP TABLE k1 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Penalite disponibilite',
   '00000000-0000-4000-a650-0000000000e1', 'non_tenu', 'taux', 5, p_plafond => 300) AS id;
 SELECT is((SELECT count(*)::int FROM public.journal_contrats WHERE table_cible = 'contrat_clauses' AND ligne_id = (SELECT id FROM k1)), 1,
   'clause journalisee au dossier contractuel');
@@ -139,11 +162,11 @@ SELECT is((SELECT statut FROM public.calculs_clauses WHERE clause_id = (SELECT i
   'proposition appliquee, rattachee a l''avoir');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, 'Revu',
   '00000000-0000-4000-a650-0000000000f1')$$, '22023', NULL, 'une proposition appliquee ne se decide plus');
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Modifiee', '00000000-0000-4000-a650-0000000000e1',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Modifiee', '00000000-0000-4000-a650-0000000000e1',
   'non_tenu', 'montant', 10, p_id => (SELECT id FROM k1))$$, '22023', NULL, 'clause calculee non modifiable');
-CREATE TEMP TABLE k2 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite loueur',
+CREATE TEMP TABLE k2 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite loueur',
   '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 1000) AS id;
-CREATE TEMP TABLE k3 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'bonus', 'Bonus loueur',
+CREATE TEMP TABLE k3 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d2', 'bonus', 'Bonus loueur',
   '00000000-0000-4000-a650-0000000000e3', 'tenu', 'montant', 200) AS id;
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a3'), 2, 'deux clauses du loueur calculees');
 SELECT is((SELECT statut FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k3)), 'sans_objet', 'bonus non declenche : sans objet');
@@ -158,7 +181,7 @@ RESET ROLE;
 -- Un autre preparateur ne complete pas ce brouillon ; le decideur ne le signe pas.
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000006');
 SET LOCAL ROLE authenticated;
-CREATE TEMP TABLE k4 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'retenue', 'Retenue loueur',
+CREATE TEMP TABLE k4 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d2', 'retenue', 'Retenue loueur',
   '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 50) AS id;
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a3'), 1, 'clause ajoutee calculee seule sur le meme rapport');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k4)), true, 'Retenue due',
@@ -217,7 +240,7 @@ SELECT is((SELECT (statut, montant_propose_ht IS NULL, raison)::text FROM public
   '(sans_objet,t,"Periode deja couverte par le calcul du 01/11/2001 au 30/11/2001")', 'periode deja couverte : sans objet, aucune seconde proposition');
 
 -- M1 : la piece produite est annulee, le calcul revient a la decision.
-CREATE TEMP TABLE k5 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite loueur bis',
+CREATE TEMP TABLE k5 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite loueur bis',
   '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 70) AS id;
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a3'), 1, 'nouvelle clause du loueur calculee');
 CREATE TEMP TABLE f5 AS SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k5)), true,
@@ -246,7 +269,7 @@ SET LOCAL ROLE authenticated;
 SELECT lives_ok($$SELECT public.creer_avoir('00000000-0000-4000-a650-0000000000f6', 800, 'Ecart de tonnage')$$, 'premier avoir de 800 sur 1000 HT');
 SELECT throws_ok($$SELECT public.creer_avoir('00000000-0000-4000-a650-0000000000f6', 800, 'Second ecart')$$, '22023', NULL,
   'second avoir au-dela du reste apres avoirs refuse');
-CREATE TEMP TABLE k6 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Penalite aout',
+CREATE TEMP TABLE k6 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Penalite aout',
   '00000000-0000-4000-a650-0000000000e1', 'non_tenu', 'montant', 500) AS id;
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a6'), 2, 'rapport d''aout : deux clauses calculees');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k6)), true, 'Due',
@@ -446,7 +469,7 @@ SELECT x.id::uuid, '00000000-0000-4000-a650-0000000000c2', x.debut::date, x.fin:
                ('00000000-0000-4000-a650-0000000002a5', '2002-04-15', '2002-05-14', false)) AS x(id, debut, fin, tenu);
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
-CREATE TEMP TABLE k7 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite chaine R1',
+CREATE TEMP TABLE k7 AS SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite chaine R1',
   '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 1000) AS id;
 SELECT public.calculer_clauses(x.id::uuid)
   FROM unnest(ARRAY['00000000-0000-4000-a650-0000000002a1', '00000000-0000-4000-a650-0000000002a2', '00000000-0000-4000-a650-0000000002a3',
@@ -470,9 +493,9 @@ INSERT INTO public.contrat_engagements (id, version_id, indicateur, libelle, seu
   ('00000000-0000-4000-a650-0000000000e6', '00000000-0000-4000-a650-0000000000d4', 'disponibilite', 'Disponibilite', 90, '%', 'minimum', 'mois');
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
-SELECT lives_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d3', 'penalite', 'Clause en preparation',
+SELECT lives_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d3', 'penalite', 'Clause en preparation',
   '00000000-0000-4000-a650-0000000000e5', 'non_tenu', 'montant', 10)$$, 'clause saisie sur un contrat en brouillon');
-SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d4', 'penalite', 'Clause tardive',
+SELECT throws_ok($$SELECT pg_temp.clause_en_brouillon('00000000-0000-4000-a650-0000000000d4', 'penalite', 'Clause tardive',
   '00000000-0000-4000-a650-0000000000e6', 'non_tenu', 'montant', 10)$$, '22023', NULL, 'clause refusee sur un contrat clos');
 
 -- R4 : contrat en brouillon : clause saisie, mais ni rapport, ni calcul, ni

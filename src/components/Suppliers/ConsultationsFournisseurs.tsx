@@ -134,12 +134,18 @@ export const ConsultationsFournisseurs = ({ fournisseurs }: { fournisseurs: Four
     );
   }, [detail, selection, nom]);
 
+  // Sans depot de livraison, le bon ne peut pas etre prepare a la selection
+  // (le serveur refuserait toute la selection) : il le sera ensuite, apres
+  // choix du depot (D-079).
+  const preparerALaSelection = preparerBon && !!selection?.warehouse_id;
   const selectionner = (o: Offre) => {
     const m = motif(`Motif de la sélection de l'offre de ${nom.get(o.supplier_id) ?? '?'}`);
     if (!m) return;
-    executer('selectionner_offre', { p_offre: o.id, p_motif: m, p_preparer_bon: preparerBon },
-      preparerBon ? 'Offre retenue : bon de commande brouillon préparé (à soumettre dans Achats).' : 'Offre retenue.');
+    executer('selectionner_offre', { p_offre: o.id, p_motif: m, p_preparer_bon: preparerALaSelection },
+      preparerALaSelection ? 'Offre retenue : bon de commande brouillon préparé (à soumettre dans Achats).'
+        : selection?.warehouse_id ? 'Offre retenue.' : 'Offre retenue. Choisir le dépôt de livraison pour préparer le bon de commande.');
   };
+  const [depotBon, setDepotBon] = useState('');
   const retirer = (o: Offre) => { const m = motif(`Motif du retrait de l'offre de ${nom.get(o.supplier_id) ?? '?'}`); if (m) executer('retirer_offre', { p_offre: o.id, p_motif: m }, 'Offre retirée.'); };
   const annuler = (c: Consultation) => { const m = motif(`Motif de l'annulation de la consultation ${c.numero}`); if (m) executer('annuler_consultation', { p_id: c.id, p_motif: m }, 'Consultation annulée.'); };
 
@@ -190,7 +196,11 @@ export const ConsultationsFournisseurs = ({ fournisseurs }: { fournisseurs: Four
       </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {peutEcrire && selection.statut === 'ouverte' && <button onClick={() => annuler(selection)} className="rounded border border-stone-300 px-3 py-1 text-xs">Annuler la consultation</button>}
-        {peutEcrire && selection.statut === 'attribuee' && !detail.bon && <button onClick={() => executer('preparer_bon_commande_consultation', { p_consultation: selection.id }, 'Bon de commande brouillon préparé.')} className="rounded border border-stone-300 px-3 py-1 text-xs">Préparer le bon de commande</button>}
+        {peutEcrire && selection.statut === 'attribuee' && !detail.bon && <>
+          {!selection.warehouse_id && <select aria-label="Dépôt de livraison du bon" value={depotBon} onChange={(e) => setDepotBon(e.target.value)} className="rounded border border-stone-300 px-2 py-1 text-xs">
+            <option value="">Dépôt de livraison requis</option>{depots.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select>}
+          <button disabled={busy || (!selection.warehouse_id && !depotBon)} onClick={() => executer('preparer_bon_commande_consultation', { p_consultation: selection.id, p_depot: selection.warehouse_id ? null : depotBon }, 'Bon de commande brouillon préparé.')} className="rounded border border-stone-300 px-3 py-1 text-xs disabled:opacity-50">Préparer le bon de commande</button>
+        </>}
         {peutEcrire && selection.statut === 'ouverte' && nonConsultes.length > 0 && <>
           <select aria-label="Fournisseur à consulter" value={invite} onChange={(e) => setInvite(e.target.value)} className="rounded border border-stone-300 px-2 py-1 text-xs">
             <option value="">Consulter un autre fournisseur</option>{nonConsultes.map((f) => <option key={f.id} value={f.id}>{f.company_name}</option>)}</select>
@@ -218,7 +228,7 @@ export const ConsultationsFournisseurs = ({ fournisseurs }: { fournisseurs: Four
               {offresActives.map((o) => { const r = comparaison.offres.find((x) => x.id === o.id)!;
                 return <td key={o.id} className="py-2 pr-3">{o.delai_livraison_jours} j{r.plusRapide && ' (le plus court)'}<span className="block text-xs text-stone-500">reçue le {o.recue_le}{r.horsDelai && ', après la date limite'}</span>
                   {o.conditions && <span className="block text-xs text-stone-500">{o.conditions}</span>}</td>; })}</tr>
-            <tr><td className="py-2 pr-3" colSpan={2}>{peutEcrire && selection.statut === 'ouverte' && <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={preparerBon} onChange={(e) => setPreparerBon(e.target.checked)} />Préparer le bon de commande brouillon</label>}</td>
+            <tr><td className="py-2 pr-3" colSpan={2}>{peutEcrire && selection.statut === 'ouverte' && <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={preparerALaSelection} disabled={!selection.warehouse_id} onChange={(e) => setPreparerBon(e.target.checked)} />{!selection.warehouse_id && 'Dépôt à préciser : bon à préparer après la sélection. '}Préparer le bon de commande brouillon</label>}</td>
               {offresActives.map((o) => <td key={o.id} className="py-2 pr-3"><Puce teinte={STATUTS_OFFRE[o.statut].teinte}>{STATUTS_OFFRE[o.statut].texte}</Puce>
                 {peutEcrire && selection.statut === 'ouverte' && o.statut === 'recue' && <span className="mt-1 flex gap-1">
                   <button onClick={() => selectionner(o)} aria-label={`Retenir l'offre de ${nom.get(o.supplier_id) ?? '?'}`} className="rounded bg-green-700 px-2 py-1 text-xs font-bold text-white">Retenir</button>
