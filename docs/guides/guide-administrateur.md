@@ -281,3 +281,10 @@ réelle (voir le guide de déploiement).
 - La correspondance des droits du module `planning` est un choix d'équipe
   « à confirmer » par le propriétaire (D-023).
 - Pas de délégation ni d'escalade des validations (D-056).
+
+## Shifts et referentiels (D-078)
+
+- Premier parametrage apres la purge : Sites, puis Exploitation > Shifts (par exemple Jour 06:00-18:00 et Nuit 18:00-06:00), puis flotte et chauffeurs.
+- Les shifts sont communs a tous les sites : seul un profil sans site, administrateur ou avec le droit Parametres, les cree, les modifie (motif) ou les desactive (motif). Le journal `journal_shifts` trace chaque action.
+- Un chauffeur ou un engin cree par un profil rattache a un site est enregistre sur ce site ; seul un profil global cree un chauffeur ou un engin global.
+- Question ouverte au proprietaire (D-078, point 7) : un ticket CBG rectifie rend aujourd'hui le voyage non facturable ; proposition : facturable apres decision motivee d'un approbateur distinct de l'auteur de la rectification.

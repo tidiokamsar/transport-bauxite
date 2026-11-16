@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Loader2, Save, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { TYPES_DOCUMENT } from '../Vehicles/flotte';
+import { entierOuNull } from '../../lib/formulaires';
 
 // Saisie des metadonnees d'un document de vehicule (D-062). Pas de fichier
 // joint (stockage indisponible) : la reference de la piece suffit. L'etat
@@ -38,11 +39,14 @@ export const VehicleDocumentModal = ({ isOpen, onClose, onSuccess, document }: {
 
   if (!isOpen) return null;
   const poser = (k: keyof typeof f, v: string) => setF({ ...f, [k]: v });
-  const cout = f.cost.trim() === '' ? null : Number(f.cost.replace(/\s/g, '').replace(',', '.'));
+  // Cout en GNF entiers (colonne bigint, D-078) : decimales refusees, pas arrondies.
+  const lectureCout = entierOuNull(f.cost, 'Coût (GNF)');
+  const cout = lectureCout.valeur;
   const pret = f.vehicle_id && f.document_type && f.document_name.trim() && (cout === null || cout >= 0)
     && (!f.issue_date || !f.expiry_date || f.expiry_date >= f.issue_date);
 
   const enregistrer = async () => {
+    if (lectureCout.erreur) { setErreur(lectureCout.erreur); return; }
     if (!pret) { setErreur('Véhicule, type et nom requis ; échéance après l\'émission ; coût positif'); return; }
     const corps = {
       vehicle_id: f.vehicle_id, document_type: f.document_type, document_name: f.document_name.trim(),

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ClipboardList, DoorClosed, Plus, Printer, RefreshCw, UserCheck, UserX } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
 import { CATEGORIES_EVENEMENT, LIBELLE_STATUT_POSTE, resumeBilan, type Bilan } from './postes';
-import { AucunShift } from '../ui/LienVue';
+import { LienVue } from '../ui/LienVue';
 
 // Postes de travail (D-048) : instance d'un shift pour une date et un site.
 // Ouverture (consignes recues de la passation), equipe et presence, journal
@@ -39,6 +40,7 @@ export const PostesView = () => {
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [vides, setVides] = useState({ site: false, shift: false, chauffeur: false });
 
   const charger = useCallback(async () => {
     const p = await supabase.from('postes').select('*').eq('date_poste', date).order('ouvert_le');
@@ -50,7 +52,8 @@ export const PostesView = () => {
       supabase.from('sites').select('id, name').order('name'),
       supabase.from('drivers').select('id, name').eq('status', 'active').order('name'),
     ]);
-    setErreur(p.error?.message ?? e.error?.message ?? ev.error?.message ?? '');
+    setErreur(p.error?.message ?? e.error?.message ?? ev.error?.message ?? sh.error?.message ?? si.error?.message ?? ch.error?.message ?? '');
+    setVides({ site: !si.error && (si.data ?? []).length === 0, shift: !sh.error && (sh.data ?? []).length === 0, chauffeur: !ch.error && (ch.data ?? []).length === 0 });
     setPostes((p.data ?? []) as Poste[]);
     setEquipe((e.data ?? []) as Membre[]);
     setEvenements((ev.data ?? []) as Evenement[]);
@@ -76,10 +79,14 @@ export const PostesView = () => {
     if (error) { setErreur(error.message); return false; }
     setMessage(succes); await charger(); return true;
   };
-  const ouvrir = () => executer(() => supabase.rpc('ouvrir_poste', {
-    p_date: date, p_shift_id: c('shift'), p_site_id: c('site'), p_responsable: null, p_consignes: c('consignes').trim() || null,
-  }), 'Poste ouvert. Les consignes du poste précédent du site sont reprises.').then((ok) => ok && setChamps({}));
-  const affecter = () => poste && executer(() => supabase.rpc('affecter_au_poste', { p_poste_id: poste.id, p_driver_id: c('chauffeur'), p_vehicle_id: null }), 'Chauffeur ajouté au poste.');
+  const ouvrir = () => {
+    // Jamais d'identifiant vide envoye au serveur (referentiel vide).
+    if (!c('shift') || !c('site')) { setErreur('Choisissez le shift et le site du poste.'); return; }
+    executer(() => supabase.rpc('ouvrir_poste', {
+      p_date: date, p_shift_id: c('shift'), p_site_id: c('site'), p_responsable: null, p_consignes: c('consignes').trim() || null,
+    }), 'Poste ouvert. Les consignes du poste précédent du site sont reprises.').then((ok) => ok && setChamps({}));
+  };
+  const affecter = () => poste && c('chauffeur') && executer(() => supabase.rpc('affecter_au_poste', { p_poste_id: poste.id, p_driver_id: c('chauffeur'), p_vehicle_id: null }), 'Chauffeur ajouté au poste.');
   const pointer = (m: Membre, present: boolean) => {
     let retard: number | null = null; let motif: string | null = null;
     if (present) { const r = window.prompt('Retard en minutes (vide si à l\'heure)', ''); if (r === null) return; retard = r.trim() ? Number.parseInt(r, 10) : null; }
@@ -104,8 +111,10 @@ export const PostesView = () => {
     </header>
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
     {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
+    {vides.site && <ReferentielVide>{SANS_SITE} Un poste s'ouvre pour un shift et un site.</ReferentielVide>}
+    {vides.shift && <ReferentielVide>{SANS_SHIFT} <LienVue vue="shifts">Ouvrir la gestion des shifts</LienVue></ReferentielVide>}
+    {vides.chauffeur && <ReferentielVide>Aucun chauffeur actif : créez ou réactivez les chauffeurs (Flotte → Chauffeurs) pour composer l'équipe d'un poste.</ReferentielVide>}
 
-    {peutExploiter && shifts.length === 0 && postes !== null && <AucunShift contexte="un poste est l'instance d'un shift pour une date et un site" />}
     {peutExploiter && <Panneau titre="Ouvrir un poste">
       <div role="form" aria-label="Ouverture de poste" className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">Shift *<select value={c('shift')} onChange={(e) => poser('shift', e.target.value)} className={CHAMP}><option value="">Choisir</option>{shifts.map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}</select></label>

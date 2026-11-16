@@ -58,13 +58,11 @@ test.describe('Contrôle des factures Neemba', () => {
   test('saisie d\'une facture recue : en-tete et lignes avec quantite et unite', async ({ page }) => {
     await simulerApi(page, { profiles: PROFIL, contrats: [CONTRAT], vehicles: ENGINS, contrat_tarifs: [{ categorie_materiel: 'Semi-remorque' }],
       factures_fournisseur: [], factures_fournisseur_lignes: [], regularisations_fournisseur: [] });
-    const envois: { table: string; corps: unknown }[] = [];
-    await page.route(/\/rest\/v1\/factures_fournisseur(_lignes)?(\?.*)?$/, (route) => {
-      if (route.request().method() === 'POST') {
-        envois.push({ table: new URL(route.request().url()).pathname.split('/').pop() ?? '', corps: route.request().postDataJSON() });
-        return route.fulfill({ status: 201, body: '' });
-      }
-      return route.fallback();
+    // D-078 : en-tete et lignes en une seule fonction serveur (transaction).
+    const envois: Record<string, unknown>[] = [];
+    await page.route('**/rest/v1/rpc/saisir_facture_fournisseur', (route) => {
+      envois.push(route.request().postDataJSON());
+      return repondre(route, 'f-nouvelle');
     });
     await ouvrir(page);
     await page.getByRole('button', { name: 'Saisir une facture reçue' }).click();
@@ -79,8 +77,8 @@ test.describe('Contrôle des factures Neemba', () => {
     await f.getByLabel('Ligne 1 unité').selectOption('heure');
     await f.getByLabel('Ligne 1 montant').fill('11000');
     await f.getByRole('button', { name: 'Enregistrer la facture' }).click();
-    await expect.poll(() => envois.length).toBe(2);
-    expect(envois[0]).toMatchObject({ table: 'factures_fournisseur', corps: { numero_fournisseur: 'NB-2026-10', contrat_id: 'c1', devise: 'USD', montant_ht_facture: 11000 } });
-    expect((envois[1].corps as Record<string, unknown>[])[0]).toMatchObject({ vehicle_id: 'v1', quantite_facturee: 110, unite_facturee: 'heure', montant_facture: 11000 });
+    await expect.poll(() => envois.length).toBe(1);
+    expect(envois[0]).toMatchObject({ p_numero: 'NB-2026-10', p_contrat_id: 'c1', p_montant_ht: 11000 });
+    expect((envois[0].p_lignes as Record<string, unknown>[])[0]).toMatchObject({ vehicle_id: 'v1', quantite_facturee: 110, unite_facturee: 'heure', montant_facture: 11000 });
   });
 });

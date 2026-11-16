@@ -3,7 +3,9 @@ import { Check, ListPlus, PenLine, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
+import { LienVue } from '../ui/LienVue';
 import { formatNombre } from '../Dashboard/indicateurs';
 import {
   A_AFFECTER, TYPES_ENGIN, camionDisponible, chauffeurDisponible, instantane, raisonReaffectation, recommander, voyagesAPreparer,
@@ -11,7 +13,6 @@ import {
 } from './recommandation';
 import { FenetreDecision, type ModeDecision } from './FenetreDecision';
 import { SimulationScenarios } from './SimulationScenarios';
-import { AucunShift, AucunSite } from '../ui/LienVue';
 import { SANCTIONS_CONDUITE, SELECTION_SANCTIONS_CONDUITE, sanctionsConduiteParChauffeur, type SanctionConduite } from '../Drivers/infractions';
 
 // Dispatch v1 (etape 4 de la reprise, CDC 11, D-024). Le systeme recommande
@@ -63,11 +64,12 @@ interface LigneRapport { trip_id: string | null; reference: string | null; resul
 
 export const DispatchView = () => {
   const { hasPermission } = useAuth();
-  const { siteId, sites } = useSite();
+  const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
   const [date, setDate] = useState(aujourdhui);
   const [site, setSite] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [aucunShift, setAucunShift] = useState(false);
   const [shift, setShift] = useState('');
   const [engins, setEngins] = useState<Engin[]>([]);
   const [chauffeurs, setChauffeurs] = useState<Chauffeur[]>([]);
@@ -86,7 +88,6 @@ export const DispatchView = () => {
   const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
   const [sanctions, setSanctions] = useState<Map<string, SanctionConduite[]>>(new Map());
   const [erreurSanctions, setErreurSanctions] = useState('');
-  const [referentielsCharges, setReferentielsCharges] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -96,16 +97,16 @@ export const DispatchView = () => {
       supabase.from('sanctions_infraction').select(SELECTION_SANCTIONS_CONDUITE)
         .eq('statut', 'active').in('sanction', SANCTIONS_CONDUITE).limit(1000),
     ]).then(([s, v, d, rS]) => {
-      if (s.error) setErreur('Shifts indisponibles : ' + s.error.message);
       const liste = (s.data ?? []) as Shift[];
       setShifts(liste);
+      setAucunShift(!s.error && liste.length === 0);
+      if (s.error) setErreur('Shifts indisponibles : ' + s.error.message);
       setShift((x) => x || shiftCourant(liste)?.id || '');
       setEngins((v.data ?? []) as Engin[]);
       setChauffeurs((d.data ?? []) as Chauffeur[]);
       // Avertissement seulement : une lecture impossible est signalee, jamais tue.
       setErreurSanctions(rS.error ? `Sanctions en vigueur indisponibles : ${rS.error.message}` : '');
       setSanctions(rS.error ? new Map() : sanctionsConduiteParChauffeur(rS.data ?? []));
-      setReferentielsCharges(true);
     });
   }, []);
 
@@ -115,9 +116,16 @@ export const DispatchView = () => {
   }, [siteId, sites, site]);
 
   const charger = useCallback(async () => {
-    // Sans site ou sans shift : liste vide, jamais d'identifiant vide envoye
-    // au serveur ni de chargement sans fin (D-078).
-    if (!site || !shift) { setVoyages([]); setDecisions([]); setObjectif(null); setCharge(null); return; }
+    // Sans site ou sans shift (referentiel vide) : aucune requete, liste vide
+    // explicite, jamais d'identifiant vide envoye au serveur.
+    if (!site || !shift) {
+      setVoyages([]);
+      setDecisions([]);
+      setHabitudes(new Map());
+      setObjectif(null);
+      setCharge(null);
+      return;
+    }
     const [rV, rH, rO, rS] = await Promise.all([
       supabase.from('trips').select('id, reference, etat, departure_site_id, arrival_site_id, vehicle_id, driver_id, loader_vehicle_id')
         .eq('planned_date', date).eq('departure_site_id', site).eq('shift_id', shift).order('reference'),
@@ -250,7 +258,10 @@ export const DispatchView = () => {
   };
 
   const preparer = async () => {
-    if (!site || !shift || !destination) { setErreur('Choisissez le site, le shift et la destination avant de créer des voyages.'); return; }
+    if (!site || !shift || !destination) {
+      setErreur('Choisissez le site de chargement, le shift et la destination avant de créer des voyages.');
+      return;
+    }
     setEnCours(true);
     setErreur('');
     const { error } = await supabase.rpc('preparer_voyages', {
@@ -313,9 +324,9 @@ export const DispatchView = () => {
         ))}
       </section>
 
-      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-      {sites.length === 0 && <AucunSite contexte="le dispatch prépare les voyages d'un site de chargement" />}
-      {referentielsCharges && shifts.length === 0 && <AucunShift contexte="le dispatch prépare les voyages d'un shift" />}
+      {aucunSite && <ReferentielVide>{SANS_SITE} Le dispatch prépare ensuite les voyages de ce site.</ReferentielVide>}
+      {aucunShift && <ReferentielVide>{SANS_SHIFT} <LienVue vue="shifts">Ouvrir la gestion des shifts</LienVue></ReferentielVide>}
+      {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
       {erreurSanctions && <p role="alert" className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{erreurSanctions}</p>}
 
       {peutEcrire && site && shift && (
@@ -339,12 +350,15 @@ export const DispatchView = () => {
             </label>
             <button
               onClick={preparer}
-              disabled={enCours || !destination || !(Number(nombre) >= 1)}
+              disabled={enCours || !site || !shift || !destination || !(Number(nombre) >= 1)}
               className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               <ListPlus className="h-4 w-4" /> Créer les voyages
             </button>
           </div>
+          {!sites.some((s) => s.id !== site) && (
+            <div className="mt-3"><ReferentielVide>Aucune destination enregistrée : créez le site de déchargement (Exploitation → Sites).</ReferentielVide></div>
+          )}
         </Panneau>
       )}
 
@@ -486,7 +500,7 @@ export const DispatchView = () => {
       </Panneau>
       <Provenance source="voyages du shift, flotte et chauffeurs ; recommandation par règles fixes (camion le moins chargé, chauffeur habituel sur 14 jours, file de chargement la plus courte) ; décisions historisées" heure={heure} />
 
-      {site && shift && <SimulationScenarios date={date} site={site} shift={shift} shifts={shifts} nomSite={nomSite} camionsDisponibles={camionsSite.length} />}
+      {site && <SimulationScenarios date={date} site={site} shift={shift} shifts={shifts} nomSite={nomSite} camionsDisponibles={camionsSite.length} />}
 
       {ouverte && (
         <FenetreDecision

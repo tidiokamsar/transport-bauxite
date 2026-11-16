@@ -32,6 +32,14 @@ export const Provenance = ({ source, heure }: { source: string; heure?: Date | n
   </p>
 );
 
+/**
+ * Referentiel vide (base sans site, shift, engin, contrat...) : dit quoi
+ * creer et dans quel menu, au lieu d'un selecteur vide ou d'une erreur.
+ */
+export const ReferentielVide = ({ children }: { children: ReactNode }) => (
+  <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{children}</p>
+);
+
 export const SansDonnees = ({ message = 'Sans données', detail }: { message?: string; detail?: string }) => (
   <div className="flex h-full min-h-[120px] flex-col items-center justify-center rounded-xl border border-dashed border-stone-200 bg-stone-50/60 p-6 text-center">
     <p className="text-sm font-semibold text-stone-500">{message}</p>
