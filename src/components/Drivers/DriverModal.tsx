@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { X, Save, Archive } from 'lucide-react';
+import { Save, Archive } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { InfractionsChauffeur } from './InfractionsChauffeur';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -121,27 +122,44 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">
-            {isEditing ? 'Modifier le chauffeur' : 'Ajouter un chauffeur'}
-          </h2>
+    <Fenetre
+      titre={isEditing ? 'Modifier le chauffeur' : 'Ajouter un chauffeur'}
+      onFermer={() => onClose(false)}
+      largeur="max-w-4xl"
+      enCours={loading}
+      onSubmit={handleSubmit}
+      pied={<>
+        {isEditing && (
           <button
-            onClick={() => onClose(false)}
-            className="text-slate-400 hover:text-slate-600 transition-colors"
+            type="button"
+            onClick={handleArchive}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 sm:mr-auto"
           >
-            <X className="w-6 h-6" />
+            <Archive className="w-5 h-5" />
+            Archiver le dossier
           </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+        )}
+        <button
+          type="button"
+          onClick={() => onClose(false)}
+          disabled={loading}
+          className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
+        >
+          <Save className="w-5 h-5" />
+          {loading ? 'Enregistrement...' : 'Enregistrer'}
+        </button>
+      </>}
+    >
+          <div className="space-y-6">
+            <ErreurFenetre>{error}</ErreurFenetre>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -411,42 +429,6 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
               {isEditing && driver && <InfractionsChauffeur chauffeurId={driver.id} />}
             </div>
           </div>
-
-          <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-            <div>
-              {isEditing && (
-                <button
-                  type="button"
-                  onClick={handleArchive}
-                  disabled={loading}
-                  className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <Archive className="w-5 h-5" />
-                  Archiver le dossier
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => onClose(false)}
-                disabled={loading}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Annuler
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-50"
-              >
-                <Save className="w-5 h-5" />
-                {loading ? 'Enregistrement...' : 'Enregistrer'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

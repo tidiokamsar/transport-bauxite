@@ -3,6 +3,7 @@ import { FileSearch, Plus, Printer, Send, Trash2, Wallet, X } from 'lucide-react
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { montant } from '../Facturation/facturation';
 
 // Controle des factures du loueur (phase 5, D-032 ; type de facturation et
@@ -61,6 +62,7 @@ export const FacturesNeembaView = () => {
   const [lettre, setLettre] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [heure, setHeure] = useState<Date | null>(null);
+  const [envoi, setEnvoi] = useState(false);
 
   const charger = useCallback(async () => {
     const [f, c, v, t, s] = await Promise.all([
@@ -104,6 +106,7 @@ export const FacturesNeembaView = () => {
     if (remplies.length === 0 || remplies.some((l) => nombre(l.montant) === null)) { setMessage({ ok: false, texte: 'Chaque ligne demande un engin ou un libellé, et son montant' }); return; }
     // En-tete et lignes en une seule transaction serveur (D-078) : une ligne
     // refusee annule toute la facture, aucune facture orpheline.
+    setEnvoi(true);
     const { data, error } = await supabase.rpc('saisir_facture_fournisseur', {
       p_contrat_id: c.id, p_numero: entete.numero.trim(), p_date: entete.date,
       p_debut: entete.debut, p_fin: entete.fin, p_montant_ht: ht,
@@ -113,6 +116,7 @@ export const FacturesNeembaView = () => {
         taux_facture: nombre(l.taux), montant_facture: nombre(l.montant),
       })),
     });
+    setEnvoi(false);
     if (error) { setMessage({ ok: false, texte: error.code === '23505' ? 'Ce numéro de facture existe déjà pour ce contrat' : error.message }); return; }
     setMessage({ ok: true, texte: 'Facture saisie : lancez le contrôle' });
     setSaisie(false);
@@ -203,11 +207,21 @@ export const FacturesNeembaView = () => {
       )}
 
       {saisie && (
-        <div className="fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto bg-black/30 p-4" onClick={() => setSaisie(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Saisir une facture reçue">
-            <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4"><h2 className="text-xl font-black">Facture reçue du loueur</h2><button onClick={() => setSaisie(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button></header>
-            <div className="space-y-4 px-6 py-5 text-sm">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+        <Fenetre
+          titre="Facture reçue du loueur"
+          ariaLabel="Saisir une facture reçue"
+          largeur="max-w-5xl"
+          onFermer={() => setSaisie(false)}
+          enCours={envoi}
+          onSubmit={(e) => { e.preventDefault(); if (!envoi) enregistrerFacture(); }}
+          pied={<>
+            <button type="button" onClick={() => setSaisie(false)} disabled={envoi} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={envoi} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">Enregistrer la facture</button>
+          </>}
+        >
+            <div className="space-y-4 text-sm">
+              <ErreurFenetre>{message && !message.ok ? message.texte : null}</ErreurFenetre>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-6">
                 <label className="md:col-span-2">Contrat *<select value={entete.contrat} onChange={(e) => setEntete({ ...entete, contrat: e.target.value })} className={CHAMP}>{contrats.map((c) => <option key={c.id} value={c.id}>{c.reference} · {c.contrepartie}</option>)}</select></label>
                 <label>N° de facture *<input value={entete.numero} onChange={(e) => setEntete({ ...entete, numero: e.target.value })} className={CHAMP} /></label>
                 <label>Date *<input type="date" value={entete.date} onChange={(e) => setEntete({ ...entete, date: e.target.value })} className={CHAMP} /></label>
@@ -217,42 +231,54 @@ export const FacturesNeembaView = () => {
               </div>
               <p className="font-semibold">Lignes de la facture</p>
               {lignesSaisie.map((l, i) => (
-                <div key={i} className="grid grid-cols-2 items-end gap-2 md:grid-cols-8">
+                <div key={i} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 md:grid-cols-8">
                   <label className="md:col-span-2">Engin<select aria-label={`Ligne ${i + 1} engin`} value={l.vehicule} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, vehicule: e.target.value } : x)))} className={CHAMP}><option value="">Sans engin (frais)</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
                   <label>Catégorie<select value={l.categorie} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, categorie: e.target.value } : x)))} className={CHAMP}><option value="">—</option>{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
                   <label>Quantité<input aria-label={`Ligne ${i + 1} quantité`} inputMode="decimal" value={l.quantite} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, quantite: e.target.value } : x)))} className={CHAMP} /></label>
                   <label>Unité<select aria-label={`Ligne ${i + 1} unité`} value={l.unite} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, unite: e.target.value } : x)))} className={CHAMP}>{Object.entries(UNITES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
                   <label>Taux<input aria-label={`Ligne ${i + 1} taux`} inputMode="decimal" value={l.taux} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, taux: e.target.value } : x)))} className={CHAMP} /></label>
                   <label>Montant *<input aria-label={`Ligne ${i + 1} montant`} inputMode="decimal" value={l.montant} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, montant: e.target.value } : x)))} className={CHAMP} /></label>
-                  <div className="flex items-end gap-1">{!l.vehicule && <input placeholder="Libellé" value={l.libelle} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, libelle: e.target.value } : x)))} className={CHAMP} />}<button onClick={() => setLignesSaisie(lignesSaisie.filter((_, j) => j !== i))} className="rounded p-2 text-stone-400 hover:text-red-600" aria-label={`Retirer la ligne ${i + 1}`}><Trash2 className="h-4 w-4" /></button></div>
+                  <div className="flex items-end gap-1">{!l.vehicule && <input placeholder="Libellé" value={l.libelle} onChange={(e) => setLignesSaisie(lignesSaisie.map((x, j) => (j === i ? { ...x, libelle: e.target.value } : x)))} className={CHAMP} />}<button type="button" onClick={() => setLignesSaisie(lignesSaisie.filter((_, j) => j !== i))} className="rounded p-2 text-stone-400 hover:text-red-600" aria-label={`Retirer la ligne ${i + 1}`}><Trash2 className="h-4 w-4" /></button></div>
                 </div>
               ))}
-              <button onClick={() => setLignesSaisie([...lignesSaisie, ligneVide()])} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><Plus className="h-3 w-3" /> Ligne</button>
+              <button type="button" onClick={() => setLignesSaisie([...lignesSaisie, ligneVide()])} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><Plus className="h-3 w-3" /> Ligne</button>
             </div>
-            <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4"><button onClick={() => setSaisie(false)} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100">Annuler</button><button onClick={enregistrerFacture} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white">Enregistrer la facture</button></footer>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {regul && fac && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => setRegul(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Régularisation">
-            <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4"><h2 className="text-xl font-black">Régularisation · {fac.numero_fournisseur}</h2><button onClick={() => setRegul(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button></header>
-            <div className="grid grid-cols-2 gap-3 px-6 py-5 text-sm">
+        <Fenetre
+          titre={`Régularisation · ${fac.numero_fournisseur}`}
+          ariaLabel="Régularisation"
+          largeur="max-w-lg"
+          onFermer={() => setRegul(false)}
+          enCours={envoi}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (envoi) return;
+            setEnvoi(true);
+            const ok = await appeler('enregistrer_regularisation', { p_id: fac.id, p_date: r.date, p_montant: nombre(r.montant), p_mode: r.mode, p_reference: r.reference || null, p_note: null }, 'Régularisation enregistrée') !== null;
+            setEnvoi(false);
+            if (ok) setRegul(false);
+          }}
+          pied={<>
+            <button type="button" onClick={() => setRegul(false)} disabled={envoi} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={envoi} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">Enregistrer</button>
+          </>}
+        >
+            <ErreurFenetre className="mb-3">{message && !message.ok ? message.texte : null}</ErreurFenetre>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <label>Date *<input type="date" value={r.date} onChange={(e) => setR({ ...r, date: e.target.value })} className={CHAMP} /></label>
               <label>Montant * ({fac.devise})<input inputMode="decimal" value={r.montant} onChange={(e) => setR({ ...r, montant: e.target.value })} className={CHAMP} /></label>
               <label>Mode<select value={r.mode} onChange={(e) => setR({ ...r, mode: e.target.value })} className={CHAMP}>{Object.entries(MODES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
               <label>Référence<input value={r.reference} onChange={(e) => setR({ ...r, reference: e.target.value })} className={CHAMP} /></label>
             </div>
-            <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4"><button onClick={() => setRegul(false)} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100">Annuler</button>
-              <button onClick={async () => { if (await appeler('enregistrer_regularisation', { p_id: fac.id, p_date: r.date, p_montant: nombre(r.montant), p_mode: r.mode, p_reference: r.reference || null, p_note: null }, 'Régularisation enregistrée') !== null) setRegul(false); }} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white">Enregistrer</button></footer>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {lettre && fac && (
         <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">
-          <div className="pas-imprime mx-auto mb-4 flex max-w-[210mm] justify-end gap-2">
+          <div className="pas-imprime sticky top-0 z-10 mx-auto mb-4 flex max-w-[210mm] flex-wrap gap-2 rounded-xl bg-stone-200/95 py-2 justify-end">
             <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white"><Printer className="h-4 w-4" /> Imprimer</button>
             <button onClick={() => setLettre(false)} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm" aria-label="Fermer la notification"><X className="h-4 w-4" /> Fermer</button>
           </div>

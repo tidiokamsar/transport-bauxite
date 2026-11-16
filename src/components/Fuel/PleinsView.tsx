@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ParcoursCarburant } from './ParcoursCarburant';
-import { Download, Plus, X } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -37,6 +38,7 @@ export const PleinsView = () => {
   const [saisie, setSaisie] = useState(false);
   const [f, setF] = useState({ date: new Date().toISOString().slice(0, 10), engin: '', chauffeur: '', litres: '', compteur: '', cuve: '', note: '' });
   const [erreur, setErreur] = useState('');
+  const [envoi, setEnvoi] = useState(false);
   const [heure, setHeure] = useState<Date | null>(null);
 
   const charger = useCallback(async () => {
@@ -79,10 +81,12 @@ export const PleinsView = () => {
     const litres = nombre(f.litres);
     if (!(litres && litres > 0)) { setErreur('La quantité en litres doit être positive'); return; }
     if (!f.engin) { setErreur('Engin requis pour un plein'); return; }
+    setEnvoi(true);
     const { error } = await supabase.rpc('saisir_plein', {
       p_vehicle: f.engin, p_date: f.date, p_litres: litres, p_driver: f.chauffeur || null,
       p_compteur: nombre(f.compteur), p_stockage: f.cuve || null, p_note: f.note.trim() || null,
     });
+    setEnvoi(false);
     if (error) { setErreur(error.message); return; }
     setSaisie(false);
     setErreur('');
@@ -155,15 +159,21 @@ export const PleinsView = () => {
       </Panneau>
 
       {saisie && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => setSaisie(false)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Saisir un plein">
-            <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-              <h2 className="text-xl font-black text-stone-900">Saisir un plein</h2>
-              <button onClick={() => setSaisie(false)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-            </header>
-            <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+        <Fenetre
+          titre="Saisir un plein"
+          onFermer={() => setSaisie(false)}
+          largeur="max-w-xl"
+          enCours={envoi}
+          onSubmit={(e) => { e.preventDefault(); enregistrer(); }}
+          pied={<>
+            <button type="button" onClick={() => setSaisie(false)} disabled={envoi} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={envoi} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">{envoi ? 'Enregistrement...' : 'Enregistrer'}</button>
+          </>}
+        >
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+              <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
               <label>Date *<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={CHAMP} /></label>
-              <span />
+              <span className="hidden sm:block" />
               <label>Engin *<select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value, cuve: '' })} className={CHAMP}><option value="">Choisir</option>{engins.map((e) => <option key={e.id} value={e.id}>{e.registration}</option>)}</select></label>
               <label>Chauffeur<select value={f.chauffeur} onChange={(e) => setF({ ...f, chauffeur: e.target.value })} className={CHAMP}><option value="">—</option>{chauffeurs.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
               <label>Litres *<input inputMode="decimal" value={f.litres} onChange={(e) => setF({ ...f, litres: e.target.value })} className={CHAMP} /></label>
@@ -174,14 +184,8 @@ export const PleinsView = () => {
                   .map((c) => <option key={c.id} value={c.id}>{c.code} · {c.libelle}</option>)}</select>
                 <span className="mt-1 block text-xs text-stone-500">Un prélèvement en cuve crée une distribution à valider dans le registre des stocks.</span></label>
               <label className="sm:col-span-2">Note<input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={CHAMP} /></label>
-              {erreur && <p className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
             </div>
-            <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-              <button onClick={() => setSaisie(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-              <button onClick={enregistrer} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white">Enregistrer</button>
-            </footer>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

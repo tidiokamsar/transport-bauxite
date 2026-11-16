@@ -156,7 +156,7 @@ export const EngagementsView = () => {
 
       {apercu && (
         <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">
-          <div className="pas-imprime mx-auto mb-4 flex max-w-[210mm] justify-end gap-2">
+          <div className="pas-imprime sticky top-0 z-10 mx-auto mb-4 flex max-w-[210mm] flex-wrap gap-2 rounded-xl bg-stone-200/95 py-2 justify-end">
             <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white"><Printer className="h-4 w-4" /> Imprimer</button>
             <button onClick={() => setApercu(null)} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm" aria-label="Fermer l'aperçu"><X className="h-4 w-4" /> Fermer</button>
           </div>

@@ -4,8 +4,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { supabase } from '../../lib/supabase';
 import { COLONNES_BOITIER } from '../IoT/boitiers';
+import { Fenetre } from '../ui/Fenetre';
 import {
-  X, Truck, User, Fuel, Gauge, MapPin, Calendar, Clock, Weight,
+  Truck, User, Fuel, Gauge, MapPin, Calendar, Clock, Weight,
   Navigation2, Activity, TrendingUp, AlertTriangle, CheckCircle, Package,
   Thermometer, BarChart3, Route, Target
 } from 'lucide-react';
@@ -268,7 +269,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" role="status" aria-label="Chargement des données">
         <div className="bg-white rounded-xl p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-slate-600 mt-4">Chargement des données...</p>
@@ -304,30 +305,23 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
   };
 
   return (
-    <div className="fixed inset-0 z-[2000] overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/60" onClick={onClose} />
-        <div className="relative bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto z-[2001]">
-          {/* Header */}
-          <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-4">
-              <Truck className="w-8 h-8" />
-              <div>
-                <h2 className="text-2xl font-bold">{vehicle.registration}</h2>
-                <p className="text-blue-100 text-sm">{vehicle.brand_model}</p>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(vehicle.status)}`}>
-                {getStatusLabel(vehicle.status)}
-              </span>
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-blue-800 rounded-lg transition-colors">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Tabs */}
-          <div className="border-b border-slate-200 px-6">
-            <div className="flex gap-4">
+    <Fenetre
+      titre={<>{vehicle.registration}{' '}
+        <span className={`ml-2 align-middle px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(vehicle.status)}`}>
+          {getStatusLabel(vehicle.status)}
+        </span>
+      </>}
+      ariaLabel={vehicle.registration}
+      sousTitre={vehicle.brand_model}
+      icone={<Truck className="h-8 w-8 text-blue-700" />}
+      onFermer={onClose}
+      largeur="max-w-6xl"
+      zClasse="z-[2000]"
+      corpsClassName=""
+    >
+          {/* Onglets : restent visibles pendant le defilement du contenu */}
+          <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 sm:px-6">
+            <div className="flex gap-4 overflow-x-auto">
               {[
                 { id: 'info', label: 'Informations', icon: Activity },
                 { id: 'map', label: 'Trajet & Carte', icon: MapPin },
@@ -353,7 +347,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
           </div>
 
           {/* Content */}
-          <div className="p-6">
+          <div className="px-4 py-4 sm:p-6">
             {activeTab === 'info' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Current Status */}
@@ -955,8 +949,6 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

@@ -65,9 +65,10 @@ SELECT is((SELECT auteur FROM public.journal_contrats WHERE table_cible = 'contr
   '00000000-0000-4000-8d00-000000000001'::uuid, 'auteur journalise');
 
 UPDATE public.contrats SET statut = 'actif' WHERE id = '00000000-0000-4000-8d00-0000000000c1';
-DELETE FROM public.contrats WHERE id = '00000000-0000-4000-8d00-0000000000c1';
-SELECT is((SELECT count(*)::int FROM public.contrats WHERE id = '00000000-0000-4000-8d00-0000000000c1'), 1,
-  'un contrat actif ne se supprime pas');
+-- D-079 : plus de suppression directe (privilege retire) ; la suppression
+-- passe par supprimer_element_contrat (brouillon seulement, motif, journal).
+SELECT throws_ok($$DELETE FROM public.contrats WHERE id = '00000000-0000-4000-8d00-0000000000c1'$$,
+  '42501', NULL, 'un contrat actif ne se supprime pas');
 SELECT throws_ok($$INSERT INTO public.journal_contrats (table_cible, ligne_id, action) VALUES ('x', gen_random_uuid(), 'INSERT')$$,
   '42501', NULL, 'journal non modifiable directement');
 

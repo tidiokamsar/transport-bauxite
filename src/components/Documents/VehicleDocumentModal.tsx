@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Loader2, Save, X } from 'lucide-react';
+import { Loader2, Save } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { TYPES_DOCUMENT } from '../Vehicles/flotte';
 import { entierOuNull } from '../../lib/formulaires';
@@ -63,14 +64,19 @@ export const VehicleDocumentModal = ({ isOpen, onClose, onSuccess, document }: {
   };
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={document ? 'Modifier le document' : 'Nouveau document'}
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-          <h2 className="text-xl font-black text-stone-900">{document ? 'Modifier le document' : 'Nouveau document'}</h2>
-          <button onClick={onClose} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+    <Fenetre
+      titre={document ? 'Modifier le document' : 'Nouveau document'}
+      onFermer={onClose}
+      enCours={busy}
+      onSubmit={(e) => { e.preventDefault(); if (!busy && pret) enregistrer(); }}
+      pied={<>
+        <button type="button" onClick={onClose} disabled={busy} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+        <button type="submit" disabled={busy || !pret} className="flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Enregistrer</button>
+      </>}
+    >
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
           <label className="sm:col-span-2">Véhicule *<select value={f.vehicle_id} onChange={(e) => poser('vehicle_id', e.target.value)} className={CHAMP}>
             <option value="">Choisir</option>{vehicules.map((v) => <option key={v.id} value={v.id}>{v.registration} · {v.brand_model}</option>)}</select></label>
           <label>Type *<select value={f.document_type} onChange={(e) => poser('document_type', e.target.value)} className={CHAMP}>
@@ -83,14 +89,7 @@ export const VehicleDocumentModal = ({ isOpen, onClose, onSuccess, document }: {
           <label>Coût (GNF)<input inputMode="decimal" value={f.cost} onChange={(e) => poser('cost', e.target.value)} className={CHAMP} /></label>
           <label className="sm:col-span-2">Notes<textarea rows={2} value={f.notes} onChange={(e) => poser('notes', e.target.value)} className={CHAMP} /></label>
           <p className="text-xs text-stone-500 sm:col-span-2">Pièce jointe indisponible tant que le stockage de fichiers n'est pas installé : noter la référence de la pièce.</p>
-          {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700 sm:col-span-2">{erreur}</p>}
         </div>
-        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
-          <button disabled={busy || !pret} onClick={enregistrer} className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Enregistrer</button>
-        </footer>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

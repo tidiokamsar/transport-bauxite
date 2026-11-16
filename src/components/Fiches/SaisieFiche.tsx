@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Plus, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { Puce } from '../ui/Panneau';
 import { ETATS, estEtat, phaseDe, PHASES } from '../Trips/cycle';
@@ -235,32 +236,31 @@ export const SaisieFiche = ({ fiche, debutShift, engins, chauffeurs, titre, onFe
   onFait: () => void;
 }) => {
   const [erreur, setErreur] = useState('');
+  const [enCours, setEnCours] = useState(false);
   const terminer = async () => {
+    setEnCours(true);
     const { error } = await supabase.rpc('terminer_saisie_fiche', { p_id: fiche.id, p_note: null });
+    setEnCours(false);
     if (error) setErreur(error.message);
     else onFait();
   };
   return (
-    <div className="fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto bg-black/30 p-4" onClick={onFermer}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-7xl rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={`Saisie ${fiche.numero}`}>
-        <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-          <div>
-            <h2 className="text-xl font-black text-stone-900">Saisie · {fiche.numero}</h2>
-            <p className="text-sm text-stone-500">{TYPES_FICHE[fiche.type].libelle} · {titre}</p>
-          </div>
-          <button onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-        </header>
-        <div className="px-6 py-5">
+    <Fenetre
+      titre={`Saisie · ${fiche.numero}`}
+      sousTitre={`${TYPES_FICHE[fiche.type].libelle} · ${titre}`}
+      ariaLabel={`Saisie ${fiche.numero}`}
+      largeur="max-w-7xl"
+      onFermer={onFermer}
+      enCours={enCours}
+      pied={<>
+        <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Fermer</button>
+        <button type="button" onClick={terminer} disabled={enCours} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">Terminer la saisie de la fiche</button>
+      </>}
+    >
+          <ErreurFenetre className="mb-3">{erreur}</ErreurFenetre>
           {fiche.type === 'rotations' && <SaisieRotations fiche={fiche} debutShift={debutShift} />}
           {fiche.type === 'pointage_engins' && <SaisiePointage fiche={fiche} engins={engins} debutShift={debutShift} />}
           {fiche.type === 'carburant' && <SaisieCarburant fiche={fiche} engins={engins} chauffeurs={chauffeurs} onFait={() => undefined} />}
-          {erreur && <p className="mt-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
-        </div>
-        <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-          <button onClick={onFermer} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Fermer</button>
-          <button onClick={terminer} className="rounded-lg bg-green-600 px-4 py-2 text-sm font-bold text-white">Terminer la saisie de la fiche</button>
-        </footer>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

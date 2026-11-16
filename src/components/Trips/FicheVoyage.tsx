@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowRight, Clock, Scale, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Clock, Scale } from 'lucide-react';
+import { Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { Puce } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
@@ -167,28 +168,19 @@ export const FicheVoyage = ({
   const champ = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
 
   return (
-    <div className="fixed inset-0 z-[900] flex justify-end bg-black/30" onClick={onFermer}>
-      <aside
-        className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titre-fiche-voyage"
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-5">
-          <div>
-            <h2 id="titre-fiche-voyage" className="text-xl font-black text-stone-900">{voyage.reference}</h2>
-            <p className="mt-1 text-sm text-stone-500">
-              {libelles.origine} → {libelles.destination} · {new Date(voyage.planned_date).toLocaleDateString('fr-FR')}
-              {libelles.shift !== '—' ? ` · shift ${libelles.shift}` : ''}
-            </p>
-            <div className="mt-2"><Puce teinte={phase.teinte}>{ETATS[etat].libelle}</Puce></div>
-          </div>
-          <button onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer">
-            <X className="h-5 w-5" />
-          </button>
-        </header>
-
+    <Fenetre
+      titre={voyage.reference}
+      sousTitre={<>
+        <p>
+          {libelles.origine} → {libelles.destination} · {new Date(voyage.planned_date).toLocaleDateString('fr-FR')}
+          {libelles.shift !== '—' ? ` · shift ${libelles.shift}` : ''}
+        </p>
+        <div className="mt-2"><Puce teinte={phase.teinte}>{ETATS[etat].libelle}</Puce></div>
+      </>}
+      onFermer={onFermer}
+      largeur="max-w-xl"
+      corpsClassName=""
+    >
         <dl className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-stone-200 px-6 py-4 text-sm">
           <div><dt className="text-stone-500">Camion</dt><dd className="font-semibold text-stone-900">{libelles.camion}</dd></div>
           <div><dt className="text-stone-500">Chauffeur</dt><dd className="font-semibold text-stone-900">{libelles.chauffeur}</dd></div>
@@ -234,7 +226,7 @@ export const FicheVoyage = ({
                   <input type="datetime-local" value={quand} onChange={(e) => setQuand(e.target.value)} className={champ} />
                 </label>
                 {AVEC_PESEE.includes(action) && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="block text-sm">
                       <span className="mb-1 flex items-center gap-1.5 font-medium text-stone-700"><Scale className="h-4 w-4" /> Poids brut (t)</span>
                       <input inputMode="decimal" value={brut} onChange={(e) => setBrut(e.target.value)} className={champ} required />
@@ -246,7 +238,7 @@ export const FicheVoyage = ({
                   </div>
                 )}
                 {action === 'WEIGHED_IN' && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label className="block text-sm">
                       <span className="mb-1 block font-medium text-stone-700">Numéro du ticket CBG *</span>
                       <input value={ticket} onChange={(e) => setTicket(e.target.value)} className={champ} required />
@@ -280,7 +272,7 @@ export const FicheVoyage = ({
                   </span>
                   <textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={2} className={champ} />
                 </label>
-                {erreur && <p className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
+                {erreur && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
                 <div className="flex justify-end gap-2">
                   <button onClick={() => setAction(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
                   <button
@@ -313,13 +305,13 @@ export const FicheVoyage = ({
             )}
             {peutEcrire && rattachement && (
               <div className="mt-3 space-y-3 rounded-xl bg-stone-50 p-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Numéro du ticket CBG *</span><input value={ticket} onChange={(e) => setTicket(e.target.value)} className={champ} /></label>
                   <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Heure de la pesée CBG *</span><input type="datetime-local" value={quand} onChange={(e) => setQuand(e.target.value)} className={champ} /></label>
                   <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Poids brut (t) *</span><input inputMode="decimal" value={brut} onChange={(e) => setBrut(e.target.value)} className={champ} /></label>
                   <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Tare (t) *</span><input inputMode="decimal" value={tare} onChange={(e) => setTare(e.target.value)} className={champ} /></label>
-                  <label className="col-span-2 block text-sm"><span className="mb-1 block font-medium text-stone-700">Référence du document</span><input value={documentRef} onChange={(e) => setDocumentRef(e.target.value)} className={champ} /></label>
-                  <label className="col-span-2 block text-sm"><span className="mb-1 block font-medium text-stone-700">Motif du rattachement tardif *</span><textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={2} className={champ} /></label>
+                  <label className="block text-sm sm:col-span-2"><span className="mb-1 block font-medium text-stone-700">Référence du document</span><input value={documentRef} onChange={(e) => setDocumentRef(e.target.value)} className={champ} /></label>
+                  <label className="block text-sm sm:col-span-2"><span className="mb-1 block font-medium text-stone-700">Motif du rattachement tardif *</span><textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={2} className={champ} /></label>
                 </div>
                 {erreur && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
                 <div className="flex justify-end gap-2">
@@ -366,7 +358,6 @@ export const FicheVoyage = ({
             </ol>
           )}
         </section>
-      </aside>
-    </div>
+    </Fenetre>
   );
 };
