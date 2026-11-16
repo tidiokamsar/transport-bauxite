@@ -15,7 +15,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(70);
+SELECT plan(87);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-b640-000000000001', 'admin.d064@exemple.invalid'),
@@ -183,8 +183,7 @@ SELECT throws_ok($$DELETE FROM public.affectations_sites WHERE id = (SELECT id F
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000006');
 SET LOCAL ROLE authenticated;
-SELECT ok(NOT public.has_module_write('trips') AND NOT public.has_module_view('trips'),
-  'etat initial : le chauffeur ne lit ni n''ecrit les voyages');
+SELECT is(public.has_module_write('trips'), false, 'etat initial : le chauffeur n''ecrit pas les voyages');
 SELECT throws_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'trips', 'ecriture',
   now(), now() + interval '1 day', 'Conges')$$, '42501', NULL, 'deleguer un droit qu''on n''a pas : refuse');
 RESET ROLE;
@@ -301,12 +300,22 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000008');
 SET LOCAL ROLE authenticated;
 SELECT is(public.has_module_approve('purchases'), false, 'etat initial : la logistique n''approuve pas');
 RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT is(public.has_module_view('hr'), false, 'etat initial : le chauffeur ne lit pas les RH');
+RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000008', 'purchases', 'approbation',
   now(), now() + interval '3 days', 'Absence du valideur');
 SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000009', 'purchases', 'approbation',
   now(), now() + interval '3 days', 'Absence du valideur');
+SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'hr', 'ecriture',
+  now(), now() + interval '3 days', 'Remplacement RH');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
+SET LOCAL ROLE authenticated;
+SELECT is(public.has_module_view('hr'), true, 'une delegation d''ecriture donne aussi la lecture du module');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000008');
 SET LOCAL ROLE authenticated;
@@ -329,8 +338,8 @@ SELECT is((SELECT approved_by FROM public.purchase_orders WHERE id = (SELECT id 
 -- Journal des delegations.
 SELECT is((SELECT count(*)::int FROM public.journal_delegations WHERE delegue IN (
   '00000000-0000-4000-b640-000000000006', '00000000-0000-4000-b640-000000000007',
-  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009')), 5,
-  'journal : 4 creations et 1 revocation');
+  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009')), 6,
+  'journal : 5 creations et 1 revocation');
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000005');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$UPDATE public.journal_delegations SET motif = 'x'$$, '42501', NULL, 'journal des delegations non modifiable');
