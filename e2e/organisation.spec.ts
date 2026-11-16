@@ -76,7 +76,7 @@ test.describe('Organisation et administration', () => {
       comptes_delegables: [{ id: 'u2', full_name: 'Fanta Test', role: 'fleet_manager' }],
       mes_delegations: [{
         id: 'd1', delegant: ADMIN, delegant_nom: 'Aminata Test', delegue: 'u2', delegue_nom: 'Fanta Test', module: 'purchases',
-        niveau: 'approbation', debut: new Date().toISOString(), fin: fin.toISOString(), motif: 'Absence du valideur',
+        niveau: 'ecriture', debut: new Date().toISOString(), fin: fin.toISOString(), motif: 'Absence du valideur',
         cree_le: new Date().toISOString(), revoquee_le: null, revoquee_par_nom: null, motif_revocation: null, statut: 'active',
         donne_lecture: true,
       }],
@@ -84,7 +84,7 @@ test.describe('Organisation et administration', () => {
     await page.getByRole('button', { name: 'Délégations' }).click();
     const ligne = page.locator('tr', { hasText: 'Absence du valideur' });
     await expect(ligne.getByText('En vigueur')).toBeVisible();
-    await expect(ligne.getByText('Approbation · Achats et fournisseurs')).toBeVisible();
+    await expect(ligne.getByText('Écriture · Achats et fournisseurs')).toBeVisible();
     await page.getByLabel('Compte délégué').selectOption('u2');
     await page.getByLabel('Module délégué').selectOption('trips');
     await page.getByLabel('Fin de la délégation').fill(`${fin.toISOString().slice(0, 10)}T18:00`);

@@ -90,9 +90,10 @@ export const LIBELLES_STATUT_DELEGATION: Record<StatutDelegation, string> = {
   sans_effet: 'Sans effet',
 };
 
+/** Seule l'ecriture se delegue (D-064, revue C1 : l'approbation deleguee
+ * contournait la separation des taches) ; la lecture l'accompagne. */
 export const LIBELLES_NIVEAU_DELEGATION: Record<string, string> = {
   ecriture: 'Écriture',
-  approbation: 'Approbation',
 };
 
 /** Une delegation se revoque tant qu'elle n'est ni expiree ni revoquee. */
@@ -107,12 +108,14 @@ export const erreurDelegation = (
   if (!f.delegue) return 'Choisissez le compte délégué.';
   if (!f.module) return 'Choisissez le module.';
   if (MODULES_NON_DELEGABLES.includes(f.module)) return 'L\'administration ne se délègue pas.';
-  if (f.niveau !== 'ecriture' && f.niveau !== 'approbation') return 'Niveau : écriture ou approbation.';
+  if (f.niveau === 'approbation') return 'L\'approbation ne se délègue pas.';
+  if (f.niveau !== 'ecriture') return 'Niveau : écriture seulement.';
   if (!f.motif.trim()) return 'Le motif est obligatoire.';
   const fin = new Date(f.fin);
   if (!f.fin || Number.isNaN(fin.getTime())) return 'Date de fin obligatoire.';
   const debut = f.debut ? new Date(f.debut) : maintenant;
   if (Number.isNaN(debut.getTime())) return 'Date de début invalide.';
+  if (debut < maintenant && f.debut) return 'Le début ne peut pas être dans le passé (vide : maintenant).';
   if (fin <= debut || fin <= maintenant) return 'La fin doit suivre le début et l\'instant présent.';
   return null;
 };

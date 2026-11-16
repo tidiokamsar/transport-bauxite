@@ -25,6 +25,8 @@ describe('erreurDelegation', () => {
     expect(erreurDelegation({ ...base, motif: '  ' }, maintenant)).toMatch(/motif/);
     expect(erreurDelegation({ ...base, fin: '2026-11-14T10:00' }, maintenant)).toMatch(/fin/);
     expect(erreurDelegation({ ...base, niveau: 'admin' }, maintenant)).toMatch(/Niveau/);
+    expect(erreurDelegation({ ...base, niveau: 'approbation' }, maintenant)).toMatch(/approbation ne se d/);
+    expect(erreurDelegation({ ...base, debut: '2026-11-14T10:00' }, maintenant)).toMatch(/passé/);
   });
   it('revocable seulement tant qu\'elle n\'est ni expiree ni revoquee', () => {
     expect(delegationRevocable('active')).toBe(true);

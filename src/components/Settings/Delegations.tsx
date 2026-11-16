@@ -8,10 +8,11 @@ import {
 } from './organisation';
 
 // Delegations temporaires (D-064) : un utilisateur delegue son droit
-// d'ecriture ou d'approbation sur un module, pour une periode datee et avec
-// motif. Le serveur (deleguer_droit, revoquer_delegation) refait chaque
-// controle : droit detenu, pas a soi-meme, pas l'administration ; le delegue
-// reste l'auteur de ses actes et borne par son propre perimetre de sites.
+// d'ecriture sur un module (l'approbation ne se delegue pas), pour une periode
+// datee et avec motif. Le serveur (deleguer_droit, revoquer_delegation) refait
+// chaque controle : droit propre detenu, pas a soi-meme, pas
+// l'administration ; le delegue reste l'auteur de ses actes et borne par son
+// propre perimetre de sites.
 
 interface Delegation {
   id: string; delegant: string; delegant_nom: string | null; delegue: string; delegue_nom: string | null;
@@ -26,7 +27,7 @@ const VIDE = { delegue: '', module: '', niveau: 'ecriture', debut: '', fin: '', 
 const dateHeure = (x: string) => new Date(x).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
 
 export const Delegations = ({ administration = false }: { administration?: boolean }) => {
-  const { profile, hasPermission } = useAuth();
+  const { profile, hasPermission, erreurDelegations, rafraichirDelegations } = useAuth();
   const [lignes, setLignes] = useState<Delegation[] | null>(null);
   const [comptes, setComptes] = useState<Compte[]>([]);
   const [f, setF] = useState(VIDE);
@@ -43,10 +44,11 @@ export const Delegations = ({ administration = false }: { administration?: boole
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
-  // Modules ou le compte detient le droit choisi (indicatif : le serveur verifie).
+  // Modules ou le compte detient en propre le droit d'ecriture : un droit
+  // recu par delegation ne se redelegue pas (indicatif : le serveur verifie).
   const modules = useMemo(() => Object.keys(LIBELLES_MODULES).filter((m) => !MODULES_NON_DELEGABLES.includes(m)
-    && (f.niveau === 'approbation' ? hasPermission(m, 'approve') : hasPermission(m, 'edit') || hasPermission(m, 'create'))),
-  [f.niveau, hasPermission]);
+    && (hasPermission(m, 'edit', true) || hasPermission(m, 'create', true))),
+  [hasPermission]);
 
   const deleguer = async () => {
     setErreur(''); setMessage('');
@@ -62,6 +64,7 @@ export const Delegations = ({ administration = false }: { administration?: boole
     setMessage('Délégation enregistrée.');
     setF(VIDE);
     await charger();
+    await rafraichirDelegations();
   };
 
   const revoquer = async () => {
@@ -74,6 +77,7 @@ export const Delegations = ({ administration = false }: { administration?: boole
     setRevocation(null);
     setMessage('Délégation révoquée.');
     await charger();
+    await rafraichirDelegations();
   };
 
   const estAdmin = profile?.role === 'admin';
@@ -83,9 +87,10 @@ export const Delegations = ({ administration = false }: { administration?: boole
     <div className="space-y-6">
       <Panneau titre="Déléguer un droit">
         <p className="mb-4 text-sm text-stone-500">
-          Vous déléguez un droit que vous détenez (écriture ou approbation d'un module), pour une période datée. Le délégué agit en son nom,
+          Vous déléguez le droit d'écriture que vous détenez en propre sur un module, pour une période datée qui commence au plus tôt maintenant. L'approbation ne se délègue pas. Le délégué agit en son nom,
           reste soumis à la séparation des tâches et à son propre périmètre de sites, qui doit être compris dans le vôtre. La lecture du module n'est déléguée que si vous la détenez. L'administration ne se délègue pas.
         </p>
+        {erreurDelegations && <p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Les délégations reçues n'ont pas pu être chargées ({erreurDelegations}) : les menus peuvent ne pas refléter vos droits. Le serveur reste seul juge.</p>}
         {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
         {message && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
         <div className="grid gap-3 md:grid-cols-3">
@@ -96,9 +101,8 @@ export const Delegations = ({ administration = false }: { administration?: boole
             </select>
           </label>
           <label className="text-sm">Niveau
-            <select aria-label="Niveau délégué" value={f.niveau} onChange={(e) => setF({ ...f, niveau: e.target.value, module: '' })} className={`mt-1 w-full ${CHAMP}`}>
-              <option value="ecriture">Écriture</option>
-              <option value="approbation">Approbation</option>
+            <select aria-label="Niveau délégué" value={f.niveau} disabled className={`mt-1 w-full ${CHAMP}`}>
+              <option value="ecriture">Écriture (et lecture)</option>
             </select>
           </label>
           <label className="text-sm">Module
