@@ -117,25 +117,15 @@ Deno.serve(async (req: Request) => {
       }
       return reponse(400, { erreur: `Périmètre refusé, compte annulé : ${erreurPerimetre.message}` });
     }
-    // Activation par le service (hors API : la garde des comptes reserve le
-    // changement de statut par l'API aux fonctions motivees).
-    const { error: erreurActivation } = await service.from('profiles').update({ status: 'active' }).eq('id', id);
+    // Journal puis activation dans une seule transaction (fonction reservee
+    // au service, contre-revue D-079) : jamais de compte actif sans trace.
+    const { data: auteur } = await appelant.auth.getUser();
+    const { error: erreurActivation } = await service.rpc('activer_compte_cree', {
+      p_utilisateur: id,
+      p_auteur: auteur?.user?.id ?? null,
+    });
     if (erreurActivation) {
       return reponse(500, { erreur: 'Compte créé avec son périmètre mais resté inactif : le réactiver (motif « création »)', id });
-    }
-    // Activation journalisee (journal_comptes, action « creation ») avec
-    // l'administrateur appelant comme auteur.
-    const { data: auteur } = await appelant.auth.getUser();
-    const { error: erreurJournal } = await service.from('journal_comptes').insert({
-      utilisateur: id,
-      action: 'creation',
-      statut_avant: 'inactive',
-      statut_apres: 'active',
-      motif: 'Création du compte',
-      auteur: auteur?.user?.id ?? null,
-    });
-    if (erreurJournal) {
-      return reponse(500, { erreur: 'Compte créé et actif, mais activation non journalisée : à signaler', id });
     }
     return reponse(201, { id });
   }

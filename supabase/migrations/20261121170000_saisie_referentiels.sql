@@ -922,3 +922,28 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Clause active introuvable' USING ERRCODE = '22023'; END IF;
 END;
 $$;
+
+-- Activation d'un compte cree par la fonction Edge admin-utilisateurs
+-- (contre-revue D-079) : journal puis activation dans une seule transaction,
+-- jamais l'un sans l'autre. Reservee au service (cle de service de la
+-- fonction Edge), apres definir_site_compte.
+CREATE OR REPLACE FUNCTION public.activer_compte_cree(p_utilisateur uuid, p_auteur uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE v_statut text;
+BEGIN
+  SELECT p.status INTO v_statut FROM public.profiles p WHERE p.id = p_utilisateur FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Compte introuvable' USING ERRCODE = '22023'; END IF;
+  IF v_statut IS DISTINCT FROM 'inactive' THEN
+    RAISE EXCEPTION 'Seul un compte cree inactif s''active ainsi' USING ERRCODE = '22023';
+  END IF;
+  INSERT INTO public.journal_comptes (utilisateur, action, statut_avant, statut_apres, motif, auteur)
+  VALUES (p_utilisateur, 'creation', 'inactive', 'active', 'Création du compte', p_auteur);
+  UPDATE public.profiles SET status = 'active' WHERE id = p_utilisateur;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.activer_compte_cree(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.activer_compte_cree(uuid, uuid) TO service_role;

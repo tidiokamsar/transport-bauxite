@@ -14,7 +14,7 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(86);
+SELECT plan(91);
 
 -- Jeu de test : A, B et D administrateurs, U chauffeur, I inactif, C charge de contrats.
 INSERT INTO auth.users (id, email) VALUES
@@ -352,6 +352,21 @@ SELECT ok(NOT has_function_privilege('anon', 'public.creer_avenant(uuid, integer
       AND NOT has_function_privilege('anon', 'public.modifier_tarif_par_avenant(uuid, numeric, text, date, text, text, text)', 'EXECUTE')
       AND NOT has_function_privilege('authenticated', 'public.controler_date_avenant(uuid, date)', 'EXECUTE'),
   'fonctions d''avenant fermees a anon, controle de date interne');
+
+-- Activation d'un compte cree (fonction Edge) : journal et activation ensemble.
+RESET ROLE;
+SELECT ok(NOT has_function_privilege('authenticated', 'public.activer_compte_cree(uuid, uuid)', 'EXECUTE'), 'activer_compte_cree fermee a authenticated');
+SELECT ok(NOT has_function_privilege('anon', 'public.activer_compte_cree(uuid, uuid)', 'EXECUTE'), 'activer_compte_cree fermee a anon');
+INSERT INTO auth.users (id, email) VALUES ('00000000-0000-4000-e790-000000000007', 'cree.d079@exemple.invalid');
+INSERT INTO public.profiles (id, role, full_name, status, email)
+VALUES ('00000000-0000-4000-e790-000000000007', 'driver', 'Cree D079', 'inactive', 'cree.d079@exemple.invalid');
+SELECT pg_temp.se_connecter(NULL);
+SELECT public.activer_compte_cree('00000000-0000-4000-e790-000000000007', '00000000-0000-4000-e790-000000000001');
+SELECT is((SELECT status FROM public.profiles WHERE id = '00000000-0000-4000-e790-000000000007'), 'active', 'compte cree active');
+SELECT is((SELECT count(*)::integer FROM public.journal_comptes WHERE utilisateur = '00000000-0000-4000-e790-000000000007' AND action = 'creation'
+           AND auteur = '00000000-0000-4000-e790-000000000001'), 1, 'activation journalisee avec son auteur');
+SELECT throws_ok($$SELECT public.activer_compte_cree('00000000-0000-4000-e790-000000000007', NULL)$$, '22023', NULL,
+  'un compte deja actif ne se reactive pas par cette voie');
 
 SELECT * FROM finish();
 ROLLBACK;
