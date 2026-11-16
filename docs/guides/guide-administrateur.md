@@ -168,7 +168,10 @@ Fonctionnement :
 ### Délégations temporaires (D-064, à tester)
 
 Un utilisateur délègue, pour une période datée et avec un motif, son droit
-d'**écriture** ou d'**approbation** sur un module à un autre compte : écran
+d'**écriture** sur un module à un autre compte (la lecture l'accompagne si le
+délégant lit le module). **L'approbation ne se délègue pas** : une
+approbation déléguée contournait la séparation des tâches (revue du
+2026-11-16) ; décision du propriétaire attendue. Écran
 **Sécurité du compte > Mes délégations**, ou **Paramètres > Délégations**
 pour l'administrateur (qui voit et révoque toutes les délégations).
 
@@ -180,8 +183,10 @@ Règles appliquées par le serveur (`deleguer_droit`, `has_module_*`) :
   rôle administrateur ne se délègue jamais ;
 - le périmètre de sites du délégué doit être compris dans celui du
   délégant (un délégant affecté à un site ne délègue qu'à des comptes de
-  ses sites ; la liste proposée ne montre que ceux-là) ;
+  ses sites ; la liste proposée ne montre que ceux-là, et reste vide pour
+  qui ne détient aucun droit d'écriture délégable) ;
 - la délégation ne vaut que pendant sa période (début inclus, fin exclue) ;
+  un début dans le passé est ramené à l'instant présent ;
   elle cesse d'agir dès que le délégant perd le droit, que le délégué
   devient inactif, qu'une attribution « Lecture » ou « Aucun » (section 4)
   vise le délégué, ou que le périmètre du délégué dépasse celui du
@@ -252,7 +257,8 @@ Actions :
 - **Annuler** (erreur de saisie) : motif obligatoire ; l'affectation ne
   donne plus aucun site.
 - **Rétablir le périmètre global** : décision explicite, motif
-  obligatoire, consignée (`retours_perimetre_global`). Refusée tant que le
+  obligatoire, consignée (`retours_perimetre_global`). Refusée pour un
+  compte inactif, et tant que le
   profil porte un site ou qu'une affectation est en cours ou à venir (la
   clore ou l'annuler d'abord). Une affectation antérieure au retour ne
   compte plus et ne se prolonge plus ; une nouvelle affectation borne de
