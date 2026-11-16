@@ -49,6 +49,30 @@
      - Inspections planifiees : programmes (frequence saisie), inspections
        (planifiee, realisee, annulee), constats append-only, actions
        correctives D-054 rattachees a l'inspection.
+
+  Integration sur main (renumerotee 20261121150000, au-dessus de D-064
+  20261121140000, D-070). Chaque fonction ou vue recreee part de sa
+  derniere definition sur main :
+  - `valider_reglage` : 20261121130000 (D-067 : toutes les cles, dont
+    `planification_cloture_separee` D-063, `clauses_renonciation_separee`
+    et `contrats_alerte_echeance_jours` D-065, `pneu_reforme_precoce_km`
+    D-067), plus les cles des regles d'alerte ;
+  - `mes_validations` : 20261121120000 (D-065 : contrats, clauses,
+    budgets), plus actions d'inspection et plans a signer ;
+  - `indicateurs_pilotage` : 20261120102000 (D-072 R3-2 immobilisation
+    annulee exclue, R3-6 domaine illisible « Non visible avec vos droits
+    de lecture », R1-2 annulation validee), plus les filtres et `nature` ;
+    l'ancienne signature a 3 arguments est retiree (aucune surcharge ;
+    appels a 2 ou 3 arguments et par nom valides, memes droits) ;
+  - `solder_action_corrective`, `v_actions_correctives_en_retard` :
+    20261117120000 (D-054, inchanges par D-072), plus l'origine inspection.
+  Durcissements de l'integration : droit et perimetre controles avant toute
+  lecture, message unique pour un objet introuvable ou hors perimetre
+  (D-075) ; chauffeur d'une dotation borne au perimetre ; sequences
+  fermees aux comptes ; vues fermees a anon et en lecture seule ;
+  `alertes_actualisation` recoit une politique explicite (D-071, test 57) ;
+  `seuil_regle_alerte` et `regle_alerte_en_service` ne sont plus
+  executables par les comptes (lues par `regles_alertes`).
   Idempotent.
 */
 
@@ -112,10 +136,12 @@ AS $$
              ELSE coalesce((SELECT (s.value ->> 'value') <> 'false' FROM public.settings s WHERE s.key = c.cle), true) END
       FROM public.catalogue_regles_alertes() c WHERE c.regle = p_regle), false);
 $$;
-REVOKE EXECUTE ON FUNCTION public.seuil_regle_alerte(text) FROM PUBLIC, anon;
-REVOKE EXECUTE ON FUNCTION public.regle_alerte_en_service(text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.seuil_regle_alerte(text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.regle_alerte_en_service(text) TO authenticated;
+-- Reglages lisibles par l'administrateur seul (settings) : les comptes lisent
+-- l'etat des regles par regles_alertes() (profil actif).
+REVOKE EXECUTE ON FUNCTION public.seuil_regle_alerte(text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.regle_alerte_en_service(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seuil_regle_alerte(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.regle_alerte_en_service(text) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.regles_alertes()
 RETURNS TABLE (regle text, libelle text, domaine text, cle text, type_reglage text, unite text, gravite text,
@@ -133,8 +159,9 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.regles_alertes() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.regles_alertes() TO authenticated;
 
--- Controle du format des reglages : reprend toutes les cles existantes
--- (migration 20261118180000) et ajoute celles des regles d'alerte.
+-- Controle du format des reglages : reprend la derniere definition sur main
+-- (20261121130000, D-067 : cles D-061, D-063, D-065, D-067) et ajoute
+-- celles des regles d'alerte (D-068).
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -144,18 +171,19 @@ DECLARE v text := NEW.value ->> 'value';
 BEGIN
   IF NEW.key IN ('mfa_exige', 'carburant_validation_separee', 'kilometrage_validation_separee',
                  'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige',
+                 'planification_cloture_separee', 'clauses_renonciation_separee',
                  'alerte_intervention_retard_active', 'alerte_controle_non_conforme_active', 'alerte_document_expire_active',
                  'alerte_action_corrective_retard_active', 'alerte_epi_echu_active', 'alerte_inspection_retard_active') THEN
     IF v IS NULL OR v NOT IN ('true', 'false') THEN
       RAISE EXCEPTION 'Reglage % : valeur true ou false attendue', NEW.key USING ERRCODE = '22023';
     END IF;
-  ELSIF NEW.key IN ('tolerance_poids_cbg_t', 'pneu_profondeur_min_mm', 'pneu_inspection_max_jours',
+  ELSIF NEW.key IN ('tolerance_poids_cbg_t', 'pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km',
                     'alerte_immobilisation_longue_h', 'alerte_ecart_carburant_l', 'alerte_voyage_sans_ticket_h') THEN
     IF v IS NULL OR v !~ '^\d+(\.\d+)?$' THEN
       RAISE EXCEPTION 'Reglage % : nombre positif attendu', NEW.key USING ERRCODE = '22023';
     END IF;
-  ELSIF NEW.key IN ('fournisseurs_alerte_documents_jours', 'consultation_offres_minimum') THEN
-    -- Lus par reglage_entier (D-059) : un entier, sinon la valeur par defaut s'appliquerait en silence.
+  ELSIF NEW.key IN ('fournisseurs_alerte_documents_jours', 'consultation_offres_minimum', 'contrats_alerte_echeance_jours') THEN
+    -- Lus par reglage_entier (D-059, D-065) : un entier, sinon la valeur par defaut s'appliquerait en silence.
     IF v IS NULL OR v !~ '^\d+$' OR (NEW.key = 'consultation_offres_minimum' AND v::integer < 1) THEN
       RAISE EXCEPTION 'Reglage % : nombre entier attendu (au moins 1 offre)', NEW.key USING ERRCODE = '22023';
     END IF;
@@ -198,7 +226,7 @@ BEGIN
   END LOOP;
 END $$;
 ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
-REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.alerts FROM anon, authenticated;
+REVOKE ALL ON public.alerts FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.alerts TO authenticated;
 GRANT ALL ON public.alerts TO service_role;
 CREATE POLICY lecture ON public.alerts FOR SELECT TO authenticated
@@ -207,7 +235,8 @@ CREATE POLICY lecture ON public.alerts FOR SELECT TO authenticated
 
 -- 3. HSE complementaire ------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION public.exiger_ecriture_hse(p_site uuid)
+-- Droit d'ecriture HSE (exploitation, comme D-054), controle avant toute lecture.
+CREATE OR REPLACE FUNCTION public.exiger_droit_hse()
 RETURNS void
 LANGUAGE plpgsql
 STABLE
@@ -218,6 +247,19 @@ BEGIN
   IF NOT (public.has_module_write('trips') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Droit d''ecriture sur l''exploitation requis' USING ERRCODE = '42501';
   END IF;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.exiger_droit_hse() FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.exiger_ecriture_hse(p_site uuid)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM public.exiger_droit_hse();
   IF p_site IS NULL OR NOT EXISTS (SELECT 1 FROM public.sites s WHERE s.id = p_site) THEN
     RAISE EXCEPTION 'Site requis' USING ERRCODE = '22023';
   END IF;
@@ -401,6 +443,11 @@ BEGIN
     EXECUTE format('GRANT ALL ON public.%I TO service_role', t);
     EXECUTE format('DROP POLICY IF EXISTS lecture ON public.%I', t);
   END LOOP;
+  -- Numerotation par les seules fonctions serveur (SECURITY DEFINER).
+  FOREACH t IN ARRAY ARRAY['inspections_numero_seq', 'dotations_epi_numero_seq', 'risques_numero_seq', 'plans_prevention_numero_seq'] LOOP
+    EXECUTE format('REVOKE ALL ON SEQUENCE public.%I FROM PUBLIC, anon, authenticated', t);
+    EXECUTE format('GRANT ALL ON SEQUENCE public.%I TO service_role', t);
+  END LOOP;
 END $$;
 CREATE POLICY lecture ON public.programmes_inspection FOR SELECT TO authenticated
   USING ((public.has_module_view('trips') OR public.has_module_view('reports') OR public.is_admin()) AND public.site_permis(site_id));
@@ -441,9 +488,12 @@ SET search_path = ''
 AS $$
 DECLARE i public.inspections;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   SELECT * INTO i FROM public.inspections WHERE id = p_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Inspection introuvable' USING ERRCODE = '22023'; END IF;
-  PERFORM public.exiger_ecriture_hse(i.site_id);
+  -- Perimetre avant toute description, message unique (D-075).
+  IF NOT FOUND OR NOT public.site_permis(i.site_id) THEN
+    RAISE EXCEPTION 'Inspection introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   RETURN i;
 END;
 $$;
@@ -511,9 +561,11 @@ SET search_path = ''
 AS $$
 DECLARE p public.programmes_inspection; v_motif text;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   SELECT * INTO p FROM public.programmes_inspection WHERE id = p_programme FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Programme introuvable' USING ERRCODE = '22023'; END IF;
-  PERFORM public.exiger_ecriture_hse(p.site_id);
+  IF NOT FOUND OR NOT public.site_permis(p.site_id) THEN
+    RAISE EXCEPTION 'Programme introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF NOT p.actif THEN RAISE EXCEPTION 'Programme deja arrete' USING ERRCODE = '22023'; END IF;
   v_motif := public.texte_requis(p_motif, 'Motif');
   UPDATE public.programmes_inspection SET actif = false, motif_arret = v_motif, arrete_par = auth.uid(), arrete_le = now() WHERE id = p_programme;
@@ -619,7 +671,10 @@ END;
 $$;
 
 -- Realisation (preuve requise) ou annulation (motif requis), definitive ;
--- incident ou inspection d'origine dans le perimetre.
+-- incident ou inspection d'origine dans le perimetre. Reprend la derniere
+-- definition sur main (20261117120000, D-054, inchangee par D-072) : droit
+-- d'ecriture et perimetre de l'origine controles avant toute description
+-- de l'action, message unique (D-075).
 CREATE OR REPLACE FUNCTION public.solder_action_corrective(p_action uuid, p_realisee boolean, p_texte text, p_date timestamptz DEFAULT now())
 RETURNS void
 LANGUAGE plpgsql
@@ -628,8 +683,14 @@ SET search_path = ''
 AS $$
 DECLARE a public.actions_correctives;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   SELECT * INTO a FROM public.actions_correctives WHERE id = p_action FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Action introuvable' USING ERRCODE = '22023'; END IF;
+  IF NOT FOUND OR NOT CASE
+       WHEN a.incident_id IS NOT NULL THEN EXISTS (SELECT 1 FROM public.incidents i WHERE i.id = a.incident_id
+                                                     AND public.incident_permis(i.trip_id, i.vehicle_id, i.site_id))
+       ELSE EXISTS (SELECT 1 FROM public.inspections s WHERE s.id = a.inspection_id AND public.site_permis(s.site_id)) END THEN
+    RAISE EXCEPTION 'Action introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF a.incident_id IS NOT NULL THEN
     PERFORM public.incident_ecrivable(a.incident_id);
   ELSE
@@ -686,13 +747,20 @@ BEGIN
   -- Renouvellement : meme type, la personne de la dotation remplacee sauf saisie contraire.
   IF p_remplace IS NOT NULL THEN
     SELECT * INTO o FROM public.dotations_epi WHERE id = p_remplace FOR UPDATE;
-    IF NOT FOUND OR o.statut <> 'remis' THEN RAISE EXCEPTION 'Dotation remplacee introuvable ou deja close' USING ERRCODE = '22023'; END IF;
-    IF NOT public.site_permis(o.site_id) THEN RAISE EXCEPTION 'Dotation hors de votre perimetre' USING ERRCODE = '42501'; END IF;
+    -- Perimetre avant toute description, message unique (D-075).
+    IF NOT FOUND OR NOT public.site_permis(o.site_id) THEN
+      RAISE EXCEPTION 'Dotation remplacee introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
+    IF o.statut <> 'remis' THEN RAISE EXCEPTION 'Dotation remplacee deja close' USING ERRCODE = '22023'; END IF;
     IF o.type_epi <> p_type THEN RAISE EXCEPTION 'Le remplacement porte sur le meme type d''EPI' USING ERRCODE = '22023'; END IF;
   END IF;
   IF coalesce(p_driver, o.driver_id) IS NOT NULL THEN
+    -- Chauffeur du perimetre (D-075) : son nom n'est lu qu'apres ce controle.
+    IF NOT EXISTS (SELECT 1 FROM public.drivers d WHERE d.id = coalesce(p_driver, o.driver_id))
+       OR NOT public.chauffeur_permis(coalesce(p_driver, o.driver_id)) THEN
+      RAISE EXCEPTION 'Chauffeur introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
     SELECT d.name INTO v_nom FROM public.drivers d WHERE d.id = coalesce(p_driver, o.driver_id);
-    IF NOT FOUND THEN RAISE EXCEPTION 'Chauffeur introuvable' USING ERRCODE = '22023'; END IF;
   END IF;
   IF coalesce(p_employee, o.employee_id) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.employees e WHERE e.id = coalesce(p_employee, o.employee_id)) THEN
     RAISE EXCEPTION 'Employe introuvable' USING ERRCODE = '22023';
@@ -720,9 +788,11 @@ SET search_path = ''
 AS $$
 DECLARE d public.dotations_epi;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   SELECT * INTO d FROM public.dotations_epi WHERE id = p_dotation FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Dotation introuvable' USING ERRCODE = '22023'; END IF;
-  PERFORM public.exiger_ecriture_hse(d.site_id);
+  IF NOT FOUND OR NOT public.site_permis(d.site_id) THEN
+    RAISE EXCEPTION 'Dotation introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF d.statut <> 'remis' THEN RAISE EXCEPTION 'Dotation deja close' USING ERRCODE = '22023'; END IF;
   RETURN d;
 END;
@@ -786,9 +856,11 @@ BEGIN
     PERFORM public.exiger_ecriture_hse(p_site);
     v_version := 1;
   ELSE
+    PERFORM public.exiger_droit_hse();
     SELECT * INTO r FROM public.risques WHERE id = p_risque FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Risque introuvable' USING ERRCODE = '22023'; END IF;
-    PERFORM public.exiger_ecriture_hse(r.site_id);
+    IF NOT FOUND OR NOT public.site_permis(r.site_id) THEN
+      RAISE EXCEPTION 'Risque introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
     SELECT max(v.version) + 1 INTO v_version FROM public.risques_versions v WHERE v.risque_id = r.id;
     PERFORM public.texte_requis(p_motif, 'Motif de la revision');
   END IF;
@@ -834,6 +906,7 @@ SET search_path = ''
 AS $$
 DECLARE p public.plans_prevention; o public.plans_prevention; v_id uuid;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   IF p_valide_du IS NULL OR p_valide_au IS NULL OR p_valide_au < p_valide_du THEN
     RAISE EXCEPTION 'Periode de validite requise (fin apres debut)' USING ERRCODE = '22023';
   END IF;
@@ -841,9 +914,11 @@ BEGIN
     RAISE EXCEPTION 'Fournisseur introuvable' USING ERRCODE = '22023';
   END IF;
   IF p_plan IS NOT NULL THEN
+    PERFORM public.exiger_droit_hse();
     SELECT * INTO p FROM public.plans_prevention WHERE id = p_plan FOR UPDATE;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Plan introuvable' USING ERRCODE = '22023'; END IF;
-    PERFORM public.exiger_ecriture_hse(p.site_id);
+    IF NOT FOUND OR NOT public.site_permis(p.site_id) THEN
+      RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
     IF p.statut <> 'brouillon' THEN RAISE EXCEPTION 'Plan signe ou clos : creer une nouvelle version' USING ERRCODE = '22023'; END IF;
     UPDATE public.plans_prevention SET intervenant = public.texte_requis(p_intervenant, 'Intervenant'),
            perimetre = public.texte_requis(p_perimetre, 'Perimetre'), risques = public.texte_requis(p_risques, 'Risques'),
@@ -853,8 +928,13 @@ BEGIN
     RETURN p.id;
   END IF;
   IF p_remplace IS NOT NULL THEN
-    SELECT * INTO o FROM public.plans_prevention WHERE id = p_remplace;
-    IF NOT FOUND OR o.statut <> 'signe' THEN RAISE EXCEPTION 'Seul un plan signe en vigueur se remplace' USING ERRCODE = '22023'; END IF;
+    PERFORM public.exiger_droit_hse();
+    -- Verrou : deux nouvelles versions concurrentes du meme plan sont serialisees.
+    SELECT * INTO o FROM public.plans_prevention WHERE id = p_remplace FOR UPDATE;
+    IF NOT FOUND OR NOT public.site_permis(o.site_id) THEN
+      RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+    END IF;
+    IF o.statut <> 'signe' THEN RAISE EXCEPTION 'Seul un plan signe en vigueur se remplace' USING ERRCODE = '22023'; END IF;
     IF EXISTS (SELECT 1 FROM public.plans_prevention x WHERE x.remplace_plan_id = o.id) THEN
       RAISE EXCEPTION 'Une nouvelle version existe deja' USING ERRCODE = '22023';
     END IF;
@@ -882,12 +962,13 @@ SET search_path = ''
 AS $$
 DECLARE p public.plans_prevention;
 BEGIN
-  SELECT * INTO p FROM public.plans_prevention WHERE id = p_plan FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Plan introuvable' USING ERRCODE = '22023'; END IF;
   IF NOT (public.has_module_approve('trips') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Signature reservee aux personnes habilitees (approbation exploitation)' USING ERRCODE = '42501';
   END IF;
-  IF NOT public.site_permis(p.site_id) THEN RAISE EXCEPTION 'Plan hors de votre perimetre' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO p FROM public.plans_prevention WHERE id = p_plan FOR UPDATE;
+  IF NOT FOUND OR NOT public.site_permis(p.site_id) THEN
+    RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF p.statut <> 'brouillon' THEN RAISE EXCEPTION 'Plan deja signe ou clos' USING ERRCODE = '22023'; END IF;
   IF p.valide_au < current_date THEN RAISE EXCEPTION 'Periode de validite depassee' USING ERRCODE = '22023'; END IF;
   UPDATE public.plans_prevention SET statut = 'signe', signe_par = auth.uid(), signe_le = now(),
@@ -907,9 +988,11 @@ SET search_path = ''
 AS $$
 DECLARE p public.plans_prevention;
 BEGIN
+  PERFORM public.exiger_droit_hse();
   SELECT * INTO p FROM public.plans_prevention WHERE id = p_plan FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Plan introuvable' USING ERRCODE = '22023'; END IF;
-  PERFORM public.exiger_ecriture_hse(p.site_id);
+  IF NOT FOUND OR NOT public.site_permis(p.site_id) THEN
+    RAISE EXCEPTION 'Plan introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF p.statut NOT IN ('brouillon', 'signe') THEN RAISE EXCEPTION 'Plan deja remplace ou annule' USING ERRCODE = '22023'; END IF;
   UPDATE public.plans_prevention SET statut = 'annule', motif_annulation = public.texte_requis(p_motif, 'Motif'),
          annule_par = auth.uid(), annule_le = now()
@@ -949,7 +1032,18 @@ BEGIN
   END LOOP;
 END $$;
 
--- 4. Mes validations : actions correctives d'inspection et plans a signer.
+-- Vues HSE : rien pour anon, lecture seule pour les comptes (RLS des tables).
+REVOKE ALL ON public.v_actions_correctives_en_retard, public.v_epi_a_renouveler, public.v_risques_courants,
+              public.v_plans_prevention FROM PUBLIC, anon;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+    ON public.v_actions_correctives_en_retard, public.v_epi_a_renouveler, public.v_risques_courants, public.v_plans_prevention
+  FROM authenticated;
+GRANT SELECT ON public.v_actions_correctives_en_retard, public.v_epi_a_renouveler, public.v_risques_courants,
+                public.v_plans_prevention TO authenticated;
+
+-- 4. Mes validations : derniere definition sur main (20261121120000, D-065 :
+-- contrats, clauses, budgets), plus actions correctives d'inspection et
+-- plans de prevention a signer.
 CREATE OR REPLACE FUNCTION public.mes_validations()
 RETURNS TABLE (categorie text, objet text, reference text, detail text, depuis timestamptz, ecran text)
 LANGUAGE sql
@@ -1018,7 +1112,30 @@ AS $$
   UNION ALL
   SELECT 'HSE', 'Plan de prévention à signer', p.numero || ' v' || p.version, p.intervenant || ' · ' || p.perimetre, p.redige_le, 'hse-prevention'
     FROM public.plans_prevention p, moi
-   WHERE p.statut = 'brouillon' AND p.valide_au >= current_date AND (public.has_module_approve('trips') OR moi.admin);
+   WHERE p.statut = 'brouillon' AND p.valide_au >= current_date AND (public.has_module_approve('trips') OR moi.admin)
+  UNION ALL
+  SELECT 'Contrats',
+         CASE WHEN e.echu THEN 'Contrat échu : renouvellement ou clôture à décider'
+              WHEN e.nature_echeance = 'limite_preavis' THEN 'Préavis de contrat à décider'
+              ELSE 'Échéance de contrat' END,
+         e.reference::text,
+         e.contrepartie || ' · ' || CASE WHEN e.nature_echeance = 'limite_preavis' THEN 'préavis jusqu''au ' ELSE 'fin le ' END
+           || to_char(e.date_cle, 'DD/MM/YYYY') || CASE WHEN e.denonce_le IS NOT NULL THEN ' · dénoncé' ELSE '' END,
+         e.date_alerte::timestamptz, 'contrats'
+    FROM public.v_echeances_contrats e, moi
+   WHERE e.a_signaler AND (public.has_module_write('contracts') OR moi.admin)
+  UNION ALL
+  SELECT 'Contrats', 'Clause contractuelle à décider', k.libelle,
+         k.montant_propose_ht::text || ' ' || k.devise || ' HT · ' || to_char(k.periode_debut, 'MM/YYYY'),
+         k.calcule_le, 'engagements'
+    FROM public.calculs_clauses k, moi
+   WHERE k.statut = 'propose'
+     AND ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR public.has_module_approve('contracts') OR moi.admin)
+  UNION ALL
+  SELECT 'Budgets', 'Budget dépassé', b.numero, b.nature || coalesce(' · ' || b.site, '') || ' · ' || b.consommation_pct::text || ' % consommé',
+         b.cree_le, 'budgets'
+    FROM public.v_suivi_budgets b, moi
+   WHERE b.depassement AND (public.has_module_write('costs') OR moi.admin);
 $$;
 REVOKE EXECUTE ON FUNCTION public.mes_validations() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.mes_validations() TO authenticated;
@@ -1128,8 +1245,14 @@ CREATE TABLE IF NOT EXISTS public.alertes_actualisation (
   derniere timestamptz NOT NULL
 );
 ALTER TABLE public.alertes_actualisation ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.alertes_actualisation FROM anon, authenticated;
+REVOKE ALL ON public.alertes_actualisation FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.alertes_actualisation TO service_role;
+-- Politique explicite (D-071, test 57) : l'heure de la derniere actualisation
+-- se lit par l'administrateur ; seule actualiser_alertes (SECURITY DEFINER)
+-- l'ecrit.
+GRANT SELECT ON public.alertes_actualisation TO authenticated;
+DROP POLICY IF EXISTS lecture ON public.alertes_actualisation;
+CREATE POLICY lecture ON public.alertes_actualisation FOR SELECT TO authenticated USING (public.is_admin());
 
 -- Cree les alertes manquantes, signale les conditions levees ou revenues.
 -- Renvoie le nombre d'alertes creees (0 si un calcul est en cours ou date
@@ -1183,12 +1306,14 @@ AS $$
 DECLARE a public.alerts;
 BEGIN
   SELECT * INTO a FROM public.alerts WHERE id = p_alerte FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Alerte introuvable' USING ERRCODE = '22023'; END IF;
+  -- Meme regle que la lecture (module de la regle et perimetre) avant toute
+  -- description, message unique (D-075).
+  IF NOT FOUND OR NOT ((public.is_admin() OR public.has_module_view(coalesce(a.module, 'dashboard')))
+                       AND CASE WHEN a.vehicle_id IS NOT NULL THEN public.vehicule_permis(a.vehicle_id) ELSE public.site_permis(a.site_id) END) THEN
+    RAISE EXCEPTION 'Alerte introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
+  END IF;
   IF NOT (public.is_admin() OR public.has_module_write(coalesce(a.module, 'dashboard'))) THEN
     RAISE EXCEPTION 'Droit d''ecriture du module requis pour traiter cette alerte' USING ERRCODE = '42501';
-  END IF;
-  IF NOT (CASE WHEN a.vehicle_id IS NOT NULL THEN public.vehicule_permis(a.vehicle_id) ELSE public.site_permis(a.site_id) END) THEN
-    RAISE EXCEPTION 'Alerte hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
   IF a.status = 'resolved' THEN RAISE EXCEPTION 'Alerte deja resolue' USING ERRCODE = '22023'; END IF;
   RETURN a;
@@ -1253,7 +1378,8 @@ AS $$
     UNION ALL
     SELECT 'validation', 2, NULL, v.categorie, v.objet, v.reference, v.detail, v.depuis, v.ecran, NULL, NULL, NULL, NULL, NULL
       FROM public.mes_validations() v
-     WHERE NOT (v.objet = 'Action corrective en retard' AND public.regle_alerte_en_service('action_corrective_retard'))
+     WHERE NOT (v.objet = 'Action corrective en retard'
+                AND EXISTS (SELECT 1 FROM public.regles_alertes() r WHERE r.regle = 'action_corrective_retard' AND r.en_service))
   ) x
   ORDER BY x.priorite, x.depuis NULLS LAST;
 $$;
@@ -1277,6 +1403,13 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.engin_retenu(uuid, uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.engin_retenu(uuid, uuid, text) TO authenticated;
 
+-- Derniere definition sur main : 20261120102000 (D-072 R3-2, R3-6, R1-2),
+-- reprise a l'identique pour chaque indicateur ; s'ajoutent les filtres
+-- shift, vehicule et partenaire et la colonne nature. La signature a 3
+-- arguments est remplacee (aucune surcharge : les appels a 2 ou 3
+-- arguments, positionnels ou par nom, restent valides ; memes droits).
+-- Un domaine illisible reste « Non visible avec vos droits de lecture »,
+-- avant tout motif de filtre (R3-6).
 DROP FUNCTION IF EXISTS public.indicateurs_pilotage(date, date, uuid);
 CREATE OR REPLACE FUNCTION public.indicateurs_pilotage(
   p_debut date, p_fin date, p_site uuid DEFAULT NULL, p_shift uuid DEFAULT NULL, p_vehicule uuid DEFAULT NULL, p_partenaire text DEFAULT NULL
@@ -1291,6 +1424,12 @@ DECLARE
   v_litres numeric; v_debut timestamptz; v_fin timestamptz; r record;
   v_part text := lower(nullif(btrim(coalesce(p_partenaire, '')), ''));
   v_engin boolean;
+  -- Visibilite par domaine (memes droits que la RLS des tables lues) : un
+  -- domaine illisible ressort « sans donnees », jamais 0 mesure (R3-6).
+  v_adm boolean := public.is_admin();
+  v_trips boolean; v_plan boolean; v_veh boolean; v_maint boolean; v_fuel boolean; v_interv boolean;
+  v_inc boolean; v_ctrl boolean; v_achats boolean; v_pay boolean;
+  c_masque constant text := 'Non visible avec vos droits de lecture';
   v_na_shift constant text := 'Filtre shift sans objet pour cet indicateur';
   v_na_engin constant text := 'Filtre véhicule ou partenaire sans objet pour cet indicateur';
   v_na_filtre constant text := 'Indicateur global : sans objet avec un filtre shift, véhicule ou partenaire';
@@ -1299,6 +1438,16 @@ BEGIN
     RAISE EXCEPTION 'Periode invalide' USING ERRCODE = '22023';
   END IF;
   IF p_fin - p_debut > 366 THEN RAISE EXCEPTION 'Periode limitee a un an' USING ERRCODE = '22023'; END IF;
+  v_trips := v_adm OR public.has_module_view('trips');
+  v_plan := v_adm OR public.has_module_view('planning');
+  v_veh := v_adm OR public.has_module_view('vehicles');
+  v_maint := v_adm OR public.has_module_view('maintenance');
+  v_fuel := v_adm OR public.has_module_view('fuel');
+  v_interv := v_adm OR public.has_module_view('maintenance') OR public.has_module_view('contracts');
+  v_inc := v_adm OR public.has_module_view('trips') OR public.has_module_view('reports');
+  v_ctrl := v_adm OR public.has_module_view('trips') OR public.has_module_view('vehicles');
+  v_achats := v_adm OR public.has_module_view('purchases') OR public.has_module_view('stock');
+  v_pay := v_adm OR public.has_module_view('invoices') OR public.has_module_view('contracts');
   v_engin := p_vehicule IS NOT NULL OR v_part IS NOT NULL;
   v_debut := p_debut::timestamptz;
   v_fin := (p_fin + 1)::timestamptz;
@@ -1316,6 +1465,8 @@ BEGIN
    WHERE t.planned_date BETWEEN p_debut AND p_fin AND (p_site IS NULL OR t.departure_site_id = p_site)
      AND (p_shift IS NULL OR t.shift_id = p_shift)
      AND (NOT v_engin OR public.engin_retenu(t.vehicle_id, p_vehicule, v_part));
+  -- Objectif : de journee sans filtre shift (D-023), du shift sinon ; aucun
+  -- objectif n'est rattache a un engin ou a un partenaire.
   IF NOT v_engin THEN
     SELECT sum(o.tonnes_cible) INTO v_cible FROM public.objectifs_production o
      WHERE o.statut = 'actif' AND o.date_plan BETWEEN p_debut AND p_fin AND (p_site IS NULL OR o.site_id = p_site)
@@ -1325,27 +1476,32 @@ BEGIN
   nature := 'periode';
   domaine := 'Production'; code := 'voyages_livres'; libelle := 'Voyages livrés'; valeur := v_livres; unite := 'voyages';
   source := 'trips (états livré, accepté, clôturé, en litige ; date prévue ; site de départ)';
-  fiabilite := CASE WHEN v_livres = 0 THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL; RETURN NEXT;
+  fiabilite := CASE WHEN v_livres = 0 THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+  IF NOT v_trips THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   code := 'tonnes_livrees'; libelle := 'Tonnes livrées'; valeur := round(v_tonnes, 2); unite := 't';
   source := 'trips : tonnage accepté, sinon reçu, sinon net, sinon chargé';
   fiabilite := CASE WHEN v_livres = 0 THEN 'sans_donnees' WHEN v_sans_poids > 0 THEN 'partielle' ELSE 'mesure' END;
-  detail := CASE WHEN v_sans_poids > 0 THEN v_sans_poids || ' voyage(s) livré(s) sans poids, non comptés' END; RETURN NEXT;
+  detail := CASE WHEN v_sans_poids > 0 THEN v_sans_poids || ' voyage(s) livré(s) sans poids, non comptés' END;
+  IF NOT v_trips THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   code := 'tonnes_acceptees'; libelle := 'Tonnes acceptées par CBG'; valeur := round(v_acceptees, 2); unite := 't';
   source := 'trips.accepted_tonnage (voyages acceptés ou clôturés)';
-  fiabilite := CASE WHEN v_acceptees IS NULL THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL; RETURN NEXT;
+  fiabilite := CASE WHEN v_acceptees IS NULL THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+  IF NOT v_trips THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   code := 'objectif'; libelle := 'Objectif de production'; valeur := round(v_cible, 2); unite := 't';
   source := CASE WHEN p_shift IS NULL THEN 'objectifs_production actifs de journée (D-023)' ELSE 'objectifs_production actifs du shift (D-023)' END;
   fiabilite := CASE WHEN v_cible IS NULL THEN 'sans_donnees' ELSE 'mesure' END;
-  detail := CASE WHEN v_engin THEN v_na_engin END; RETURN NEXT;
+  detail := CASE WHEN v_engin THEN v_na_engin END;
+  IF NOT v_plan THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   code := 'realisation'; libelle := 'Réalisation de l''objectif'; unite := '%';
   valeur := CASE WHEN v_cible > 0 AND v_tonnes IS NOT NULL THEN round(100 * v_tonnes / v_cible, 1) END;
   source := 'tonnes livrées / objectif';
   fiabilite := CASE WHEN valeur IS NULL THEN 'sans_donnees' WHEN v_sans_poids > 0 THEN 'partielle' ELSE 'mesure' END;
-  detail := CASE WHEN v_engin THEN v_na_engin END; RETURN NEXT;
+  detail := CASE WHEN v_engin THEN v_na_engin END;
+  IF NOT (v_trips AND v_plan) THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   -- Tickets
   domaine := 'Tickets CBG'; code := 'livres_sans_ticket'; libelle := 'Voyages livrés sans ticket CBG'; unite := 'voyages';
@@ -1353,66 +1509,70 @@ BEGIN
    WHERE v.planned_date BETWEEN p_debut AND p_fin AND (p_site IS NULL OR v.departure_site_id = p_site)
      AND (p_shift IS NULL OR t.shift_id = p_shift)
      AND (NOT v_engin OR public.engin_retenu(v.vehicle_id, p_vehicule, v_part));
-  source := 'v_voyages_livres_sans_ticket (D-050)'; fiabilite := CASE WHEN v_livres = 0 THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL; RETURN NEXT;
+  source := 'v_voyages_livres_sans_ticket (D-050)'; fiabilite := CASE WHEN v_livres = 0 THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+  IF NOT v_trips THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  -- Flotte
-  domaine := 'Flotte'; code := 'engins_actifs'; libelle := 'Engins en service'; unite := 'engins'; nature := 'instantane';
+  -- Flotte (instantanes, a l'heure du calcul)
+  domaine := 'Flotte'; code := 'engins_actifs'; libelle := 'Engins en service'; unite := 'engins'; nature := 'instantane'; detail := NULL;
   source := 'vehicles (statut actif, à l''heure du calcul)';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
     SELECT count(*) INTO valeur FROM public.vehicles v WHERE v.status = 'active' AND (p_site IS NULL OR v.site_id = p_site)
        AND (NOT v_engin OR public.engin_retenu(v.id, p_vehicule, v_part));
-    fiabilite := CASE WHEN valeur = 0 THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+    fiabilite := CASE WHEN valeur = 0 THEN 'sans_donnees' ELSE 'mesure' END;
   END IF;
-  RETURN NEXT;
+  IF NOT v_veh THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  code := 'immobilisations_ouvertes'; libelle := 'Immobilisations en cours'; unite := 'engins';
-  source := 'immobilisations sans fin (D-022)';
+  code := 'immobilisations_ouvertes'; libelle := 'Immobilisations en cours'; unite := 'engins'; detail := NULL;
+  source := 'immobilisations ouvertes, sans fin (D-022)';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
     SELECT count(*) INTO valeur FROM public.immobilisations i JOIN public.vehicles v ON v.id = i.vehicle_id
-     WHERE i.fin IS NULL AND (p_site IS NULL OR v.site_id = p_site) AND (NOT v_engin OR public.engin_retenu(v.id, p_vehicule, v_part));
-    fiabilite := 'mesure'; detail := NULL;
+     WHERE i.statut = 'ouverte' AND i.fin IS NULL AND (p_site IS NULL OR v.site_id = p_site)
+       AND (NOT v_engin OR public.engin_retenu(v.id, p_vehicule, v_part));
+    fiabilite := 'mesure';
   END IF;
-  RETURN NEXT;
+  IF NOT v_maint THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  code := 'heures_immobilisation'; libelle := 'Heures d''immobilisation sur la période'; unite := 'h'; nature := 'periode';
-  source := 'immobilisations : durée comprise dans la période (en cours : jusqu''à l''heure du calcul)';
+  code := 'heures_immobilisation'; libelle := 'Heures d''immobilisation sur la période'; unite := 'h'; nature := 'periode'; detail := NULL;
+  source := 'immobilisations non annulées : durée comprise dans la période (en cours : jusqu''à l''heure du calcul)';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
     SELECT round(sum(extract(epoch FROM (least(coalesce(i.fin, now()), v_fin) - greatest(i.debut, v_debut))) / 3600)::numeric, 1)
       INTO valeur
       FROM public.immobilisations i JOIN public.vehicles v ON v.id = i.vehicle_id
-     WHERE i.debut < v_fin AND coalesce(i.fin, now()) > v_debut AND (p_site IS NULL OR v.site_id = p_site)
+     WHERE i.statut <> 'annulee' AND i.debut < v_fin AND coalesce(i.fin, now()) > v_debut AND (p_site IS NULL OR v.site_id = p_site)
        AND (NOT v_engin OR public.engin_retenu(v.id, p_vehicule, v_part));
-    fiabilite := CASE WHEN valeur IS NULL THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+    fiabilite := CASE WHEN valeur IS NULL THEN 'sans_donnees' ELSE 'mesure' END;
   END IF;
-  RETURN NEXT;
+  IF NOT v_maint THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   -- Carburant
-  domaine := 'Carburant'; code := 'litres_distribues'; libelle := 'Litres distribués (validés)'; unite := 'L';
-  source := 'mouvements_carburant : distributions validées non annulées (D-041)';
+  domaine := 'Carburant'; code := 'litres_distribues'; libelle := 'Litres distribués (validés)'; unite := 'L'; detail := NULL;
+  source := 'mouvements_carburant : distributions validées, sans annulation validée (D-041)';
   IF p_shift IS NOT NULL THEN v_litres := NULL; valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
     SELECT -sum(m.variation) INTO v_litres FROM public.mouvements_carburant m JOIN public.stockages_carburant s ON s.id = m.stockage_id
       LEFT JOIN public.fuel_transactions ft ON ft.id = m.fuel_transaction_id
      WHERE m.type = 'distribution' AND m.statut = 'valide' AND m.date_mouvement >= v_debut AND m.date_mouvement < v_fin
-       AND NOT EXISTS (SELECT 1 FROM public.mouvements_carburant a WHERE a.annule_mouvement_id = m.id)
+       AND NOT EXISTS (SELECT 1 FROM public.mouvements_carburant a WHERE a.annule_mouvement_id = m.id AND a.statut = 'valide')
        AND (p_site IS NULL OR s.site_id = p_site)
        AND (NOT v_engin OR public.engin_retenu(ft.vehicle_id, p_vehicule, v_part));
     valeur := round(v_litres, 1);
-    fiabilite := CASE WHEN v_litres IS NULL THEN 'sans_donnees' ELSE 'mesure' END; detail := NULL;
+    fiabilite := CASE WHEN v_litres IS NULL THEN 'sans_donnees' ELSE 'mesure' END;
   END IF;
-  RETURN NEXT;
+  IF NOT v_fuel THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   code := 'litres_par_tonne'; libelle := 'Litres par tonne livrée'; unite := 'L/t';
   valeur := CASE WHEN v_litres > 0 AND v_tonnes > 0 THEN round(v_litres / v_tonnes, 3) END;
   source := 'litres distribués / tonnes livrées';
   fiabilite := CASE WHEN valeur IS NULL THEN 'sans_donnees' WHEN v_sans_poids > 0 THEN 'partielle' ELSE 'mesure' END;
-  detail := CASE WHEN p_shift IS NOT NULL THEN v_na_shift END; RETURN NEXT;
+  detail := CASE WHEN p_shift IS NOT NULL THEN v_na_shift END;
+  IF NOT (v_fuel AND v_trips) THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  -- Maintenance
-  domaine := 'Maintenance'; code := 'interventions_en_retard'; libelle := 'Interventions Neemba en retard'; unite := 'interventions'; nature := 'instantane';
+  -- Maintenance (instantane)
+  domaine := 'Maintenance'; code := 'interventions_en_retard'; libelle := 'Interventions Neemba en retard'; unite := 'interventions';
+  nature := 'instantane';
   source := 'v_interventions_loueur (délai contractuel saisi, D-049) ; tout le périmètre lisible';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
@@ -1420,20 +1580,20 @@ BEGIN
        AND (NOT v_engin OR public.engin_retenu(i.vehicle_id, p_vehicule, v_part));
     fiabilite := 'mesure'; detail := 'Sans délai contractuel saisi, une intervention n''est jamais comptée en retard';
   END IF;
-  RETURN NEXT;
+  IF NOT v_interv THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
   -- HSE
-  domaine := 'HSE'; code := 'incidents'; libelle := 'Incidents déclarés'; unite := 'incidents'; nature := 'periode';
+  domaine := 'HSE'; detail := NULL; code := 'incidents'; libelle := 'Incidents déclarés'; unite := 'incidents'; nature := 'periode';
   source := 'incidents (heure de survenue) ; tout le périmètre lisible';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
     SELECT count(*) INTO valeur FROM public.incidents i WHERE i.incident_time >= v_debut AND i.incident_time < v_fin
        AND (NOT v_engin OR public.engin_retenu(i.vehicle_id, p_vehicule, v_part));
-    fiabilite := 'mesure'; detail := NULL;
+    fiabilite := 'mesure';
   END IF;
-  RETURN NEXT;
+  IF NOT v_inc THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  code := 'controles_non_conformes'; libelle := 'Contrôles avant départ non conformes'; unite := 'contrôles';
+  code := 'controles_non_conformes'; libelle := 'Contrôles avant départ non conformes'; unite := 'contrôles'; detail := NULL;
   source := 'controles_depart (D-054)';
   IF p_shift IS NOT NULL THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_shift;
   ELSE
@@ -1442,36 +1602,37 @@ BEGIN
        AND (NOT v_engin OR public.engin_retenu(c.vehicle_id, p_vehicule, v_part));
     fiabilite := CASE WHEN NOT EXISTS (SELECT 1 FROM public.controles_depart c WHERE c.effectue_le >= v_debut AND c.effectue_le < v_fin)
                       THEN 'sans_donnees' ELSE 'mesure' END;
-    detail := NULL;
   END IF;
-  RETURN NEXT;
+  IF NOT v_ctrl THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  code := 'actions_en_retard'; libelle := 'Actions correctives en retard'; unite := 'actions'; nature := 'instantane';
-  source := 'v_actions_correctives_en_retard (à l''heure du calcul)';
+  code := 'actions_en_retard'; libelle := 'Actions correctives en retard'; unite := 'actions'; nature := 'instantane'; detail := NULL;
+  source := 'v_actions_correctives_en_retard (incidents et inspections, à l''heure du calcul)';
   IF p_shift IS NOT NULL OR v_engin THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_filtre;
-  ELSE SELECT count(*) INTO valeur FROM public.v_actions_correctives_en_retard; fiabilite := 'mesure'; detail := NULL;
+  ELSE SELECT count(*) INTO valeur FROM public.v_actions_correctives_en_retard; fiabilite := 'mesure';
   END IF;
-  RETURN NEXT;
+  IF NOT v_inc THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  -- Achats et finance (indicateurs globaux)
-  domaine := 'Achats et finance'; code := 'bons_a_approuver'; libelle := 'Bons de commande à approuver'; unite := 'bons';
+  -- Achats et finance (indicateurs globaux, instantanes)
+  domaine := 'Achats et finance'; code := 'bons_a_approuver'; libelle := 'Bons de commande à approuver'; unite := 'bons'; detail := NULL;
   source := 'purchase_orders soumis (D-053)';
   IF p_shift IS NOT NULL OR v_engin THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_filtre;
-  ELSE SELECT count(*) INTO valeur FROM public.purchase_orders po WHERE po.status = 'submitted'; fiabilite := 'mesure'; detail := NULL;
+  ELSE SELECT count(*) INTO valeur FROM public.purchase_orders po WHERE po.status = 'submitted'; fiabilite := 'mesure';
   END IF;
-  RETURN NEXT;
+  IF NOT v_achats THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
-  code := 'paiements_a_controler'; libelle := 'Paiements à contrôler a posteriori'; unite := 'paiements';
+  code := 'paiements_a_controler'; libelle := 'Paiements à contrôler a posteriori'; unite := 'paiements'; detail := NULL;
   source := 'v_paiements_a_controler (D-055)';
   IF p_shift IS NOT NULL OR v_engin THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := v_na_filtre;
-  ELSE SELECT count(*) INTO valeur FROM public.v_paiements_a_controler; fiabilite := 'mesure'; detail := NULL;
+  ELSE SELECT count(*) INTO valeur FROM public.v_paiements_a_controler; fiabilite := 'mesure';
   END IF;
-  RETURN NEXT;
+  IF NOT v_pay THEN valeur := NULL; fiabilite := 'sans_donnees'; detail := c_masque; END IF; RETURN NEXT;
 
+  -- Reste a payer : une ligne par devise lue (D-072 R3, inchange) ; avec un
+  -- filtre, une seule ligne « sans donnees » (masquee sans droit des paiements).
   source := 'v_reste_a_payer : factures du loueur contrôlées et bons reçus (D-055)';
   IF p_shift IS NOT NULL OR v_engin THEN
     code := 'reste_a_payer'; libelle := 'Reste à payer aux fournisseurs'; valeur := NULL; unite := '';
-    fiabilite := 'sans_donnees'; detail := v_na_filtre; RETURN NEXT;
+    fiabilite := 'sans_donnees'; detail := CASE WHEN v_pay THEN v_na_filtre ELSE c_masque END; RETURN NEXT;
   ELSE
     detail := NULL;
     FOR r IN SELECT v.devise, sum(v.reste) AS reste FROM public.v_reste_a_payer v GROUP BY v.devise ORDER BY v.devise LOOP
