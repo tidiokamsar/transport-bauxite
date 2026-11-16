@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-  X, User, Phone, DollarSign,
+  User, Phone, DollarSign,
   Truck, Clock, Award, FileText, Activity, BarChart3, CheckCircle
 } from 'lucide-react';
+import { Fenetre } from '../ui/Fenetre';
 
 interface EmployeeDetailsModalProps {
   isOpen: boolean;
@@ -121,48 +122,29 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header avec photo et infos principales */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
-                <User className="w-12 h-12 text-blue-600" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold">
-                  {employee?.first_name} {employee?.last_name}
-                </h2>
-                <p className="text-blue-100 flex items-center gap-2 mt-1">
-                  <span className="font-semibold">{employee?.employee_number}</span>
-                  <span>•</span>
-                  <span>{employee?.position || 'N/A'}</span>
-                </p>
-                <div className="flex items-center gap-3 mt-2 text-sm">
-                  <span className={`px-3 py-1 rounded-full font-semibold ${
-                    employee?.status === 'active'
-                      ? 'bg-green-400 text-green-900'
-                      : 'bg-red-400 text-red-900'
-                  }`}>
-                    {employee?.status === 'active' ? 'Actif' : 'Inactif'}
-                  </span>
-                  <span className="text-blue-100">
-                    Embauché le {new Date(employee?.hire_date).toLocaleDateString('fr-FR')}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-blue-700 rounded-lg transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
+    <Fenetre
+      titre={`${employee?.first_name ?? ''} ${employee?.last_name ?? ''}`}
+      sousTitre={
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{employee?.employee_number}</span>
+          <span>•</span>
+          <span>{employee?.position || 'N/A'}</span>
+          <span className={`rounded-full px-3 py-0.5 text-xs font-semibold ${
+            employee?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {employee?.status === 'active' ? 'Actif' : 'Inactif'}
+          </span>
+          <span>Embauché le {new Date(employee?.hire_date).toLocaleDateString('fr-FR')}</span>
+        </span>
+      }
+      icone={<span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50"><User className="h-7 w-7 text-blue-600" /></span>}
+      onFermer={onClose}
+      largeur="max-w-6xl"
+      corpsClassName=""
+    >
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 sm:p-6">
           {/* KPIs Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="w-4 h-4" />
@@ -202,7 +184,7 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-slate-200 bg-slate-50 px-6">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 px-4 sm:px-6">
           <div className="flex gap-2 overflow-x-auto">
             <button
               onClick={() => setActiveTab('overview')}
@@ -260,7 +242,7 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="p-4 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -422,7 +404,7 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
                                trip.status === 'in_progress' ? 'En cours' : 'Planifié'}
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-3 text-sm">
+                          <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                             <div>
                               <p className="text-slate-500">Distance</p>
                               <p className="font-semibold">
@@ -551,7 +533,6 @@ export const EmployeeDetailsModal = ({ isOpen, onClose, employeeId }: EmployeeDe
             </>
           )}
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

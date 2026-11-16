@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, DollarSign, Calendar, User, TrendingUp, TrendingDown, Calculator, CheckCircle, Truck, AlertCircle } from 'lucide-react';
+import { DollarSign, Calendar, User, TrendingUp, TrendingDown, Calculator, CheckCircle, Truck, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 
 interface PayrollModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface PayrollModalProps {
 export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollModalProps) => {
   const [loading, setLoading] = useState(false);
   const [calculating, setCalculating] = useState(false);
+  const [erreur, setErreur] = useState('');
   const [employees, setEmployees] = useState<any[]>([]);
   const [autoCalculation, setAutoCalculation] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -85,7 +87,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
 
   const autoCalculatePayroll = async () => {
     if (!formData.employee_id || !formData.period_start || !formData.period_end) {
-      alert('Veuillez sélectionner un employé et une période');
+      setErreur('Veuillez sélectionner un employé et une période');
       return;
     }
 
@@ -114,7 +116,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
       });
     } catch (error: any) {
       console.error('Erreur calcul automatique:', error);
-      alert('Erreur lors du calcul automatique: ' + error.message);
+      setErreur('Erreur lors du calcul automatique: ' + error.message);
     } finally {
       setCalculating(false);
     }
@@ -122,6 +124,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErreur('');
     setLoading(true);
     try {
       if (payrollId) {
@@ -167,7 +170,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
       onSuccess();
       onClose();
     } catch (error: any) {
-      alert(error.message || 'Erreur');
+      setErreur(error.message || 'Erreur');
     } finally {
       setLoading(false);
     }
@@ -176,27 +179,41 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">{payrollId ? 'Modifier Paie' : 'Générer Paie Automatique'}</h2>
-            <p className="text-sm text-slate-600">Toutes les données sont chargées automatiquement depuis les autres modules</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+    <Fenetre
+      titre={payrollId ? 'Modifier Paie' : 'Générer Paie Automatique'}
+      sousTitre="Toutes les données sont chargées automatiquement depuis les autres modules"
+      onFermer={onClose}
+      largeur="max-w-5xl"
+      enCours={loading}
+      onSubmit={handleSubmit}
+      pied={<>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={loading}
+          className="px-6 py-3 border rounded-lg hover:bg-slate-50 disabled:opacity-50"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          disabled={loading || !autoCalculation}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 font-semibold"
+        >
+          {loading ? 'Enregistrement...' : payrollId ? 'Modifier' : 'Créer Fiche de Paie'}
+        </button>
+      </>}
+    >
+        <div className="space-y-6">
+          <ErreurFenetre>{erreur}</ErreurFenetre>
           {/* Sélection employé et période */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
             <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
               <User className="w-5 h-5" />
               Étape 1: Sélectionner l'employé et la période
             </h3>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="sm:col-span-3">
                 <label className="block text-sm font-medium mb-2">Employé *</label>
                 <select
                   required
@@ -267,7 +284,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
                   <CheckCircle className="w-5 h-5 text-green-600" />
                   Présences & Heures (depuis module Attendance)
                 </h3>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div className="bg-white rounded-lg p-3 border">
                     <div className="text-xs text-slate-600">Jours présents</div>
                     <div className="text-2xl font-bold text-green-600">{autoCalculation.attendance.days_present}</div>
@@ -294,7 +311,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
                     <Truck className="w-5 h-5" />
                     Missions Complétées (depuis module Trips)
                   </h3>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="bg-white rounded-lg p-3">
                       <div className="text-xs text-slate-600">Nombre de missions</div>
                       <div className="text-3xl font-bold text-green-600">{autoCalculation.missions.completed_trips}</div>
@@ -317,7 +334,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
                   <DollarSign className="w-5 h-5 text-blue-600" />
                   Calcul du Salaire
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium mb-2 text-slate-700">Salaire de base (GNF)</label>
                     <input
@@ -375,7 +392,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
               {/* Détails déductions */}
               <div className="bg-slate-50 rounded-lg p-4">
                 <h3 className="font-bold text-slate-900 mb-3">Détails des Déductions</h3>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div className="bg-white rounded p-3 border">
                     <div className="text-xs text-slate-600">Sécurité sociale (8%)</div>
                     <div className="text-lg font-bold text-slate-900">{autoCalculation.deductions.social_security.toLocaleString()} GNF</div>
@@ -424,7 +441,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
           )}
 
           {/* Paramètres finaux */}
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-1 gap-4 pt-4 border-t sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-2">Statut</label>
               <select
@@ -454,24 +471,7 @@ export const PayrollModal = ({ isOpen, onClose, payrollId, onSuccess }: PayrollM
             </div>
           </div>
 
-          <div className="flex gap-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border rounded-lg hover:bg-slate-50"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !autoCalculation}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-300 font-semibold"
-            >
-              {loading ? 'Enregistrement...' : payrollId ? 'Modifier' : 'Créer Fiche de Paie'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+    </Fenetre>
   );
 };

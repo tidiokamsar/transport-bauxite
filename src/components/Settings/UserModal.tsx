@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, User, Mail, Phone, Shield, Building, Image, Eye, EyeOff } from 'lucide-react';
+import { User, Mail, Phone, Shield, Building, Image, Eye, EyeOff } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { libelleModule } from './organisation';
 
@@ -81,6 +82,7 @@ const DEPARTMENTS = [
 
 export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps) => {
   const [loading, setLoading] = useState(false);
+  const [erreur, setErreur] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [droitsModules, setDroitsModules] = useState<DroitModule[]>([]);
   const [choixDroits, setChoixDroits] = useState<Record<string, string>>({});
@@ -172,6 +174,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErreur('');
 
     try {
       if (userId) {
@@ -235,7 +238,8 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
       onClose();
     } catch (error) {
       console.error('Error saving user:', error);
-      alert(error instanceof Error ? error.message : 'Erreur lors de la sauvegarde');
+      const detail = error && typeof error === 'object' && 'message' in error ? String((error as { message: unknown }).message) : '';
+      setErreur(detail || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }
@@ -244,26 +248,32 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">
-              {userId ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
-            </h2>
-            <p className="text-sm text-slate-600 mt-1">
-              {userId ? 'Mettre à jour les informations' : 'Créer un nouveau compte utilisateur'}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+    <Fenetre
+      titre={userId ? 'Modifier Utilisateur' : 'Nouvel Utilisateur'}
+      sousTitre={userId ? 'Mettre à jour les informations' : 'Créer un nouveau compte utilisateur'}
+      onFermer={onClose}
+      enCours={loading}
+      onSubmit={handleSubmit}
+      corpsClassName="space-y-6 px-4 py-4 sm:p-6"
+      pied={<>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={loading}
+          className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors disabled:opacity-50"
+        >
+          Annuler
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Enregistrement...' : userId ? 'Mettre à jour' : 'Créer'}
+        </button>
+      </>}
+    >
+          <ErreurFenetre>{erreur}</ErreurFenetre>
           {!userId && (
             <>
               <div>
@@ -355,7 +365,7 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 <Shield className="w-4 h-4 inline mr-2" />
@@ -477,24 +487,6 @@ export const UserModal = ({ isOpen, onClose, userId, onSuccess }: UserModalProps
             </div>
           )}
 
-          <div className="flex gap-3 pt-4 border-t border-slate-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
-            >
-              Annuler
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Enregistrement...' : userId ? 'Mettre à jour' : 'Créer'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </Fenetre>
   );
 };

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Printer, X } from 'lucide-react';
 import { COLONNES_ROTATION, TYPES_FICHE, type Fiche } from './fiches';
 
@@ -27,9 +28,16 @@ export const FicheImprimable = ({ fiches, contextes, onFermer }: {
   fiches: Fiche[];
   contextes: Record<string, ContexteImpression>;
   onFermer: () => void;
-}) => (
+}) => {
+  // Echap ferme l'apercu.
+  useEffect(() => {
+    const clavier = (e: KeyboardEvent) => { if (e.key === 'Escape') onFermer(); };
+    document.addEventListener('keydown', clavier);
+    return () => document.removeEventListener('keydown', clavier);
+  }, [onFermer]);
+  return (
   <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">
-    <div className="pas-imprime mx-auto mb-4 flex max-w-[297mm] justify-between">
+    <div className="pas-imprime sticky top-0 z-10 mx-auto mb-4 flex max-w-[297mm] flex-wrap gap-2 rounded-xl bg-stone-200/95 py-2 justify-between">
       <p className="text-sm font-semibold text-stone-700">{fiches.length} fiche(s) prête(s) à imprimer</p>
       <div className="flex gap-2">
         <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white">
@@ -118,4 +126,5 @@ export const FicheImprimable = ({ fiches, contextes, onFermer }: {
       })}
     </div>
   </div>
-);
+  );
+};

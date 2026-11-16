@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
@@ -21,6 +22,7 @@ export const ComitesView = () => {
   const [actions, setActions] = useState<Action[]>([]);
   const [edition, setEdition] = useState<Partial<Comite> | null>(null);
   const [erreur, setErreur] = useState('');
+  const [enCours, setEnCours] = useState(false);
 
   const charger = useCallback(async () => {
     const [c, k, a] = await Promise.all([
@@ -41,7 +43,9 @@ export const ComitesView = () => {
       ordre_du_jour: edition.ordre_du_jour || null, participants: edition.participants || null,
       proces_verbal: edition.proces_verbal || null, statut: edition.statut ?? 'prevu',
     };
+    setEnCours(true);
     const { error } = edition.id ? await supabase.from('comites_contrat').update(ligne).eq('id', edition.id) : await supabase.from('comites_contrat').insert(ligne);
+    setEnCours(false);
     if (error) { setErreur(error.message); return; }
     setEdition(null);
     setErreur('');
@@ -93,10 +97,19 @@ export const ComitesView = () => {
       })}
 
       {edition && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => setEdition(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label="Comité de contrat">
-            <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4"><h2 className="text-xl font-black">{edition.id ? 'Modifier le comité' : 'Nouveau comité'}</h2><button onClick={() => setEdition(null)} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button></header>
-            <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+        <Fenetre
+          titre={edition.id ? 'Modifier le comité' : 'Nouveau comité'}
+          ariaLabel="Comité de contrat"
+          onFermer={() => setEdition(null)}
+          enCours={enCours}
+          onSubmit={(e) => { e.preventDefault(); if (edition.contrat_id && edition.date_comite && edition.objet?.trim()) enregistrer(); }}
+          pied={<>
+            <button type="button" onClick={() => setEdition(null)} disabled={enCours} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={enCours || !edition.contrat_id || !edition.date_comite || !edition.objet?.trim()} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
+          </>}
+        >
+            <ErreurFenetre className="mb-3">{erreur}</ErreurFenetre>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <label>Contrat *<select value={edition.contrat_id ?? ''} onChange={(e) => setEdition({ ...edition, contrat_id: e.target.value })} className={CHAMP}>{contrats.map((c) => <option key={c.id} value={c.id}>{c.reference} · {c.contrepartie}</option>)}</select></label>
               <label>Date *<input type="date" value={edition.date_comite ?? ''} onChange={(e) => setEdition({ ...edition, date_comite: e.target.value })} className={CHAMP} /></label>
               <label className="sm:col-span-2">Objet *<input value={edition.objet ?? ''} onChange={(e) => setEdition({ ...edition, objet: e.target.value })} className={CHAMP} /></label>
@@ -105,9 +118,7 @@ export const ComitesView = () => {
               <label className="sm:col-span-2">Ordre du jour<textarea rows={3} value={edition.ordre_du_jour ?? ''} onChange={(e) => setEdition({ ...edition, ordre_du_jour: e.target.value })} className={CHAMP} /></label>
               <label className="sm:col-span-2">Procès-verbal<textarea rows={4} value={edition.proces_verbal ?? ''} onChange={(e) => setEdition({ ...edition, proces_verbal: e.target.value })} className={CHAMP} /></label>
             </div>
-            <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4"><button onClick={() => setEdition(null)} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100">Annuler</button><button onClick={enregistrer} disabled={!edition.contrat_id || !edition.date_comite || !edition.objet?.trim()} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button></footer>
-          </div>
-        </div>
+        </Fenetre>
       )}
     </div>
   );

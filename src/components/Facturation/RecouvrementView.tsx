@@ -3,6 +3,7 @@ import { BellRing, Printer, Wallet, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { montant } from './facturation';
 
 // Recouvrement des factures clients (phase 4, D-031) : creances, encaissements
@@ -61,6 +62,7 @@ export const RecouvrementView = () => {
     }
     return { nombre: ouvertes.length, enRetard: ouvertes.filter((x) => (x.jours_retard ?? 0) > 0).length, parDevise };
   }, [creances]);
+  const [envoi, setEnvoi] = useState(false);
 
   const enregistrer = async () => {
     if (!encaisser) return;
@@ -117,13 +119,26 @@ export const RecouvrementView = () => {
       </Panneau>
 
       {(encaisser || relancer) && (
-        <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={() => { setEncaisser(null); setRelancer(null); }}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={encaisser ? 'Enregistrer un encaissement' : 'Relancer'}>
-            <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-              <h2 className="text-xl font-black">{encaisser ? `Encaissement · ${encaisser.numero}` : `${NIVEAUX[((relancer?.derniere_relance_niveau ?? 0) + 1)]} · ${relancer?.numero}`}</h2>
-              <button onClick={() => { setEncaisser(null); setRelancer(null); }} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-            </header>
-            <div className="grid grid-cols-1 gap-3 px-6 py-5 text-sm sm:grid-cols-2">
+        <Fenetre
+          titre={encaisser ? `Encaissement · ${encaisser.numero}` : `${NIVEAUX[((relancer?.derniere_relance_niveau ?? 0) + 1)]} · ${relancer?.numero}`}
+          ariaLabel={encaisser ? 'Enregistrer un encaissement' : 'Relancer'}
+          largeur="max-w-lg"
+          onFermer={() => { setEncaisser(null); setRelancer(null); }}
+          enCours={envoi}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (envoi) return;
+            setEnvoi(true);
+            await (encaisser ? enregistrer() : envoyerRelance());
+            setEnvoi(false);
+          }}
+          pied={<>
+            <button type="button" onClick={() => { setEncaisser(null); setRelancer(null); }} disabled={envoi} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
+            <button type="submit" disabled={envoi} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-60">Enregistrer</button>
+          </>}
+        >
+            <ErreurFenetre className="mb-3">{message && !message.ok ? message.texte : null}</ErreurFenetre>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               {encaisser ? <>
                 <label>Date *<input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={CHAMP} /></label>
                 <label>Montant * ({encaisser.devise})<input inputMode="decimal" value={f.montant} onChange={(e) => setF({ ...f, montant: e.target.value })} className={CHAMP} /></label>
@@ -134,17 +149,12 @@ export const RecouvrementView = () => {
               )}
               <label className="sm:col-span-2">Note<input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} className={CHAMP} /></label>
             </div>
-            <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">
-              <button onClick={() => { setEncaisser(null); setRelancer(null); }} className="rounded-lg px-4 py-2 text-sm text-stone-600 hover:bg-stone-100">Annuler</button>
-              <button onClick={encaisser ? enregistrer : envoyerRelance} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white">Enregistrer</button>
-            </footer>
-          </div>
-        </div>
+        </Fenetre>
       )}
 
       {lettre && (
         <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">
-          <div className="pas-imprime mx-auto mb-4 flex max-w-[210mm] justify-end gap-2">
+          <div className="pas-imprime sticky top-0 z-10 mx-auto mb-4 flex max-w-[210mm] flex-wrap gap-2 rounded-xl bg-stone-200/95 py-2 justify-end">
             <button onClick={() => window.print()} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white"><Printer className="h-4 w-4" /> Imprimer</button>
             <button onClick={() => setLettre(null)} className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm" aria-label="Fermer la lettre"><X className="h-4 w-4" /> Fermer</button>
           </div>

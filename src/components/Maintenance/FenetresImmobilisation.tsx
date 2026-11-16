@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { ErreurFenetre, Fenetre as FenetreCommune } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { CAUSES, IMPUTATIONS, type Cause, type Immobilisation, type Imputation } from './immobilisations';
 
@@ -14,26 +14,17 @@ const versIso = (local: string) => new Date(local).toISOString();
 
 export interface EnginResume { id: string; registration: string; vehicle_type: string; status: string }
 
-const Fenetre = ({ titre, sousTitre, onFermer, children, pied }: {
+const Fenetre = ({ titre, sousTitre, onFermer, children, pied, enCours }: {
   titre: string;
   sousTitre?: string;
   onFermer: () => void;
   children: ReactNode;
   pied: ReactNode;
+  enCours: boolean;
 }) => (
-  <div className="fixed inset-0 z-[900] flex items-center justify-center bg-black/30 p-4" onClick={onFermer}>
-    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-label={titre}>
-      <header className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
-        <div>
-          <h2 className="text-xl font-black text-stone-900">{titre}</h2>
-          {sousTitre && <p className="text-sm text-stone-500">{sousTitre}</p>}
-        </div>
-        <button onClick={onFermer} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer"><X className="h-5 w-5" /></button>
-      </header>
-      <div className="space-y-3 px-6 py-5 text-sm">{children}</div>
-      <footer className="flex justify-end gap-2 border-t border-stone-200 px-6 py-4">{pied}</footer>
-    </div>
-  </div>
+  <FenetreCommune titre={titre} sousTitre={sousTitre} onFermer={onFermer} pied={pied} enCours={enCours} largeur="max-w-lg">
+    <div className="space-y-3 text-sm">{children}</div>
+  </FenetreCommune>
 );
 
 const Bouton = ({ onClick, actif, children, danger = false }: { onClick: () => void; actif: boolean; children: ReactNode; danger?: boolean }) => (
@@ -88,7 +79,7 @@ const useEnvoi = (onFait: () => void) => {
   return { erreur, enCours, envoyer };
 };
 
-const Erreur = ({ texte }: { texte: string }) => (texte ? <p className="rounded-lg bg-red-50 p-3 text-red-700">{texte}</p> : null);
+const Erreur = ({ texte }: { texte: string }) => <ErreurFenetre>{texte}</ErreurFenetre>;
 
 export const DeclarerImmobilisation = ({ engins, onFermer, onFait }: { engins: EnginResume[]; onFermer: () => void; onFait: () => void }) => {
   const [f, setF] = useState({ engin: '', debut: versLocal(new Date()), cause: '', imputation: '', description: '', reference: '' });
@@ -98,6 +89,7 @@ export const DeclarerImmobilisation = ({ engins, onFermer, onFait }: { engins: E
     <Fenetre
       titre="Déclarer une immobilisation"
       onFermer={onFermer}
+      enCours={enCours}
       pied={<>
         <Retour onClick={onFermer} />
         <Bouton actif={Boolean(complet) && !enCours} onClick={() => envoyer('declarer_immobilisation', {
@@ -106,6 +98,7 @@ export const DeclarerImmobilisation = ({ engins, onFermer, onFait }: { engins: E
         })}>{enCours ? 'Enregistrement...' : 'Déclarer'}</Bouton>
       </>}
     >
+      <Erreur texte={erreur} />
       <Champ libelle="Engin *">
         <select value={f.engin} onChange={(e) => setF({ ...f, engin: e.target.value })} className={CHAMP}>
           <option value="">Choisir</option>
@@ -115,7 +108,7 @@ export const DeclarerImmobilisation = ({ engins, onFermer, onFait }: { engins: E
       <Champ libelle="Début (heure réelle de l'arrêt) *">
         <input type="datetime-local" value={f.debut} onChange={(e) => setF({ ...f, debut: e.target.value })} className={CHAMP} />
       </Champ>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Champ libelle="Cause *"><ChoixCause valeur={f.cause} onChange={(cause) => setF({ ...f, cause })} /></Champ>
         <Champ libelle="Imputation *"><ChoixImputation valeur={f.imputation} onChange={(imputation) => setF({ ...f, imputation })} /></Champ>
       </div>
@@ -125,7 +118,6 @@ export const DeclarerImmobilisation = ({ engins, onFermer, onFait }: { engins: E
       <Champ libelle="Référence d'intervention du loueur">
         <input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} className={CHAMP} />
       </Champ>
-      <Erreur texte={erreur} />
     </Fenetre>
   );
 };
@@ -141,6 +133,7 @@ export const CloturerImmobilisation = ({ immobilisation, libelle, onFermer, onFa
       titre="Remettre en service"
       sousTitre={libelle}
       onFermer={onFermer}
+      enCours={enCours}
       pied={<>
         <Retour onClick={onFermer} />
         <Bouton actif={Boolean(fin) && !enCours} onClick={() => envoyer('cloturer_immobilisation', { p_id: immobilisation.id, p_fin: versIso(fin), p_note: note || null })}>
@@ -148,11 +141,11 @@ export const CloturerImmobilisation = ({ immobilisation, libelle, onFermer, onFa
         </Bouton>
       </>}
     >
+      <Erreur texte={erreur} />
       <Champ libelle="Fin (heure réelle de remise en service) *">
         <input type="datetime-local" value={fin} onChange={(e) => setFin(e.target.value)} className={CHAMP} />
       </Champ>
       <Champ libelle="Note"><input value={note} onChange={(e) => setNote(e.target.value)} className={CHAMP} /></Champ>
-      <Erreur texte={erreur} />
     </Fenetre>
   );
 };
@@ -174,6 +167,7 @@ export const CorrigerImmobilisation = ({ immobilisation, libelle, onFermer, onFa
       titre="Corriger l'immobilisation"
       sousTitre={libelle}
       onFermer={onFermer}
+      enCours={enCours}
       pied={<>
         <Retour onClick={onFermer} />
         <Bouton actif={Boolean(f.motif.trim() && f.debut && (ouverte || f.fin)) && !enCours} onClick={() => envoyer('corriger_immobilisation', {
@@ -182,7 +176,8 @@ export const CorrigerImmobilisation = ({ immobilisation, libelle, onFermer, onFa
         })}>{enCours ? 'Enregistrement...' : 'Enregistrer la correction'}</Bouton>
       </>}
     >
-      <div className="grid grid-cols-2 gap-3">
+      <Erreur texte={erreur} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Champ libelle="Cause"><ChoixCause valeur={f.cause} onChange={(cause) => setF({ ...f, cause })} /></Champ>
         <Champ libelle="Imputation"><ChoixImputation valeur={f.imputation} onChange={(imputation) => setF({ ...f, imputation })} /></Champ>
         <Champ libelle="Début"><input type="datetime-local" value={f.debut} onChange={(e) => setF({ ...f, debut: e.target.value })} className={CHAMP} /></Champ>
@@ -192,7 +187,6 @@ export const CorrigerImmobilisation = ({ immobilisation, libelle, onFermer, onFa
         <input value={f.motif} onChange={(e) => setF({ ...f, motif: e.target.value })} className={CHAMP} />
       </Champ>
       <p className="text-xs text-stone-500">L'état précédent reste au journal de l'immobilisation.</p>
-      <Erreur texte={erreur} />
     </Fenetre>
   );
 };
@@ -207,6 +201,7 @@ export const AnnulerImmobilisation = ({ immobilisation, libelle, onFermer, onFai
       titre="Annuler l'immobilisation"
       sousTitre={libelle}
       onFermer={onFermer}
+      enCours={enCours}
       pied={<>
         <Retour onClick={onFermer} />
         <Bouton danger actif={Boolean(motif.trim()) && !enCours} onClick={() => envoyer('annuler_immobilisation', { p_id: immobilisation.id, p_motif: motif })}>
@@ -214,9 +209,9 @@ export const AnnulerImmobilisation = ({ immobilisation, libelle, onFermer, onFai
         </Bouton>
       </>}
     >
+      <Erreur texte={erreur} />
       <p className="text-stone-600">Pour une saisie erronée. L'immobilisation reste au journal avec son motif ; l'engin redevient actif si elle était ouverte.</p>
       <Champ libelle="Motif (obligatoire)"><input value={motif} onChange={(e) => setMotif(e.target.value)} className={CHAMP} /></Champ>
-      <Erreur texte={erreur} />
     </Fenetre>
   );
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { formatNombre } from '../Dashboard/indicateurs';
@@ -97,19 +97,19 @@ export const FicheVehicule = ({ vehicule, peutEcrire, onClose, onModifie }: {
   const st = libelleStatut(vehicule.statut_operationnel);
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-start justify-center overflow-y-auto bg-black/30 p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`Fiche ${vehicule.registration}`}
-        className="my-6 w-full max-w-5xl space-y-4 rounded-2xl bg-stone-50 p-5 shadow-2xl">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-black text-stone-900">{vehicule.registration} <Puce teinte={st.teinte}>{st.libelle}</Puce></h2>
-            <p className="text-sm text-stone-500">{vehicule.brand_model} · {TYPES_VEHICULE[vehicule.vehicle_type] ?? vehicule.vehicle_type} · {vehicule.capacity_tonnes} t{vehicule.year ? ` · ${vehicule.year}` : ''}{vehicule.chassis_number ? ` · châssis ${vehicule.chassis_number}` : ''}</p>
-            {vehicule.statut_admin_motif && <p className="text-sm text-stone-600">Motif : {vehicule.statut_admin_motif} (depuis le {date(vehicule.statut_admin_depuis)})</p>}
-            {vehicule.voyage_en_cours && <p className="text-sm text-stone-600">Voyage engagé : {vehicule.voyage_en_cours}</p>}
-          </div>
-          <button onClick={onClose} className="rounded-lg p-2 text-stone-500 hover:bg-stone-200" aria-label="Fermer la fiche"><X className="h-5 w-5" /></button>
-        </header>
-        {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+    <Fenetre
+      titre={<>{vehicule.registration} <Puce teinte={st.teinte}>{st.libelle}</Puce></>}
+      ariaLabel={`Fiche ${vehicule.registration}`}
+      sousTitre={<>
+        <p>{vehicule.brand_model} · {TYPES_VEHICULE[vehicule.vehicle_type] ?? vehicule.vehicle_type} · {vehicule.capacity_tonnes} t{vehicule.year ? ` · ${vehicule.year}` : ''}{vehicule.chassis_number ? ` · châssis ${vehicule.chassis_number}` : ''}</p>
+        {vehicule.statut_admin_motif && <p className="text-stone-600">Motif : {vehicule.statut_admin_motif} (depuis le {date(vehicule.statut_admin_depuis)})</p>}
+        {vehicule.voyage_en_cours && <p className="text-stone-600">Voyage engagé : {vehicule.voyage_en_cours}</p>}
+      </>}
+      onFermer={onClose}
+      largeur="max-w-5xl"
+      corpsClassName="space-y-4 bg-stone-50 p-4 sm:p-5"
+    >
+        <ErreurFenetre>{erreur}</ErreurFenetre>
         {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
 
         <div className="grid gap-4 lg:grid-cols-2">
@@ -185,7 +185,6 @@ export const FicheVehicule = ({ vehicule, peutEcrire, onClose, onModifie }: {
               <ul className="divide-y divide-stone-100 text-sm">{controles.map((c) => <li key={c.id} className="py-2">{new Date(c.effectue_le).toLocaleString('fr-FR')} · {c.resultat}</li>)}</ul>}
           </Panneau>
         </div>
-      </div>
-    </div>
+    </Fenetre>
   );
 };
