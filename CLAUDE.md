@@ -237,7 +237,7 @@ PR quand la dette diminue ; ne jamais les remonter.
   par engin dans le dossier contractuel (D-033), aucune n'est figee. Location et
   decompte entierement parametrables (D-013,
   `docs/SIGTB_2.0_LOCATION_MODEL.md`) : aucun taux ni regle code en dur.
-- 29 erreurs typecheck (baseline du 2026-11-15, objectif 0 avant la cloture de J1), 0 erreur lint, build OK.
+- 0 erreur typecheck depuis le 2026-11-16 (baseline 0, cliquet), 0 erreur lint, 65 avertissements lint, build OK.
 - Tests (D-007) : 81 unitaires (dont 27 du moteur de decompte), 40 E2E (API
   simulee : `e2e/api-simulee.ts`), 254 assertions pgTAP (via
   `npm run test:rls:rejeu`).
