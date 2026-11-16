@@ -42,6 +42,39 @@
      `pneu_reforme_precoce_km`, administrateur ; sans seuil : sans
      donnees), avec les nombres de pneus pris en compte et exclus.
 
+  Integration sur main (2026-11-16, renumerotee au-dessus de D-064 et
+  D-065, D-070) : chaque fonction recreee part de sa derniere definition
+  sur main.
+  - `mouvement_stock` (20261115180000) passe de 11 a 13 arguments ; l'ancienne
+    signature est retiree (aucune surcharge) ; les appels a 11 arguments ou
+    par nom restent valides. Avec une reservation, le perimetre du depot est
+    controle avant toute lecture de la reservation ; l'ordre de travail de la
+    reservation est verrouille avant elle (meme ordre de verrous que la
+    cloture d'un ordre).
+  - `inventorier_stock`, `annuler_mouvement_stock` (20261115180000) :
+    controles d'origine conserves ; les gardes D-061 et D-072 R4
+    (`garde_mouvement_ordre`, `garde_annulation_mouvement_ordre`) sont des
+    declencheurs et restent inchanges.
+  - `annuler_reception` part de 20261120102000 (D-072 R3-5 : refus si la base
+    payable du bon descend sous l'engage et le paye), plus le refus d'une
+    reception avec pneus.
+  - `receptionner_bon_commande`, `enregistrer_bon_commande` (20261117090000).
+  - `valider_reglage` part de 20261121090000 (cle
+    `planification_cloture_separee`, D-063) ; `seuil_pneus` de 20261116210000.
+  - D-072 R1-6 : `stock_disponible` reste retiree aux comptes ; les nouvelles
+    fonctions de quantite (`stock_reserve`, `stock_libre`,
+    `stock_lot_disponible`) le sont aussi ; les quantites se lisent par les
+    vues (RLS du perimetre).
+  - D-075 : reservations lues dans le perimetre du site du depot ; vues de
+    lots, de disponibilite et de valorisation limitees aux depots visibles.
+  - Valorisation : le CMP est celui de l'article (referentiel global,
+    D-044), quantites et valeurs celles des seuls depots visibles ; montants
+    en GNF (le registre et les bons de commande n'ont pas de devise : celle
+    des bons est GNF, D-055).
+  - Reservations d'un ordre de travail levees, avec motif, a sa cloture
+    (termine ou annule) ; une reservation sur un ordre prend un verrou
+    partage de l'ordre.
+
   Idempotent.
 */
 
@@ -53,6 +86,8 @@ ALTER TABLE public.stock_items ADD CONSTRAINT stock_items_suivi_check CHECK (sui
 GRANT INSERT (suivi), UPDATE (suivi) ON public.stock_items TO authenticated;
 
 CREATE SEQUENCE IF NOT EXISTS public.reservations_stock_numero_seq;
+REVOKE ALL ON SEQUENCE public.reservations_stock_numero_seq FROM PUBLIC, anon, authenticated;
+GRANT ALL ON SEQUENCE public.reservations_stock_numero_seq TO service_role;
 
 CREATE TABLE IF NOT EXISTS public.reservations_stock (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,8 +146,9 @@ GRANT SELECT ON public.reservations_stock, public.stock_mouvements_lots, public.
 GRANT ALL ON public.reservations_stock, public.stock_mouvements_lots, public.receptions_achat_pneus TO service_role;
 
 DROP POLICY IF EXISTS lecture ON public.reservations_stock;
+-- Perimetre du site du depot (D-038, D-075), comme les mouvements.
 CREATE POLICY lecture ON public.reservations_stock FOR SELECT TO authenticated
-  USING (public.has_module_view('stock') OR public.is_admin());
+  USING ((public.has_module_view('stock') OR public.is_admin()) AND public.bon_commande_permis(warehouse_id));
 DROP POLICY IF EXISTS lecture ON public.stock_mouvements_lots;
 CREATE POLICY lecture ON public.stock_mouvements_lots FOR SELECT TO authenticated
   USING (EXISTS (SELECT 1 FROM public.stock_movements m WHERE m.id = stock_movement_id));
@@ -189,7 +225,9 @@ SELECT r.id, r.numero, r.stock_item_id, r.warehouse_id, r.quantite, r.maintenanc
        AND NOT EXISTS (SELECT 1 FROM public.stock_movements a WHERE a.annule_mouvement_id = m.id)) c ON true;
 GRANT SELECT ON public.v_reservations_stock TO authenticated;
 
--- Quantite reservee et non consommee d'un article dans un depot.
+-- Quantite reservee et non consommee d'un article dans un depot. Fonctions
+-- internes (SECURITY DEFINER, sans controle de perimetre) : retirees aux
+-- comptes comme stock_disponible (D-072 R1-6) ; lecture par les vues.
 CREATE OR REPLACE FUNCTION public.stock_reserve(p_article uuid, p_depot uuid)
 RETURNS integer
 LANGUAGE sql
@@ -221,7 +259,10 @@ SELECT d.stock_item_id, d.warehouse_id, d.quantite, coalesce(r.reserve, 0) AS re
     SELECT x.stock_item_id, x.warehouse_id, sum(x.quantite_restante)::integer AS reserve
       FROM public.v_reservations_stock x WHERE x.statut = 'active'
      GROUP BY x.stock_item_id, x.warehouse_id) r
-    ON r.stock_item_id = d.stock_item_id AND r.warehouse_id = d.warehouse_id;
+    ON r.stock_item_id = d.stock_item_id AND r.warehouse_id = d.warehouse_id
+ -- Depots visibles seulement (RLS de warehouses) : un transfert depuis un
+ -- depot du perimetre ne donne pas la quantite d'un depot d'un autre site.
+ WHERE EXISTS (SELECT 1 FROM public.warehouses w WHERE w.id = d.warehouse_id);
 GRANT SELECT ON public.v_stock_disponibilite TO authenticated;
 
 -- Quantite par lot ou numero de serie et par depot (meme convention de
@@ -237,6 +278,7 @@ SELECT x.stock_item_id, x.warehouse_id, x.code, sum(x.variation)::integer AS qua
       FROM public.stock_mouvements_lots l JOIN public.stock_movements m ON m.id = l.stock_movement_id
      WHERE m.to_warehouse_id IS NOT NULL AND m.movement_type IN ('entry', 'return', 'transfer', 'annulation', 'adjustment')
   ) x
+ WHERE EXISTS (SELECT 1 FROM public.warehouses w WHERE w.id = x.warehouse_id)
  GROUP BY x.stock_item_id, x.warehouse_id, x.code;
 GRANT SELECT ON public.v_stock_lots TO authenticated;
 
@@ -264,8 +306,8 @@ DO $$
 DECLARE sig text;
 BEGIN
   FOREACH sig IN ARRAY ARRAY['stock_reserve(uuid, uuid)', 'stock_libre(uuid, uuid)', 'stock_lot_disponible(uuid, uuid, text)'] LOOP
-    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', sig);
-    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', sig);
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon, authenticated', sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO service_role', sig);
   END LOOP;
 END $$;
 
@@ -345,7 +387,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE a public.stock_items; v_dispo integer; v_reserve integer; v_id uuid; r record; v_lots jsonb;
-        v_ordre uuid := p_ordre_maintenance; v_vehicle uuid := p_vehicle_id;
+        v_res public.reservations_stock; v_ordre uuid := p_ordre_maintenance; v_vehicle uuid := p_vehicle_id;
 BEGIN
   IF NOT public.has_module_write('stock') THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les stocks requis' USING ERRCODE = '42501';
@@ -371,11 +413,21 @@ BEGIN
     IF p_type <> 'exit' THEN
       RAISE EXCEPTION 'Seule une sortie consomme une reservation' USING ERRCODE = '22023';
     END IF;
-    PERFORM 1 FROM public.reservations_stock WHERE id = p_reservation FOR UPDATE;
-    SELECT * INTO r FROM public.v_reservations_stock WHERE id = p_reservation;
-    IF NOT FOUND OR r.stock_item_id <> p_article OR r.warehouse_id IS DISTINCT FROM p_depot_source THEN
+    IF p_depot_source IS NULL THEN RAISE EXCEPTION 'Depot source requis' USING ERRCODE = '22023'; END IF;
+    -- Perimetre du depot avant toute lecture de la reservation (D-075) : une
+    -- reservation d'un autre depot n'est jamais decrite.
+    PERFORM public.depot_ecrivable(p_depot_source);
+    SELECT * INTO v_res FROM public.reservations_stock WHERE id = p_reservation;
+    IF NOT FOUND OR v_res.stock_item_id <> p_article OR v_res.warehouse_id <> p_depot_source THEN
       RAISE EXCEPTION 'Reservation introuvable, d''un autre article ou d''un autre depot' USING ERRCODE = '22023';
     END IF;
+    -- Verrous dans l'ordre de la cloture d'un ordre de travail (ordre, puis
+    -- reservation) : pas d'interblocage avec lever_reservations_ordre.
+    IF v_res.maintenance_order_id IS NOT NULL THEN
+      PERFORM 1 FROM public.maintenance_orders WHERE id = v_res.maintenance_order_id FOR UPDATE;
+    END IF;
+    PERFORM 1 FROM public.reservations_stock WHERE id = p_reservation FOR UPDATE;
+    SELECT * INTO r FROM public.v_reservations_stock WHERE id = p_reservation;
     IF r.statut <> 'active' THEN
       RAISE EXCEPTION 'Reservation % levee ou deja consommee', r.numero USING ERRCODE = '22023';
     END IF;
@@ -383,12 +435,12 @@ BEGIN
       RAISE EXCEPTION 'Sortie superieure au reste de la reservation % (%)', r.numero, r.quantite_restante USING ERRCODE = '22023';
     END IF;
     IF r.maintenance_order_id IS NOT NULL THEN
+      -- L'engin est celui de l'ordre, controle par garde_mouvement_ordre (D-061, D-072 R4).
       IF v_ordre IS NULL THEN v_ordre := r.maintenance_order_id;
       ELSIF v_ordre <> r.maintenance_order_id THEN
         RAISE EXCEPTION 'Reservation % faite pour un autre ordre de travail', r.numero USING ERRCODE = '22023';
       END IF;
-    END IF;
-    IF r.vehicle_id IS NOT NULL THEN
+    ELSIF r.vehicle_id IS NOT NULL THEN
       IF v_vehicle IS NULL THEN v_vehicle := r.vehicle_id;
       ELSIF v_vehicle <> r.vehicle_id THEN
         RAISE EXCEPTION 'Reservation % faite pour un autre engin', r.numero USING ERRCODE = '22023';
@@ -499,7 +551,9 @@ BEGIN
     RAISE EXCEPTION 'Ecart d''inventaire de % sur %: motif requis', v_ecart, v_code USING ERRCODE = '22023';
   END IF;
   IF a.suivi = 'serie' AND v_ecart > 0 THEN
-    SELECT w.code INTO v_ailleurs FROM public.v_stock_lots l JOIN public.warehouses w ON w.id = l.warehouse_id
+    -- Le code d'un depot hors perimetre n'est pas donne (D-075).
+    SELECT CASE WHEN public.site_permis(w.site_id) THEN w.code ELSE 'd''un autre site' END INTO v_ailleurs
+      FROM public.v_stock_lots l JOIN public.warehouses w ON w.id = l.warehouse_id
      WHERE l.stock_item_id = p_article AND l.code = v_code AND l.quantite <> 0 LIMIT 1;
     IF v_ailleurs IS NOT NULL THEN
       RAISE EXCEPTION 'Numero de serie % en stock au depot % : le transferer', v_code, v_ailleurs USING ERRCODE = '22023';
@@ -608,25 +662,25 @@ BEGIN
     RAISE EXCEPTION 'Ordre de travail, engin ou affectation requis' USING ERRCODE = '22023';
   END IF;
   IF p_ordre_maintenance IS NOT NULL THEN
-    SELECT * INTO o FROM public.maintenance_orders WHERE id = p_ordre_maintenance;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Ordre de travail introuvable' USING ERRCODE = '22023'; END IF;
-    IF NOT ((public.has_module_view('maintenance') OR public.is_admin()) AND public.ordre_travail_permis(o.site_id, o.vehicle_id)) THEN
-      RAISE EXCEPTION 'Hors perimetre : ordre de travail non accessible' USING ERRCODE = '42501';
+    -- Verrou partage : la cloture de l'ordre (lever_reservations_ordre) et
+    -- une nouvelle reservation sont serialisees. Message unique : un ordre
+    -- hors perimetre n'est pas distingue d'un ordre inexistant (D-075).
+    SELECT * INTO o FROM public.maintenance_orders WHERE id = p_ordre_maintenance FOR SHARE;
+    IF NOT FOUND OR NOT ((public.has_module_view('maintenance') OR public.is_admin()) AND public.ordre_travail_permis(o.site_id, o.vehicle_id)) THEN
+      RAISE EXCEPTION 'Ordre de travail introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
     END IF;
     IF o.status NOT IN ('open', 'in_progress') THEN
       RAISE EXCEPTION 'Ordre % termine ou annule : aucune reservation' , o.work_order_number USING ERRCODE = '22023';
     END IF;
-    IF v_vehicle IS NULL THEN v_vehicle := o.vehicle_id;
-    ELSIF o.vehicle_id IS NOT NULL AND v_vehicle <> o.vehicle_id THEN
+    -- L'engin de l'ordre n'est pas recopie (il peut changer tant qu'aucune
+    -- piece n'est imputee, D-072 R4-3) : la sortie prend celui de l'ordre.
+    IF v_vehicle IS NOT NULL AND o.vehicle_id IS NOT NULL AND v_vehicle <> o.vehicle_id THEN
       RAISE EXCEPTION 'L''engin differe de celui de l''ordre de travail' USING ERRCODE = '22023';
     END IF;
   END IF;
   IF v_vehicle IS NOT NULL THEN
-    IF NOT EXISTS (SELECT 1 FROM public.vehicles v WHERE v.id = v_vehicle) THEN
-      RAISE EXCEPTION 'Engin introuvable' USING ERRCODE = '22023';
-    END IF;
-    IF NOT public.vehicule_permis(v_vehicle) THEN
-      RAISE EXCEPTION 'Engin hors de votre perimetre' USING ERRCODE = '42501';
+    IF NOT EXISTS (SELECT 1 FROM public.vehicles v WHERE v.id = v_vehicle) OR NOT public.vehicule_permis(v_vehicle) THEN
+      RAISE EXCEPTION 'Engin introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
     END IF;
   END IF;
   v_libre := public.stock_libre(p_article, p_depot);
@@ -650,24 +704,54 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE r record; v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
+DECLARE r record; v_res public.reservations_stock; v_motif text := nullif(btrim(coalesce(p_motif, '')), '');
 BEGIN
   IF NOT public.has_module_write('stock') THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les stocks requis' USING ERRCODE = '42501';
   END IF;
   IF v_motif IS NULL THEN RAISE EXCEPTION 'Motif de la levee requis' USING ERRCODE = '22023'; END IF;
-  PERFORM 1 FROM public.reservations_stock WHERE id = p_id FOR UPDATE;
-  SELECT * INTO r FROM public.v_reservations_stock WHERE id = p_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Reservation introuvable' USING ERRCODE = '22023'; END IF;
-  IF NOT public.site_permis((SELECT w.site_id FROM public.warehouses w WHERE w.id = r.warehouse_id)) THEN
-    RAISE EXCEPTION 'Hors perimetre : depot d''un autre site' USING ERRCODE = '42501';
+  SELECT * INTO v_res FROM public.reservations_stock WHERE id = p_id FOR UPDATE;
+  -- Perimetre avant toute description de la reservation, message unique (D-075).
+  IF NOT FOUND OR NOT public.bon_commande_permis(v_res.warehouse_id) THEN
+    RAISE EXCEPTION 'Reservation introuvable ou hors de votre perimetre' USING ERRCODE = '42501';
   END IF;
+  SELECT * INTO r FROM public.v_reservations_stock WHERE id = p_id;
   IF r.statut <> 'active' THEN
     RAISE EXCEPTION 'Reservation % deja levee ou consommee', r.numero USING ERRCODE = '22023';
   END IF;
   UPDATE public.reservations_stock SET levee_le = now(), levee_par = auth.uid(), motif_levee = v_motif WHERE id = p_id;
 END;
 $$;
+
+-- Cloture d'un ordre de travail (termine, ou annule par annuler_ordre_travail) :
+-- ses reservations encore actives sont levees, avec un motif qui cite l'ordre
+-- (levee_par : auteur de la cloture) ; la quantite redevient libre. Une reservation
+-- entierement consommee reste « consommee ». Quel que soit le chemin
+-- d'ecriture de l'ordre (ecran, fonction serveur), le declencheur s'applique.
+CREATE OR REPLACE FUNCTION public.lever_reservations_ordre()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.status::text IN ('completed', 'cancelled') AND OLD.status::text IS DISTINCT FROM NEW.status::text THEN
+    UPDATE public.reservations_stock r
+       SET levee_le = now(), levee_par = auth.uid(),
+           motif_levee = format('Levee a la cloture de l''ordre %s (%s)', coalesce(NEW.work_order_number, NEW.id::text),
+                                CASE NEW.status::text WHEN 'completed' THEN 'termine' ELSE 'annule' END)
+     WHERE r.maintenance_order_id = NEW.id AND r.levee_le IS NULL
+       AND r.quantite > coalesce((SELECT sum(m.quantity) FROM public.stock_movements m
+                                   WHERE m.reservation_id = r.id AND m.movement_type = 'exit'
+                                     AND NOT EXISTS (SELECT 1 FROM public.stock_movements x WHERE x.annule_mouvement_id = m.id)), 0);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.lever_reservations_ordre() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS lever_reservations_ordre ON public.maintenance_orders;
+CREATE TRIGGER lever_reservations_ordre AFTER UPDATE OF status ON public.maintenance_orders
+  FOR EACH ROW EXECUTE FUNCTION public.lever_reservations_ordre();
 
 DO $$
 DECLARE sig text;
@@ -686,10 +770,12 @@ BEGIN
 END $$;
 
 -- 7. Valorisation au cout moyen pondere -----------------------------------------
--- Par article, dans l'ordre d'enregistrement (les controles de stock se
--- font a l'enregistrement : la quantite ne devient jamais negative).
+-- Par article, tous depots confondus (l'article est un referentiel global,
+-- D-044), dans l'ordre d'enregistrement des mouvements (horodatage
+-- d'insertion, puis numero MVT) ; les controles de stock se font a
+-- l'enregistrement : la quantite ne devient jamais negative.
 -- Etat : quantite q, quantite non valorisee qnv, valeur v des quantites
--- valorisees ; cmp = v / (q - qnv).
+-- valorisees (numeric, sans arrondi intermediaire) ; cmp = v / (q - qnv).
 --   entree avec prix : v += q x prix ; entree sans prix : qnv += q ;
 --   retour, excedent d'inventaire, annulation d'une sortie : entree au cmp,
 --     meme composition que le stock present (non valorisee si aucun stock
@@ -698,8 +784,12 @@ END $$;
 --     (v et qnv reduits en proportion) ; stock nul : remise a zero ;
 --   annulation d'une entree : retrait de sa quantite a son propre prix.
 -- Les transferts ne changent pas la valeur d'un article.
+-- La fonction ne rend ni quantite ni valeur (qui reveleraient le stock des
+-- depots hors perimetre) : seulement le cout unitaire et la part non
+-- valorisee de l'article ; quantites et valeurs viennent de v_stock_depots
+-- (RLS du perimetre). Montants en GNF.
 CREATE OR REPLACE FUNCTION public.valorisation_articles_stock()
-RETURNS TABLE (stock_item_id uuid, quantite integer, quantite_non_valorisee numeric, valeur bigint, cmp numeric)
+RETURNS TABLE (stock_item_id uuid, cout_unitaire numeric, part_non_valorisee numeric)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
@@ -709,7 +799,7 @@ DECLARE e record; v_art uuid; q numeric := 0; qnv numeric := 0; v numeric := 0; 
 BEGIN
   IF NOT (public.has_module_view('stock') OR public.is_admin()) THEN RETURN; END IF;
   FOR e IN
-    SELECT s.stock_item_id AS art, s.quantity AS qte, o.unit_price AS prix_origine,
+    SELECT s.stock_item_id AS art, s.quantity::numeric AS qte, o.unit_price::numeric AS prix_origine,
            CASE
              WHEN s.movement_type = 'entry' AND s.unit_price IS NOT NULL THEN 'entree_prix'
              WHEN s.movement_type = 'entry' THEN 'entree_sans_prix'
@@ -720,18 +810,17 @@ BEGIN
              WHEN o.movement_type = 'exit' OR (o.movement_type = 'adjustment' AND o.quantity < 0) THEN 'entree_cmp'
              ELSE 'sortie_cmp'
            END AS action,
-           s.unit_price AS prix
+           s.unit_price::numeric AS prix
       FROM public.stock_movements s
       LEFT JOIN public.stock_movements o ON o.id = s.annule_mouvement_id
      WHERE s.movement_type <> 'transfer' AND (s.movement_type <> 'annulation' OR o.movement_type <> 'transfer')
      ORDER BY s.stock_item_id, s.created_at, substring(s.movement_number FROM '(\d+)$')::bigint NULLS FIRST, s.id
   LOOP
     IF v_art IS DISTINCT FROM e.art THEN
-      IF v_art IS NOT NULL THEN
-        stock_item_id := v_art; quantite := q::integer;
-        quantite_non_valorisee := round(qnv, 3);
-        valeur := CASE WHEN q - qnv > 0 THEN round(v)::bigint END;
-        cmp := CASE WHEN q - qnv > 0 THEN round(v / (q - qnv), 2) END;
+      IF v_art IS NOT NULL AND q > 0 THEN
+        stock_item_id := v_art;
+        cout_unitaire := CASE WHEN q - qnv > 0 THEN v / (q - qnv) END;
+        part_non_valorisee := qnv / q;
         RETURN NEXT;
       END IF;
       v_art := e.art; q := 0; qnv := 0; v := 0;
@@ -757,45 +846,49 @@ BEGIN
     IF qnv < 0.001 THEN qnv := 0; END IF;
     IF q - qnv <= 0 THEN v := 0; END IF;
   END LOOP;
-  IF v_art IS NOT NULL THEN
-    stock_item_id := v_art; quantite := q::integer;
-    quantite_non_valorisee := round(qnv, 3);
-    valeur := CASE WHEN q - qnv > 0 THEN round(v)::bigint END;
-    cmp := CASE WHEN q - qnv > 0 THEN round(v / (q - qnv), 2) END;
+  IF v_art IS NOT NULL AND q > 0 THEN
+    stock_item_id := v_art;
+    cout_unitaire := CASE WHEN q - qnv > 0 THEN v / (q - qnv) END;
+    part_non_valorisee := qnv / q;
     RETURN NEXT;
   END IF;
 END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.valorisation_articles_stock() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.valorisation_articles_stock() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.valorisation_articles_stock() TO authenticated, service_role;
 
+-- Par article et depot visible : cmp de l'article ; la part non valorisee
+-- se repartit en proportion des quantites (approximation consignee).
 -- statut : complete (toutes les quantites valorisees), partielle (une
 -- partie entree sans prix : valeur des seules quantites valorisees),
--- sans_donnees (aucune quantite valorisee), sans_stock.
-CREATE OR REPLACE VIEW public.v_valorisation_articles WITH (security_invoker = true) AS
-SELECT v.stock_item_id, v.quantite, v.quantite_non_valorisee, v.cmp, v.valeur,
-       CASE WHEN v.quantite = 0 THEN 'sans_stock'
-            WHEN v.cmp IS NULL THEN 'sans_donnees'
-            WHEN v.quantite_non_valorisee > 0 THEN 'partielle'
-            ELSE 'complete' END AS statut
-  FROM public.valorisation_articles_stock() v;
-GRANT SELECT ON public.v_valorisation_articles TO authenticated;
-
--- Par article et depot : le cmp est celui de l'article (tous depots) ;
--- la part non valorisee se repartit en proportion des quantites.
+-- sans_donnees (aucune quantite valorisee).
 CREATE OR REPLACE VIEW public.v_valorisation_stock WITH (security_invoker = true) AS
-SELECT d.stock_item_id, d.warehouse_id, d.quantite::integer AS quantite, a.cmp,
-       CASE WHEN a.cmp IS NOT NULL AND a.quantite > 0
-            THEN round(d.quantite * a.quantite_non_valorisee / a.quantite, 3) END AS quantite_non_valorisee,
-       CASE WHEN a.cmp IS NOT NULL AND a.quantite > 0
-            THEN round(d.quantite * a.cmp * (a.quantite - a.quantite_non_valorisee) / a.quantite)::bigint END AS valeur,
-       CASE WHEN a.cmp IS NULL THEN 'sans_donnees'
-            WHEN a.quantite_non_valorisee > 0 THEN 'partielle'
-            ELSE 'complete' END AS statut
+SELECT d.stock_item_id, d.warehouse_id, d.quantite::integer AS quantite,
+       round(a.cout_unitaire, 2) AS cmp,
+       CASE WHEN a.cout_unitaire IS NOT NULL THEN round(d.quantite * a.part_non_valorisee, 3) END AS quantite_non_valorisee,
+       CASE WHEN a.cout_unitaire IS NOT NULL
+            THEN round(d.quantite * (1 - a.part_non_valorisee) * a.cout_unitaire)::bigint END AS valeur,
+       CASE WHEN a.cout_unitaire IS NULL THEN 'sans_donnees'
+            WHEN a.part_non_valorisee > 0 THEN 'partielle'
+            ELSE 'complete' END AS statut,
+       'GNF'::text AS devise
   FROM public.v_stock_depots d
-  LEFT JOIN public.v_valorisation_articles a ON a.stock_item_id = d.stock_item_id
- WHERE d.quantite <> 0;
+  LEFT JOIN public.valorisation_articles_stock() a ON a.stock_item_id = d.stock_item_id
+ WHERE d.quantite <> 0
+   AND EXISTS (SELECT 1 FROM public.warehouses w WHERE w.id = d.warehouse_id);
 GRANT SELECT ON public.v_valorisation_stock TO authenticated;
+
+-- Par article, sur les depots visibles (somme des valeurs arrondies au franc).
+CREATE OR REPLACE VIEW public.v_valorisation_articles WITH (security_invoker = true) AS
+SELECT s.stock_item_id, sum(s.quantite)::integer AS quantite, sum(s.quantite_non_valorisee) AS quantite_non_valorisee,
+       max(s.cmp) AS cmp, sum(s.valeur)::bigint AS valeur,
+       CASE WHEN bool_and(s.statut = 'sans_donnees') THEN 'sans_donnees'
+            WHEN bool_or(s.statut = 'partielle') THEN 'partielle'
+            ELSE 'complete' END AS statut,
+       'GNF'::text AS devise
+  FROM public.v_valorisation_stock s
+ GROUP BY s.stock_item_id;
+GRANT SELECT ON public.v_valorisation_articles TO authenticated;
 
 CREATE OR REPLACE VIEW public.v_valorisation_depots WITH (security_invoker = true) AS
 SELECT s.warehouse_id, count(*)::integer AS nb_articles,
@@ -804,7 +897,8 @@ SELECT s.warehouse_id, count(*)::integer AS nb_articles,
        count(*) FILTER (WHERE s.statut = 'sans_donnees')::integer AS nb_articles_sans_prix,
        CASE WHEN bool_and(s.statut = 'complete') THEN 'complete'
             WHEN bool_and(s.statut = 'sans_donnees') THEN 'sans_donnees'
-            ELSE 'partielle' END AS statut
+            ELSE 'partielle' END AS statut,
+       'GNF'::text AS devise
   FROM public.v_valorisation_stock s
  GROUP BY s.warehouse_id;
 GRANT SELECT ON public.v_valorisation_depots TO authenticated;
@@ -984,7 +1078,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE d public.deliveries; po public.purchase_orders; l public.receptions_achat_lignes;
+DECLARE d public.deliveries; po public.purchase_orders; l public.receptions_achat_lignes; r record;
 BEGIN
   IF nullif(btrim(coalesce(p_motif, '')), '') IS NULL THEN RAISE EXCEPTION 'Motif de l''annulation requis' USING ERRCODE = '22023'; END IF;
   SELECT * INTO d FROM public.deliveries WHERE id = p_livraison FOR UPDATE;
@@ -1012,6 +1106,13 @@ BEGIN
                   THEN 'partially_received' ELSE 'approved' END,
     updated_at = now()
    WHERE id = po.id;
+  -- D-072 R3-5 (20261120102000) : un bon deja engage ou paye ne redescend pas
+  -- sous ce qui est engage ou paye.
+  SELECT * INTO r FROM public.reste_a_payer_interne(NULL, po.id);
+  IF r.engage + r.paye > r.base THEN
+    RAISE EXCEPTION 'Reception non annulable : % GNF deja engages ou payes sur ce bon, au-dela du recu restant (% GNF)',
+      r.engage + r.paye, r.base USING ERRCODE = '22023';
+  END IF;
   PERFORM public.journaliser_achat(po.id, 'annulation_reception', p_motif, jsonb_build_object('reception', d.delivery_number));
 END;
 $$;
@@ -1066,6 +1167,8 @@ SELECT r.marque, r.modele,
 GRANT SELECT ON public.v_pneus_performance TO authenticated;
 
 -- 10. Reglage lu par le serveur : format controle -----------------------------
+-- Reprise a l'identique de la derniere definition (20261121090000, D-063 :
+-- cle planification_cloture_separee), plus pneu_reforme_precoce_km.
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1074,7 +1177,8 @@ AS $$
 DECLARE v text := NEW.value ->> 'value';
 BEGIN
   IF NEW.key IN ('mfa_exige', 'carburant_validation_separee', 'kilometrage_validation_separee',
-                 'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige') THEN
+                 'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige',
+                 'planification_cloture_separee') THEN
     IF v IS NULL OR v NOT IN ('true', 'false') THEN
       RAISE EXCEPTION 'Reglage % : valeur true ou false attendue', NEW.key USING ERRCODE = '22023';
     END IF;
