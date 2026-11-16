@@ -25,8 +25,10 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
   const [enCours, setEnCours] = useState<string | null>(null);
 
   const charger = useCallback(async () => {
+    // Fiche sans camion : aucune requete (jamais vehicle_id=eq. vide).
+    if (!fiche.vehicle_id) { setVoyages([]); return; }
     const { data } = await supabase.from('trips').select('id, reference, etat')
-      .eq('vehicle_id', fiche.vehicle_id ?? '').eq('planned_date', fiche.date_fiche).order('reference');
+      .eq('vehicle_id', fiche.vehicle_id).eq('planned_date', fiche.date_fiche).order('reference');
     setVoyages((data ?? []) as { id: string; reference: string; etat: string | null }[]);
   }, [fiche.vehicle_id, fiche.date_fiche]);
   useEffect(() => { charger(); }, [charger]);

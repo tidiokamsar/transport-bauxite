@@ -60,25 +60,34 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
     setError('');
     setLoading(true);
 
+    // Champs facultatifs non remplis : NULL, jamais une chaine vide (une date
+    // vide est refusee par la base : invalid input syntax for type date).
+    const facultatif = (v: string) => (v.trim() === '' ? null : v);
+    const corps = {
+      ...formData,
+      birth_date: facultatif(formData.birth_date),
+      health_certificate_expiry: facultatif(formData.health_certificate_expiry),
+      phone: facultatif(formData.phone),
+      email: facultatif(formData.email),
+      address: facultatif(formData.address),
+      emergency_contact_name: facultatif(formData.emergency_contact_name),
+      emergency_contact_phone: facultatif(formData.emergency_contact_phone),
+      notes: facultatif(formData.notes),
+      base_salary: Number(formData.base_salary),
+    };
+
     try {
       if (isEditing) {
         const { error: updateError } = await supabase
           .from('drivers')
-          .update({
-            ...formData,
-            base_salary: Number(formData.base_salary),
-            updated_at: new Date().toISOString(),
-          })
+          .update({ ...corps, updated_at: new Date().toISOString() })
           .eq('id', driver.id);
 
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from('drivers')
-          .insert([{
-            ...formData,
-            base_salary: Number(formData.base_salary),
-          }]);
+          .insert([corps]);
 
         if (insertError) throw insertError;
       }

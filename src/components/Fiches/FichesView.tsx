@@ -3,7 +3,8 @@ import { FileInput, Fuel, Printer, Timer, Truck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
 import { STATUTS_FICHE, TYPES_FICHE, type Fiche, type TypeFiche } from './fiches';
 import { FicheImprimable, type ContexteImpression } from './FicheImprimable';
 import { SaisieFiche } from './SaisieFiche';
@@ -26,12 +27,13 @@ const ICONES: Record<TypeFiche, typeof Truck> = { rotations: Truck, pointage_eng
 
 export const FichesView = () => {
   const { hasPermission } = useAuth();
-  const { siteId, sites } = useSite();
+  const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('maintenance', 'create') || hasPermission('fuel', 'create');
   const [date, setDate] = useState(aujourdhui);
   const [site, setSite] = useState('');
   const [shift, setShift] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [aucunShift, setAucunShift] = useState(false);
   const [engins, setEngins] = useState<Engin[]>([]);
   const [chauffeurs, setChauffeurs] = useState<{ id: string; name: string }[]>([]);
   const [societe, setSociete] = useState<Societe | null>(null);
@@ -53,6 +55,8 @@ export const FichesView = () => {
     ]).then(([s, v, d, so]) => {
       const liste = (s.data ?? []) as Shift[];
       setShifts(liste);
+      setAucunShift(!s.error && liste.length === 0);
+      if (s.error) setMessage({ ok: false, texte: 'Shifts indisponibles : ' + s.error.message });
       setShift((x) => x || liste[0]?.id || '');
       setEngins((v.data ?? []) as Engin[]);
       setChauffeurs((d.data ?? []) as { id: string; name: string }[]);
@@ -174,11 +178,8 @@ export const FichesView = () => {
       </div>
       {message && <p className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
 
-      {sites.length === 0 && (
-        <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          Aucun site enregistré : créez d'abord le site d'exploitation (Exploitation → Sites), puis les shifts et la flotte, pour préparer des fiches.
-        </p>
-      )}
+      {aucunSite && <ReferentielVide>{SANS_SITE} Les fiches se préparent ensuite pour ce site.</ReferentielVide>}
+      {!aucunSite && aucunShift && <ReferentielVide>{SANS_SHIFT}</ReferentielVide>}
 
       {peutEcrire && site && (
         <Panneau titre="Préparer les fiches du shift">

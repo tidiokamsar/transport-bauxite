@@ -3,7 +3,8 @@ import { Download, Lock, Plus, Printer, Trash2, Unlock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToCSV, printDocument } from '../../lib/exports';
 import { formatNombre } from '../Dashboard/indicateurs';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
+import { SANS_SITE } from '../ui/referentiels';
 import { CHAMP, Fenetre } from './FenetresObjectif';
 import { CATEGORIES_CAUSE, causesServeur, erreurCauses, type CauseSaisie } from './planAvance';
 
@@ -97,6 +98,7 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
   useEffect(() => { chargerRapport(); }, [chargerRapport]);
 
   const cloturer = async () => {
+    if (!site) { setErreur('Choisissez le site à clôturer.'); return; }
     const e = erreurCauses(causes, production?.tonnes_cible ?? null, production?.tonnes_livrees ?? null);
     if (e) { setErreur(e); return; }
     setEnCours(true);
@@ -140,7 +142,9 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
         )}
       >
         {erreur && <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-        {!site ? (
+        {sites.length === 0 ? (
+          <ReferentielVide>{SANS_SITE} La clôture porte sur une journée et un site.</ReferentielVide>
+        ) : !site ? (
           <SansDonnees message="Choisissez un site" detail="La clôture porte sur une journée et un site." />
         ) : cloture === undefined ? (
           erreur ? null : <p className="text-sm text-stone-400">Chargement...</p>

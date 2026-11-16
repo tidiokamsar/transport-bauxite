@@ -96,7 +96,9 @@ export const SimulationScenarios = ({
       </div>
       {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
-      {erreur ? null : stats === null ? <p className="text-sm text-stone-400">Chargement…</p> : stats.length === 0 ? (
+      {erreur ? null : horizon === 'shift' && !shift ? (
+        <SansDonnees message="Aucun shift choisi" detail="L'horizon « shift » demande un shift actif ; choisissez l'horizon journée ou enregistrez les shifts." />
+      ) : stats === null ? <p className="text-sm text-stone-400">Chargement…</p> : stats.length === 0 ? (
         <SansDonnees message="Sans données" detail="Aucun voyage livré depuis ce site sur la période observée : aucune rotation à exploiter, aucun scénario n'est estimé." />
       ) : (
         <>

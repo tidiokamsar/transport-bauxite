@@ -19,6 +19,8 @@ interface SiteContextType {
   site: SiteResume | null;
   choisirSite: (id: string | null) => void;
   chargement: boolean;
+  /** Lecture reussie et aucun site : referentiel vide (base neuve ou purgee). Faux pendant le chargement ou apres une erreur. */
+  aucunSite: boolean;
 }
 
 const CLE_STOCKAGE = 'sigtb.site';
@@ -38,6 +40,7 @@ export const SiteProvider = ({ children }: { children: ReactNode }) => {
   const [sites, setSites] = useState<SiteResume[]>([]);
   const [siteId, setSiteId] = useState<string | null>(lireSiteMemorise);
   const [chargement, setChargement] = useState(true);
+  const [aucunSite, setAucunSite] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -52,6 +55,7 @@ export const SiteProvider = ({ children }: { children: ReactNode }) => {
         if (error) console.error('Sites :', error.message);
         const liste = (data ?? []) as SiteResume[];
         setSites(liste);
+        setAucunSite(!error && liste.length === 0);
         setSiteId((courant) => (courant && liste.some((s) => s.id === courant) ? courant : null));
         setChargement(false);
       });
@@ -72,7 +76,7 @@ export const SiteProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <SiteContext.Provider
-      value={{ sites, siteId, site: sites.find((s) => s.id === siteId) ?? null, choisirSite, chargement }}
+      value={{ sites, siteId, site: sites.find((s) => s.id === siteId) ?? null, choisirSite, chargement, aucunSite }}
     >
       {children}
     </SiteContext.Provider>
