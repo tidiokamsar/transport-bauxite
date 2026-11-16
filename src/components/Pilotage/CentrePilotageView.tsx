@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Printer, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { exportToCSV, imprimerTableau } from '../../lib/exports';
-import { Panneau, Puce, ReferentielVide } from '../ui/Panneau';
+import { Panneau, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SITE } from '../ui/referentiels';
 import {
   comparerIndicateurs, FIABILITE, jourIso, lignesExport, lignesExportComparaison, PRUDENCE, type Indicateur,
@@ -31,6 +31,7 @@ export const CentrePilotageView = () => {
   const [vehicule, setVehicule] = useState('');
   const [partenaire, setPartenaire] = useState('');
   const [sites, setSites] = useState<Lib[]>([]);
+  const [sitesLus, setSitesLus] = useState(false);
   const [shifts, setShifts] = useState<Lib[]>([]);
   const [engins, setEngins] = useState<Lib[]>([]);
   const [partenaires, setPartenaires] = useState<string[]>([]);
@@ -62,6 +63,7 @@ export const CentrePilotageView = () => {
       const erreurFiltres = s.error ?? w.error ?? v.error;
       if (erreurFiltres) setErreurFiltres(`Filtres incomplets : ${erreurFiltres.message}`);
       setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
+      setSitesLus(!s.error);
       setShifts((w.data ?? []).map((x) => ({ id: x.id as string, libelle: (x.display_name as string) ?? 'Shift' })));
       const liste = (v.data ?? []) as { id: string; registration: string; transporteur: string | null; proprietaire: string | null; exploitant: string | null }[];
       setEngins(liste.map((x) => ({ id: x.id, libelle: x.registration })));
@@ -108,7 +110,7 @@ export const CentrePilotageView = () => {
       <select aria-label="Partenaire" value={partenaire} onChange={(e) => setPartenaire(e.target.value)} className="rounded border border-stone-300 px-2 py-1"><option value="">Tous les partenaires</option>{partenaires.map((p) => <option key={p} value={p}>{p}</option>)}</select>
     </div>
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-    {calcule && !erreurFiltres && sites.length === 0 && <ReferentielVide>{SANS_SITE} Les indicateurs se calculent ensuite sur les voyages, pleins et immobilisations saisis.</ReferentielVide>}
+    {sitesLus && sites.length === 0 && <ReferentielVide>{SANS_SITE} Les indicateurs se calculent ensuite sur les voyages, pleins et immobilisations saisis.</ReferentielVide>}
     {erreurFiltres && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurFiltres}</p>}
     {calcule && <p className="text-xs text-stone-500">Calculé le {new Date(calcule).toLocaleString('fr-FR')} · {mentions[0]} · filtres : {filtresTexte}.</p>}
     {(shift || vehicule || partenaire) && <p className="text-xs text-orange-800">Un indicateur sans la dimension filtrée (shift, véhicule ou partenaire) est rendu « sans données » avec son motif, jamais avec une valeur non filtrée.</p>}
@@ -124,7 +126,7 @@ export const CentrePilotageView = () => {
           <td><Puce teinte={PRUDENCE[l.prudence].teinte}>{PRUDENCE[l.prudence].texte}</Puce>{l.motifs.map((m) => <span key={m} className="block text-xs text-stone-500">{m}</span>)}</td>
         </tr>)}</tbody>
       </table></div>
-    </Panneau> : domaines.map((d) => <Panneau key={d} titre={d}>
+    </Panneau> : indicateurs.length === 0 ? <Panneau><SansDonnees message="Aucun indicateur" detail={erreur ? 'Le calcul a échoué : voir le message ci-dessus.' : "Le serveur n'a renvoyé aucun indicateur pour cette période."} /></Panneau> : domaines.map((d) => <Panneau key={d} titre={d}>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{indicateurs.filter((i) => i.domaine === d).map((i) => <div key={i.code} className="rounded-lg border border-stone-200 p-3" data-testid={`kpi-${i.code}`}>
         <div className="flex items-start justify-between gap-2"><span className="text-sm font-semibold text-stone-700">{i.libelle}</span><Puce teinte={FIABILITE[i.fiabilite].teinte}>{FIABILITE[i.fiabilite].texte}</Puce></div>
         <p className="mt-1 text-2xl font-black text-stone-900">{valeurTexte(i)}</p>
