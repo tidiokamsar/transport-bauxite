@@ -14,21 +14,23 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(54);
+SELECT plan(68);
 
--- Jeu de test : A et B administrateurs, U chauffeur, I inactif, C charge de contrats.
+-- Jeu de test : A, B et D administrateurs, U chauffeur, I inactif, C charge de contrats.
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-e790-000000000001', 'admin.a.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000002', 'admin.b.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000003', 'chauffeur.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000004', 'inactif.d079@exemple.invalid'),
-  ('00000000-0000-4000-e790-000000000005', 'contrats.d079@exemple.invalid');
+  ('00000000-0000-4000-e790-000000000005', 'contrats.d079@exemple.invalid'),
+  ('00000000-0000-4000-e790-000000000006', 'admin.d.d079@exemple.invalid');
 INSERT INTO public.profiles (id, role, full_name, status, email) VALUES
   ('00000000-0000-4000-e790-000000000001', 'admin', 'Admin A D079', 'active', 'admin.a.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000002', 'admin', 'Admin B D079', 'active', 'admin.b.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000003', 'driver', 'Chauffeur D079', 'active', 'chauffeur.d079@exemple.invalid'),
   ('00000000-0000-4000-e790-000000000004', 'driver', 'Inactif D079', 'inactive', 'inactif.d079@exemple.invalid'),
-  ('00000000-0000-4000-e790-000000000005', 'contract_manager', 'Contrats D079', 'active', 'contrats.d079@exemple.invalid')
+  ('00000000-0000-4000-e790-000000000005', 'contract_manager', 'Contrats D079', 'active', 'contrats.d079@exemple.invalid'),
+  ('00000000-0000-4000-e790-000000000006', 'admin', 'Admin D D079', 'active', 'admin.d.d079@exemple.invalid')
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = NULL;
 INSERT INTO public.sites (id, name, type) VALUES
   ('00000000-0000-4000-e790-0000000000a1', 'Mine D079', 'mine'),
@@ -78,8 +80,9 @@ SELECT ok(NOT has_table_privilege('authenticated', 'public.journal_comptes', 'IN
       AND NOT has_table_privilege('authenticated', 'public.journal_comptes', 'UPDATE')
       AND NOT has_table_privilege('authenticated', 'public.journal_comptes', 'DELETE'),
   'journal des comptes : aucune ecriture directe');
-SELECT ok(NOT has_function_privilege('authenticated', 'public.autres_admins_actifs(uuid)', 'EXECUTE'),
-  'comptage des administrateurs ferme aux comptes');
+SELECT ok(has_function_privilege('authenticated', 'public.autres_admins_actifs(uuid)', 'EXECUTE')
+      AND NOT has_function_privilege('anon', 'public.autres_admins_actifs(uuid)', 'EXECUTE'),
+  'comptage des administrateurs ouvert aux comptes (garde INVOKER), ferme a anon');
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000001');
 SET LOCAL ROLE authenticated;
@@ -105,6 +108,12 @@ SELECT throws_ok($$UPDATE public.profiles SET status = 'inactive' WHERE id = '00
   '42501', NULL, 'statut non modifiable par update direct');
 SELECT throws_ok($$UPDATE public.profiles SET role = 'driver' WHERE id = '00000000-0000-4000-e790-000000000001'$$,
   '42501', NULL, 'un administrateur ne change pas son propre role');
+-- Retrogradation d'un autre administrateur par l'API (UserModal) : la garde
+-- INVOKER compte les administrateurs restants sous le role authenticated.
+SELECT lives_ok($$UPDATE public.profiles SET role = 'director' WHERE id = '00000000-0000-4000-e790-000000000002'$$,
+  'A retrograde l''administrateur B (D reste actif)');
+SELECT is((SELECT role::text FROM public.profiles WHERE id = '00000000-0000-4000-e790-000000000002'), 'director',
+  'retrogradation enregistree');
 SELECT throws_ok($$SELECT public.desactiver_compte('00000000-0000-4000-e790-000000000001', 'test')$$,
   '42501', 'Vous ne pouvez pas desactiver votre propre compte', 'desactivation refusee sur soi-meme');
 SELECT throws_ok($$SELECT public.desactiver_compte('00000000-0000-4000-e790-000000000003', '  ')$$,
@@ -142,11 +151,20 @@ SELECT throws_ok($$UPDATE public.profiles SET status = 'inactive' WHERE id = '00
 SELECT throws_ok($$UPDATE public.profiles SET role = 'director' WHERE id = '00000000-0000-4000-e790-000000000001'$$,
   '42501', 'Dernier administrateur actif : il garde son role et son statut', 'dernier administrateur : changement de role refuse');
 SELECT is((SELECT count(*)::int FROM public.profiles WHERE role = 'admin' AND status = 'active'), 1, 'un administrateur actif demeure');
+SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$UPDATE public.profiles SET role = 'director' WHERE id = '00000000-0000-4000-e790-000000000001'$$,
+  '42501', 'Dernier administrateur actif : il garde son role et son statut',
+  'dernier administrateur : retrogradation par l''API refusee avec un message clair');
+RESET ROLE;
+SELECT pg_temp.se_connecter(NULL);
 
 -- 3. Infrastructures et fermetures -------------------------------------------
 SELECT ok(NOT has_column_privilege('authenticated', 'public.infrastructures_site', 'cree_par', 'INSERT')
       AND NOT has_column_privilege('authenticated', 'public.fermetures_site', 'declare_par', 'INSERT')
-      AND NOT has_column_privilege('authenticated', 'public.fermetures_site', 'levee_par', 'UPDATE'),
+      AND NOT has_column_privilege('authenticated', 'public.fermetures_site', 'levee_par', 'UPDATE')
+      AND NOT has_column_privilege('authenticated', 'public.infrastructures_site', 'cree_par', 'UPDATE')
+      AND NOT has_column_privilege('authenticated', 'public.fermetures_site', 'declare_par', 'UPDATE'),
   'auteur jamais transmis par le client');
 SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000001');
 SET LOCAL ROLE authenticated;
@@ -160,6 +178,17 @@ SELECT is((SELECT cree_par FROM public.infrastructures_site WHERE id = '00000000
   '00000000-0000-4000-e790-000000000001'::uuid, 'infrastructure : auteur renseigne par le serveur');
 SELECT is((SELECT (declare_par, levee_par)::text FROM public.fermetures_site WHERE id = '00000000-0000-4000-e790-0000000000b2'),
   '(00000000-0000-4000-e790-000000000001,00000000-0000-4000-e790-000000000001)', 'fermeture : declarant et auteur de la levee renseignes');
+SELECT pg_temp.se_connecter('00000000-0000-4000-e790-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT lives_ok($$UPDATE public.infrastructures_site SET libelle = 'Pont-bascule D079 bis' WHERE id = '00000000-0000-4000-e790-0000000000b1'$$,
+  'infrastructure : modification ordinaire acceptee');
+RESET ROLE;
+-- Tout chemin (y compris une fonction serveur) : l'auteur ne change pas.
+SELECT pg_temp.se_connecter(NULL);
+SELECT throws_ok($$UPDATE public.infrastructures_site SET cree_par = '00000000-0000-4000-e790-000000000002' WHERE id = '00000000-0000-4000-e790-0000000000b1'$$,
+  '42501', 'Auteur de l''infrastructure non modifiable', 'infrastructure : auteur non modifiable');
+SELECT throws_ok($$UPDATE public.fermetures_site SET declare_par = '00000000-0000-4000-e790-000000000002' WHERE id = '00000000-0000-4000-e790-0000000000b2'$$,
+  '42501', 'Declarant de la fermeture non modifiable', 'fermeture : declarant non modifiable');
 
 -- 4. Dossier contractuel -------------------------------------------------------
 SELECT is((SELECT count(*)::int FROM pg_policies WHERE schemaname = 'public' AND cmd = 'DELETE'
@@ -199,6 +228,14 @@ SELECT is((SELECT (motif, contenu->>'libelle', auteur)::text FROM public.suppres
   '("Doublon de saisie",Chargeuse,00000000-0000-4000-e790-000000000005)', 'suppression journalisee (motif, contenu, auteur)');
 SELECT throws_ok($$UPDATE public.contrat_tarifs SET prix = 5 WHERE id = '00000000-0000-4000-e790-0000000000e0'$$,
   '22023', NULL, 'tarif en vigueur d''un contrat actif non modifiable sur place');
+SELECT throws_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite, prix)
+  VALUES ('00000000-0000-4000-e790-0000000000d0', 'Ajout sur place', 'tonne', 9)$$,
+  '22023', NULL, 'version en vigueur d''un contrat actif : aucun tarif ajoute sur place');
+SELECT throws_ok($$UPDATE public.contrat_engagements SET seuil = 70 WHERE id = '00000000-0000-4000-e790-0000000000f0'$$,
+  '22023', NULL, 'engagement en vigueur d''un contrat actif non modifiable sur place');
+SELECT lives_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite, prix)
+  VALUES ('00000000-0000-4000-e790-0000000000d2', 'Pelle', 'heure', 120)$$,
+  'contrat brouillon : tarif ajoute librement');
 SELECT throws_ok($$UPDATE public.contrat_versions SET date_effet = '2099-01-01' WHERE id = '00000000-0000-4000-e790-0000000000d0'$$,
   '22023', NULL, 'date d''effet d''une version en vigueur fixe');
 SELECT throws_ok($$UPDATE public.contrats SET statut = 'brouillon' WHERE id = '00000000-0000-4000-e790-0000000000c1'$$,
@@ -215,6 +252,24 @@ SELECT is((SELECT string_agg(t.libelle || '=' || t.prix, ', ' ORDER BY t.libelle
   'Transport mine - port=5, Transport mine - stock=3 / 1', 'avenant n° 1 : grille reprise, tarif vise modifie, engagement repris');
 SELECT is((SELECT prix FROM public.contrat_tarifs WHERE id = '00000000-0000-4000-e790-0000000000e0'), 4.5::numeric,
   'le tarif de la version initiale reste intact');
+-- Avenant avec reprise atomique (creer_avenant) : version future, libre.
+SELECT throws_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 2, 'Trop tot', '2001-03-01')$$,
+  '22023', NULL, 'creer_avenant : date d''effet apres la version precedente');
+SELECT lives_ok($$SELECT public.creer_avenant('00000000-0000-4000-e790-0000000000c1', 2, 'Avenant futur', '2099-01-01')$$,
+  'creer_avenant : avenant futur cree');
+SELECT is((SELECT string_agg(t.libelle || '=' || t.prix, ', ' ORDER BY t.libelle)
+             FROM public.contrat_tarifs t JOIN public.contrat_versions v ON v.id = t.version_id
+            WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2)
+          || ' / ' || (SELECT count(*) FROM public.contrat_engagements e JOIN public.contrat_versions v ON v.id = e.version_id
+                        WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2),
+  'Transport mine - port=5, Transport mine - stock=3 / 1', 'creer_avenant : grille de la version n° 1 reprise');
+SELECT lives_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite, prix)
+  SELECT v.id, 'Nouvel engin', 'km', 2 FROM public.contrat_versions v
+   WHERE v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2$$,
+  'version future : tarif ajoute');
+SELECT lives_ok($$UPDATE public.contrat_engagements e SET seuil = 90 FROM public.contrat_versions v
+   WHERE v.id = e.version_id AND v.contrat_id = '00000000-0000-4000-e790-0000000000c1' AND v.numero = 2$$,
+  'version future : engagement modifie');
 RESET ROLE;
 
 SELECT * FROM finish();

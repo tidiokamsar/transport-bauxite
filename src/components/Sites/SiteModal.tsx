@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X, MapPin, Save, Building2, Phone, Mail, Users, Package } from 'lucide-react';
-import { enNombre, enTexte, verifierCapacite, verifierCoordonnees } from './saisieSite';
+import { enNombre, enTexte, locationAEnvoyer, verifierCapacite, verifierCoordonnees } from './saisieSite';
 
 /** Colonnes du referentiel des sites saisies dans ce formulaire (D-079). */
 export interface SiteSaisi {
@@ -102,7 +102,8 @@ export const SiteModal = ({ site, onClose, onSave }: SiteModalProps) => {
       is_active: formData.is_active,
       responsable_id: formData.responsable_id || null,
       notes: formData.notes.trim() || null,
-      location: formData.address.trim(),
+      // location (heritee) : jamais reecrite si l'adresse n'a pas change.
+      ...locationAEnvoyer(site?.address, formData.address, !site),
     };
 
     const { error } = site

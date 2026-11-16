@@ -157,58 +157,22 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
     contrat_id: contratId, numero, intitule: f.intitule.trim(), date_effet: f.date_effet,
     date_signature: f.date_signature || null, resume: texte(f.resume), document_ref: texte(f.document_ref),
   };
-  // Nouvel avenant : la grille de la version precedente est reprise (chaque
-  // version porte sa grille complete), puis modifiee ligne par ligne.
+  // Nouvel avenant : la grille de la version precedente (tarifs, engagements,
+  // clauses actives) est reprise par la fonction serveur creer_avenant, tout
+  // ou rien (D-079) : une version en vigueur ne recoit pas de tarif ajoute
+  // apres coup par l'API.
   const creerAvecReprise = async () => {
     setCopieEnCours(true);
     setErreurCopie('');
-    const { data: nouvelle, error } = await supabase.from('contrat_versions').insert(ligne).select('id').single();
-    if (error || !nouvelle) {
-      setCopieEnCours(false);
-      setErreurCopie(error?.code === '23505' ? 'Ce numéro de version existe déjà.' : error?.message ?? 'Création impossible');
+    const { error } = await supabase.rpc('creer_avenant', {
+      p_contrat: contratId, p_numero: numero, p_intitule: ligne.intitule, p_date_effet: ligne.date_effet,
+      p_date_signature: ligne.date_signature, p_resume: ligne.resume, p_document_ref: ligne.document_ref,
+    });
+    setCopieEnCours(false);
+    if (error) {
+      setErreurCopie(error.code === '23505' ? 'Ce numéro de version existe déjà.' : `Avenant refusé : ${error.message}`);
       return;
     }
-    const { data: precedente } = await supabase.from('contrat_versions').select('id')
-      .eq('contrat_id', contratId).lt('numero', numero ?? 0).order('numero', { ascending: false }).limit(1).maybeSingle();
-    if (precedente) {
-      const [t, e] = await Promise.all([
-        supabase.from('contrat_tarifs').select('libelle, unite, prix, categorie_materiel, engin, conditions, ordre, km_retour_vide_facturable').eq('version_id', precedente.id),
-        supabase.from('contrat_engagements').select('indicateur, libelle, seuil, unite, sens, periodicite, consequence, ordre').eq('version_id', precedente.id),
-      ]);
-      const copies = await Promise.all([
-        (t.data ?? []).length ? supabase.from('contrat_tarifs').insert((t.data ?? []).map((x) => ({ ...x, version_id: nouvelle.id }))) : { error: null },
-        (e.data ?? []).length
-          ? supabase.from('contrat_engagements').insert((e.data ?? []).map((x) => ({ ...x, version_id: nouvelle.id }))).select('id, indicateur, libelle')
-          : { error: null, data: [] },
-      ]);
-      const echec = copies.find((c) => c.error);
-      if (echec?.error) {
-        setCopieEnCours(false);
-        setErreurCopie(`Avenant créé, mais la reprise de la grille a échoué : ${echec.error.message}`);
-        return;
-      }
-      // Clauses chiffrees (D-065) : reprises par la fonction serveur et
-      // rattachees au meme engagement (indicateur et libelle) de la nouvelle version.
-      const [anciens, clauses] = await Promise.all([
-        supabase.from('contrat_engagements').select('id, indicateur, libelle').eq('version_id', precedente.id),
-        supabase.from('contrat_clauses').select('*').eq('version_id', precedente.id).eq('actif', true),
-      ]);
-      const nouveaux = ((copies[1] as { data: { id: string; indicateur: string; libelle: string }[] | null }).data ?? []);
-      for (const c of (clauses.data ?? []) as Clause[]) {
-        const ancien = (anciens.data ?? []).find((a) => a.id === c.engagement_id);
-        const cible = ancien && nouveaux.find((n) => n.indicateur === ancien.indicateur && n.libelle === ancien.libelle);
-        const r = cible ? await supabase.rpc('definir_clause', {
-          p_version: nouvelle.id, p_type: c.type_clause, p_libelle: c.libelle, p_engagement: cible.id, p_declenchement: c.declenchement,
-          p_base: c.base, p_valeur: c.valeur, p_plafond: c.plafond_ht, p_article: c.article, p_ordre: c.ordre,
-        }) : { error: { message: `engagement de la clause « ${c.libelle} » introuvable` } };
-        if (r.error) {
-          setCopieEnCours(false);
-          setErreurCopie(`Avenant créé, mais la reprise des clauses a échoué : ${r.error.message}`);
-          return;
-        }
-      }
-    }
-    setCopieEnCours(false);
     onFait();
   };
   const avecReprise = !version && numeroSuivant > 0 && reprendre;

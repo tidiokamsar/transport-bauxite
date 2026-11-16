@@ -292,7 +292,7 @@ export const ContratsView = () => {
                             <div>
                               <div className="mb-1 flex items-center justify-between">
                                 <h4 className="text-sm font-semibold text-stone-700">Tarifs</h4>
-                                {peutEcrire && <button onClick={() => setFenetre({ type: 'tarif', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter un tarif</button>}
+                                {peutEcrire && !tarifsVerrouilles(v) && <button onClick={() => setFenetre({ type: 'tarif', versionId: v.id })} className="text-xs font-semibold text-orange-700 hover:underline">+ Ajouter un tarif</button>}
                               </div>
                               {tv.length === 0 ? <p className="text-xs text-stone-400">Aucun tarif dans cette version.</p> : (
                                 <ul className="space-y-1 text-sm">
@@ -322,7 +322,7 @@ export const ContratsView = () => {
                                         <span title={INDICATEURS[e.indicateur]}>{e.libelle}</span>
                                         <span className="flex items-center gap-1 font-semibold text-stone-900">
                                           {e.sens === 'minimum' ? '≥' : '≤'} {formatNombre(Number(e.seuil), 2)} {e.unite} {PERIODICITES[e.periodicite] ?? ''}
-                                          {peutEcrire && <button onClick={() => setFenetre({ type: 'engagement', versionId: v.id, engagement: e })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier l'engagement ${e.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>}
+                                          {peutEcrire && !tarifsVerrouilles(v) && <button onClick={() => setFenetre({ type: 'engagement', versionId: v.id, engagement: e })} className="rounded p-1 text-stone-400 hover:text-stone-700" aria-label={`Modifier l'engagement ${e.libelle}`}><PenLine className="h-3.5 w-3.5" /></button>}
                                           {peutEcrire && brouillon && <button onClick={() => supprimer('contrat_engagements', e.id, `l'engagement ${e.libelle}`)} className="rounded p-1 text-stone-400 hover:text-red-600" aria-label={`Supprimer l'engagement ${e.libelle}`}><Trash2 className="h-3.5 w-3.5" /></button>}
                                         </span>
                                       </div>

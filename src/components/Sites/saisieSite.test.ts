@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enNombre, siteCorrespond, verifierCapacite, verifierCoordonnees } from './saisieSite';
+import { enNombre, locationAEnvoyer, siteCorrespond, verifierCapacite, verifierCoordonnees } from './saisieSite';
 
 describe('saisie des sites (D-079)', () => {
   it('coordonnees : facultatives, ensemble, bornees', () => {
@@ -26,5 +26,12 @@ describe('saisie des sites (D-079)', () => {
     expect(siteCorrespond(site, 'conakry')).toBe(false);
     expect(siteCorrespond({ name: 'Dépôt', city: 'Kamsar', address: null }, 'KAM')).toBe(true);
     expect(siteCorrespond(site, '')).toBe(true);
+  });
+
+  it("location : envoyee a la creation ou si l'adresse change, sinon gardee", () => {
+    expect(locationAEnvoyer(null, ' Route de Kamsar ', true)).toEqual({ location: 'Route de Kamsar' });
+    expect(locationAEnvoyer('Route de Kamsar', 'Route de Kamsar ', false)).toEqual({});
+    expect(locationAEnvoyer(null, '', false)).toEqual({});
+    expect(locationAEnvoyer('Route de Kamsar', 'Port de Kamsar', false)).toEqual({ location: 'Port de Kamsar' });
   });
 });

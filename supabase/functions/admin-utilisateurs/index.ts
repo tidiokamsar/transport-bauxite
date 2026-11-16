@@ -79,33 +79,51 @@ Deno.serve(async (req: Request) => {
       return reponse(deja ? 409 : 400, { erreur: deja ? 'Cette adresse a déjà un compte' : 'Création refusée' });
     }
 
+    // Le profil nait inactif : il n'est active qu'une fois son perimetre
+    // enregistre. Un echec en cours de route laisse au pire un compte
+    // inactif, jamais un compte actif global par defaut.
+    const id = cree.user.id;
+    const annuler = async () => {
+      const { error: e1 } = await service.from('profiles').delete().eq('id', id);
+      const { error: e2 } = await service.auth.admin.deleteUser(id);
+      return !e1 && !e2;
+    };
     const { error: erreurProfil } = await service.from('profiles').upsert({
-      id: cree.user.id,
+      id,
       email,
       full_name: nom,
       role,
       phone: texte(corps.phone, 40) || null,
       department: texte(corps.department, 80) || null,
-      status: 'active',
+      status: 'inactive',
     });
     if (erreurProfil) {
-      await service.auth.admin.deleteUser(cree.user.id);
+      if (!(await annuler())) {
+        return reponse(500, { erreur: 'Profil non enregistré ; annulation incomplète : compte inactif à nettoyer', id });
+      }
       return reponse(500, { erreur: 'Profil non enregistré, compte annulé' });
     }
     // Site ou perimetre global : ecrit par la fonction serveur avec le jeton
     // de l'administrateur (controle, journal_comptes, auteur). En cas de
     // refus, le compte est annule : jamais de compte global par defaut.
     const { error: erreurPerimetre } = await appelant.rpc('definir_site_compte', {
-      p_utilisateur: cree.user.id,
+      p_utilisateur: id,
       p_site: global ? null : site,
       p_motif: global ? motifGlobal : null,
     });
     if (erreurPerimetre) {
-      await service.from('profiles').delete().eq('id', cree.user.id);
-      await service.auth.admin.deleteUser(cree.user.id);
+      if (!(await annuler())) {
+        return reponse(500, { erreur: `Périmètre refusé (${erreurPerimetre.message}) ; annulation incomplète : compte inactif à nettoyer`, id });
+      }
       return reponse(400, { erreur: `Périmètre refusé, compte annulé : ${erreurPerimetre.message}` });
     }
-    return reponse(201, { id: cree.user.id });
+    // Activation par le service (hors API : la garde des comptes reserve le
+    // changement de statut par l'API aux fonctions motivees).
+    const { error: erreurActivation } = await service.from('profiles').update({ status: 'active' }).eq('id', id);
+    if (erreurActivation) {
+      return reponse(500, { erreur: 'Compte créé avec son périmètre mais resté inactif : le réactiver (motif « création »)', id });
+    }
+    return reponse(201, { id });
   }
 
   if (corps.action === 'mot_de_passe') {

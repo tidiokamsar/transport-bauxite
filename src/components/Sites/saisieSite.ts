@@ -24,6 +24,21 @@ export const verifierCapacite = (capacite: string): string => {
   return Number.isNaN(c) || c <= 0 ? 'Capacité en tonnes, strictement positive (laisser vide si inconnue).' : '';
 };
 
+/**
+ * Colonne heritee `location` : renseignee depuis l'adresse a la creation, et
+ * en modification seulement si l'adresse a change ; sinon elle n'est pas
+ * envoyee et la valeur existante est gardee.
+ */
+export const locationAEnvoyer = (
+  adresseOrigine: string | null | undefined,
+  adresseSaisie: string,
+  creation: boolean,
+): { location?: string } => {
+  const saisie = adresseSaisie.trim();
+  if (creation || saisie !== (adresseOrigine ?? '').trim()) return { location: saisie };
+  return {};
+};
+
 /** Recherche tolerante aux champs vides (ville ou adresse absente). */
 export const siteCorrespond = (
   site: { name?: string | null; city?: string | null; address?: string | null },

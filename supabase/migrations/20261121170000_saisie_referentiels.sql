@@ -24,10 +24,11 @@
   4. Dossier contractuel : plus aucune suppression directe (politiques
      DELETE retirees, privilege DELETE retire) ; `supprimer_element_contrat`
      ne supprime qu'un element d'un contrat brouillon, sans dependance, avec
-     motif et journal (`suppressions_contrats`). Un tarif d'une version en
-     vigueur d'un contrat qui n'est plus brouillon ne se modifie pas sur
-     place : `modifier_tarif_par_avenant` cree l'avenant (D-033). Un contrat
-     ne repasse pas en brouillon.
+     motif et journal (`suppressions_contrats`). La grille d'une version en
+     vigueur d'un contrat qui n'est plus brouillon est figee (aucun tarif
+     ajoute ou modifie, aucun engagement modifie) : `modifier_tarif_par_avenant`
+     cree l'avenant (D-033) ; `creer_avenant` cree un avenant avec reprise
+     atomique de la grille. Un contrat ne repasse pas en brouillon.
 
   Additive et idempotente. Aucune donnee modifiee.
 */
@@ -67,7 +68,9 @@ BEGIN
   END IF;
 END $$;
 
--- Compte actif (lecture des profils hors RLS, pour les gardes).
+-- Compte actif (lecture des profils hors RLS, pour les gardes). Ouverte a
+-- authenticated parce que la garde garde_saisie_site est SECURITY INVOKER :
+-- fuite faible acceptee (un booleen d'existence d'un compte actif, D-079).
 CREATE OR REPLACE FUNCTION public.compte_actif(p_compte uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -174,7 +177,10 @@ DROP TRIGGER IF EXISTS append_only ON public.journal_comptes;
 CREATE TRIGGER append_only BEFORE UPDATE OR DELETE ON public.journal_comptes
   FOR EACH ROW EXECUTE FUNCTION public.garde_journal_append_only();
 
--- Nombre d'administrateurs actifs autres que p_exclu (hors RLS).
+-- Nombre d'administrateurs actifs autres que p_exclu (hors RLS). Ouverte a
+-- authenticated : la garde garde_comptes est SECURITY INVOKER et l'appelle
+-- sous le role de l'API (retrogradation d'un administrateur par un autre) ;
+-- elle ne renvoie qu'un nombre.
 CREATE OR REPLACE FUNCTION public.autres_admins_actifs(p_exclu uuid)
 RETURNS integer
 LANGUAGE sql
@@ -185,8 +191,8 @@ AS $$
   SELECT count(*)::int FROM public.profiles p
    WHERE p.role = 'admin' AND p.status = 'active' AND p.id IS DISTINCT FROM p_exclu;
 $$;
-REVOKE EXECUTE ON FUNCTION public.autres_admins_actifs(uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.autres_admins_actifs(uuid) TO service_role;
+REVOKE EXECUTE ON FUNCTION public.autres_admins_actifs(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.autres_admins_actifs(uuid) TO authenticated, service_role;
 
 -- Garde des comptes :
 --  * tout chemin : le dernier administrateur actif ne perd ni son role ni
@@ -356,9 +362,15 @@ SET search_path = ''
 AS $$
 BEGIN
   IF TG_TABLE_NAME = 'infrastructures_site' THEN
-    NEW.cree_par := auth.uid();
+    IF TG_OP = 'INSERT' THEN
+      NEW.cree_par := auth.uid();
+    ELSIF NEW.cree_par IS DISTINCT FROM OLD.cree_par THEN
+      RAISE EXCEPTION 'Auteur de l''infrastructure non modifiable' USING ERRCODE = '42501';
+    END IF;
   ELSIF TG_OP = 'INSERT' THEN
     NEW.declare_par := auth.uid();
+  ELSIF NEW.declare_par IS DISTINCT FROM OLD.declare_par THEN
+    RAISE EXCEPTION 'Declarant de la fermeture non modifiable' USING ERRCODE = '42501';
   ELSIF OLD.levee_le IS NULL AND NEW.levee_le IS NOT NULL THEN
     NEW.levee_par := auth.uid();
   ELSIF NEW.levee_par IS DISTINCT FROM OLD.levee_par THEN
@@ -369,7 +381,7 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.auteur_infrastructure_site() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS auteur_serveur ON public.infrastructures_site;
-CREATE TRIGGER auteur_serveur BEFORE INSERT ON public.infrastructures_site
+CREATE TRIGGER auteur_serveur BEFORE INSERT OR UPDATE ON public.infrastructures_site
   FOR EACH ROW EXECUTE FUNCTION public.auteur_infrastructure_site();
 DROP TRIGGER IF EXISTS auteur_serveur ON public.fermetures_site;
 CREATE TRIGGER auteur_serveur BEFORE INSERT OR UPDATE ON public.fermetures_site
@@ -453,14 +465,22 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  -- Toute cle etrangere entrante, simple ou composite : la ligne est
+  -- utilisee si une ligne referencante porte les memes valeurs de colonnes.
   FOR v_ref IN
-    SELECT c.conrelid::regclass AS tab, a.attname AS col
+    SELECT c.conrelid::regclass AS tab,
+           (SELECT string_agg(format('r.%I', a.attname), ', ' ORDER BY k.n)
+              FROM unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(col, refcol, n)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.col) AS cols,
+           (SELECT string_agg(format('t.%I', a.attname), ', ' ORDER BY k.n)
+              FROM unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(col, refcol, n)
+              JOIN pg_catalog.pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = k.refcol) AS refcols
       FROM pg_catalog.pg_constraint c
-      JOIN pg_catalog.pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
      WHERE c.contype = 'f' AND c.confrelid = format('public.%I', p_table)::regclass
-       AND array_length(c.conkey, 1) = 1
   LOOP
-    EXECUTE format('SELECT EXISTS (SELECT 1 FROM %s WHERE %I = $1)', v_ref.tab, v_ref.col) INTO v_existe USING p_id;
+    EXECUTE format('SELECT EXISTS (SELECT 1 FROM %s r JOIN public.%I t ON (%s) = (%s) WHERE t.id = $1)',
+                   v_ref.tab, p_table, v_ref.cols, v_ref.refcols)
+      INTO v_existe USING p_id;
     IF v_existe THEN
       v_dependances := v_dependances || v_ref.tab::text;
     END IF;
@@ -480,8 +500,11 @@ GRANT EXECUTE ON FUNCTION public.supprimer_element_contrat(text, uuid, text) TO 
 
 -- 4.2 Gardes de modification (appelant de l'API seulement).
 -- Une version est « en vigueur ou passee » quand sa date d'effet est
--- atteinte ; sur un contrat qui n'est plus brouillon, ses tarifs ne se
--- modifient pas et sa date d'effet ne bouge plus.
+-- atteinte ; sur un contrat qui n'est plus brouillon, sa grille est figee :
+-- aucun tarif ne s'y ajoute ni ne s'y modifie, aucun engagement ne s'y
+-- modifie, et sa date d'effet ne bouge plus. Le changement passe par
+-- modifier_tarif_par_avenant ou creer_avenant (fonctions serveur, hors
+-- garde), qui creent une nouvelle version. Une version future reste libre.
 CREATE OR REPLACE FUNCTION public.garde_tarif_en_vigueur()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -490,16 +513,21 @@ AS $$
 DECLARE
   v_statut text;
   v_effet date;
+  v_objet text := CASE TG_TABLE_NAME WHEN 'contrat_tarifs' THEN 'tarif' ELSE 'engagement' END;
 BEGIN
   IF current_user NOT IN ('authenticated', 'anon') THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND NEW.version_id IS DISTINCT FROM OLD.version_id THEN
+    RAISE EXCEPTION 'Un % ne change pas de version', v_objet USING ERRCODE = '22023';
+  END IF;
   SELECT c.statut, v.date_effet INTO v_statut, v_effet
     FROM public.contrat_versions v JOIN public.contrats c ON c.id = v.contrat_id
-   WHERE v.id = OLD.version_id;
-  IF NEW.version_id IS DISTINCT FROM OLD.version_id THEN
-    RAISE EXCEPTION 'Un tarif ne change pas de version' USING ERRCODE = '22023';
-  END IF;
+   WHERE v.id = NEW.version_id;
   IF v_statut IS DISTINCT FROM 'brouillon' AND v_effet <= current_date THEN
-    RAISE EXCEPTION 'Tarif en vigueur d''un contrat %, non modifiable sur place : modifiez-le par un avenant (D-033)', v_statut
+    IF TG_OP = 'INSERT' THEN
+      RAISE EXCEPTION 'Version en vigueur d''un contrat % : aucun % ne s''y ajoute sur place ; creez un avenant (D-033)', v_statut, v_objet
+        USING ERRCODE = '22023';
+    END IF;
+    RAISE EXCEPTION '% en vigueur d''un contrat %, non modifiable sur place : modifiez-le par un avenant (D-033)', initcap(v_objet), v_statut
       USING ERRCODE = '22023';
   END IF;
   RETURN NEW;
@@ -507,7 +535,10 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.garde_tarif_en_vigueur() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS garde_tarif_en_vigueur ON public.contrat_tarifs;
-CREATE TRIGGER garde_tarif_en_vigueur BEFORE UPDATE ON public.contrat_tarifs
+CREATE TRIGGER garde_tarif_en_vigueur BEFORE INSERT OR UPDATE ON public.contrat_tarifs
+  FOR EACH ROW EXECUTE FUNCTION public.garde_tarif_en_vigueur();
+DROP TRIGGER IF EXISTS garde_engagement_en_vigueur ON public.contrat_engagements;
+CREATE TRIGGER garde_engagement_en_vigueur BEFORE UPDATE ON public.contrat_engagements
   FOR EACH ROW EXECUTE FUNCTION public.garde_tarif_en_vigueur();
 
 CREATE OR REPLACE FUNCTION public.garde_version_en_vigueur()
@@ -638,3 +669,80 @@ END;
 $$;
 REVOKE EXECUTE ON FUNCTION public.modifier_tarif_par_avenant(uuid, numeric, text, date, text, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.modifier_tarif_par_avenant(uuid, numeric, text, date, text, text, text) TO authenticated, service_role;
+
+-- 4.4 Nouvel avenant avec reprise de la grille (tout ou rien). Remplace la
+-- reprise cote client (insertions successives, non atomiques), que la garde
+-- 4.2 refuserait pour un avenant dont la date d'effet est atteinte : la
+-- version est creee avec la grille complete (tarifs, engagements, clauses
+-- actives rattachees au meme engagement) de la version precedente (numero
+-- inferieur le plus proche), a modifier ensuite (version future) ou par
+-- modifier_tarif_par_avenant (version en vigueur).
+CREATE OR REPLACE FUNCTION public.creer_avenant(
+  p_contrat uuid,
+  p_numero integer,
+  p_intitule text,
+  p_date_effet date,
+  p_date_signature date DEFAULT NULL,
+  p_resume text DEFAULT NULL,
+  p_document_ref text DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_statut text;
+  v_precedente public.contrat_versions;
+  v_nouvelle uuid;
+  e record;
+  v_eng uuid;
+BEGIN
+  IF NOT (public.has_module_write('contracts') OR public.is_admin()) THEN
+    RAISE EXCEPTION 'Avenant reserve au module contrats' USING ERRCODE = '42501';
+  END IF;
+  IF p_numero IS NULL OR p_numero < 1 THEN
+    RAISE EXCEPTION 'Numero d''avenant : 1 ou plus' USING ERRCODE = '22023';
+  END IF;
+  IF nullif(btrim(coalesce(p_intitule, '')), '') IS NULL OR p_date_effet IS NULL THEN
+    RAISE EXCEPTION 'Avenant : intitule et date d''effet obligatoires' USING ERRCODE = '22023';
+  END IF;
+  SELECT c.statut INTO v_statut FROM public.contrats c WHERE c.id = p_contrat FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Contrat introuvable' USING ERRCODE = '23503';
+  END IF;
+  IF v_statut = 'clos' THEN
+    RAISE EXCEPTION 'Contrat clos : aucun avenant' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO v_precedente FROM public.contrat_versions x
+   WHERE x.contrat_id = p_contrat AND x.numero < p_numero ORDER BY x.numero DESC LIMIT 1;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Aucune version precedente a reprendre' USING ERRCODE = '22023';
+  END IF;
+  IF p_date_effet <= v_precedente.date_effet THEN
+    RAISE EXCEPTION 'La date d''effet de l''avenant doit suivre celle de la version n° % (%)', v_precedente.numero, to_char(v_precedente.date_effet, 'DD/MM/YYYY')
+      USING ERRCODE = '22023';
+  END IF;
+
+  INSERT INTO public.contrat_versions (contrat_id, numero, intitule, date_effet, date_signature, resume, document_ref, cree_par)
+  VALUES (p_contrat, p_numero, btrim(p_intitule), p_date_effet, p_date_signature,
+          nullif(btrim(coalesce(p_resume, '')), ''), nullif(btrim(coalesce(p_document_ref, '')), ''), auth.uid())
+  RETURNING id INTO v_nouvelle;
+
+  INSERT INTO public.contrat_tarifs (version_id, libelle, unite, prix, categorie_materiel, engin, conditions, ordre, km_retour_vide_facturable)
+  SELECT v_nouvelle, x.libelle, x.unite, x.prix, x.categorie_materiel, x.engin, x.conditions, x.ordre, x.km_retour_vide_facturable
+    FROM public.contrat_tarifs x WHERE x.version_id = v_precedente.id;
+
+  FOR e IN SELECT * FROM public.contrat_engagements WHERE version_id = v_precedente.id LOOP
+    INSERT INTO public.contrat_engagements (version_id, indicateur, libelle, seuil, unite, sens, periodicite, consequence, ordre)
+    VALUES (v_nouvelle, e.indicateur, e.libelle, e.seuil, e.unite, e.sens, e.periodicite, e.consequence, e.ordre)
+    RETURNING id INTO v_eng;
+    INSERT INTO public.contrat_clauses (version_id, type_clause, libelle, engagement_id, declenchement, base, valeur, plafond_ht, article, ordre, cree_par)
+    SELECT v_nouvelle, k.type_clause, k.libelle, v_eng, k.declenchement, k.base, k.valeur, k.plafond_ht, k.article, k.ordre, auth.uid()
+      FROM public.contrat_clauses k WHERE k.version_id = v_precedente.id AND k.engagement_id = e.id AND k.actif;
+  END LOOP;
+  RETURN v_nouvelle;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.creer_avenant(uuid, integer, text, date, date, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.creer_avenant(uuid, integer, text, date, date, text, text) TO authenticated, service_role;
