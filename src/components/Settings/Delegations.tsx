@@ -84,7 +84,7 @@ export const Delegations = ({ administration = false }: { administration?: boole
       <Panneau titre="Déléguer un droit">
         <p className="mb-4 text-sm text-stone-500">
           Vous déléguez un droit que vous détenez (écriture ou approbation d'un module), pour une période datée. Le délégué agit en son nom,
-          reste soumis à la séparation des tâches et à son propre périmètre de sites. L'administration ne se délègue pas.
+          reste soumis à la séparation des tâches et à son propre périmètre de sites, qui doit être compris dans le vôtre. La lecture du module n'est déléguée que si vous la détenez. L'administration ne se délègue pas.
         </p>
         {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
         {message && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
@@ -161,7 +161,7 @@ export const Delegations = ({ administration = false }: { administration?: boole
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs text-stone-500">« Sans effet » : période en cours, mais le délégant ne détient plus le droit, ou le délégué est inactif ou restreint par l'administrateur.</p>
+        <p className="mt-3 text-xs text-stone-500">« Sans effet » : période en cours, mais le délégant ne détient plus le droit, le délégué est inactif ou restreint par l'administrateur, ou son périmètre de sites dépasse celui du délégant.</p>
       </Panneau>
     </div>
   );

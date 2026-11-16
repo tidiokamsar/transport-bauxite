@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { delegationRevocable, erreurDelegation, libelleEvenement, perimetreCompte } from './organisation';
 
-describe('perimetreCompte (meme regle que site_permis, D-064)', () => {
-  it('sans site au profil ni affectation : global', () => {
-    expect(perimetreCompte(null, [])).toEqual({ type: 'global' });
+describe('perimetreCompte (lecture du perimetre calcule par le serveur, D-064)', () => {
+  it('global seulement si le serveur le dit', () => {
+    expect(perimetreCompte({ global: true, sites: [] })).toEqual({ type: 'global' });
   });
-  it('affectations annulees seulement : global', () => {
-    expect(perimetreCompte(null, [{ site_id: 's1', statut: 'annulee' }])).toEqual({ type: 'global' });
+  it('compte borne sans site du jour (affectations annulees ou expirees) : aucun site, jamais global', () => {
+    expect(perimetreCompte({ global: false, sites: [] })).toEqual({ type: 'aucun' });
+    expect(perimetreCompte({ global: false, sites: null })).toEqual({ type: 'aucun' });
   });
-  it('affectation expiree seule : aucun site, pas global', () => {
-    expect(perimetreCompte(null, [{ site_id: 's1', statut: 'terminee' }])).toEqual({ type: 'aucun' });
-  });
-  it('site du profil et affectations en cours : union', () => {
-    expect(perimetreCompte('s1', [{ site_id: 's2', statut: 'en_cours' }, { site_id: 's3', statut: 'a_venir' }]))
-      .toEqual({ type: 'sites', sites: ['s1', 's2'] });
+  it('sites du jour transmis tels quels', () => {
+    expect(perimetreCompte({ global: false, sites: ['s1', 's2'] })).toEqual({ type: 'sites', sites: ['s1', 's2'] });
   });
 });
 

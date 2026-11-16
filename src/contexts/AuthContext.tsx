@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [droitsSpecifiques, setDroitsSpecifiques] = useState<{ module: string; niveau: string }[]>([]);
   // Delegations recues en vigueur (D-064), statut calcule par le serveur.
-  const [delegationsRecues, setDelegationsRecues] = useState<{ module: string; niveau: string }[]>([]);
+  const [delegationsRecues, setDelegationsRecues] = useState<{ module: string; niveau: string; donne_lecture: boolean }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('Error fetching delegations:', error);
       return;
     }
-    setDelegationsRecues(((data ?? []) as { delegue: string; module: string; niveau: string; statut: string }[])
+    setDelegationsRecues(((data ?? []) as { delegue: string; module: string; niveau: string; statut: string; donne_lecture: boolean }[])
       .filter(d => d.delegue === userId && d.statut === 'active'));
   };
 
@@ -153,9 +153,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return specifique.niveau === 'ecriture';
     }
 
-    // Delegation en vigueur (D-064) : ecriture ou approbation, et lecture du module.
+    // Delegation en vigueur (D-064) : ecriture ou approbation, et lecture du
+    // module si le delegant la detient (meme regle que has_module_view).
     const delegations = delegationsRecues.filter(d => d.module === module);
-    if (action === 'view' && delegations.length > 0) return true;
+    if (action === 'view' && delegations.some(d => d.donne_lecture)) return true;
     if (action === 'approve' && delegations.some(d => d.niveau === 'approbation')) return true;
     if (action !== 'view' && action !== 'approve' && delegations.some(d => d.niveau === 'ecriture')) return true;
 

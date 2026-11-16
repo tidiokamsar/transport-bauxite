@@ -8,6 +8,14 @@ const SITES = [{ id: 's1', name: 'Mine Nimba' }, { id: 's2', name: 'Dépôt CBG'
 const COMPTES = [
   { id: 'u1', full_name: 'Mamadou Test', site_id: null, status: 'active', role: 'driver', email: 'mamadou@exemple.invalid', created_at: '2026-11-01T00:00:00Z' },
   { id: 'u2', full_name: 'Fanta Test', site_id: null, status: 'active', role: 'fleet_manager', email: 'fanta@exemple.invalid', created_at: '2026-11-01T00:00:00Z' },
+  { id: 'u3', full_name: 'Ibrahima Test', site_id: null, status: 'active', role: 'driver', email: 'ibrahima@exemple.invalid', created_at: '2026-11-01T00:00:00Z' },
+];
+// Perimetre calcule par le serveur (perimetres_comptes) : u3 a eu une
+// affectation annulee, il est sans acces site (jamais global de lui-meme).
+const PERIMETRES = [
+  { utilisateur: 'u1', nom: 'Mamadou Test', statut: 'active', site_profil: null, global: false, sites: ['s1'], retour_possible: false, dernier_retour: null },
+  { utilisateur: 'u2', nom: 'Fanta Test', statut: 'active', site_profil: null, global: true, sites: [], retour_possible: false, dernier_retour: null },
+  { utilisateur: 'u3', nom: 'Ibrahima Test', statut: 'active', site_profil: null, global: false, sites: [], retour_possible: true, dernier_retour: null },
 ];
 const AFFECTATIONS = [{
   id: 'a1', utilisateur: 'u1', utilisateur_nom: 'Mamadou Test', site_id: 's1', site_nom: 'Mine Nimba',
@@ -34,10 +42,13 @@ test.describe('Organisation et administration', () => {
   test('affectations multisites : périmètre affiché et affectation envoyée au serveur', async ({ page }) => {
     await simulerApi(page, { sites: SITES, v_affectations_sites: AFFECTATIONS, organisations: [] });
     const envois: { fn: string; corps: Record<string, unknown> }[] = [];
-    await ouvrir(page, { mes_delegations: [], comptes_delegables: [] }, envois);
+    await ouvrir(page, { mes_delegations: [], comptes_delegables: [], perimetres_comptes: PERIMETRES }, envois);
     await page.getByRole('button', { name: 'Affectations multisites' }).click();
     const perimetre = page.locator('tr', { hasText: 'Fanta Test' });
-    await expect(perimetre.getByText('Tous les sites (aucune affectation)')).toBeVisible();
+    await expect(perimetre.getByText('Tous les sites')).toBeVisible();
+    const sansAcces = page.locator('tr', { hasText: 'Ibrahima Test' });
+    await expect(sansAcces.getByText('Aucun site en vigueur')).toBeVisible();
+    await expect(perimetre.getByRole('button', { name: 'Rétablir le périmètre global' })).toHaveCount(0);
     await expect(page.locator('tr', { hasText: 'Mamadou Test' }).first().getByText('Mine Nimba')).toBeVisible();
     await page.getByLabel('Compte à affecter').selectOption('u1');
     await page.getByLabel('Site d\'affectation').selectOption('s2');
@@ -47,6 +58,13 @@ test.describe('Organisation et administration', () => {
     await expect.poll(() => envois.filter((e) => e.fn === 'affecter_site').length).toBe(1);
     expect(envois.find((e) => e.fn === 'affecter_site')?.corps).toMatchObject({
       p_utilisateur: 'u1', p_site: 's2', p_debut: '2026-11-20', p_fin: null, p_motif: 'Renfort',
+    });
+    await sansAcces.getByRole('button', { name: 'Rétablir le périmètre global' }).click();
+    await sansAcces.getByLabel('Motif du retour au périmètre global').fill('Affectation saisie par erreur');
+    await sansAcces.getByRole('button', { name: 'Valider' }).click();
+    await expect.poll(() => envois.filter((e) => e.fn === 'retablir_perimetre_global').length).toBe(1);
+    expect(envois.find((e) => e.fn === 'retablir_perimetre_global')?.corps).toMatchObject({
+      p_utilisateur: 'u3', p_motif: 'Affectation saisie par erreur',
     });
   });
 
@@ -60,6 +78,7 @@ test.describe('Organisation et administration', () => {
         id: 'd1', delegant: ADMIN, delegant_nom: 'Aminata Test', delegue: 'u2', delegue_nom: 'Fanta Test', module: 'purchases',
         niveau: 'approbation', debut: new Date().toISOString(), fin: fin.toISOString(), motif: 'Absence du valideur',
         cree_le: new Date().toISOString(), revoquee_le: null, revoquee_par_nom: null, motif_revocation: null, statut: 'active',
+        donne_lecture: true,
       }],
     }, envois);
     await page.getByRole('button', { name: 'Délégations' }).click();

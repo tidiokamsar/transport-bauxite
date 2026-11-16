@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Puce, SansDonnees, type TeintePuce } from '../ui/Panneau';
-import { LIBELLES_STATUT_AFFECTATION, perimetreCompte, type AffectationSite } from './organisation';
+import { LIBELLES_STATUT_AFFECTATION, perimetreCompte, type AffectationSite, type PerimetreServeur } from './organisation';
 
 // Affectations multisites (D-064) : l'administrateur affecte un compte a
 // plusieurs sites, chacun pour une periode datee. site_permis applique le
-// perimetre cote serveur ; l'ecran ne fait qu'afficher et appeler les
-// fonctions affecter_site, cloturer_affectation_site, annuler_affectation_site.
+// perimetre cote serveur ; l'ecran ne fait qu'afficher le perimetre calcule
+// par perimetres_comptes et appeler les fonctions affecter_site,
+// cloturer_affectation_site, annuler_affectation_site et
+// retablir_perimetre_global.
 
 interface Compte { id: string; full_name: string; site_id: string | null; status: string }
 interface Site { id: string; name: string }
@@ -20,22 +22,26 @@ export const AffectationsSites = () => {
   const [sites, setSites] = useState<Site[]>([]);
   const [lignes, setLignes] = useState<Ligne[] | null>(null);
   const [f, setF] = useState({ utilisateur: '', site: '', debut: '', fin: '', motif: '' });
+  const [perimetres, setPerimetres] = useState<Map<string, PerimetreServeur>>(new Map());
   const [action, setAction] = useState<{ id: string; mode: 'cloture' | 'annulation'; date: string; motif: string } | null>(null);
+  const [retour, setRetour] = useState<{ utilisateur: string; motif: string } | null>(null);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   const charger = useCallback(async () => {
-    const [c, s, a] = await Promise.all([
+    const [c, s, a, p] = await Promise.all([
       supabase.from('profiles').select('id, full_name, site_id, status').order('full_name'),
       supabase.from('sites').select('id, name').order('name'),
       supabase.from('v_affectations_sites').select('*').order('debut', { ascending: false }),
+      supabase.rpc('perimetres_comptes'),
     ]);
-    const e = c.error ?? s.error ?? a.error;
+    const e = c.error ?? s.error ?? a.error ?? p.error;
     if (e) setErreur(e.message);
     setComptes((c.data as Compte[] | null) ?? []);
     setSites((s.data as Site[] | null) ?? []);
     setLignes((a.data as Ligne[] | null) ?? []);
+    setPerimetres(new Map(((p.data as PerimetreServeur[] | null) ?? []).map((x) => [x.utilisateur, x])));
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
@@ -71,10 +77,18 @@ export const AffectationsSites = () => {
     }
   };
 
+  const retablir = async () => {
+    if (!retour) return;
+    if (!retour.motif.trim()) { setErreur('Le motif du retour au périmètre global est obligatoire.'); return; }
+    if (await appeler('retablir_perimetre_global', { p_utilisateur: retour.utilisateur, p_motif: retour.motif }, 'Périmètre global rétabli.')) setRetour(null);
+  };
+
   const actifs = comptes.filter((c) => c.status === 'active');
   const libellePerimetre = (c: Compte) => {
-    const p = perimetreCompte(c.site_id, (lignes ?? []).filter((l) => l.utilisateur === c.id));
-    if (p.type === 'global') return 'Tous les sites (aucune affectation)';
+    const serveur = perimetres.get(c.id);
+    if (!serveur) return 'Sans donnée';
+    const p = perimetreCompte(serveur);
+    if (p.type === 'global') return 'Tous les sites';
     if (p.type === 'aucun') return 'Aucun site en vigueur';
     return p.sites.map((s) => nomSite.get(s) ?? s).join(', ');
   };
@@ -83,8 +97,8 @@ export const AffectationsSites = () => {
     <div className="space-y-6">
       <Panneau titre="Affecter un compte à un site">
         <p className="mb-4 text-sm text-stone-500">
-          Un compte sans site au profil ni affectation voit tous les sites. Dès qu'il a une affectation, il ne voit que le site de son profil et ses affectations en cours ;
-          une affectation expirée ne le rend pas global. Annuler une affectation (erreur de saisie) la retire comme si elle n'avait jamais existé.
+          Un compte sans site au profil ni affectation voit tous les sites. Dès qu'il a une affectation, il ne voit que le site de son profil et ses affectations en cours.
+          Ni l'expiration ni l'annulation de toutes ses affectations ne le rendent global : il n'a alors accès à aucun site, jusqu'à un retour explicite et motivé au périmètre global.
         </p>
         {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
         {message && <p role="status" className="mb-3 rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
@@ -117,13 +131,25 @@ export const AffectationsSites = () => {
       <Panneau titre="Périmètre des comptes actifs">
         {actifs.length === 0 ? <SansDonnees message="Aucun compte actif" /> : (
           <table className="w-full text-sm">
-            <thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Compte</th><th className="py-2 pr-3">Site du profil</th><th className="py-2">Sites permis aujourd'hui</th></tr></thead>
+            <thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Compte</th><th className="py-2 pr-3">Site du profil</th><th className="py-2 pr-3">Sites permis aujourd'hui</th><th className="py-2">Actions</th></tr></thead>
             <tbody>
               {actifs.map((c) => (
                 <tr key={c.id} className="border-b border-stone-100">
                   <td className="py-2 pr-3 font-medium">{c.full_name}</td>
                   <td className="py-2 pr-3">{c.site_id ? nomSite.get(c.site_id) ?? c.site_id : '-'}</td>
-                  <td className="py-2">{libellePerimetre(c)}</td>
+                  <td className="py-2 pr-3">{libellePerimetre(c)}</td>
+                  <td className="py-2">
+                    {perimetres.get(c.id)?.retour_possible && (retour?.utilisateur === c.id ? (
+                      <div className="flex flex-wrap items-end gap-2">
+                        <input aria-label="Motif du retour au périmètre global" placeholder="Motif" value={retour.motif}
+                          onChange={(e) => setRetour({ ...retour, motif: e.target.value })} className={CHAMP} />
+                        <button disabled={busy} onClick={retablir} className="rounded-lg bg-orange-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">Valider</button>
+                        <button onClick={() => setRetour(null)} className="rounded-lg border border-stone-300 px-3 py-2 text-xs">Retour</button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setRetour({ utilisateur: c.id, motif: '' })} className="rounded-lg border border-stone-300 px-3 py-1 text-xs">Rétablir le périmètre global</button>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </tbody>

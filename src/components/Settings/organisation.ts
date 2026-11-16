@@ -49,20 +49,28 @@ export type Perimetre =
   | { type: 'aucun' };
 
 /**
- * Perimetre d'un compte, meme regle que site_permis : global sans site au
- * profil ni affectation non annulee ; sinon site du profil plus affectations
- * en cours ; aucun site si toutes sont expirees ou a venir.
+ * Perimetre d'un compte calcule par le serveur (`perimetres_comptes`, meme
+ * regle que site_permis). Un compte affecte ne redevient jamais global de
+ * lui-meme (expiration ou annulation de toutes ses affectations) : seul un
+ * retour explicite de l'administrateur (`retablir_perimetre_global`) le rend
+ * global.
  */
-export const perimetreCompte = (
-  siteProfil: string | null,
-  affectations: Pick<AffectationSite, 'site_id' | 'statut'>[],
-): Perimetre => {
-  const valides = affectations.filter((a) => a.statut !== 'annulee');
-  if (!siteProfil && valides.length === 0) return { type: 'global' };
-  const sites = new Set<string>();
-  if (siteProfil) sites.add(siteProfil);
-  for (const a of valides) if (a.statut === 'en_cours') sites.add(a.site_id);
-  return sites.size === 0 ? { type: 'aucun' } : { type: 'sites', sites: [...sites] };
+export interface PerimetreServeur {
+  utilisateur: string;
+  nom: string | null;
+  statut: string;
+  site_profil: string | null;
+  global: boolean;
+  sites: string[] | null;
+  retour_possible: boolean;
+  dernier_retour: string | null;
+}
+
+/** Lecture du perimetre serveur pour l'affichage (aucune regle recalculee). */
+export const perimetreCompte = (p: Pick<PerimetreServeur, 'global' | 'sites'>): Perimetre => {
+  if (p.global) return { type: 'global' };
+  const sites = p.sites ?? [];
+  return sites.length === 0 ? { type: 'aucun' } : { type: 'sites', sites };
 };
 
 export const LIBELLES_STATUT_AFFECTATION: Record<AffectationSite['statut'], string> = {
