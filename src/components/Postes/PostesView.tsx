@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { CATEGORIES_EVENEMENT, LIBELLE_STATUT_POSTE, resumeBilan, type Bilan } from './postes';
+import { AucunShift } from '../ui/LienVue';
 
 // Postes de travail (D-048) : instance d'un shift pour une date et un site.
 // Ouverture (consignes recues de la passation), equipe et presence, journal
@@ -104,6 +105,7 @@ export const PostesView = () => {
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
     {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
 
+    {peutExploiter && shifts.length === 0 && postes !== null && <AucunShift contexte="un poste est l'instance d'un shift pour une date et un site" />}
     {peutExploiter && <Panneau titre="Ouvrir un poste">
       <div role="form" aria-label="Ouverture de poste" className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">Shift *<select value={c('shift')} onChange={(e) => poser('shift', e.target.value)} className={CHAMP}><option value="">Choisir</option>{shifts.map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}</select></label>

@@ -156,7 +156,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const canAccessModule = (moduleId: string): boolean => {
     if (profile?.role === 'admin') return true;
 
-    const modulePermissionMap: Record<string, string> = {
+    // Une entree peut citer plusieurs modules : l'ecran s'ouvre si l'un
+    // d'eux est lisible (miroir des politiques de lecture du serveur).
+    const modulePermissionMap: Record<string, string | string[]> = {
       'dashboard': 'dashboard',
       'mes-validations': 'dashboard',
       'centre-pilotage': 'dashboard',
@@ -194,6 +196,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'comites': 'contracts',
       'recouvrement': 'invoices',
       'factures-neemba': 'contracts',
+      // D-065 : evaluations du loueur (contracts) ; budgets lus par costs,
+      // invoices ou reports, plan comptable par contracts.
+      'evaluation-loueur': 'contracts',
+      'budgets': ['costs', 'invoices', 'reports', 'contracts'],
       'paiements': 'invoices',
       'reconciliation': 'invoices',
       'invoices': 'invoices',
@@ -218,12 +224,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'iot-dashboard': 'reports',
       'esg-tracking': 'reports',
       'settings': 'settings',
+      // D-078 : shifts lisibles par tout compte, ecrits sous le droit settings.
+      'shifts': ['settings', 'planning', 'trips'],
     };
 
     const permissionModule = modulePermissionMap[moduleId];
     if (!permissionModule) return false;
 
-    return hasPermission(permissionModule, 'view');
+    return (Array.isArray(permissionModule) ? permissionModule : [permissionModule])
+      .some((m) => hasPermission(m, 'view'));
   };
 
   const signIn = async (email: string, password: string) => {

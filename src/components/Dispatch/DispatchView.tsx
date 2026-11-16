@@ -11,6 +11,7 @@ import {
 } from './recommandation';
 import { FenetreDecision, type ModeDecision } from './FenetreDecision';
 import { SimulationScenarios } from './SimulationScenarios';
+import { AucunShift, AucunSite } from '../ui/LienVue';
 import { SANCTIONS_CONDUITE, SELECTION_SANCTIONS_CONDUITE, sanctionsConduiteParChauffeur, type SanctionConduite } from '../Drivers/infractions';
 
 // Dispatch v1 (etape 4 de la reprise, CDC 11, D-024). Le systeme recommande
@@ -85,6 +86,7 @@ export const DispatchView = () => {
   const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
   const [sanctions, setSanctions] = useState<Map<string, SanctionConduite[]>>(new Map());
   const [erreurSanctions, setErreurSanctions] = useState('');
+  const [referentielsCharges, setReferentielsCharges] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -94,6 +96,7 @@ export const DispatchView = () => {
       supabase.from('sanctions_infraction').select(SELECTION_SANCTIONS_CONDUITE)
         .eq('statut', 'active').in('sanction', SANCTIONS_CONDUITE).limit(1000),
     ]).then(([s, v, d, rS]) => {
+      if (s.error) setErreur('Shifts indisponibles : ' + s.error.message);
       const liste = (s.data ?? []) as Shift[];
       setShifts(liste);
       setShift((x) => x || shiftCourant(liste)?.id || '');
@@ -102,6 +105,7 @@ export const DispatchView = () => {
       // Avertissement seulement : une lecture impossible est signalee, jamais tue.
       setErreurSanctions(rS.error ? `Sanctions en vigueur indisponibles : ${rS.error.message}` : '');
       setSanctions(rS.error ? new Map() : sanctionsConduiteParChauffeur(rS.data ?? []));
+      setReferentielsCharges(true);
     });
   }, []);
 
@@ -111,7 +115,9 @@ export const DispatchView = () => {
   }, [siteId, sites, site]);
 
   const charger = useCallback(async () => {
-    if (!site || !shift) return;
+    // Sans site ou sans shift : liste vide, jamais d'identifiant vide envoye
+    // au serveur ni de chargement sans fin (D-078).
+    if (!site || !shift) { setVoyages([]); setDecisions([]); setObjectif(null); setCharge(null); return; }
     const [rV, rH, rO, rS] = await Promise.all([
       supabase.from('trips').select('id, reference, etat, departure_site_id, arrival_site_id, vehicle_id, driver_id, loader_vehicle_id')
         .eq('planned_date', date).eq('departure_site_id', site).eq('shift_id', shift).order('reference'),
@@ -244,6 +250,7 @@ export const DispatchView = () => {
   };
 
   const preparer = async () => {
+    if (!site || !shift || !destination) { setErreur('Choisissez le site, le shift et la destination avant de créer des voyages.'); return; }
     setEnCours(true);
     setErreur('');
     const { error } = await supabase.rpc('preparer_voyages', {
@@ -280,10 +287,12 @@ export const DispatchView = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Date" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
-          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site de chargement" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" disabled={Boolean(siteId)}>
+          <select value={site} onChange={(e) => setSite(e.target.value)} aria-label="Site de chargement" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" disabled={Boolean(siteId) || sites.length === 0}>
+            {sites.length === 0 && <option value="">Aucun site</option>}
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+          <select value={shift} onChange={(e) => setShift(e.target.value)} aria-label="Shift" disabled={shifts.length === 0} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm">
+            {shifts.length === 0 && <option value="">Aucun shift</option>}
             {shifts.map((s) => <option key={s.id} value={s.id}>Shift {s.display_name}</option>)}
           </select>
         </div>
@@ -304,10 +313,12 @@ export const DispatchView = () => {
         ))}
       </section>
 
-      {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
+      {sites.length === 0 && <AucunSite contexte="le dispatch prépare les voyages d'un site de chargement" />}
+      {referentielsCharges && shifts.length === 0 && <AucunShift contexte="le dispatch prépare les voyages d'un shift" />}
       {erreurSanctions && <p role="alert" className="rounded-lg bg-orange-50 p-3 text-sm text-orange-800">{erreurSanctions}</p>}
 
-      {peutEcrire && (
+      {peutEcrire && site && shift && (
         <Panneau titre="Préparer le shift">
           <p className="mb-3 text-sm text-stone-600">
             {objectif
@@ -475,7 +486,7 @@ export const DispatchView = () => {
       </Panneau>
       <Provenance source="voyages du shift, flotte et chauffeurs ; recommandation par règles fixes (camion le moins chargé, chauffeur habituel sur 14 jours, file de chargement la plus courte) ; décisions historisées" heure={heure} />
 
-      {site && <SimulationScenarios date={date} site={site} shift={shift} shifts={shifts} nomSite={nomSite} camionsDisponibles={camionsSite.length} />}
+      {site && shift && <SimulationScenarios date={date} site={site} shift={shift} shifts={shifts} nomSite={nomSite} camionsDisponibles={camionsSite.length} />}
 
       {ouverte && (
         <FenetreDecision

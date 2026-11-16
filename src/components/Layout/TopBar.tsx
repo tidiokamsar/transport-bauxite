@@ -135,7 +135,7 @@ export const TopBar = ({
               <span className="block text-sm text-stone-500">{hm(shift.start_time)} – {hm(shift.end_time)}</span>
             </span>
           ) : (
-            <span className="text-sm text-stone-500">Aucun shift défini</span>
+            <button type="button" onClick={() => onAllerA('shifts')} className="text-sm text-stone-500 underline underline-offset-2 hover:text-stone-800">Aucun shift défini</button>
           )}
         </span>
 

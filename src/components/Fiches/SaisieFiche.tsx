@@ -52,7 +52,7 @@ const SaisieRotations = ({ fiche, debutShift }: { fiche: Fiche; debutShift: stri
           <th className="py-1 pr-2">Voyage</th>
           {COLONNES_ROTATION.map((c) => <th key={c.cle} className="py-1 pr-1 font-medium">{c.libelle}</th>)}
           <th className="py-1 pr-1 font-medium">Pesée CBG au dépôt</th>
-          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (kg)</th><th className="py-1 pr-1 font-medium">Tare (kg)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
+          <th className="py-1 pr-1 font-medium">Ticket CBG</th><th className="py-1 pr-1 font-medium">Brut (t)</th><th className="py-1 pr-1 font-medium">Tare (t)</th><th className="py-1 pr-1 font-medium">Référence du document</th><th />
         </tr></thead>
         <tbody>
           {voyages.map((v) => {

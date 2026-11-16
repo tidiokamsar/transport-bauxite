@@ -28,6 +28,9 @@ const versLocal = (d: Date) => {
   return decale.toISOString().slice(0, 16);
 };
 
+/** Etats ou un ticket CBG absent se rattache avec motif (D-078). */
+const LIVRES_SANS_TICKET: Etat[] = ['WEIGHED_IN', 'DELIVERED', 'ACCEPTED', 'DISPUTED', 'CLOSED'];
+
 const heure = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -51,16 +54,25 @@ export const FicheVoyage = ({
   const [tare, setTare] = useState('');
   const [accepte, setAccepte] = useState('');
   const [motif, setMotif] = useState('');
+  const [ticket, setTicket] = useState('');
+  const [documentRef, setDocumentRef] = useState('');
   const [erreur, setErreur] = useState('');
   const [enCours, setEnCours] = useState(false);
+  // Ticket CBG du voyage (D-037) : undefined = lecture en cours ou impossible.
+  const [ticketCbg, setTicketCbg] = useState<{ ticket: string; net: number } | null | undefined>(undefined);
+  const [rattachement, setRattachement] = useState(false);
 
   const charger = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('trip_events')
-      .select('id, etat_avant, etat_apres, survenu_le, enregistre_le, origine, note, donnees')
-      .eq('trip_id', voyage.id)
-      .order('survenu_le', { ascending: true });
+    const [{ data, error }, rT] = await Promise.all([
+      supabase
+        .from('trip_events')
+        .select('id, etat_avant, etat_apres, survenu_le, enregistre_le, origine, note, donnees')
+        .eq('trip_id', voyage.id)
+        .order('survenu_le', { ascending: true }),
+      supabase.from('v_tickets_pesee_cbg_effectifs').select('ticket, net').eq('trip_id', voyage.id).maybeSingle(),
+    ]);
     setEvenements(error ? [] : (data as Evenement[]));
+    setTicketCbg(rT.error ? undefined : rT.data ? { ticket: rT.data.ticket as string, net: Number(rT.data.net) } : null);
   }, [voyage.id]);
 
   useEffect(() => {
@@ -79,11 +91,43 @@ export const FicheVoyage = ({
     setTare('');
     setAccepte('');
     setMotif('');
+    setTicket('');
+    setDocumentRef('');
     setErreur('');
+    setRattachement(false);
+  };
+
+  // Pesee a l'arrivee = ticket CBG (D-037, D-078) : saisie du ticket dans le
+  // meme geste, ou rattachement motive a un voyage livre sans ticket.
+  const enregistrerTicket = async (tardif: boolean) => {
+    setEnCours(true);
+    setErreur('');
+    const { error } = await supabase.rpc('rattacher_ticket_cbg', {
+      p_trip_id: voyage.id,
+      p_ticket: ticket.trim(),
+      p_brut: Number(brut.replace(',', '.')),
+      p_tare: Number(tare.replace(',', '.')),
+      p_mesure_le: new Date(quand).toISOString(),
+      p_document_ref: documentRef.trim() || null,
+      p_motif: motif.trim() || null,
+    });
+    setEnCours(false);
+    if (error) {
+      setErreur(error.message);
+      return;
+    }
+    if (tardif) setRattachement(false);
+    else setAction(null);
+    await charger();
+    onModifie();
   };
 
   const valider = async () => {
     if (!action) return;
+    if (action === 'WEIGHED_IN') {
+      await enregistrerTicket(false);
+      return;
+    }
     setEnCours(true);
     setErreur('');
     const donnees: Record<string, number> = {};
@@ -190,6 +234,23 @@ export const FicheVoyage = ({
                     </label>
                   </div>
                 )}
+                {action === 'WEIGHED_IN' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-stone-700">Numéro du ticket CBG *</span>
+                      <input value={ticket} onChange={(e) => setTicket(e.target.value)} className={champ} required />
+                    </label>
+                    <label className="block text-sm">
+                      <span className="mb-1 block font-medium text-stone-700">Référence du document</span>
+                      <input value={documentRef} onChange={(e) => setDocumentRef(e.target.value)} className={champ} />
+                    </label>
+                  </div>
+                )}
+                {action === 'DELIVERED' && etat === 'UNLOADING' && (
+                  <p role="note" className="rounded-lg bg-amber-50 p-2 text-sm text-amber-800">
+                    Livraison sans pesée CBG : le voyage ne sera pas facturable tant que le ticket CBG n&apos;est pas rattaché.
+                  </p>
+                )}
                 {action === 'ACCEPTED' && (
                   <label className="block text-sm">
                     <span className="mb-1 block font-medium text-stone-700">Tonnage accepté (t)</span>
@@ -213,10 +274,47 @@ export const FicheVoyage = ({
                   <button onClick={() => setAction(null)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
                   <button
                     onClick={valider}
-                    disabled={enCours}
+                    disabled={enCours || (action === 'WEIGHED_IN' && !ticket.trim())}
                     className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                   >
                     {enCours ? 'Enregistrement...' : `Enregistrer : ${ETATS[action].libelle}`}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {ticketCbg && (
+          <p className="border-b border-stone-200 px-6 py-3 text-sm text-stone-700">
+            Ticket CBG <b>{ticketCbg.ticket}</b> · net {formatNombre(ticketCbg.net, 2)} t
+          </p>
+        )}
+        {ticketCbg === null && LIVRES_SANS_TICKET.includes(etat) && (
+          <section className="border-b border-stone-200 px-6 py-4" aria-label="Ticket CBG absent">
+            <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+              Aucun ticket CBG rattaché : ce voyage n&apos;est pas facturable tant que le ticket n&apos;est pas saisi.
+            </p>
+            {peutEcrire && !rattachement && (
+              <button onClick={() => { choisir(etat); setAction(null); setRattachement(true); }} className="mt-3 rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-800 hover:bg-orange-100">
+                Rattacher le ticket CBG
+              </button>
+            )}
+            {peutEcrire && rattachement && (
+              <div className="mt-3 space-y-3 rounded-xl bg-stone-50 p-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Numéro du ticket CBG *</span><input value={ticket} onChange={(e) => setTicket(e.target.value)} className={champ} /></label>
+                  <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Heure de la pesée CBG *</span><input type="datetime-local" value={quand} onChange={(e) => setQuand(e.target.value)} className={champ} /></label>
+                  <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Poids brut (t) *</span><input inputMode="decimal" value={brut} onChange={(e) => setBrut(e.target.value)} className={champ} /></label>
+                  <label className="block text-sm"><span className="mb-1 block font-medium text-stone-700">Tare (t) *</span><input inputMode="decimal" value={tare} onChange={(e) => setTare(e.target.value)} className={champ} /></label>
+                  <label className="col-span-2 block text-sm"><span className="mb-1 block font-medium text-stone-700">Référence du document</span><input value={documentRef} onChange={(e) => setDocumentRef(e.target.value)} className={champ} /></label>
+                  <label className="col-span-2 block text-sm"><span className="mb-1 block font-medium text-stone-700">Motif du rattachement tardif *</span><textarea value={motif} onChange={(e) => setMotif(e.target.value)} rows={2} className={champ} /></label>
+                </div>
+                {erreur && <p role="alert" className="rounded-lg bg-red-50 p-2 text-sm text-red-700">{erreur}</p>}
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setRattachement(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Annuler</button>
+                  <button onClick={() => enregistrerTicket(true)} disabled={enCours || !ticket.trim() || !brut.trim() || !tare.trim() || !motif.trim()} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-60">
+                    {enCours ? 'Enregistrement...' : 'Rattacher le ticket'}
                   </button>
                 </div>
               </div>

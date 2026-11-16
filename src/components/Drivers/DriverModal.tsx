@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { X, Save, Archive } from 'lucide-react';
 import { InfractionsChauffeur } from './InfractionsChauffeur';
+import { useAuth } from '../../contexts/AuthContext';
+import { useSite } from '../../contexts/SiteContext';
+import { corpsChauffeur, type SaisieChauffeur } from './chauffeur';
 
 interface Driver {
   id: string;
@@ -22,6 +25,7 @@ interface Driver {
   base_salary: number;
   status: 'active' | 'suspended' | 'terminated';
   notes: string | null;
+  site_id?: string | null;
 }
 
 interface DriverModalProps {
@@ -31,8 +35,13 @@ interface DriverModalProps {
 
 export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
   const isEditing = !!driver;
+  const { profile } = useAuth();
+  const { sites } = useSite();
+  // Profil borne : le chauffeur est cree sur son site (RLS D-038) ; seul un
+  // profil global peut creer un chauffeur global (D-078).
+  const siteProfil = profile?.site_id ?? null;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SaisieChauffeur>({
     name: driver?.name || '',
     employee_id: driver?.employee_id || '',
     phone: driver?.phone || '',
@@ -47,9 +56,10 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
     emergency_contact_name: driver?.emergency_contact_name || '',
     emergency_contact_phone: driver?.emergency_contact_phone || '',
     contract_type: driver?.contract_type || 'permanent',
-    base_salary: driver?.base_salary || 0,
+    base_salary: driver?.base_salary ?? '',
     status: driver?.status || 'active',
     notes: driver?.notes || '',
+    site_id: driver?.site_id ?? siteProfil ?? '',
   });
 
   const [loading, setLoading] = useState(false);
@@ -58,27 +68,24 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    // Dates et champs facultatifs vides -> null (D-078) : une chaine vide
+    // dans une colonne date faisait refuser toute creation.
+    const { corps, erreur } = corpsChauffeur(formData, siteProfil);
+    if (!corps) { setError(erreur ?? 'Saisie incomplète'); return; }
     setLoading(true);
 
     try {
       if (isEditing) {
         const { error: updateError } = await supabase
           .from('drivers')
-          .update({
-            ...formData,
-            base_salary: Number(formData.base_salary),
-            updated_at: new Date().toISOString(),
-          })
+          .update({ ...corps, updated_at: new Date().toISOString() })
           .eq('id', driver.id);
 
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
           .from('drivers')
-          .insert([{
-            ...formData,
-            base_salary: Number(formData.base_salary),
-          }]);
+          .insert([corps]);
 
         if (insertError) throw insertError;
       }
@@ -343,13 +350,12 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Salaire de base (GNF) *
+                  Salaire de base (GNF)
                 </label>
                 <input
                   type="number"
-                  required
                   value={formData.base_salary}
-                  onChange={(e) => setFormData({ ...formData, base_salary: Number(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
                   className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
                   min="0"
                   step="1000"
@@ -370,6 +376,23 @@ export const DriverModal = ({ driver, onClose }: DriverModalProps) => {
                   <option value="suspended">Suspendu</option>
                   <option value="terminated">Archivé</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2" htmlFor="chauffeur-site">
+                  Site d'affectation
+                </label>
+                <select
+                  id="chauffeur-site"
+                  value={siteProfil ?? formData.site_id}
+                  onChange={(e) => setFormData({ ...formData, site_id: e.target.value })}
+                  disabled={Boolean(siteProfil)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                >
+                  {!siteProfil && <option value="">Aucun (chauffeur global, tous sites)</option>}
+                  {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                {siteProfil && <p className="mt-1 text-xs text-slate-500">Votre profil est rattaché à ce site : le chauffeur y est enregistré.</p>}
               </div>
 
               <div className="md:col-span-2">

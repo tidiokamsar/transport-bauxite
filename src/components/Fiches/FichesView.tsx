@@ -7,6 +7,7 @@ import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { STATUTS_FICHE, TYPES_FICHE, type Fiche, type TypeFiche } from './fiches';
 import { FicheImprimable, type ContexteImpression } from './FicheImprimable';
 import { SaisieFiche } from './SaisieFiche';
+import { AucunShift } from '../ui/LienVue';
 
 // Fiches terrain (phase 2 du poste charge de contrats, D-028) : preparer
 // les fiches du shift depuis le dispatch et la flotte, les imprimer, suivre
@@ -179,6 +180,8 @@ export const FichesView = () => {
           Aucun site enregistré : créez d'abord le site d'exploitation (Exploitation → Sites), puis les shifts et la flotte, pour préparer des fiches.
         </p>
       )}
+
+      {sites.length > 0 && shifts.length === 0 && <AucunShift contexte="les fiches se préparent par shift" />}
 
       {peutEcrire && site && (
         <Panneau titre="Préparer les fiches du shift">

@@ -7,7 +7,7 @@ import { exportToCSV, exportToPDF } from '../../lib/exports';
 interface Driver {
   id: string;
   name: string;
-  employee_id: string;
+  employee_id: string | null;
   phone: string | null;
   email: string | null;
   hire_date: string;
@@ -20,7 +20,7 @@ interface Driver {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   contract_type: string;
-  base_salary: number;
+  base_salary: number | null;
   status: 'active' | 'suspended' | 'terminated';
   notes: string | null;
   total_tonnage: number;
@@ -31,6 +31,7 @@ interface Driver {
 export const DriversView = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,9 +50,12 @@ export const DriversView = () => {
         .order('name');
 
       if (error) throw error;
+      setErreur('');
       setDrivers(data || []);
     } catch (error) {
-      console.error('Error fetching drivers:', error);
+      // Etat d'erreur visible (D-078), pas seulement en console.
+      setErreur(`Chauffeurs indisponibles : ${error instanceof Error ? error.message : (error as { message?: string })?.message ?? 'erreur inconnue'}`);
+      setDrivers([]);
     } finally {
       setLoading(false);
     }
@@ -143,7 +147,7 @@ export const DriversView = () => {
   const filteredDrivers = drivers.filter((driver) => {
     const matchesSearch =
       driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      driver.employee_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (driver.employee_id ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       driver.license_number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || driver.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -196,6 +200,8 @@ export const DriversView = () => {
           </button>
         </div>
       </div>
+
+      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
@@ -343,7 +349,7 @@ export const DriversView = () => {
                       <div className="space-y-1">
                         <div className="text-sm text-slate-900 capitalize">{driver.contract_type}</div>
                         <div className="text-sm text-slate-600">
-                          {driver.base_salary.toLocaleString('fr-FR')} GNF
+                          {driver.base_salary === null ? '—' : `${driver.base_salary.toLocaleString('fr-FR')} GNF`}
                         </div>
                         <div className="text-xs text-slate-500">
                           Depuis: {new Date(driver.hire_date).toLocaleDateString('fr-FR')}
