@@ -1,10 +1,14 @@
 # Guide de l'administrateur
 
 Public : administrateur fonctionnel de SIGTB (rôle `admin`). Sources :
-D-010, D-012, D-021, D-036, D-038 à D-040, D-045, D-046 ; migrations
+D-010, D-012, D-021, D-036, D-038 à D-040, D-045, D-046, D-064 ; migrations
 `20261108100000`, `20261110090000`, `20261112060000`, `20261114100000`,
-`20261114130000`, `20261115210000` ; écrans `src/components/Settings`,
-`src/components/Auth/SecuriteCompte.tsx`.
+`20261114130000`, `20261115210000`, `20261121140000` ; écrans
+`src/components/Settings`, `src/components/Auth/SecuriteCompte.tsx`.
+
+D-064 (affectations multisites, délégations, journal de connexion,
+référentiels) est **à tester** : en branche, ni fusionnée ni déployée à la
+date de cette révision. Les sections qui la décrivent le signalent.
 
 ## 1. Premier administrateur
 
@@ -25,6 +29,23 @@ tous les comptes se créent depuis l'application.
 | Statut | Actif, Inactif, Suspendu. Un compte qui n'est pas actif perd tous ses droits côté serveur, même si son rôle en donne. |
 | Site d'affectation | « Tous les sites (compte global) » ou un site précis (voir section 5). |
 | Droits d'accès aux modules | Visible à la modification d'un compte existant (voir section 4). |
+
+### Journal de connexion et sessions (D-064, à tester)
+
+Onglet **Paramètres > Journal de connexion**, réservé à l'administrateur :
+
+- les événements écrits par le service d'authentification (connexion,
+  déconnexion, renouvellement de session, changement de mot de passe,
+  facteurs MFA), avec date, compte, méthode et adresse IP si elle est
+  enregistrée. Rien n'est reconstitué : seules les lignes écrites par le
+  service apparaissent ;
+- les **tentatives de connexion échouées n'y figurent pas** : le service
+  d'authentification ne les journalise pas ;
+- la liste des sessions ouvertes (début, dernier renouvellement,
+  expiration, niveau aal1 ou aal2, navigateur), sans jeton ni clé.
+
+L'ancienne table `user_activity_logs` n'est pas un journal de connexion et
+n'est pas utilisée.
 
 Rôles proposés à la création (enum `user_role`) :
 
@@ -144,6 +165,47 @@ Fonctionnement :
 - Si la double authentification est exigée (section 6), modifier les
   droits demande une session confirmée par code.
 
+### Délégations temporaires (D-064, à tester)
+
+Un utilisateur délègue, pour une période datée et avec un motif, son droit
+d'**écriture** sur un module à un autre compte (la lecture l'accompagne si le
+délégant lit le module). **L'approbation ne se délègue pas** : une
+approbation déléguée contournait la séparation des tâches (revue du
+2026-11-16) ; décision du propriétaire attendue. Écran
+**Sécurité du compte > Mes délégations**, ou **Paramètres > Délégations**
+pour l'administrateur (qui voit et révoque toutes les délégations).
+
+Règles appliquées par le serveur (`deleguer_droit`, `has_module_*`) :
+
+- on ne délègue que ce que l'on détient en propre : un droit reçu par
+  délégation ne se redélègue pas ;
+- pas de délégation à soi-même, ni du module Paramètres (`settings`) ; le
+  rôle administrateur ne se délègue jamais ;
+- le périmètre de sites du délégué doit être compris dans celui du
+  délégant (un délégant affecté à un site ne délègue qu'à des comptes de
+  ses sites ; la liste proposée ne montre que ceux-là, et reste vide pour
+  qui ne détient aucun droit d'écriture délégable) ;
+- la délégation ne vaut que pendant sa période (début inclus, fin exclue) ;
+  un début dans le passé est ramené à l'instant présent ;
+  elle cesse d'agir dès que le délégant perd le droit, que le délégué
+  devient inactif, qu'une attribution « Lecture » ou « Aucun » (section 4)
+  vise le délégué, ou que le périmètre du délégué dépasse celui du
+  délégant : son statut devient « Sans effet » ;
+- elle donne la lecture du module seulement si le délégant la détient ;
+- le délégué agit en son nom : il reste l'auteur de ses actes et la
+  séparation des tâches s'applique à lui (un délégué n'approuve pas son
+  propre bon) ; il ne valide pas non plus ce que son délégant a saisi ou
+  clos sur le module délégué (poste, clôture de planification, distance,
+  carburant, remise en service, rectification de ticket), sauf s'il détient
+  ce droit en propre ; à l'inverse, le délégant ne valide pas (ni ne signe)
+  ce que son délégué a fait sous délégation, même après la fin de celle-ci ;
+- révocation par le délégant ou l'administrateur, motif obligatoire, tant
+  que la délégation n'est pas expirée ; création et révocation sont
+  journalisées (`journal_delegations`).
+
+Aucune durée maximale n'est imposée : à fixer par le propriétaire si
+nécessaire.
+
 ## 5. Périmètre site (D-038, D-039, D-046)
 
 Chaque compte a un site d'affectation ou aucun :
@@ -177,6 +239,39 @@ Hors périmètre site : RH (les employés n'ont pas de site) (D-046).
 Le sélecteur de site du menu latéral est un **filtre d'affichage** mémorisé
 par le navigateur, pas une barrière de sécurité. La barrière est le site du
 profil, fixé par l'administrateur.
+
+### Affectations multisites datées (D-064, à tester)
+
+Onglet **Paramètres > Affectations multisites**, administrateur seulement.
+Un compte peut être affecté à plusieurs sites, chacun pour une période
+(début, fin incluse, fin facultative). Le site du profil (ci-dessus) reste
+valable et s'ajoute aux affectations.
+
+| Situation du compte | Sites permis aujourd'hui |
+|---|---|
+| Aucun site au profil, jamais affecté | Tous (compte global), comme avant. |
+| Site au profil et/ou affectations | Site du profil et affectations en cours à la date du jour (fin incluse). Une affectation à venir ne donne rien avant son premier jour. |
+| Toutes les affectations expirées ou **annulées**, sans site au profil | **Aucun site.** Le compte ne redevient jamais global de lui-même. |
+
+Actions :
+
+- **Affecter** : compte, site, début, fin facultative, motif. Deux
+  affectations au même site ne se chevauchent pas.
+- **Clore** : fixe la fin (au plus tôt le début).
+- **Annuler** (erreur de saisie) : motif obligatoire ; l'affectation ne
+  donne plus aucun site.
+- **Rétablir le périmètre global** : décision explicite, motif
+  obligatoire, consignée (`retours_perimetre_global`). Refusée pour un
+  compte inactif, et tant que le
+  profil porte un site ou qu'une affectation est en cours ou à venir (la
+  clore ou l'annuler d'abord). Une affectation antérieure au retour ne
+  compte plus et ne se prolonge plus ; une nouvelle affectation borne de
+  nouveau le compte.
+
+Le tableau « Périmètre des comptes actifs » affiche le périmètre calculé
+par le serveur. Toute écriture est journalisée
+(`journal_affectations_sites`) ; aucune ne se supprime. Si la double
+authentification est exigée, ces écritures demandent une session aal2.
 
 ## 6. Double authentification (D-040, D-045)
 
@@ -214,6 +309,8 @@ Exigence pour les opérations sensibles (réglage `mfa_exige`) :
 | Distances de référence site à site | Kilométrage | Droit d'écriture `contracts` ou administrateur ; une distance se désactive. |
 | Cuves et citernes | Carburant > Stocks et cuves | Droit d'écriture `fuel`, dans le périmètre du site. |
 | Seuils des pneus | Pneus | Administrateur (table `settings`). |
+| Devises et unités de mesure (D-064, à tester) | Paramètres > Référentiels et numérotation | Administrateur seulement (`enregistrer_devise`, code ISO à trois lettres ; `enregistrer_unite`). Reprise des codes déjà saisis, sans libellé inventé : les libellés sont à saisir. Les codes saisis hors référentiel sont signalés, pas bloqués. |
+| Numérotations (D-064, à tester) | Paramètres > Référentiels et numérotation | Lecture seule : format, compteur et dernier numéro de chaque numérotation existante. Aucun format n'est paramétrable. |
 
 ## 8. Réglages lus par le serveur (table `settings`)
 
@@ -282,4 +379,8 @@ réelle (voir le guide de déploiement).
   création et de modification utilise les libellés réels.
 - La correspondance des droits du module `planning` est un choix d'équipe
   « à confirmer » par le propriétaire (D-023).
-- Pas de délégation ni d'escalade des validations (D-056).
+- Pas d'escalade des validations (D-056). Les délégations temporaires
+  (D-064, à tester) n'ont pas de durée maximale et la vue
+  `v_droits_modules` (Paramètres > Utilisateurs) ne les montre pas : les
+  délégations reçues se lisent dans l'onglet Délégations.
+- Journal de connexion (D-064) : pas de tentatives échouées.
