@@ -100,7 +100,7 @@ correspondant (`src/contexts/AuthContext.tsx`). Un administrateur voit tout.
 | dashboard | Tableau de bord, Mes validations |
 | vehicles | Véhicules et engins, Pneus, Documents |
 | drivers | Chauffeurs, Habilitations chauffeurs |
-| trips | Voyages & Rotations, Dispatch, Postes de travail, Fiches terrain, Kilométrage, Tickets CBG, Infrastructures et fermetures, Contrôles avant départ |
+| trips | Voyages & Rotations, Dispatch, Postes de travail, Fiches terrain, Kilométrage, Tickets CBG, Infrastructures et fermetures, Contrôles avant départ, Prévention HSE |
 | planning | Planification |
 | gps_tracking | Suivi GPS, Intelligence flotte, Historique des trajets, Géorepérage |
 | fuel | Pleins et cuves, Livraisons et factures CBG, Stocks et cuves, Analyse carburant, Anomalies, Jauges connectées |
@@ -111,7 +111,7 @@ correspondant (`src/contexts/AuthContext.tsx`). Un administrateur voit tout.
 | invoices | Réconciliation mensuelle, Facturation, Recouvrement, Paiements fournisseurs |
 | costs | Coûts |
 | hr | Employés, Présences, Paie |
-| reports | Rapports, Coût direct par tonne, Santé de la flotte, Fiabilité des engins, Performance chauffeurs, Capteurs IoT, Environnement, Incidents, Alertes |
+| reports | Rapports, Coût direct par tonne, Santé de la flotte, Fiabilité des engins, Performance chauffeurs, Capteurs IoT, Environnement, Incidents, Centre des décisions |
 | settings | Sites, Paramètres |
 
 Le masquage du menu est un confort : la barrière réelle est côté serveur
@@ -234,6 +234,8 @@ migrations 2026) :
 | `tolerance_poids_cbg_t` | Tolérance, en tonnes, du rapprochement des relevés CBG | 0 (tout écart est signalé) | Aucun écran |
 | `pneu_profondeur_min_mm` | Profondeur sous laquelle un pneu est « à surveiller » | Pas d'alerte | Pneus |
 | `pneu_inspection_max_jours` | Délai au-delà duquel un pneu non inspecté est « à surveiller » | Pas d'alerte | Pneus |
+| `alerte_immobilisation_longue_h`, `alerte_ecart_carburant_l`, `alerte_voyage_sans_ticket_h` | Seuils (heures, litres, heures) des règles d'alerte à seuil du centre des décisions (D-068) | **Règle inactive** : aucune alerte | Paramètres, réglages lus par le serveur |
+| `alerte_intervention_retard_active`, `alerte_controle_non_conforme_active`, `alerte_document_expire_active`, `alerte_action_corrective_retard_active`, `alerte_epi_echu_active`, `alerte_inspection_retard_active` | `false` met hors service la règle d'alerte correspondante (D-068) | **Active** (dérogation consignée dans D-068) | Paramètres, réglages lus par le serveur |
 
 Les autres champs de l'écran Paramètres (onglets Général, Véhicules,
 Maintenance, Carburant, Pneus, GPS & Suivi, Facturation, Alertes, Sécurité,
