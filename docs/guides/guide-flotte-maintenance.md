@@ -1,9 +1,9 @@
 # Guide flotte, maintenance et HSE
 
 Public : responsable de flotte, chef de maintenance, responsable HSE.
-Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054 ; migrations
+Sources : D-022, D-025, D-042, D-049, D-051, D-052, D-054, D-066 ; migrations
 `20261110210000`, `20261116120000`, `20261116180000`, `20261116210000`,
-`20261117120000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
+`20261117120000`, `20261121100000` ; écrans `Vehicles`, `Drivers`, `Maintenance`, `Pneus`,
 `Hse`, `Incidents`.
 
 Rappel du contrat de location (D-022, D-027) : les engins (semi-remorques,
@@ -150,6 +150,34 @@ dépassée ; elles apparaissent aussi dans **Mes validations**.
   Sans type exigé, aucune contrainte.
 - `v_habilitations_a_renouveler` : habilitations expirées ou expirant sous
   30 jours, sauf si elles sont renouvelées.
+
+## 8. Infractions des chauffeurs (D-066)
+
+Fiche d'un chauffeur (**Chauffeurs**, modification), section **Infractions
+du chauffeur**.
+
+- **Enregistrer une infraction** (`enregistrer_infraction`) : modules
+  `drivers` ou `trips` en écriture, chauffeur ou voyage du périmètre. Type,
+  source, date et heure (pas dans le futur) et constat obligatoires ; lieu,
+  voyage concerné (un voyage du même chauffeur ; l'engin en est repris) et
+  référence de la source facultatifs. Numéro `INF-AAAA-NNNNN` attribué par
+  le serveur.
+- **Décider de la sanction** (`decider_sanction`) : droit d'approbation sur
+  `drivers` ou administrateur. Une seule décision en vigueur par
+  infraction, motif obligatoire ; « autre » demande une précision. Une
+  décision se corrige par **Annuler la décision** (motif), puis une
+  nouvelle décision : l'historique est conservé.
+- **Annuler l'infraction** (`annuler_infraction`) : motif obligatoire ; si
+  une sanction est en vigueur, réservé à une personne habilitée à
+  sanctionner, et la sanction est annulée avec elle. Rien n'est supprimé.
+- Une sanction (même un retrait de conduite) ne bloque pas le dispatch :
+  un retrait de conduite ou une mise à pied en vigueur s'affiche en
+  avertissement dans la recommandation ; la personne qui affecte décide.
+- Une infraction reste visible et traitable par le site où elle a été
+  saisie, même après mutation du chauffeur.
+- Pas de séparation entre la personne qui déclare et celle qui décide :
+  elles peuvent être la même personne (dérogation à confirmer par le
+  propriétaire, D-066).
 
 ## Limites connues
 
