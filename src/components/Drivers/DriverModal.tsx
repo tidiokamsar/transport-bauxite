@@ -9,7 +9,7 @@ import { corpsChauffeur, type SaisieChauffeur } from './chauffeur';
 interface Driver {
   id: string;
   name: string;
-  employee_id: string;
+  employee_id: string | null;
   phone: string | null;
   email: string | null;
   hire_date: string;
@@ -22,7 +22,7 @@ interface Driver {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   contract_type: string;
-  base_salary: number;
+  base_salary: number | null;
   status: 'active' | 'suspended' | 'terminated';
   notes: string | null;
   site_id?: string | null;
