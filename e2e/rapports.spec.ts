@@ -127,14 +127,15 @@ test.describe('Coûts directs', () => {
     const f = page.getByRole('form', { name: 'Nouvelle dépense' });
     await f.getByLabel('Date *').fill('2026-11-05');
     await f.getByLabel('Description *').fill('Réparation pompe');
-    await f.getByLabel('Montant *').fill('250000');
+    await f.getByLabel('Montant TTC *').fill('250000');
     await f.getByLabel('Site').selectOption(SITE_MINE);
     await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
     await f.getByLabel('Devise *').selectOption('GNF');
     await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'enregistrer_cout', corps: {
-      p_date: '2026-11-05', p_description: 'Réparation pompe', p_montant: 250000, p_devise: 'GNF', p_site: SITE_MINE, p_categorie: null, p_vehicule: null } });
+      p_date: '2026-11-05', p_description: 'Réparation pompe', p_montant: 250000, p_devise: 'GNF', p_site: SITE_MINE, p_categorie: null, p_vehicule: null,
+      p_piece_source: null, p_piece_id: null } });
 
     await page.getByRole('button', { name: 'Annuler CST-2026-00001' }).click();
     await expect.poll(() => appels.length).toBe(2);

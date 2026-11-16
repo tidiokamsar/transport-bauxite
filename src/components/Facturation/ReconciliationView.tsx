@@ -37,6 +37,10 @@ const date = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('fr
 export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => void }) => {
   const { hasPermission } = useAuth();
   const peutEcrire = hasPermission('invoices', 'create') || hasPermission('invoices', 'edit');
+  // D-082 : un ticket CBG rectifie n'est declare facturable que par un
+  // approbateur de la facturation distinct de l'auteur de la rectification
+  // (le serveur verifie la separation et les delegations).
+  const peutApprouver = hasPermission('invoices', 'approve');
   const [contrats, setContrats] = useState<Contrat[]>([]);
   const [aucunContrat, setAucunContrat] = useState(false);
   const [sites, setSites] = useState<{ id: string; name: string }[]>([]);
@@ -270,7 +274,11 @@ export const ReconciliationView = ({ onFactureCreee }: { onFactureCreee?: () => 
                             <td className="py-2 pr-2"><Puce teinte={STATUTS_LIGNE[s].teinte}>{STATUTS_LIGNE[s].libelle}</Puce>{l.motif_decision && <p className="mt-1 text-xs text-stone-500">{l.motif_decision}</p>}</td>
                             {peutEcrire && rec.statut === 'ouverte' && (
                               <td className="whitespace-nowrap py-2 text-xs">
-                                <button onClick={() => decider(l, 'facturable')} className="mr-1 rounded bg-green-50 px-2 py-1 font-semibold text-green-700" aria-label={`Facturer ${l.reference}`}>Facturer</button>
+                                {l.anomalies.includes('ticket_rectifie')
+                                  ? (peutApprouver
+                                    ? <button onClick={() => decider(l, 'facturable')} className="mr-1 rounded bg-green-50 px-2 py-1 font-semibold text-green-700" aria-label={`Approuver la facturation ${l.reference}`} title="Ticket rectifié : décision motivée d'un approbateur distinct de l'auteur de la rectification">Approuver la facturation</button>
+                                    : <span className="mr-1 inline-block text-stone-500" title="Ticket rectifié : décision motivée d'un approbateur de la facturation, distinct de l'auteur de la rectification">Facturation : approbateur</span>)
+                                  : <button onClick={() => decider(l, 'facturable')} className="mr-1 rounded bg-green-50 px-2 py-1 font-semibold text-green-700" aria-label={`Facturer ${l.reference}`}>Facturer</button>}
                                 <button onClick={() => decider(l, 'exclue')} className="mr-1 rounded bg-stone-100 px-2 py-1 font-semibold text-stone-700" aria-label={`Exclure ${l.reference}`}>Exclure</button>
                                 {l.ticket && <button onClick={() => ouvrirRectification(l)} className="mr-1 rounded bg-amber-50 px-2 py-1 font-semibold text-amber-800" aria-label={`Rectifier ticket CBG ${l.reference}`}><Pencil className="mr-1 inline h-3 w-3" />Ticket</button>}
                                 {l.decision && <button onClick={() => decider(l, null)} className="rounded px-2 py-1 text-stone-500 hover:bg-stone-100">Annuler la décision</button>}

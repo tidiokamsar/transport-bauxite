@@ -86,7 +86,7 @@ SELECT is((SELECT (ticket, net, est_rectifie)::text FROM public.v_tickets_pesee_
 SELECT ok((SELECT public.actualiser_reconciliation((SELECT id FROM r)) = 4), 'reconciliation ouverte actualisable apres correction');
 SELECT ok((SELECT anomalies @> ARRAY['ticket_rectifie'] AND ticket = 'TICKET-RECT' AND ticket_document_ref = 'scan-rectif.pdf' FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), 'correction apparait comme anomalie a examiner');
 SELECT throws_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), 'facturable', 'Correction acceptee')$$,
-  '22023', NULL, 'ticket rectifie ne peut pas etre valide sans reexamen');
+  '42501', NULL, 'ticket rectifie : l''auteur de la rectification ne le declare pas facturable (D-082)');
 SELECT throws_ok($$UPDATE public.tickets_pesee_cbg SET ticket = 'MUTATION' WHERE trip_id = '00000000-0000-4000-8f00-000000000101'$$, '42501', NULL, 'preuve source ne peut pas etre modifiee directement');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-8f00-000000000001');
@@ -100,7 +100,7 @@ SELECT lives_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM pub
 SELECT lives_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-2'), 'facturable',
   'Ecart explique : poids de reception confirme avec le ticket source')$$, 'ligne hors tolerance declaree facturable apres verification humaine');
 SELECT throws_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-1'), 'facturable',
-  'Ticket corrige : validation sans reexamen')$$, '22023', NULL, 'un ticket corrige ne peut pas etre declare facturable');
+  'Ticket corrige : validation sans reexamen')$$, '42501', NULL, 'un ticket corrige n''est declare facturable que par un approbateur distinct (D-082)');
 SELECT throws_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-3'), 'facturable', 'x')$$,
   '22023', NULL, 'sans tonnage de base : pas facturable');
 SELECT lives_ok($$SELECT public.decider_ligne_reconciliation((SELECT id FROM public.reconciliation_lignes WHERE reference = 'TREC-3'), 'exclue', 'Litige en cours avec CBG')$$, 'litige exclu');

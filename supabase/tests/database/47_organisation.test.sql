@@ -665,7 +665,7 @@ SELECT throws_ok($$INSERT INTO public.delegations_droits (delegant, delegue, mod
   VALUES ('00000000-0000-4000-b640-000000000005', '00000000-0000-4000-b640-000000000005', 'trips', 'ecriture',
           now(), now() + interval '1 day', 'x')$$, '23514', NULL, 'contrainte : pas de delegation a soi-meme, meme hors fonction');
 
--- C1 : l'approbation ne se delegue pas (separation des taches, sonde A0 a A4).
+-- C1 leve par D-082 : l'approbation se delegue, la separation des taches tient (sonde A0 a A4).
 DELETE FROM public.settings WHERE key = 'achats_validation_separee';
 INSERT INTO public.warehouses (id, name, code, warehouse_type, site_id) VALUES
   ('00000000-0000-4000-b640-0000000000d1', 'Magasin D-064', 'TEST-MAG-D064', 'main', '00000000-0000-4000-b640-0000000000a1');
@@ -680,30 +680,30 @@ SELECT public.soumettre_bon_commande((SELECT id FROM bc));
 SELECT throws_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, '42501',
   'L''approbation revient a une autre personne que le demandeur',
   'separation des taches : le directeur n''approuve pas son propre bon');
-SELECT throws_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'purchases', 'approbation',
-  now(), now() + interval '1 hour', 'Approbation de mon bon')$$, '22023', NULL,
-  'C1 : l''approbation ne se delegue pas (directeur vers chauffeur)');
+SELECT lives_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000007', 'purchases', 'approbation',
+  now(), now() + interval '1 hour', 'Approbation de mon bon')$$,
+  'D-082 : l''approbation se delegue (directeur vers chauffeur)');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000001');
 SET LOCAL ROLE authenticated;
-SELECT throws_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000008', 'purchases', 'approbation',
-  now(), now() + interval '3 days', 'Absence du valideur')$$, '22023', NULL,
-  'C1 : l''approbation ne se delegue pas, meme par l''administrateur');
+SELECT lives_ok($$SELECT public.deleguer_droit('00000000-0000-4000-b640-000000000008', 'purchases', 'approbation',
+  now(), now() + interval '3 days', 'Absence du valideur')$$,
+  'D-082 : l''administrateur delegue l''approbation qu''il detient');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
 SET LOCAL ROLE authenticated;
-SELECT is(public.has_module_approve('purchases'), false, 'C1 : le chauffeur n''a aucune approbation');
+SELECT is(public.has_module_approve('purchases'), true, 'D-082 : le chauffeur approuve les achats par delegation');
 SELECT throws_ok($$SELECT public.decider_bon_commande((SELECT id FROM bc), true)$$, '42501', NULL,
-  'C1 : le chauffeur n''approuve pas le bon redige par le directeur');
+  'D-082 R1 : le chauffeur delegue n''approuve pas le bon redige par son delegant');
 RESET ROLE;
 SELECT is((SELECT approved_by FROM public.purchase_orders WHERE id = (SELECT id FROM bc)), NULL::uuid,
   'C1 : le bon reste sans approbation');
 SELECT pg_temp.se_connecter(NULL);
 SELECT throws_ok($$INSERT INTO public.delegations_droits (delegant, delegue, module, niveau, debut, fin, motif)
-  VALUES ('00000000-0000-4000-b640-00000000000c', '00000000-0000-4000-b640-000000000007', 'purchases', 'approbation',
-          now(), now() + interval '1 day', 'x')$$, '23514', NULL, 'C1 : contrainte, aucune delegation d''approbation meme hors fonction');
-SELECT ok((SELECT prosrc NOT LIKE '%delegation%' FROM pg_proc WHERE oid = 'public.has_module_approve(text)'::regprocedure),
-  'C1 : has_module_approve ne lit pas les delegations');
+  VALUES ('00000000-0000-4000-b640-00000000000c', '00000000-0000-4000-b640-000000000007', 'purchases', 'validation',
+          now(), now() + interval '1 day', 'x')$$, '23514', NULL, 'contrainte : niveau hors ecriture et approbation refuse, meme hors fonction');
+SELECT ok((SELECT prosrc LIKE '%delegation_en_vigueur%' FROM pg_proc WHERE oid = 'public.has_module_approve(text)'::regprocedure),
+  'D-082 : has_module_approve lit les delegations d''approbation');
 
 -- Une delegation d'ecriture donne la lecture du module.
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000007');
@@ -723,8 +723,8 @@ RESET ROLE;
 -- Journal des delegations.
 SELECT is((SELECT count(*)::int FROM public.journal_delegations WHERE delegue IN (
   '00000000-0000-4000-b640-000000000006', '00000000-0000-4000-b640-000000000007',
-  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009', '00000000-0000-4000-b640-00000000000a')), 6,
-  'journal : 5 creations et 1 revocation');
+  '00000000-0000-4000-b640-000000000008', '00000000-0000-4000-b640-000000000009', '00000000-0000-4000-b640-00000000000a')), 8,
+  'journal : 7 creations (dont 2 approbations, D-082) et 1 revocation');
 SELECT pg_temp.se_connecter('00000000-0000-4000-b640-000000000005');
 SELECT throws_ok($$UPDATE public.journal_delegations SET motif = 'x'$$, '42501', NULL,
   'journal des delegations non modifiable, meme hors navigateur (garde)');
