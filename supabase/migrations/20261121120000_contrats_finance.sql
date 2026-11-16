@@ -3,13 +3,26 @@
   # evaluation periodique du loueur (D-065, lot 19 du plan maitre, modules
   # 10, 19 et 20)
 
+  Numero de sequence 20261121120000 (D-070) : au-dessus de D-063, D-075,
+  D-066 et de D-064 (`20261121110000`). Integree sur `main` apres D-072 :
+  les fonctions reprises (`mes_validations`, `valider_reglage`,
+  `evaluer_fournisseur`, `definir_critere_evaluation`) partent de leur
+  derniere definition sur `main`.
+
   Cartographie (CDC 33) : le dossier contractuel (D-026) porte deja
   `contrats.date_fin`, les engagements (`contrat_engagements`, D-031) et un
   champ `consequence` en texte libre ; le rapport de performance
   (`rapports_performance`, D-031) fige les engagements mesures ; les
   factures et avoirs (D-029), les encaissements (D-031), le controle des
   factures du loueur (D-032), les achats (D-053), les paiements (D-055,
-  `v_reste_a_payer`) et les couts (D-058) existent. Rien n'est duplique.
+  `v_reste_a_payer`, D-072 R3) et les couts (D-058) existent. Rien n'est
+  duplique.
+
+  Regles d'argent : montants en numeric(18,2) (valeur de clause : numeric(18,4)),
+  devise portee par chaque ligne, HT ou TTC dans le nom de la colonne ou
+  dans `base_montant` ; aucun taux ni montant suppose ; toute ecriture par
+  fonction SECURITY DEFINER (search_path vide, droit de module, verrou,
+  journal), aucune ecriture directe, ni DELETE ni TRUNCATE pour les comptes.
 
   1. Echeances : `contrats` recoit le preavis (jours), le mode de
      renouvellement (tacite, expres, aucun ; NULL = non renseigne) et la
@@ -18,28 +31,37 @@
      `v_echeances_contrats` : date cle (limite de preavis puis fin), alerte
      a partir de la date cle moins le delai du reglage
      `contrats_alerte_echeance_jours` (0 si absent : alerte a la date cle
-     seulement, aucune valeur supposee).
+     seulement, aucune valeur supposee). Une prolongation tacite n'est
+     jamais ecrite automatiquement.
   2. Clauses chiffrees par version (`contrat_clauses`, `definir_clause`,
-     `desactiver_clause`) : penalite, bonus ou retenue, base montant ou taux
-     (aucun taux suppose : valeur saisie), condition = un engagement D-031
-     mesure de la meme version (tenu ou non tenu), plafond eventuel.
-     `calculer_clauses(rapport)` propose les montants depuis le rapport de
-     performance remis (fige) ; rien n'est applique automatiquement.
-     `decider_clause` : decision humaine motivee ; l'application produit
-     une ligne de facture brouillon ou un avoir par le circuit D-029
-     (`recalculer_facture`, `journaliser_facture`, `creer_avoir`), signature
-     du Directeur General inchangee.
+     `desactiver_clause`) : penalite, bonus ou retenue, base montant HT ou
+     taux (aucun taux suppose : valeur saisie), condition = un engagement
+     D-031 mesure de la meme version (tenu ou non tenu), plafond HT
+     eventuel. `calculer_clauses(rapport)` propose les montants HT depuis le
+     rapport de performance remis (fige), assiette = factures et avoirs
+     emis de la periode, dans la devise du contrat, hors lignes produites
+     par une clause ; rien n'est applique automatiquement. `decider_clause` :
+     decision humaine motivee. Appliquer produit une ligne de facture
+     brouillon ou un avoir par le circuit D-029 (`recalculer_facture`,
+     `journaliser_facture`, `creer_avoir`) ; le decideur en est le
+     preparateur (une ligne ne s'ajoute qu'a un brouillon qu'il a prepare),
+     la signature reste au Directeur General, jamais le preparateur.
+     Ecarter (renoncer a un montant) revient, si le reglage
+     `clauses_renonciation_separee` l'exige (exigee si absent), a une
+     personne qui a le droit d'approbation des contrats et qui n'a pas
+     calcule la proposition.
   3. Budgets : referentiel `natures_depense` (administrateur), categories
      de cout rattachees a une nature, imputation des pieces
      (`imputations_budgetaires`, append-only, `imputer_depense`). `budgets`
-     par periode, centre (site, NULL = sans site), nature et devise, saisis
-     (`definir_budget`, revision motivee, `annuler_budget`).
-     `v_depenses_budgetaires` : engage = bons approuves non recus (reliquat
-     HT) et paiements proposes ou approuves ; realise = couts enregistres et
-     paiements executes. `v_suivi_budgets` : budget, engage, realise,
-     disponible, depassement (alerte, aucun blocage) et sources non visibles
-     avec les droits du lecteur. Dettes : `v_dettes_fournisseurs` depuis
-     `v_reste_a_payer` (du = base - paye).
+     par periode, centre (site, NULL = sans site), nature et devise, montant
+     TTC saisi (`definir_budget`, revision motivee, `annuler_budget`).
+     `v_depenses_budgetaires` : engage = bons approuves ou recus en partie
+     (commande HT + taxes du bon, GNF par convention D-055) et pieces
+     payables non payees (`v_reste_a_payer`, TTC) ; realise = paiements
+     executes et couts enregistres (montant saisi). `v_suivi_budgets` :
+     budget, engage, realise, disponible, depassement (alerte, aucun
+     blocage) et sources non visibles avec les droits du lecteur. Dettes :
+     `v_dettes_fournisseurs` depuis `v_reste_a_payer` (du = base - paye).
   4. Export comptable : `plan_comptable` et `comptes_tiers` (referentiels
      administrateur, aucun numero suppose) ; `ecritures_gestion(du, au)` :
      factures et avoirs emis, encaissements, paiements executes, couts, avec
@@ -51,12 +73,13 @@
      (`evaluations_fournisseurs.contrat_id`, append-only, mesures figees).
      `mesures_loueur` (disponibilite, delai de prise en charge D-049,
      interventions hors delai, ecart de facture D-032), `definir_critere_loueur`,
-     `evaluer_loueur`. `evaluer_fournisseur` ne lit plus que la grille
-     fournisseur.
+     `evaluer_loueur`. `evaluer_fournisseur` et `definir_critere_evaluation`
+     ne lisent et n'ecrivent plus que la grille fournisseur.
   6. `mes_validations()` reprise avec toutes ses branches (D-056) plus :
      echeances de contrat, clauses a decider, budgets depasses.
-  7. `valider_reglage` reprise avec toutes ses cles plus
-     `contrats_alerte_echeance_jours` (entier).
+  7. `valider_reglage` reprise avec toutes ses cles (derniere definition :
+     D-063, `20261121090000`) plus `contrats_alerte_echeance_jours` (entier)
+     et `clauses_renonciation_separee` (booleen).
 
   Idempotent : IF NOT EXISTS, CREATE OR REPLACE, DROP ... IF EXISTS.
 */
@@ -200,14 +223,18 @@ SELECT k.contrat_id, k.reference, k.intitule, k.nature, k.contrepartie, k.statut
 
 CREATE TABLE IF NOT EXISTS public.contrat_clauses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  version_id uuid NOT NULL REFERENCES public.contrat_versions(id) ON DELETE CASCADE,
+  -- Pas de suppression en cascade : une version ou un engagement qui
+  -- conditionne une clause (meme desactivee) ne se supprime plus.
+  version_id uuid NOT NULL REFERENCES public.contrat_versions(id),
   type_clause text NOT NULL CHECK (type_clause IN ('penalite', 'bonus', 'retenue')),
   libelle text NOT NULL CHECK (btrim(libelle) <> ''),
-  engagement_id uuid NOT NULL REFERENCES public.contrat_engagements(id) ON DELETE CASCADE,
+  engagement_id uuid NOT NULL REFERENCES public.contrat_engagements(id),
   declenchement text NOT NULL CHECK (declenchement IN ('non_tenu', 'tenu')),
   base text NOT NULL CHECK (base IN ('montant', 'taux')),
-  valeur numeric NOT NULL CHECK (valeur > 0),
-  plafond numeric CHECK (plafond IS NULL OR plafond > 0),
+  -- base 'montant' : montant HT dans la devise du contrat ; base 'taux' :
+  -- pourcentage de l'assiette HT.
+  valeur numeric(18,4) NOT NULL CHECK (valeur > 0),
+  plafond_ht numeric(18,2) CHECK (plafond_ht IS NULL OR plafond_ht > 0),
   article text,
   ordre integer NOT NULL DEFAULT 0,
   actif boolean NOT NULL DEFAULT true,
@@ -233,8 +260,8 @@ CREATE TABLE IF NOT EXISTS public.calculs_clauses (
   type_clause text NOT NULL,
   libelle text NOT NULL,
   base text NOT NULL,
-  valeur numeric NOT NULL,
-  plafond numeric,
+  valeur numeric(18,4) NOT NULL,
+  plafond_ht numeric(18,2),
   engagement_id uuid,
   indicateur text,
   seuil numeric,
@@ -244,11 +271,11 @@ CREATE TABLE IF NOT EXISTS public.calculs_clauses (
   echantillon integer,
   conforme boolean,
   declenchee boolean,
-  assiette numeric,
+  assiette_ht numeric(18,2),
   assiette_source text,
-  montant_calcule numeric,
-  montant_propose numeric,
-  devise text NOT NULL,
+  montant_calcule_ht numeric(18,2),
+  montant_propose_ht numeric(18,2),
+  devise text NOT NULL CHECK (devise ~ '^[A-Z]{3}$'),
   raison text,
   statut text NOT NULL CHECK (statut IN ('propose', 'sans_objet', 'applique', 'ecarte')),
   calcule_par uuid REFERENCES auth.users(id),
@@ -259,9 +286,38 @@ CREATE TABLE IF NOT EXISTS public.calculs_clauses (
   facture_id uuid REFERENCES public.factures(id),
   UNIQUE (clause_id, rapport_id),
   CHECK (statut NOT IN ('applique', 'ecarte') OR nullif(btrim(coalesce(motif_decision, '')), '') IS NOT NULL),
-  CHECK (statut <> 'propose' OR montant_propose > 0)
+  CHECK (statut NOT IN ('applique', 'ecarte') OR (decide_par IS NOT NULL AND decide_le IS NOT NULL)),
+  CHECK (statut <> 'applique' OR facture_id IS NOT NULL),
+  CHECK (statut NOT IN ('propose', 'applique', 'ecarte') OR montant_propose_ht > 0)
 );
 CREATE INDEX IF NOT EXISTS idx_calculs_clauses_contrat ON public.calculs_clauses (contrat_id, periode_debut);
+
+-- Un calcul est fige : seule la decision (propose -> applique ou ecarte)
+-- change son statut et ses champs de decision ; il ne se supprime pas.
+CREATE OR REPLACE FUNCTION public.garde_calcul_clause()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN coalesce(NEW, OLD); END IF;
+  IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'Un calcul de clause ne se supprime pas' USING ERRCODE = '42501'; END IF;
+  IF OLD.statut <> 'propose' OR NEW.statut NOT IN ('applique', 'ecarte')
+     OR (to_jsonb(NEW) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id'])
+        IS DISTINCT FROM (to_jsonb(OLD) - ARRAY['statut', 'decide_par', 'decide_le', 'motif_decision', 'facture_id']) THEN
+    RAISE EXCEPTION 'Calcul de clause fige : seule une proposition se decide' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS garde_calcul_clause ON public.calculs_clauses;
+CREATE TRIGGER garde_calcul_clause BEFORE UPDATE OR DELETE ON public.calculs_clauses
+  FOR EACH ROW EXECUTE FUNCTION public.garde_calcul_clause();
+
+-- Ligne de facture produite par une clause : exclue de l'assiette des
+-- clauses suivantes (pas de clause calculee sur une clause).
+ALTER TABLE public.facture_lignes ADD COLUMN IF NOT EXISTS calcul_clause_id uuid REFERENCES public.calculs_clauses(id);
+CREATE INDEX IF NOT EXISTS idx_facture_lignes_calcul_clause ON public.facture_lignes (calcul_clause_id) WHERE calcul_clause_id IS NOT NULL;
 
 -- p_id NULL : nouvelle clause ; sinon modification d'une clause sans calcul.
 CREATE OR REPLACE FUNCTION public.definir_clause(
@@ -300,7 +356,7 @@ BEGIN
   END IF;
   IF p_plafond IS NOT NULL AND p_plafond <= 0 THEN RAISE EXCEPTION 'Plafond positif ou absent' USING ERRCODE = '22023'; END IF;
   IF p_id IS NULL THEN
-    INSERT INTO public.contrat_clauses (version_id, type_clause, libelle, engagement_id, declenchement, base, valeur, plafond, article, ordre, cree_par)
+    INSERT INTO public.contrat_clauses (version_id, type_clause, libelle, engagement_id, declenchement, base, valeur, plafond_ht, article, ordre, cree_par)
     VALUES (p_version, p_type, btrim(p_libelle), p_engagement, p_declenchement, p_base, p_valeur, p_plafond,
             public.texte_ou_null(p_article), coalesce(p_ordre, 0), auth.uid())
     RETURNING id INTO v_id;
@@ -309,7 +365,7 @@ BEGIN
       RAISE EXCEPTION 'Clause deja calculee : la desactiver et en saisir une nouvelle' USING ERRCODE = '22023';
     END IF;
     UPDATE public.contrat_clauses SET type_clause = p_type, libelle = btrim(p_libelle), engagement_id = p_engagement,
-      declenchement = p_declenchement, base = p_base, valeur = p_valeur, plafond = p_plafond,
+      declenchement = p_declenchement, base = p_base, valeur = p_valeur, plafond_ht = p_plafond,
       article = public.texte_ou_null(p_article), ordre = coalesce(p_ordre, 0)
      WHERE id = p_id AND version_id = p_version AND actif
     RETURNING id INTO v_id;
@@ -337,6 +393,11 @@ $$;
 
 -- Propositions depuis un rapport de performance remis (fige). Une clause
 -- deja calculee pour ce rapport n'est pas recalculee. Rien n'est applique.
+-- Montants HT dans la devise du contrat. Assiette d'un taux : factures et
+-- avoirs emis (client) ou factures du loueur controlees (location) dont la
+-- periode est comprise dans celle du rapport, dans la devise du contrat,
+-- hors lignes produites par une clause ; sinon « assiette absente », rien
+-- n'est estime.
 CREATE OR REPLACE FUNCTION public.calculer_clauses(p_rapport uuid)
 RETURNS integer
 LANGUAGE plpgsql
@@ -345,17 +406,23 @@ SET search_path = ''
 AS $$
 DECLARE
   r public.rapports_performance; c public.contrats; v_version uuid; cl public.contrat_clauses; e jsonb;
-  v_conforme boolean; v_decl boolean; v_assiette numeric; v_source text; v_calc numeric; v_prop numeric; v_raison text; n integer := 0;
+  v_conforme boolean; v_decl boolean; v_assiette numeric(18,2); v_source text; v_calc numeric(18,2); v_prop numeric(18,2);
+  v_raison text; n integer := 0;
 BEGIN
   IF NOT (public.has_module_write('contracts') OR public.is_admin()) THEN
     RAISE EXCEPTION 'Droit d''ecriture sur les contrats requis' USING ERRCODE = '42501';
   END IF;
-  SELECT * INTO r FROM public.rapports_performance WHERE id = p_rapport;
+  -- Verrou du rapport : deux calculs simultanes ne se chevauchent pas.
+  SELECT * INTO r FROM public.rapports_performance WHERE id = p_rapport FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Rapport introuvable' USING ERRCODE = '22023'; END IF;
   IF r.statut <> 'remis' THEN
     RAISE EXCEPTION 'Rapport non remis : les clauses se calculent sur un rapport fige et remis' USING ERRCODE = '22023';
   END IF;
   SELECT * INTO c FROM public.contrats WHERE id = r.contrat_id;
+  IF c.devise IS NULL OR c.devise !~ '^[A-Z]{3}$' THEN
+    RAISE EXCEPTION 'Devise du contrat non renseignee : aucun montant ne se calcule' USING ERRCODE = '22023';
+  END IF;
+  -- Version en vigueur a la fin de la periode (meme regle que D-029 et D-031).
   SELECT v.id INTO v_version FROM public.contrat_versions v
    WHERE v.contrat_id = c.id AND v.date_effet <= r.periode_fin ORDER BY v.numero DESC LIMIT 1;
   IF v_version IS NULL THEN RAISE EXCEPTION 'Aucune version du contrat en vigueur sur la periode' USING ERRCODE = '22023'; END IF;
@@ -366,7 +433,7 @@ BEGIN
     e := NULL;
     SELECT x.valeur INTO e FROM jsonb_array_elements(coalesce(r.contenu -> 'engagements', '[]'::jsonb)) AS x(valeur)
      WHERE x.valeur ->> 'engagement_id' = cl.engagement_id::text LIMIT 1;
-    v_conforme := CASE WHEN e IS NULL OR jsonb_typeof(e -> 'conforme') <> 'boolean' THEN NULL ELSE (e ->> 'conforme')::boolean END;
+    v_conforme := CASE WHEN e IS NULL OR jsonb_typeof(e -> 'conforme') IS DISTINCT FROM 'boolean' THEN NULL ELSE (e ->> 'conforme')::boolean END;
     v_decl := CASE WHEN v_conforme IS NULL THEN NULL
                    WHEN cl.declenchement = 'non_tenu' THEN NOT v_conforme ELSE v_conforme END;
     v_assiette := NULL; v_source := NULL; v_calc := NULL; v_prop := NULL; v_raison := NULL;
@@ -378,33 +445,41 @@ BEGIN
       v_raison := CASE WHEN v_conforme THEN 'Engagement tenu : clause non declenchee' ELSE 'Engagement non tenu : clause non declenchee' END;
     ELSE
       IF cl.base = 'montant' THEN
-        v_calc := cl.valeur;
+        v_calc := round(cl.valeur, 2);
       ELSE
         IF c.nature = 'client' THEN
-          SELECT sum(f.montant_ht), 'factures emises de la periode (HT)' INTO v_assiette, v_source
+          SELECT sum(f.montant_ht - coalesce((SELECT sum(l.montant) FROM public.facture_lignes l
+                                               WHERE l.facture_id = f.id AND l.calcul_clause_id IS NOT NULL), 0)),
+                 'factures et avoirs emis de la periode (HT, hors lignes de clauses)'
+            INTO v_assiette, v_source
             FROM public.factures f
-           WHERE f.contrat_id = c.id AND f.type = 'facture' AND f.statut = 'emise'
-             AND f.periode_debut <= r.periode_fin AND f.periode_fin >= r.periode_debut;
+           WHERE f.contrat_id = c.id AND f.statut = 'emise' AND f.devise = c.devise
+             AND f.periode_debut >= r.periode_debut AND f.periode_fin <= r.periode_fin;
         ELSIF c.nature = 'location' THEN
-          SELECT sum(f.montant_ht_facture), 'factures du loueur de la periode (HT facture)' INTO v_assiette, v_source
+          SELECT sum(f.montant_ht_facture), 'factures du loueur controlees de la periode (HT facture)' INTO v_assiette, v_source
             FROM public.factures_fournisseur f
-           WHERE f.contrat_id = c.id AND f.periode_debut <= r.periode_fin AND f.periode_fin >= r.periode_debut;
+           WHERE f.contrat_id = c.id AND f.statut <> 'saisie' AND f.devise = c.devise
+             AND f.periode_debut >= r.periode_debut AND f.periode_fin <= r.periode_fin;
         END IF;
-        IF v_assiette IS NULL OR v_assiette <= 0 THEN
-          v_raison := 'Assiette absente : aucune facture de la periode';
+        IF c.nature NOT IN ('client', 'location') THEN
+          v_raison := 'Assiette non definie pour un contrat de cette nature';
+        ELSIF v_assiette IS NULL OR v_assiette <= 0 THEN
+          v_raison := 'Assiette absente : aucune facture de la periode dans la devise du contrat';
+          v_assiette := NULL;
         ELSE
           v_calc := round(v_assiette * cl.valeur / 100, 2);
         END IF;
       END IF;
       IF v_calc IS NOT NULL THEN
-        v_prop := CASE WHEN cl.plafond IS NOT NULL THEN least(v_calc, cl.plafond) ELSE v_calc END;
-        IF cl.plafond IS NOT NULL AND v_calc > cl.plafond THEN v_raison := 'Montant ramene au plafond'; END IF;
+        v_prop := CASE WHEN cl.plafond_ht IS NOT NULL THEN least(v_calc, cl.plafond_ht) ELSE v_calc END;
+        IF cl.plafond_ht IS NOT NULL AND v_calc > cl.plafond_ht THEN v_raison := 'Montant ramene au plafond'; END IF;
+        IF v_prop <= 0 THEN v_raison := 'Montant arrondi nul'; END IF;
       END IF;
     END IF;
-    INSERT INTO public.calculs_clauses (clause_id, rapport_id, contrat_id, periode_debut, periode_fin, type_clause, libelle, base, valeur, plafond,
-      engagement_id, indicateur, seuil, sens, unite, realise, echantillon, conforme, declenchee, assiette, assiette_source,
-      montant_calcule, montant_propose, devise, raison, statut, calcule_par)
-    VALUES (cl.id, r.id, c.id, r.periode_debut, r.periode_fin, cl.type_clause, cl.libelle, cl.base, cl.valeur, cl.plafond,
+    INSERT INTO public.calculs_clauses (clause_id, rapport_id, contrat_id, periode_debut, periode_fin, type_clause, libelle, base, valeur,
+      plafond_ht, engagement_id, indicateur, seuil, sens, unite, realise, echantillon, conforme, declenchee, assiette_ht, assiette_source,
+      montant_calcule_ht, montant_propose_ht, devise, raison, statut, calcule_par)
+    VALUES (cl.id, r.id, c.id, r.periode_debut, r.periode_fin, cl.type_clause, cl.libelle, cl.base, cl.valeur, cl.plafond_ht,
       cl.engagement_id, e ->> 'indicateur', (e ->> 'seuil')::numeric, e ->> 'sens', e ->> 'unite', (e ->> 'realise')::numeric,
       (e ->> 'echantillon')::integer, v_conforme, v_decl, v_assiette, v_source, v_calc, v_prop, c.devise, v_raison,
       CASE WHEN v_prop > 0 THEN 'propose' ELSE 'sans_objet' END, auth.uid());
@@ -414,15 +489,22 @@ BEGIN
 END;
 $$;
 
--- Decision humaine motivee. Appliquer produit, par le circuit D-029 :
+-- Decision humaine motivee, montants HT.
+-- Appliquer (droits d'ecriture contrats et facturation) produit, par le
+-- circuit D-029 :
 --  - montant a facturer (bonus d'un contrat client ; penalite ou retenue du
 --    loueur) : ligne positive sur une facture brouillon du contrat, ou
 --    nouvelle facture brouillon (taux de taxe saisi) ;
 --  - montant a deduire (penalite ou retenue d'un contrat client) : avoir sur
---    une facture emise (`creer_avoir`) ou ligne negative sur une facture
---    brouillon du contrat.
--- La facture suit ensuite le circuit normal (soumission, signature du
--- Directeur General, emission). Retourne la facture ou l'avoir produit.
+--    une facture emise (`creer_avoir`, au plus le reste apres avoirs) ou
+--    ligne negative sur une facture brouillon du contrat.
+-- Le decideur est le preparateur de la piece produite : une ligne ne
+-- s'ajoute qu'a un brouillon qu'il a prepare, la nouvelle facture et l'avoir
+-- portent son nom ; la signature (Directeur General, jamais le preparateur,
+-- D-029) reste le controle. Ecarter = renoncer au montant : si le reglage
+-- `clauses_renonciation_separee` l'exige (exigee si absent), droit
+-- d'approbation des contrats et autre personne que l'auteur du calcul ;
+-- sinon memes droits que pour appliquer. Retourne la facture ou l'avoir.
 CREATE OR REPLACE FUNCTION public.decider_clause(
   p_calcul uuid, p_appliquer boolean, p_motif text, p_facture uuid DEFAULT NULL, p_taux_taxe numeric DEFAULT NULL
 ) RETURNS uuid
@@ -430,18 +512,28 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
-DECLARE k public.calculs_clauses; c public.contrats; f public.factures; v_sens text; v_id uuid; v_libelle text;
+DECLARE
+  k public.calculs_clauses; c public.contrats; f public.factures; v_sens text; v_id uuid; v_libelle text;
+  v_separee boolean; v_reste numeric;
 BEGIN
-  IF NOT ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR public.is_admin()) THEN
-    RAISE EXCEPTION 'Droits d''ecriture sur les contrats et la facturation requis' USING ERRCODE = '42501';
+  IF p_appliquer IS NULL THEN RAISE EXCEPTION 'Decision requise' USING ERRCODE = '22023'; END IF;
+  v_separee := coalesce((SELECT (s.value ->> 'value') <> 'false' FROM public.settings s WHERE s.key = 'clauses_renonciation_separee'), true);
+  IF p_appliquer OR NOT v_separee THEN
+    IF NOT ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR public.is_admin()) THEN
+      RAISE EXCEPTION 'Droits d''ecriture sur les contrats et la facturation requis' USING ERRCODE = '42501';
+    END IF;
+  ELSIF NOT (public.has_module_approve('contracts') OR public.is_admin()) THEN
+    RAISE EXCEPTION 'Renoncer a une clause : droit d''approbation des contrats requis (reglage clauses_renonciation_separee)' USING ERRCODE = '42501';
   END IF;
   SELECT * INTO k FROM public.calculs_clauses WHERE id = p_calcul FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Calcul introuvable' USING ERRCODE = '22023'; END IF;
   IF k.statut <> 'propose' THEN RAISE EXCEPTION 'Seule une proposition se decide (%)', k.statut USING ERRCODE = '22023'; END IF;
-  IF p_appliquer IS NULL THEN RAISE EXCEPTION 'Decision requise' USING ERRCODE = '22023'; END IF;
   IF public.texte_ou_null(p_motif) IS NULL THEN RAISE EXCEPTION 'Motif de la decision requis' USING ERRCODE = '22023'; END IF;
 
   IF NOT p_appliquer THEN
+    IF v_separee AND k.calcule_par IS NOT DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'Renonciation par une autre personne que l''auteur du calcul (reglage clauses_renonciation_separee)' USING ERRCODE = '42501';
+    END IF;
     UPDATE public.calculs_clauses SET statut = 'ecarte', decide_par = auth.uid(), decide_le = now(), motif_decision = btrim(p_motif)
      WHERE id = k.id;
     RETURN NULL;
@@ -461,8 +553,12 @@ BEGIN
 
   IF p_facture IS NOT NULL THEN
     SELECT * INTO f FROM public.factures WHERE id = p_facture FOR UPDATE;
-    IF NOT FOUND OR f.contrat_id <> c.id OR f.type <> 'facture' THEN
-      RAISE EXCEPTION 'Facture du meme contrat requise' USING ERRCODE = '22023';
+    IF NOT FOUND OR f.contrat_id <> c.id OR f.type <> 'facture' OR f.devise <> k.devise THEN
+      RAISE EXCEPTION 'Facture du meme contrat et de la meme devise requise' USING ERRCODE = '22023';
+    END IF;
+    IF f.statut = 'brouillon' AND f.prepare_par IS DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'Une ligne de clause s''ajoute a un brouillon que vous avez prepare (le signataire ne doit pas en etre le preparateur)'
+        USING ERRCODE = '42501';
     END IF;
   END IF;
 
@@ -472,14 +568,15 @@ BEGIN
         RAISE EXCEPTION 'Taux de taxe requis pour une nouvelle facture (0 si exonere)' USING ERRCODE = '22023';
       END IF;
       INSERT INTO public.factures (type, contrat_id, objet, periode_debut, periode_fin, devise, taux_taxe_pct, delai_paiement_jours, prepare_par)
-      VALUES ('facture', c.id, v_libelle, k.periode_debut, k.periode_fin, c.devise, p_taux_taxe, c.delai_paiement_jours, auth.uid())
+      VALUES ('facture', c.id, v_libelle, k.periode_debut, k.periode_fin, k.devise, p_taux_taxe, c.delai_paiement_jours, auth.uid())
       RETURNING id INTO v_id;
+      PERFORM public.journaliser_facture(v_id, 'generation', btrim(p_motif));
     ELSE
       IF f.statut <> 'brouillon' THEN RAISE EXCEPTION 'Une ligne s''ajoute a une facture brouillon' USING ERRCODE = '22023'; END IF;
       v_id := f.id;
     END IF;
-    INSERT INTO public.facture_lignes (facture_id, ordre, libelle, quantite, unite, prix_unitaire, montant)
-    VALUES (v_id, 900, v_libelle, 1, 'forfait', k.montant_propose, k.montant_propose);
+    INSERT INTO public.facture_lignes (facture_id, ordre, libelle, quantite, unite, prix_unitaire, montant, calcul_clause_id)
+    VALUES (v_id, 900, v_libelle, 1, 'forfait', k.montant_propose_ht, k.montant_propose_ht, k.id);
     PERFORM public.recalculer_facture(v_id);
     PERFORM public.journaliser_facture(v_id, 'clause', btrim(p_motif));
   ELSE
@@ -487,13 +584,21 @@ BEGIN
       RAISE EXCEPTION 'Facture du contrat requise : avoir sur une facture emise ou ligne sur un brouillon' USING ERRCODE = '22023';
     END IF;
     IF f.statut = 'emise' THEN
-      v_id := public.creer_avoir(f.id, k.montant_propose, v_libelle || ' : ' || btrim(p_motif));
-    ELSIF f.statut = 'brouillon' THEN
-      IF k.montant_propose > f.montant_ht THEN
-        RAISE EXCEPTION 'Deduction superieure au montant HT du brouillon (%)', f.montant_ht USING ERRCODE = '22023';
+      -- Reste avoirable : HT de la facture moins les avoirs deja crees (non annules).
+      v_reste := f.montant_ht + coalesce((SELECT sum(a.montant_ht) FROM public.factures a
+                                           WHERE a.facture_origine_id = f.id AND a.type = 'avoir' AND a.statut <> 'annulee'), 0);
+      IF k.montant_propose_ht > v_reste THEN
+        RAISE EXCEPTION 'Deduction superieure au reste HT de la facture apres avoirs (% %)', v_reste, f.devise USING ERRCODE = '22023';
       END IF;
-      INSERT INTO public.facture_lignes (facture_id, ordre, libelle, quantite, unite, prix_unitaire, montant)
-      VALUES (f.id, 900, v_libelle, 1, 'forfait', -k.montant_propose, -k.montant_propose);
+      v_id := public.creer_avoir(f.id, k.montant_propose_ht, v_libelle || ' : ' || btrim(p_motif));
+      UPDATE public.facture_lignes SET calcul_clause_id = k.id WHERE facture_id = v_id;
+      PERFORM public.journaliser_facture(v_id, 'clause', btrim(p_motif));
+    ELSIF f.statut = 'brouillon' THEN
+      IF k.montant_propose_ht > f.montant_ht THEN
+        RAISE EXCEPTION 'Deduction superieure au montant HT du brouillon (% %)', f.montant_ht, f.devise USING ERRCODE = '22023';
+      END IF;
+      INSERT INTO public.facture_lignes (facture_id, ordre, libelle, quantite, unite, prix_unitaire, montant, calcul_clause_id)
+      VALUES (f.id, 900, v_libelle, 1, 'forfait', -k.montant_propose_ht, -k.montant_propose_ht, k.id);
       PERFORM public.recalculer_facture(f.id);
       PERFORM public.journaliser_facture(f.id, 'clause', btrim(p_motif));
       v_id := f.id;
@@ -534,7 +639,8 @@ CREATE TABLE IF NOT EXISTS public.comptes_tiers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   contrat_id uuid REFERENCES public.contrats(id),
   supplier_id uuid REFERENCES public.suppliers(id),
-  compte_id uuid NOT NULL REFERENCES public.plan_comptable(id),
+  -- NULL : rattachement retire (la ligne reste, aucune suppression).
+  compte_id uuid REFERENCES public.plan_comptable(id),
   modifie_par uuid REFERENCES auth.users(id),
   modifie_le timestamptz NOT NULL DEFAULT now(),
   CHECK (num_nonnulls(contrat_id, supplier_id) = 1)
@@ -614,7 +720,7 @@ END;
 $$;
 
 -- Un tiers : contrat (client ou loueur) ou fournisseur. p_compte NULL retire
--- le rattachement.
+-- le rattachement (compte vide, ligne conservee).
 CREATE OR REPLACE FUNCTION public.definir_compte_tiers(p_compte uuid, p_contrat uuid DEFAULT NULL, p_fournisseur uuid DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
@@ -633,8 +739,11 @@ BEGIN
   IF p_compte IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.plan_comptable WHERE id = p_compte AND actif) THEN
     RAISE EXCEPTION 'Compte inconnu ou inactif' USING ERRCODE = '22023';
   END IF;
-  DELETE FROM public.comptes_tiers WHERE contrat_id IS NOT DISTINCT FROM p_contrat AND supplier_id IS NOT DISTINCT FROM p_fournisseur;
-  IF p_compte IS NOT NULL THEN
+  -- Mise a jour en place sous verrou du tiers : aucune suppression.
+  PERFORM pg_advisory_xact_lock(hashtext('sigtb.compte_tiers.' || coalesce(p_contrat::text, '') || coalesce(p_fournisseur::text, '')));
+  UPDATE public.comptes_tiers SET compte_id = p_compte, modifie_par = auth.uid(), modifie_le = now()
+   WHERE contrat_id IS NOT DISTINCT FROM p_contrat AND supplier_id IS NOT DISTINCT FROM p_fournisseur;
+  IF NOT FOUND AND p_compte IS NOT NULL THEN
     INSERT INTO public.comptes_tiers (contrat_id, supplier_id, compte_id, modifie_par) VALUES (p_contrat, p_fournisseur, p_compte, auth.uid());
   END IF;
 END;
@@ -702,6 +811,8 @@ END;
 $$;
 
 CREATE SEQUENCE IF NOT EXISTS public.budgets_numero_seq;
+REVOKE ALL ON SEQUENCE public.budgets_numero_seq FROM PUBLIC, anon, authenticated;
+GRANT ALL ON SEQUENCE public.budgets_numero_seq TO service_role;
 
 CREATE TABLE IF NOT EXISTS public.budgets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -711,7 +822,8 @@ CREATE TABLE IF NOT EXISTS public.budgets (
   site_id uuid REFERENCES public.sites(id),
   nature_id uuid NOT NULL REFERENCES public.natures_depense(id),
   devise text NOT NULL CHECK (devise ~ '^[A-Z]{3}$'),
-  montant numeric NOT NULL CHECK (montant > 0),
+  -- Plafond de depense taxes comprises (TTC), dans la devise du budget.
+  montant_ttc numeric(18,2) NOT NULL CHECK (montant_ttc > 0),
   note text,
   remplace_id uuid REFERENCES public.budgets(id),
   motif_revision text,
@@ -769,7 +881,9 @@ BEGIN
     RAISE EXCEPTION 'Nature de depense inconnue ou inactive (referentiel administrateur)' USING ERRCODE = '22023';
   END IF;
   IF v_devise !~ '^[A-Z]{3}$' THEN RAISE EXCEPTION 'Devise requise (code a trois lettres)' USING ERRCODE = '22023'; END IF;
-  IF p_montant IS NULL OR p_montant <= 0 THEN RAISE EXCEPTION 'Montant du budget positif requis' USING ERRCODE = '22023'; END IF;
+  IF p_montant IS NULL OR p_montant <= 0 OR p_montant <> round(p_montant, 2) THEN
+    RAISE EXCEPTION 'Montant TTC du budget positif requis (deux decimales au plus)' USING ERRCODE = '22023';
+  END IF;
   IF p_site IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.sites WHERE id = p_site) THEN RAISE EXCEPTION 'Site inconnu' USING ERRCODE = '22023'; END IF;
   IF NOT public.site_permis(p_site) THEN
     RAISE EXCEPTION 'Hors perimetre : site non autorise (un budget sans site exige un profil global)' USING ERRCODE = '42501';
@@ -790,7 +904,7 @@ BEGIN
   IF v_conflit IS NOT NULL THEN
     RAISE EXCEPTION 'Le budget % couvre deja cette nature, ce centre et cette periode : le reviser', v_conflit USING ERRCODE = '22023';
   END IF;
-  INSERT INTO public.budgets (numero, periode_debut, periode_fin, site_id, nature_id, devise, montant, note, remplace_id, motif_revision, cree_par)
+  INSERT INTO public.budgets (numero, periode_debut, periode_fin, site_id, nature_id, devise, montant_ttc, note, remplace_id, motif_revision, cree_par)
   VALUES ('BUD-' || to_char(p_debut, 'YYYY') || '-' || lpad(nextval('public.budgets_numero_seq')::text, 5, '0'),
           p_debut, p_fin, p_site, p_nature, v_devise, p_montant, public.texte_ou_null(p_note), p_remplace,
           CASE WHEN p_remplace IS NOT NULL THEN btrim(p_motif) END, auth.uid())
@@ -820,15 +934,25 @@ BEGIN
 END;
 $$;
 
--- Depenses rattachables a un budget, lues avec les droits du lecteur.
--- Engage : reliquat HT des bons approuves non recus (devise GNF, convention
--- de reste_a_payer D-055) et paiements proposes ou approuves. Realise :
--- couts enregistres (D-058) et paiements executes (D-055). Nature : derniere
--- imputation de la piece, sinon (couts) nature de la categorie.
+-- Depenses rattachables a un budget, lues avec les droits du lecteur
+-- (RLS des pieces, droit de `reste_a_payer`). Chaque piece compte une seule
+-- fois, `base_montant` dit ce que porte le montant :
+--  - engage, bon approuve ou recu en partie : commande HT + taxes du bon
+--    (TTC ; devise GNF, convention de `reste_a_payer` D-055, les bons ne
+--    portant pas de devise) ;
+--  - engage, piece payable non entierement payee (bon recu ou solde,
+--    facture du loueur controlee) : base moins paye de `v_reste_a_payer`
+--    (TTC, ou HT si la facture du loueur n'a pas de TTC saisi ; les
+--    paiements proposes ou approuves y restent inclus) ;
+--  - realise : paiements executes (montant verse) et couts enregistres
+--    (D-058, montant saisi tel quel).
+-- Nature : derniere imputation de la piece, sinon (couts) nature de la
+-- categorie ; sans nature, la depense n'est rattachee a aucun budget.
 CREATE OR REPLACE VIEW public.v_depenses_budgetaires WITH (security_invoker = true) AS
-SELECT 'engage'::text AS categorie, 'bon_commande'::text AS origine, po.id AS piece_id, po.po_number::text AS piece, po.po_date AS date_operation,
-       w.site_id, im.nature_id, 'GNF'::text AS devise,
-       sum((li.quantity - coalesce(li.quantity_received, 0)) * li.unit_price)::numeric AS montant, s.company_name::text AS tiers,
+SELECT 'engage'::text AS categorie, 'bon_commande'::text AS origine, po.id AS piece_id, po.po_number::text AS piece,
+       po.po_date AS date_operation, w.site_id, im.nature_id, 'GNF'::text AS devise,
+       (coalesce(sum(li.quantity * li.unit_price), 0) + coalesce(po.tax_amount, 0))::numeric(18,2) AS montant,
+       'TTC (commande HT + taxes du bon)'::text AS base_montant, s.company_name::text AS tiers,
        'bon_commande'::text AS source_imputation, po.id AS piece_imputee
   FROM public.purchase_orders po
   JOIN public.purchase_order_items li ON li.purchase_order_id = po.id
@@ -836,13 +960,23 @@ SELECT 'engage'::text AS categorie, 'bon_commande'::text AS origine, po.id AS pi
   LEFT JOIN public.suppliers s ON s.id = po.supplier_id
   LEFT JOIN public.v_imputations_courantes im ON im.source = 'bon_commande' AND im.piece_id = po.id
  WHERE po.status IN ('approved', 'partially_received')
- GROUP BY po.id, po.po_number, po.po_date, w.site_id, im.nature_id, s.company_name
-HAVING sum((li.quantity - coalesce(li.quantity_received, 0)) * li.unit_price) > 0
+ GROUP BY po.id, po.po_number, po.po_date, po.tax_amount, w.site_id, im.nature_id, s.company_name
+HAVING coalesce(sum(li.quantity * li.unit_price), 0) + coalesce(po.tax_amount, 0) > 0
 UNION ALL
-SELECT CASE WHEN p.statut = 'execute' THEN 'realise' ELSE 'engage' END, 'paiement', p.id, p.numero,
-       CASE WHEN p.statut = 'execute' THEN p.execute_le ELSE p.propose_le::date END,
-       w.site_id, im.nature_id, p.devise,
-       CASE WHEN p.statut = 'execute' THEN p.montant_execute ELSE p.montant_propose END, p.beneficiaire,
+SELECT 'engage', 'a_payer', r.piece_id, r.piece::text, r.date_piece, w.site_id, im.nature_id, r.devise,
+       (r.base - r.paye)::numeric(18,2),
+       CASE WHEN r.source = 'facture_loueur' AND ff.montant_ttc_facture IS NULL THEN 'HT (TTC du loueur non saisi), reste a payer'
+            ELSE 'TTC, reste a payer' END,
+       r.beneficiaire, r.source, r.piece_id
+  FROM public.v_reste_a_payer r
+  LEFT JOIN public.purchase_orders po ON r.source = 'bon_commande' AND po.id = r.piece_id
+  LEFT JOIN public.warehouses w ON w.id = po.warehouse_id
+  LEFT JOIN public.factures_fournisseur ff ON r.source = 'facture_loueur' AND ff.id = r.piece_id
+  LEFT JOIN public.v_imputations_courantes im ON im.source = r.source AND im.piece_id = r.piece_id
+ WHERE r.base - r.paye > 0
+UNION ALL
+SELECT 'realise', 'paiement', p.id, p.numero, p.execute_le, w.site_id, im.nature_id, p.devise, p.montant_execute::numeric(18,2),
+       'Montant verse', p.beneficiaire,
        CASE WHEN p.facture_fournisseur_id IS NOT NULL THEN 'facture_loueur' ELSE 'bon_commande' END,
        coalesce(p.facture_fournisseur_id, p.purchase_order_id)
   FROM public.paiements_fournisseur p
@@ -851,10 +985,10 @@ SELECT CASE WHEN p.statut = 'execute' THEN 'realise' ELSE 'engage' END, 'paiemen
   LEFT JOIN public.v_imputations_courantes im
          ON (im.source = 'bon_commande' AND im.piece_id = p.purchase_order_id)
          OR (im.source = 'facture_loueur' AND im.piece_id = p.facture_fournisseur_id)
- WHERE p.statut IN ('propose', 'approuve', 'execute')
+ WHERE p.statut = 'execute'
 UNION ALL
-SELECT 'realise', 'cout', c.id, c.numero, c.date, c.site_id, coalesce(im.nature_id, cc.nature_depense_id), c.devise, c.amount, NULL::text,
-       'cout', c.id
+SELECT 'realise', 'cout', c.id, c.numero, c.date, c.site_id, coalesce(im.nature_id, cc.nature_depense_id), c.devise,
+       c.amount::numeric(18,2), 'Montant saisi (cout D-058)', NULL::text, 'cout', c.id
   FROM public.costs c
   LEFT JOIN public.cost_categories cc ON cc.id = c.category_id
   LEFT JOIN public.v_imputations_courantes im ON im.source = 'cout' AND im.piece_id = c.id
@@ -864,7 +998,7 @@ CREATE OR REPLACE VIEW public.v_suivi_budgets WITH (security_invoker = true) AS
 WITH s AS (
   SELECT b.id,
          coalesce(sum(d.montant) FILTER (WHERE d.categorie = 'engage' AND d.origine = 'bon_commande'), 0) AS engage_bons,
-         coalesce(sum(d.montant) FILTER (WHERE d.categorie = 'engage' AND d.origine = 'paiement'), 0) AS engage_paiements,
+         coalesce(sum(d.montant) FILTER (WHERE d.categorie = 'engage' AND d.origine = 'a_payer'), 0) AS engage_a_payer,
          coalesce(sum(d.montant) FILTER (WHERE d.categorie = 'realise' AND d.origine = 'cout'), 0) AS realise_couts,
          coalesce(sum(d.montant) FILTER (WHERE d.categorie = 'realise' AND d.origine = 'paiement'), 0) AS realise_paiements
     FROM public.v_budgets_courants b
@@ -874,15 +1008,15 @@ WITH s AS (
    GROUP BY b.id
 )
 SELECT b.id, b.numero, b.periode_debut, b.periode_fin, b.site_id, si.name AS site, b.nature_id, n.code AS nature_code, n.libelle AS nature,
-       b.devise, b.montant, b.note, b.cree_le,
-       s.engage_bons, s.engage_paiements, s.engage_bons + s.engage_paiements AS engage,
+       b.devise, b.montant_ttc, b.note, b.cree_le,
+       s.engage_bons, s.engage_a_payer, s.engage_bons + s.engage_a_payer AS engage,
        s.realise_couts, s.realise_paiements, s.realise_couts + s.realise_paiements AS realise,
-       b.montant - (s.engage_bons + s.engage_paiements + s.realise_couts + s.realise_paiements) AS disponible,
-       round((s.engage_bons + s.engage_paiements + s.realise_couts + s.realise_paiements) / b.montant * 100, 1) AS consommation_pct,
-       (s.engage_bons + s.engage_paiements + s.realise_couts + s.realise_paiements) > b.montant AS depassement,
+       b.montant_ttc - (s.engage_bons + s.engage_a_payer + s.realise_couts + s.realise_paiements) AS disponible,
+       round((s.engage_bons + s.engage_a_payer + s.realise_couts + s.realise_paiements) / b.montant_ttc * 100, 1) AS consommation_pct,
+       (s.engage_bons + s.engage_a_payer + s.realise_couts + s.realise_paiements) > b.montant_ttc AS depassement,
        nullif(array_to_string(array_remove(ARRAY[
          CASE WHEN NOT (public.has_module_view('purchases') OR public.has_module_view('stock') OR public.is_admin()) THEN 'bons de commande' END,
-         CASE WHEN NOT (public.has_module_view('invoices') OR public.has_module_view('contracts') OR public.is_admin()) THEN 'paiements' END,
+         CASE WHEN NOT (public.has_module_view('invoices') OR public.has_module_view('contracts') OR public.is_admin()) THEN 'pièces à payer et paiements' END,
          CASE WHEN NOT (public.has_module_view('costs') OR public.has_module_view('reports') OR public.is_admin()) THEN 'coûts' END
        ], NULL), ', '), '') AS sources_non_visibles
   FROM public.v_budgets_courants b
@@ -1097,6 +1231,46 @@ BEGIN
 END;
 $$;
 
+-- Grille fournisseurs (D-059, derniere definition `20261118120000`, non
+-- modifiee par D-072) : reprise a l'identique, une modification ne touche
+-- plus un critere de la grille du loueur (definir_critere_loueur).
+CREATE OR REPLACE FUNCTION public.definir_critere_evaluation(
+  p_libelle text, p_poids integer, p_description text DEFAULT NULL, p_ordre integer DEFAULT 0, p_actif boolean DEFAULT true, p_id uuid DEFAULT NULL
+) RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE v_id uuid;
+BEGIN
+  IF NOT public.is_admin() THEN RAISE EXCEPTION 'Grille d''evaluation : administrateur seulement' USING ERRCODE = '42501'; END IF;
+  IF public.texte_ou_null(p_libelle) IS NULL THEN RAISE EXCEPTION 'Libelle du critere requis' USING ERRCODE = '22023'; END IF;
+  IF p_poids IS NULL OR p_poids <= 0 THEN RAISE EXCEPTION 'Poids du critere : entier positif requis' USING ERRCODE = '22023'; END IF;
+  IF p_id IS NULL THEN
+    INSERT INTO public.criteres_evaluation_fournisseur (libelle, description, poids, ordre, actif, cree_par, grille)
+    VALUES (btrim(p_libelle), public.texte_ou_null(p_description), p_poids, coalesce(p_ordre, 0), coalesce(p_actif, true), auth.uid(), 'fournisseur')
+    RETURNING id INTO v_id;
+  ELSE
+    -- Les evaluations passees gardent le libelle et le poids figes.
+    UPDATE public.criteres_evaluation_fournisseur SET libelle = btrim(p_libelle), description = public.texte_ou_null(p_description),
+      poids = p_poids, ordre = coalesce(p_ordre, 0), actif = coalesce(p_actif, true)
+     WHERE id = p_id AND grille = 'fournisseur' RETURNING id INTO v_id;
+    IF v_id IS NULL THEN RAISE EXCEPTION 'Critere introuvable' USING ERRCODE = '22023'; END IF;
+  END IF;
+  RETURN v_id;
+END;
+$$;
+
+-- Evaluations courantes des fournisseurs (D-059) : celles du loueur
+-- (contrat_id, D-065) ont leur propre vue.
+CREATE OR REPLACE VIEW public.v_evaluations_fournisseurs_courantes WITH (security_invoker = true) AS
+SELECT e.*
+  FROM public.evaluations_fournisseurs e
+ WHERE e.supplier_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM public.evaluations_fournisseurs r WHERE r.remplace_id = e.id);
+REVOKE ALL ON public.v_evaluations_fournisseurs_courantes FROM anon;
+GRANT SELECT ON public.v_evaluations_fournisseurs_courantes TO authenticated;
+
 -- Evaluation du loueur : notes de 1 a 5 saisies par critere (aucune
 -- conversion automatique d'une mesure en note), mesures de la periode figees
 -- avec l'evaluation ; append-only, correction motivee qui remplace.
@@ -1245,6 +1419,7 @@ BEGIN
     'mesures_loueur(uuid, date, date)',
     'definir_critere_loueur(text, integer, text, text, integer, boolean, uuid)',
     'evaluer_fournisseur(uuid, date, date, jsonb, text, text)',
+    'definir_critere_evaluation(text, integer, text, integer, boolean, uuid)',
     'evaluer_loueur(uuid, date, date, jsonb, text, text)'
   ] LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION public.%s FROM PUBLIC, anon', s);
@@ -1253,9 +1428,11 @@ BEGIN
 END $$;
 REVOKE EXECUTE ON FUNCTION public.garde_append_only_finance() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.garde_budget() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.garde_calcul_clause() FROM PUBLIC, anon, authenticated;
 
--- 8. Mes validations (D-056) : branches existantes reprises, plus echeances de
--- contrat, clauses a decider et budgets depasses ---------------------------------
+-- 8. Mes validations (D-056, derniere definition `20261117180000`, non
+-- modifiee par D-072) : branches existantes reprises a l'identique, plus
+-- echeances de contrat, clauses a decider et budgets depasses -----------------
 
 CREATE OR REPLACE FUNCTION public.mes_validations()
 RETURNS TABLE (categorie text, objet text, reference text, detail text, depuis timestamptz, ecran text)
@@ -1331,10 +1508,12 @@ AS $$
     FROM public.v_echeances_contrats e, moi
    WHERE e.a_signaler AND (public.has_module_write('contracts') OR moi.admin)
   UNION ALL
-  SELECT 'Contrats', 'Clause contractuelle à décider', k.libelle, k.montant_propose::text || ' ' || k.devise || ' · ' || to_char(k.periode_debut, 'MM/YYYY'),
+  SELECT 'Contrats', 'Clause contractuelle à décider', k.libelle,
+         k.montant_propose_ht::text || ' ' || k.devise || ' HT · ' || to_char(k.periode_debut, 'MM/YYYY'),
          k.calcule_le, 'engagements'
     FROM public.calculs_clauses k, moi
-   WHERE k.statut = 'propose' AND ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR moi.admin)
+   WHERE k.statut = 'propose'
+     AND ((public.has_module_write('contracts') AND public.has_module_write('invoices')) OR public.has_module_approve('contracts') OR moi.admin)
   UNION ALL
   SELECT 'Budgets', 'Budget dépassé', b.numero, b.nature || coalesce(' · ' || b.site, '') || ' · ' || b.consommation_pct::text || ' % consommé',
          b.cree_le, 'budgets'
@@ -1344,8 +1523,9 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.mes_validations() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.mes_validations() TO authenticated;
 
--- 9. Reglages lus par le serveur (D-061) : toutes les cles reprises, plus le
--- delai d'alerte des echeances de contrat ----------------------------------------
+-- 9. Reglages lus par le serveur (D-061) : toutes les cles de la derniere
+-- definition (D-063, `20261121090000`) reprises, plus le delai d'alerte des
+-- echeances de contrat et la separation de la renonciation a une clause ----
 
 CREATE OR REPLACE FUNCTION public.valider_reglage()
 RETURNS trigger
@@ -1355,7 +1535,8 @@ AS $$
 DECLARE v text := NEW.value ->> 'value';
 BEGIN
   IF NEW.key IN ('mfa_exige', 'carburant_validation_separee', 'kilometrage_validation_separee',
-                 'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige') THEN
+                 'achats_validation_separee', 'paiements_validation_separee', 'controle_depart_exige',
+                 'planification_cloture_separee', 'clauses_renonciation_separee') THEN
     IF v IS NULL OR v NOT IN ('true', 'false') THEN
       RAISE EXCEPTION 'Reglage % : valeur true ou false attendue', NEW.key USING ERRCODE = '22023';
     END IF;

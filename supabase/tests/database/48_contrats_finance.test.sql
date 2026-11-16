@@ -1,9 +1,11 @@
 -- Tests (D-065) : clauses chiffrees calculees depuis le rapport remis et
--- appliquees par decision motivee (avoir ou facture D-029), echeances et
--- alertes, budgets (engage, realise, depassement, revision), dettes, export
--- comptable, evaluation du loueur sur la grille D-059
--- (migration 20261119150000). Periodes de 2001, vides en production. Tout
--- est annule.
+-- appliquees par decision motivee (avoir ou facture D-029), separation de la
+-- renonciation, echeances et alertes, budgets (engage, realise, depassement,
+-- revision, perimetre), dettes, export comptable, evaluation du loueur sur
+-- la grille D-059, reglages repris (migration 20261121120000). Periodes de
+-- 2001, vides en production. Tout est annule. Un droit retire se verifie
+-- par has_*_privilege, jamais par un appel sous SET ROLE (D-072) ; les
+-- gardes se verifient sans SET ROLE, avec une session utilisateur.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET LOCAL search_path = public, extensions;
@@ -17,16 +19,23 @@ LANGUAGE sql AS $$
            true);
 $$;
 
-SELECT plan(52);
+SELECT plan(82);
 
 INSERT INTO auth.users (id, email) VALUES
   ('00000000-0000-4000-a650-000000000001', 'contrats.d065@exemple.invalid'),
   ('00000000-0000-4000-a650-000000000002', 'admin.d065@exemple.invalid'),
-  ('00000000-0000-4000-a650-000000000003', 'chauffeur.d065@exemple.invalid');
+  ('00000000-0000-4000-a650-000000000003', 'chauffeur.d065@exemple.invalid'),
+  ('00000000-0000-4000-a650-000000000004', 'directeur.d065@exemple.invalid'),
+  ('00000000-0000-4000-a650-000000000005', 'site.d065@exemple.invalid'),
+  ('00000000-0000-4000-a650-000000000006', 'contrats2.d065@exemple.invalid');
+INSERT INTO public.sites (id, name, type) VALUES ('00000000-0000-4000-a650-000000000a51', 'Mine D-065', 'mine');
 INSERT INTO public.profiles (id, role, full_name, status, site_id) VALUES
   ('00000000-0000-4000-a650-000000000001', 'contract_manager', 'Charge D-065', 'active', NULL),
   ('00000000-0000-4000-a650-000000000002', 'admin', 'Admin D-065', 'active', NULL),
-  ('00000000-0000-4000-a650-000000000003', 'driver', 'Chauffeur D-065', 'active', NULL)
+  ('00000000-0000-4000-a650-000000000003', 'driver', 'Chauffeur D-065', 'active', NULL),
+  ('00000000-0000-4000-a650-000000000004', 'director', 'Directeur D-065', 'active', NULL),
+  ('00000000-0000-4000-a650-000000000005', 'contract_manager', 'Charge site D-065', 'active', '00000000-0000-4000-a650-000000000a51'),
+  ('00000000-0000-4000-a650-000000000006', 'contract_manager', 'Second charge D-065', 'active', NULL)
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status, site_id = EXCLUDED.site_id;
 
 INSERT INTO public.contrats (id, reference, intitule, nature, contrepartie, devise, date_debut, date_fin, statut, preavis_jours, renouvellement) VALUES
@@ -48,11 +57,17 @@ INSERT INTO public.rapports_performance (id, contrat_id, periode_debut, periode_
   ('00000000-0000-4000-a650-0000000000a2', '00000000-0000-4000-a650-0000000000c2', '2001-10-01', '2001-10-31', '{"engagements": []}', 'brouillon', NULL, NULL),
   ('00000000-0000-4000-a650-0000000000a3', '00000000-0000-4000-a650-0000000000c2', '2001-11-01', '2001-11-30',
    '{"engagements": [{"engagement_id": "00000000-0000-4000-a650-0000000000e3", "indicateur": "disponibilite", "seuil": 85, "unite": "%", "sens": "minimum", "realise": 70, "echantillon": 2, "conforme": false}]}',
-   'remis', '2001-12-05', 'Loueur');
+   'remis', '2001-12-05', 'Loueur'),
+  ('00000000-0000-4000-a650-0000000000a4', '00000000-0000-4000-a650-0000000000c1', '2001-10-01', '2001-10-31',
+   '{"engagements": [{"engagement_id": "00000000-0000-4000-a650-0000000000e1", "indicateur": "disponibilite", "seuil": 90, "unite": "%", "sens": "minimum", "realise": 85, "echantillon": 3, "conforme": false}]}',
+   'remis', '2001-11-05', 'Client');
 INSERT INTO public.factures (id, numero, type, contrat_id, objet, periode_debut, periode_fin, devise, taux_taxe_pct, montant_ht, montant_taxe,
                              montant_ttc, statut, date_emission) VALUES
   ('00000000-0000-4000-a650-0000000000f1', 'TEST-D065-FAC', 'facture', '00000000-0000-4000-a650-0000000000c1', 'Transport novembre',
-   '2001-11-01', '2001-11-30', 'USD', 0, 10000, 0, 10000, 'emise', '2001-12-01');
+   '2001-11-01', '2001-11-30', 'USD', 0, 10000, 0, 10000, 'emise', '2001-12-01'),
+  -- Facture d'une autre devise sur la meme periode : hors assiette.
+  ('00000000-0000-4000-a650-0000000000f4', 'TEST-D065-FAC-GNF', 'facture', '00000000-0000-4000-a650-0000000000c1', 'Autre devise',
+   '2001-11-01', '2001-11-30', 'GNF', 0, 999999, 0, 999999, 'emise', '2001-12-01');
 INSERT INTO public.factures_fournisseur (id, contrat_id, numero_fournisseur, date_facture, periode_debut, periode_fin, devise,
                                          montant_ht_facture, montant_ttc_facture, statut) VALUES
   ('00000000-0000-4000-a650-0000000000f2', '00000000-0000-4000-a650-0000000000c2', 'D065-F1', '2001-12-02', '2001-11-01', '2001-11-30', 'USD', 1000, 1180, 'conforme');
@@ -60,16 +75,16 @@ INSERT INTO public.suppliers (id, supplier_number, supplier_type, company_name) 
   ('00000000-0000-4000-a650-0000000000b1', 'TEST-F-D065', 'parts', 'Fournisseur D-065');
 INSERT INTO public.warehouses (id, name, code, warehouse_type, site_id) VALUES
   ('00000000-0000-4000-a650-0000000000b2', 'Magasin D-065', 'TEST-MAG-D065', 'main', NULL);
-INSERT INTO public.purchase_orders (id, po_number, po_date, supplier_id, warehouse_id, status) VALUES
+INSERT INTO public.purchase_orders (id, po_number, po_date, supplier_id, warehouse_id, status, tax_amount) VALUES
   ('00000000-0000-4000-a650-0000000000b3', 'TEST-D065-BC', '2001-04-01', '00000000-0000-4000-a650-0000000000b1',
-   '00000000-0000-4000-a650-0000000000b2', 'approved');
+   '00000000-0000-4000-a650-0000000000b2', 'approved', 36);
 INSERT INTO public.purchase_order_items (purchase_order_id, item_description, quantity, unit_price, total_price, quantity_received) VALUES
   ('00000000-0000-4000-a650-0000000000b3', 'Filtres', 10, 20, 200, 4);
 INSERT INTO public.cost_categories (id, name, category_type) VALUES ('00000000-0000-4000-a650-0000000000b4', 'Pieces D-065', 'variable');
-DELETE FROM public.settings WHERE key = 'contrats_alerte_echeance_jours';
+DELETE FROM public.settings WHERE key IN ('contrats_alerte_echeance_jours', 'clauses_renonciation_separee');
 UPDATE public.criteres_evaluation_fournisseur SET actif = false;
 
--- Clauses chiffrees
+-- Clauses chiffrees -------------------------------------------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000003');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'X', '00000000-0000-4000-a650-0000000000e1',
@@ -90,22 +105,29 @@ SELECT is((SELECT count(*)::int FROM public.journal_contrats WHERE table_cible =
   'clause journalisee au dossier contractuel');
 SELECT throws_ok($$SELECT public.calculer_clauses('00000000-0000-4000-a650-0000000000a2')$$, '22023', NULL, 'rapport non remis : pas de calcul');
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a1'), 1, 'une proposition calculee depuis le rapport remis');
-SELECT is((SELECT (statut, assiette, montant_calcule, montant_propose)::text FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)),
-  '(propose,10000,500.00,300)', 'taux applique a l''assiette des factures, ramene au plafond');
+SELECT is((SELECT (statut, assiette_ht, montant_calcule_ht, montant_propose_ht, devise)::text FROM public.calculs_clauses
+            WHERE clause_id = (SELECT id FROM k1) AND rapport_id = '00000000-0000-4000-a650-0000000000a1'),
+  '(propose,10000.00,500.00,300.00,USD)', 'taux applique a l''assiette HT dans la devise du contrat, ramene au plafond');
 SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a1'), 0, 'pas de second calcul pour le meme rapport');
 SELECT ok(EXISTS (SELECT 1 FROM public.mes_validations() WHERE objet = 'Clause contractuelle à décider'), 'clause proposee dans mes validations');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, ' ')$$,
   '22023', NULL, 'decision sans motif refusee');
 SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, 'Penalite due')$$,
   '22023', NULL, 'deduction sans facture du contrat refusee');
+SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, 'Penalite due',
+  '00000000-0000-4000-a650-0000000000f4')$$, '22023', NULL, 'facture d''une autre devise refusee');
+SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), false, 'Renonce')$$,
+  '42501', NULL, 'renonciation sans approbation des contrats refusee (reglage absent : separation exigee)');
 CREATE TEMP TABLE av AS SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true,
   'Penalite due selon l''avenant', '00000000-0000-4000-a650-0000000000f1') AS id;
-SELECT is((SELECT (type, statut, montant_ht)::text FROM public.factures WHERE id = (SELECT id FROM av)), '(avoir,brouillon,-300)',
-  'avoir brouillon produit par creer_avoir (circuit D-029)');
+SELECT is((SELECT (type, statut, montant_ht, prepare_par::text)::text FROM public.factures WHERE id = (SELECT id FROM av)),
+  '(avoir,brouillon,-300.00,00000000-0000-4000-a650-000000000001)', 'avoir brouillon produit par creer_avoir, le decideur en est le preparateur');
+SELECT is((SELECT count(*)::int FROM public.facture_lignes WHERE facture_id = (SELECT id FROM av) AND calcul_clause_id IS NOT NULL), 1,
+  'ligne de l''avoir rattachee au calcul de la clause');
 SELECT is((SELECT statut FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1) AND facture_id = (SELECT id FROM av)), 'applique',
   'proposition appliquee, rattachee a l''avoir');
-SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), false, 'Revu')$$,
-  '22023', NULL, 'une proposition appliquee ne se decide plus');
+SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)), true, 'Revu',
+  '00000000-0000-4000-a650-0000000000f1')$$, '22023', NULL, 'une proposition appliquee ne se decide plus');
 SELECT throws_ok($$SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d1', 'penalite', 'Modifiee', '00000000-0000-4000-a650-0000000000e1',
   'non_tenu', 'montant', 10, p_id => (SELECT id FROM k1))$$, '22023', NULL, 'clause calculee non modifiable');
 CREATE TEMP TABLE k2 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'penalite', 'Penalite loueur',
@@ -118,11 +140,64 @@ SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_c
   '22023', NULL, 'nouvelle facture sans taux de taxe refusee');
 CREATE TEMP TABLE f2 AS SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k2)), true,
   'Penalite de disponibilite due', p_taux_taxe => 0) AS id;
-SELECT is((SELECT (type, statut, contrat_id::text, montant_ht)::text FROM public.factures WHERE id = (SELECT id FROM f2)),
-  '(facture,brouillon,00000000-0000-4000-a650-0000000000c2,1000)', 'penalite du loueur : facture brouillon au circuit de signature');
+SELECT is((SELECT (type, statut, contrat_id::text, montant_ht, devise)::text FROM public.factures WHERE id = (SELECT id FROM f2)),
+  '(facture,brouillon,00000000-0000-4000-a650-0000000000c2,1000.00,USD)', 'penalite du loueur : facture brouillon au circuit de signature');
 RESET ROLE;
 
--- Echeances et alertes
+-- Un autre preparateur ne complete pas ce brouillon ; le decideur ne le signe pas.
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000006');
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE k4 AS SELECT public.definir_clause('00000000-0000-4000-a650-0000000000d2', 'retenue', 'Retenue loueur',
+  '00000000-0000-4000-a650-0000000000e3', 'non_tenu', 'montant', 50) AS id;
+SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a3'), 1, 'clause ajoutee calculee seule sur le meme rapport');
+SELECT throws_ok($$SELECT public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k4)), true, 'Retenue due',
+  (SELECT id FROM f2))$$, '42501', NULL, 'ligne de clause refusee sur le brouillon d''un autre preparateur');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.avancer_facture((SELECT id FROM f2), 'soumettre'), 'a_signer', 'facture de clause soumise a signature');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000004');
+SET LOCAL ROLE authenticated;
+SELECT is(public.avancer_facture((SELECT id FROM f2), 'signer'), 'signee', 'facture de clause signee par le Directeur General, autre que le preparateur');
+-- Renonciation : droit d'approbation des contrats et autre personne que l'auteur du calcul.
+SELECT is(public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k4)), false, 'Retenue abandonnee apres comite'),
+  NULL::uuid, 'renonciation par le Directeur General (approbation des contrats)');
+SELECT is((SELECT (statut, decide_par::text)::text FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k4)),
+  '(ecarte,00000000-0000-4000-a650-000000000004)', 'renonciation tracee avec son auteur');
+RESET ROLE;
+
+-- Assiette d'un taux : hors lignes produites par une clause.
+INSERT INTO public.factures (id, numero, type, contrat_id, objet, periode_debut, periode_fin, devise, taux_taxe_pct, montant_ht, montant_taxe,
+                             montant_ttc, statut, date_emission) VALUES
+  ('00000000-0000-4000-a650-0000000000f3', 'TEST-D065-FAC-OCT', 'facture', '00000000-0000-4000-a650-0000000000c1', 'Transport octobre',
+   '2001-10-01', '2001-10-31', 'USD', 0, 1000, 0, 1000, 'emise', '2001-11-02');
+INSERT INTO public.facture_lignes (facture_id, ordre, libelle, quantite, unite, prix_unitaire, montant, calcul_clause_id) VALUES
+  ('00000000-0000-4000-a650-0000000000f3', 1, 'Transport', 1, 'forfait', 600, 600, NULL),
+  ('00000000-0000-4000-a650-0000000000f3', 900, 'Bonus anterieur', 1, 'forfait', 400, 400,
+   (SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)));
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.calculer_clauses('00000000-0000-4000-a650-0000000000a4'), 1, 'calcul du mois precedent');
+SELECT is((SELECT (assiette_ht, montant_propose_ht)::text FROM public.calculs_clauses
+            WHERE clause_id = (SELECT id FROM k1) AND rapport_id = '00000000-0000-4000-a650-0000000000a4'),
+  '(600.00,30.00)', 'assiette sans la ligne produite par une clause');
+RESET ROLE;
+-- Separation levee par le reglage : l'auteur du calcul renonce lui-meme.
+INSERT INTO public.settings (key, value, category) VALUES ('clauses_renonciation_separee', '{"value": "false"}', 'test');
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is(public.decider_clause((SELECT id FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k1)
+                                  AND rapport_id = '00000000-0000-4000-a650-0000000000a4'), false, 'Geste commercial decide en comite'),
+  NULL::uuid, 'reglage a false : l''auteur du calcul peut renoncer');
+RESET ROLE;
+-- Garde du calcul (sans SET ROLE, session utilisateur).
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SELECT throws_ok($$UPDATE public.calculs_clauses SET montant_propose_ht = 1 WHERE clause_id = (SELECT id FROM k3)$$, '42501', NULL,
+  'calcul de clause fige (garde)');
+SELECT throws_ok($$DELETE FROM public.calculs_clauses WHERE clause_id = (SELECT id FROM k3)$$, '42501', NULL, 'calcul de clause non supprimable (garde)');
+
+-- Echeances et alertes ------------------------------------------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT (nature_echeance, a_signaler, jours_restants)::text FROM public.v_echeances_contrats
@@ -145,11 +220,18 @@ SELECT is((SELECT date_fin - current_date FROM public.contrats WHERE id = '00000
   'renouvellement : nouvelle date de fin enregistree');
 SELECT ok(NOT coalesce((SELECT a_signaler FROM public.v_echeances_contrats WHERE contrat_id = '00000000-0000-4000-a650-0000000000c1'), false),
   'plus d''alerte apres le renouvellement');
-SELECT throws_ok($$DELETE FROM public.contrats_echeances WHERE contrat_id = '00000000-0000-4000-a650-0000000000c1'$$, '42501', NULL,
-  'evenement d''echeance non supprimable');
 RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SELECT throws_ok($$DELETE FROM public.contrats_echeances WHERE contrat_id = '00000000-0000-4000-a650-0000000000c1'$$, '42501', NULL,
+  'evenement d''echeance non supprimable (garde)');
 
--- Referentiels administrateur et budgets
+-- Reglages repris : cles de la derniere definition conservees ----------------------
+SELECT lives_ok($$INSERT INTO public.settings (key, value, category) VALUES ('planification_cloture_separee', '{"value": "true"}', 'test')
+  ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value$$, 'planification_cloture_separee (D-063) toujours admise');
+SELECT throws_ok($$UPDATE public.settings SET value = '{"value": "oui"}' WHERE key = 'clauses_renonciation_separee'$$, '22023', NULL,
+  'clauses_renonciation_separee : booleen exige');
+
+-- Referentiels administrateur et budgets --------------------------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.definir_nature_depense('PIECES', 'Pieces')$$, '42501', NULL, 'natures : administrateur seulement');
@@ -161,6 +243,14 @@ CREATE TEMP TABLE n1 AS SELECT public.definir_nature_depense('TEST-D065-PIECES',
 CREATE TEMP TABLE n2 AS SELECT public.definir_nature_depense('TEST-D065-AUTRE', 'Autre D-065') AS id;
 SELECT public.associer_categorie_cout('00000000-0000-4000-a650-0000000000b4', (SELECT id FROM n1));
 CREATE TEMP TABLE cpt AS SELECT public.definir_compte_comptable('TEST-411-D065', 'Client D-065') AS id;
+RESET ROLE;
+
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000005');
+SET LOCAL ROLE authenticated;
+SELECT throws_ok($$SELECT public.definir_budget('2001-01-01', '2001-12-31', (SELECT id FROM n2), 'GNF', 10)$$, '42501', NULL,
+  'budget sans site refuse a un profil borne a un site (D-075)');
+SELECT lives_ok($$SELECT public.definir_budget('2001-01-01', '2001-12-31', (SELECT id FROM n2), 'GNF', 10, '00000000-0000-4000-a650-000000000a51')$$,
+  'budget de son site accepte');
 RESET ROLE;
 
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
@@ -177,19 +267,33 @@ SELECT throws_ok($$SELECT public.imputer_depense('cout', (SELECT id FROM c2), (S
 SELECT throws_ok($$SELECT public.imputer_depense('cout', (SELECT id FROM c2), (SELECT id FROM n2))$$, '22023', NULL, 'reimputation sans motif refusee');
 SELECT public.imputer_depense('bon_commande', '00000000-0000-4000-a650-0000000000b3', (SELECT id FROM n1));
 SELECT is((SELECT (engage_bons, realise_couts, disponible, depassement)::text FROM public.v_suivi_budgets WHERE id = (SELECT id FROM b1)),
-  '(120,1100,-220,t)', 'engage = reliquat du bon approuve ; depassement signale sans blocage');
+  '(236.00,1100.00,-336.00,t)', 'engage = bon approuve, commande HT et taxes ; depassement signale sans blocage');
+SELECT is((SELECT base_montant FROM public.v_depenses_budgetaires WHERE piece_id = '00000000-0000-4000-a650-0000000000b3'),
+  'TTC (commande HT + taxes du bon)', 'base du montant explicite');
 SELECT ok(EXISTS (SELECT 1 FROM public.mes_validations() WHERE objet = 'Budget dépassé' AND reference = (SELECT numero FROM public.budgets WHERE id = (SELECT id FROM b1))),
   'depassement dans mes validations');
 SELECT throws_ok($$SELECT public.definir_budget('2001-01-01', '2001-12-31', (SELECT id FROM n1), 'GNF', 2000, p_remplace => (SELECT id FROM b1))$$,
   '22023', NULL, 'revision sans motif refusee');
 CREATE TEMP TABLE b2 AS SELECT public.definir_budget('2001-01-01', '2001-12-31', (SELECT id FROM n1), 'GNF', 2000,
   p_remplace => (SELECT id FROM b1), p_motif => 'Rallonge approuvee') AS id;
-SELECT is((SELECT string_agg(montant::text, ',') FROM public.v_suivi_budgets WHERE nature_id = (SELECT id FROM n1)), '2000',
+SELECT is((SELECT string_agg(montant_ttc::text, ',') FROM public.v_suivi_budgets WHERE nature_id = (SELECT id FROM n1)), '2000.00',
   'la revision remplace le budget precedent');
-SELECT throws_ok($$UPDATE public.budgets SET montant = 1 WHERE id = (SELECT id FROM b2)$$, '42501', NULL, 'budget non modifiable hors fonction');
 SELECT throws_ok($$SELECT public.annuler_budget((SELECT id FROM b2), '')$$, '22023', NULL, 'annulation sans motif refusee');
+RESET ROLE;
+-- Bon recu : il passe de l'engagement de commande au reste a payer, sans double compte.
+UPDATE public.purchase_order_items SET quantity_received = 10 WHERE purchase_order_id = '00000000-0000-4000-a650-0000000000b3';
+UPDATE public.purchase_orders SET status = 'received' WHERE id = '00000000-0000-4000-a650-0000000000b3';
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT (engage_bons, engage_a_payer)::text FROM public.v_suivi_budgets WHERE id = (SELECT id FROM b2)), '(0,236.00)',
+  'bon recu : engage au reste a payer TTC, plus en commande');
+RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SELECT throws_ok($$UPDATE public.budgets SET montant_ttc = 1 WHERE id = (SELECT id FROM b2)$$, '42501', NULL, 'budget fige (garde)');
 
--- Dettes et export comptable
+-- Dettes et export comptable ---------------------------------------------------------
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SET LOCAL ROLE authenticated;
 SELECT is((SELECT du FROM public.v_dettes_fournisseurs WHERE piece_id = '00000000-0000-4000-a650-0000000000f2'), 1180::numeric,
   'dette : facture du loueur controlee non payee');
 SELECT is((SELECT compte_tiers FROM public.ecritures_gestion('2001-01-01', '2001-12-31') WHERE piece = 'TEST-D065-FAC'), NULL::text,
@@ -202,9 +306,12 @@ SET LOCAL ROLE authenticated;
 SELECT public.definir_compte_tiers((SELECT id FROM cpt), p_contrat => '00000000-0000-4000-a650-0000000000c1');
 SELECT is((SELECT compte_tiers FROM public.ecritures_gestion('2001-01-01', '2001-12-31') WHERE piece = 'TEST-D065-FAC'), 'TEST-411-D065',
   'compte de tiers parametre repris dans l''export');
+SELECT public.definir_compte_tiers(NULL, p_contrat => '00000000-0000-4000-a650-0000000000c1');
+SELECT is((SELECT count(*)::int FROM public.comptes_tiers WHERE contrat_id = '00000000-0000-4000-a650-0000000000c1' AND compte_id IS NULL), 1,
+  'retrait du compte de tiers : ligne conservee, compte vide (aucune suppression)');
 RESET ROLE;
 
--- Evaluation du loueur (grille D-059 reutilisee)
+-- Evaluation du loueur (grille D-059 reutilisee) --------------------------------------
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
 SELECT throws_ok($$SELECT public.evaluer_loueur('00000000-0000-4000-a650-0000000000c2', '2001-11-01', '2001-11-30', '[]')$$, '22023', NULL,
@@ -217,6 +324,8 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000002');
 SET LOCAL ROLE authenticated;
 CREATE TEMP TABLE cr1 AS SELECT public.definir_critere_loueur('Disponibilite D-065', 2, 'disponibilite') AS id;
 CREATE TEMP TABLE cr2 AS SELECT public.definir_critere_loueur('Reactivite D-065', 1) AS id;
+SELECT throws_ok($$SELECT public.definir_critere_evaluation('Detourne', 1, p_id => (SELECT id FROM cr1))$$, '22023', NULL,
+  'la grille fournisseurs ne modifie pas un critere du loueur');
 RESET ROLE;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
 SET LOCAL ROLE authenticated;
@@ -226,15 +335,60 @@ CREATE TEMP TABLE ev1 AS SELECT public.evaluer_loueur('00000000-0000-4000-a650-0
   jsonb_build_array(jsonb_build_object('critere', (SELECT id FROM cr1), 'note', 4), jsonb_build_object('critere', (SELECT id FROM cr2), 'note', 1))) AS id;
 SELECT is((SELECT (note_globale, jsonb_array_length(mesures))::text FROM public.evaluations_fournisseurs WHERE id = (SELECT id FROM ev1)), '(3.00,4)',
   'note ponderee calculee, mesures de la periode figees');
+SELECT is((SELECT count(*)::int FROM public.v_evaluations_fournisseurs_courantes WHERE id = (SELECT id FROM ev1)), 0,
+  'evaluation du loueur absente de la vue des fournisseurs');
 SELECT throws_ok($$SELECT public.evaluer_loueur('00000000-0000-4000-a650-0000000000c2', '2001-11-01', '2001-11-30',
   jsonb_build_array(jsonb_build_object('critere', (SELECT id FROM cr1), 'note', 5), jsonb_build_object('critere', (SELECT id FROM cr2), 'note', 5)))$$,
   '22023', NULL, 'periode deja evaluee : motif exige');
-SELECT throws_ok($$UPDATE public.evaluations_fournisseurs SET note_globale = 1 WHERE id = (SELECT id FROM ev1)$$, '42501', NULL,
-  'evaluation du loueur non modifiable');
 SELECT throws_ok($$SELECT public.evaluer_fournisseur('00000000-0000-4000-a650-0000000000b1', '2001-11-01', '2001-11-30',
   jsonb_build_array(jsonb_build_object('critere', (SELECT id FROM cr1), 'note', 4), jsonb_build_object('critere', (SELECT id FROM cr2), 'note', 4)))$$,
   '22023', NULL, 'la grille fournisseurs ignore les criteres du loueur');
 RESET ROLE;
+SELECT pg_temp.se_connecter('00000000-0000-4000-a650-000000000001');
+SELECT throws_ok($$UPDATE public.evaluations_fournisseurs SET note_globale = 1 WHERE id = (SELECT id FROM ev1)$$, '42501', NULL,
+  'evaluation du loueur non modifiable (garde)');
+
+-- Droits (D-072 : un droit retire se verifie par has_*_privilege) -----------------------
+SELECT is((SELECT bool_or(has_table_privilege(r, 'public.' || t, p))
+             FROM unnest(ARRAY['anon', 'authenticated']) r,
+                  unnest(ARRAY['contrats_echeances', 'contrat_clauses', 'calculs_clauses', 'plan_comptable', 'natures_depense',
+                               'comptes_tiers', 'imputations_budgetaires', 'budgets']) t,
+                  unnest(ARRAY['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']) p), false,
+  'aucune ecriture directe, ni DELETE ni TRUNCATE, sur les tables du lot');
+SELECT is((SELECT bool_or(has_table_privilege('anon', 'public.' || t, 'SELECT'))
+             FROM unnest(ARRAY['contrats_echeances', 'contrat_clauses', 'calculs_clauses', 'plan_comptable', 'natures_depense',
+                               'comptes_tiers', 'imputations_budgetaires', 'budgets', 'v_echeances_contrats', 'v_suivi_budgets',
+                               'v_depenses_budgetaires', 'v_dettes_fournisseurs', 'v_evaluations_loueur_courantes']) t), false,
+  'tables et vues du lot illisibles par anon');
+SELECT is((SELECT count(*)::int FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r'
+              AND c.relname IN ('contrats_echeances', 'contrat_clauses', 'calculs_clauses', 'plan_comptable', 'natures_depense',
+                                'comptes_tiers', 'imputations_budgetaires', 'budgets')
+              AND c.relrowsecurity
+              AND EXISTS (SELECT 1 FROM pg_policies p WHERE p.schemaname = 'public' AND p.tablename = c.relname AND p.cmd = 'SELECT'
+                            AND p.qual <> 'true')), 8,
+  'RLS active et politique de lecture bornee sur les huit tables');
+SELECT is((SELECT bool_or(has_sequence_privilege(r, 'public.budgets_numero_seq', p))
+             FROM unnest(ARRAY['anon', 'authenticated']) r, unnest(ARRAY['USAGE', 'SELECT', 'UPDATE']) p), false,
+  'sequence des budgets fermee aux comptes');
+SELECT is((SELECT bool_or(has_function_privilege('authenticated', f, 'EXECUTE')) FROM unnest(ARRAY[
+    'public.garde_append_only_finance()', 'public.garde_budget()', 'public.garde_calcul_clause()']) f), false,
+  'gardes non executables par les comptes');
+SELECT is((SELECT bool_or(has_function_privilege('anon', f, 'EXECUTE')) FROM unnest(ARRAY[
+    'public.enregistrer_echeance_contrat(uuid, text, date, text, date, text)',
+    'public.definir_clause(uuid, text, text, uuid, text, text, numeric, numeric, text, integer, uuid)',
+    'public.calculer_clauses(uuid)', 'public.decider_clause(uuid, boolean, text, uuid, numeric)',
+    'public.definir_budget(date, date, uuid, text, numeric, uuid, text, uuid, text)', 'public.annuler_budget(uuid, text)',
+    'public.imputer_depense(text, uuid, uuid, text)', 'public.definir_compte_tiers(uuid, uuid, uuid)',
+    'public.ecritures_gestion(date, date)', 'public.mesures_loueur(uuid, date, date)', 'public.evaluer_loueur(uuid, date, date, jsonb, text, text)',
+    'public.delai_alerte_echeances_contrats()', 'public.mes_validations()']) f), false, 'aucune fonction du lot executable par anon');
+SELECT is((SELECT bool_and(p.prosecdef AND p.proconfig @> ARRAY['search_path=""'])
+             FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+              AND p.proname IN ('enregistrer_echeance_contrat', 'definir_clause', 'desactiver_clause', 'calculer_clauses', 'decider_clause',
+                                'definir_compte_comptable', 'definir_nature_depense', 'associer_categorie_cout', 'definir_compte_tiers',
+                                'imputer_depense', 'definir_budget', 'annuler_budget', 'definir_critere_loueur', 'evaluer_loueur',
+                                'evaluer_fournisseur', 'definir_critere_evaluation')),
+  true, 'ecritures en SECURITY DEFINER a search_path vide');
 
 SELECT * FROM finish();
 ROLLBACK;
