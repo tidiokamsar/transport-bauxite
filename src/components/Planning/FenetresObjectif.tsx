@@ -9,9 +9,9 @@ import type { ShiftHoraire } from './plan';
 // (definir_objectif), l'annuler (annuler_objectif), voir ses versions.
 // Le serveur numerote les versions et exige le motif d'une revision.
 
-const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
+export const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
 
-const Fenetre = ({ titre, onFermer, children, pied, largeur = 'max-w-2xl' }: {
+export const Fenetre = ({ titre, onFermer, children, pied, largeur = 'max-w-2xl' }: {
   titre: string;
   onFermer: () => void;
   children: ReactNode;
@@ -50,6 +50,7 @@ export const DefinirObjectif = ({
   shifts,
   existants,
   initial,
+  propose,
   onFermer,
   onEnregistre,
 }: {
@@ -59,6 +60,8 @@ export const DefinirObjectif = ({
   /** Objectifs actifs connus pour la date : une cle deja prise = revision. */
   existants: Existant[];
   initial?: { site_id: string; shift_id: string | null };
+  /** Scenario de rattrapage retenu (D-063) : valeurs proposees, motif a saisir. Reference stable attendue. */
+  propose?: { titre: string; tonnes: number; camions: number | null; chargeuses: number | null };
   onFermer: () => void;
   onEnregistre: () => void;
 }) => {
@@ -89,8 +92,13 @@ export const DefinirObjectif = ({
       voyages: actuel.voyages_cible?.toString() ?? '',
       camions: actuel.camions_prevus?.toString() ?? '',
       chargeuses: actuel.chargeuses_prevues?.toString() ?? '',
+      ...(propose ? {
+        tonnes: String(propose.tonnes),
+        camions: propose.camions?.toString() ?? actuel.camions_prevus?.toString() ?? '',
+        chargeuses: propose.chargeuses?.toString() ?? actuel.chargeuses_prevues?.toString() ?? '',
+      } : {}),
     }));
-  }, [actuel]);
+  }, [actuel, propose]);
 
   const maj = (champ: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [champ]: e.target.value });
@@ -166,6 +174,11 @@ export const DefinirObjectif = ({
             <span className="mb-1 block font-medium text-stone-700">Chargeuses et pelles prévues</span>
             <input inputMode="numeric" value={form.chargeuses} onChange={maj('chargeuses')} className={CHAMP} />
           </label>
+          {propose && (
+            <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900 sm:col-span-2">
+              Scénario retenu : <b>{propose.titre}</b>. Les valeurs proposées restent modifiables ; le motif explique la décision.
+            </div>
+          )}
           {actuel && (
             <div className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900 sm:col-span-2">
               Objectif en vigueur : <b>{formatNombre(Number(actuel.tonnes_cible))} t</b> (version {actuel.version}).
