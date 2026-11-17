@@ -10,7 +10,8 @@ import { lireRoute, naviguer, poserAnnonce, routeAction, routeDetail, routeListe
 import { FenetreEnPage } from '../ui/Fenetre';
 import { FilAriane } from '../ui/PageDetail';
 import { arianeModule } from '../ui/pages';
-import { avecContexte, contexteDepuisRequete, dateDuContexte } from '../Operations/journal';
+import { avecContexte, contexteDepuisRequete, correspondRessources, dateDuContexte } from '../Operations/journal';
+import { BandeauContexte } from '../Operations/BandeauContexte';
 import {
   A_AFFECTER, TYPES_ENGIN, camionDisponible, chauffeurDisponible, instantane, raisonReaffectation, recommander,
   type Chauffeur, type Engin, type Recommandation,
@@ -562,8 +563,9 @@ export const DispatchView = () => {
       )}
 
       {onglet === 'voyages' && (
-        <VoyagesParEtat voyages={voyages ?? []} vue={vue} setVue={setVue} suspendus={suspendus} aReaffecter={aReaffecterIds}
-          peutEcrire={peutEcrire} libelle={libelleVoyage} onModifie={charger} />
+        <><BandeauContexte nomCamion={(id) => camionParId.get(id)?.registration ?? null} nomChauffeur={(id) => chauffeurParId.get(id)?.name ?? null} />
+        <VoyagesParEtat voyages={(voyages ?? []).filter(correspondRessources(contexteDepuisRequete(route.requete)))} vue={vue} setVue={setVue} suspendus={suspendus} aReaffecter={aReaffecterIds}
+          peutEcrire={peutEcrire} libelle={libelleVoyage} onModifie={charger} /></>
       )}
 
       {onglet === 'supervision' && pret && (

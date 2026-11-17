@@ -119,7 +119,7 @@ export const DetailVoyage = ({ id }: { id: string }) => {
     destination: nom(noms.site, voyage.arrival_site_id) ?? '—',
     shift: nom(noms.shift, voyage.shift_id) ?? '—',
   } : null;
-  const ctx = { ...contexte, date: contexte.date ?? voyage?.planned_date, voyage: id, camion: contexte.camion ?? voyage?.vehicle_id ?? undefined };
+  const ctx = { ...contexte, date: contexte.date ?? voyage?.planned_date, voyage: id, camion: contexte.camion ?? voyage?.vehicle_id ?? undefined, chauffeur: contexte.chauffeur ?? voyage?.driver_id ?? undefined };
 
   const actions: ActionPage[] = [
     { id: 'suspendre', libelle: 'Suspendre', visible: peutEcrire && !!voyage && !suspendu && !termine, vers: routeAction(VUE_VOYAGES, id, 'suspendre'), ton: 'danger' },

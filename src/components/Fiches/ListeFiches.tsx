@@ -12,7 +12,8 @@ import { LienVue } from '../ui/LienVue';
 import { useSaisie } from '../ui/pages';
 import { lire } from '../ui/lecture';
 import { naviguer, poserAnnonce, routeDetail, routeListe, useRoute } from '../ui/routeur';
-import { avecContexte, contexteDepuisRequete, dateDuContexte } from '../Operations/journal';
+import { avecContexte, contexteDepuisRequete, correspondRessources, dateDuContexte } from '../Operations/journal';
+import { BandeauContexte } from '../Operations/BandeauContexte';
 import { TYPES_FICHE, type TypeFiche } from './fiches';
 import { ETATS_FICHE, VUE_FICHES, routeLot, tableauDeBordFiches } from './cycleFiche';
 
@@ -105,7 +106,7 @@ export const ListeFiches = () => {
       vue={VUE_FICHES}
       titre="Fiches terrain"
       sousTitre="Préparer, imprimer, remettre aux agents, recevoir, saisir, contrôler et valider (cycle D-089)"
-      lignes={fiches}
+      lignes={fiches ? fiches.filter((f) => f.type !== 'rotations' || correspondRessources({ camion: ctx.camion, chauffeur: ctx.chauffeur })(f)) : null}
       erreur={erreur}
       cle={(f) => f.id}
       libelleOuverture={(f) => `Fiche ${f.numero}`}
@@ -129,6 +130,7 @@ export const ListeFiches = () => {
               {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
+          <BandeauContexte nomCamion={(id) => nom(ref.engins, id)} nomChauffeur={(id) => nom(ref.chauffeurs, id)} />
           {aucunSite && <ReferentielVide>{SANS_SITE} Les fiches se préparent ensuite pour ce site.</ReferentielVide>}
           {!aucunSite && ref.shiftsLus && ref.shifts.length === 0 && <ReferentielVide>{SANS_SHIFT} <LienVue vue="shifts">Ouvrir la gestion des shifts</LienVue></ReferentielVide>}
           {fiches && fiches.length > 0 && (

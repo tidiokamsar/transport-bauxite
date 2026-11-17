@@ -152,3 +152,7 @@ export const dateDuContexte = (defaut: () => string): string => {
   const d = lireRoute(typeof window === 'undefined' ? '' : window.location.hash).requete.date ?? '';
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : defaut();
 };
+
+/** Filtre camion et chauffeur du contexte : un champ absent du contexte ne filtre pas. */
+export const correspondRessources = (ctx: Contexte) => (v: { vehicle_id: string | null; driver_id?: string | null }) =>
+  (!ctx.camion || v.vehicle_id === ctx.camion) && (!ctx.chauffeur || v.driver_id === ctx.chauffeur);
