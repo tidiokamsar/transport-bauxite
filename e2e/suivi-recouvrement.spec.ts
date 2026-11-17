@@ -41,13 +41,22 @@ test.describe('Suivi et recouvrement', () => {
   });
 
   test('relance d\'une creance echue et lettre imprimable', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, v_creances: [CREANCE], contrats: [CONTRAT], societe: [{ raison_sociale: 'Kogon Mining SARL', adresse: 'Conakry' }] });
+    await simulerApi(page, {
+      profiles: PROFIL, v_creances: [CREANCE], contrats: [CONTRAT], encaissements: [],
+      relances: [{ id: 'r1', facture_id: 'f1', niveau: 1, date_relance: '2026-11-12', canal: 'email', note: null, auteur: null, le: '2026-11-12T09:00:00Z' }],
+      societe: [{ raison_sociale: 'Kogon Mining SARL', adresse: 'Conakry' }],
+    });
     const relances = await capturer(page, 'relancer', 1);
     await aller(page, 'Recouvrement');
     await expect(page.getByText('(7 j de retard)')).toBeVisible();
-    await page.getByRole('button', { name: 'Relancer FAC-2026-0001' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Enregistrer' }).click();
+    await page.getByRole('button', { name: 'Créance FAC-2026-0001' }).click();
+    await page.getByRole('link', { name: 'Rappel', exact: true }).click();
+    await page.getByRole('form', { name: 'Rappel · FAC-2026-0001' }).getByRole('button', { name: 'Enregistrer la relance' }).click();
     await expect.poll(() => relances.length).toBe(1);
+    expect(relances[0]).toMatchObject({ p_facture_id: 'f1', p_canal: 'email' });
+    // La lettre du niveau enregistre s'ouvre depuis les relances de la fiche.
+    await page.getByRole('tab', { name: 'Encaissements et relances' }).click();
+    await page.getByRole('region', { name: 'Relances' }).getByRole('link', { name: 'Rappel' }).click();
     const lettre = page.getByRole('article', { name: 'Lettre de relance' });
     await expect(lettre).toContainText('Rappel · facture FAC-2026-0001');
     await expect(lettre).toContainText('400,00 USD');
@@ -55,13 +64,15 @@ test.describe('Suivi et recouvrement', () => {
   });
 
   test('encaissement : reste du propose, montant envoye', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, v_creances: [CREANCE], contrats: [CONTRAT] });
+    await simulerApi(page, { profiles: PROFIL, v_creances: [CREANCE], contrats: [CONTRAT], encaissements: [], relances: [] });
     const envois = await capturer(page, 'enregistrer_encaissement', 'e1');
-    await aller(page, 'Recouvrement');
-    await page.getByRole('button', { name: 'Encaisser FAC-2026-0001' }).click();
-    const f = page.getByRole('dialog');
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/recouvrement/f1');
+    await page.getByRole('link', { name: 'Encaisser' }).click();
+    const f = page.getByRole('form', { name: 'Encaissement · FAC-2026-0001' });
+    await expect(f.getByLabel(/^Montant \*/)).toHaveValue('400');
     await f.getByLabel('Référence bancaire').fill('VIR-2026-118');
-    await f.getByRole('button', { name: 'Enregistrer' }).click();
+    await f.getByRole('button', { name: 'Enregistrer l\'encaissement' }).click();
     await expect.poll(() => envois.length).toBe(1);
     expect(envois[0]).toMatchObject({ p_facture_id: 'f1', p_montant: 400, p_mode: 'virement', p_reference: 'VIR-2026-118' });
   });

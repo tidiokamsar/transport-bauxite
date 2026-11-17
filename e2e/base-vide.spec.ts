@@ -77,8 +77,8 @@ test.describe('Base vide (référentiels non saisis)', () => {
     await ouvrir(page, null, 'Postes de travail', 'Postes de travail');
     await expect(page.getByRole('status').filter({ hasText: SANS_SITE })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: SANS_SHIFT })).toBeVisible();
-    await expect(page.getByText('Aucun poste ouvert à cette date')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Ouvrir le poste' })).toBeDisabled();
+    await expect(page.getByText('Aucun poste', { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Ouvrir un poste' })).toHaveCount(0);
     await sansErreurNiChargement(page);
 
     await ouvrir(page, null, 'Dispatch', 'Dispatch');
