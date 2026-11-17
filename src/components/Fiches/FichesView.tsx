@@ -9,6 +9,10 @@ import { STATUTS_FICHE, TYPES_FICHE, type Fiche, type TypeFiche } from './fiches
 import { FicheImprimable, type ContexteImpression } from './FicheImprimable';
 import { SaisieFiche } from './SaisieFiche';
 import { LienVue } from '../ui/LienVue';
+import { routeDetail, useRoute } from '../ui/routeur';
+import { dateDuContexte } from '../Operations/journal';
+import { ActionFichePage, DetailFiche } from './PagesFiche';
+import { VUE_FICHES } from './cycleFiche';
 
 // Fiches terrain (phase 2 du poste charge de contrats, D-028) : preparer
 // les fiches du shift depuis le dispatch et la flotte, les imprimer, suivre
@@ -26,11 +30,20 @@ interface Societe { raison_sociale: string; rccm: string | null; nif: string | n
 
 const ICONES: Record<TypeFiche, typeof Truck> = { rotations: Truck, pointage_engins: Timer, carburant: Fuel };
 
+// Aiguillage (D-088, pages D-090) : liste du jour, fiche detaillee du cycle
+// D-089 (#/fiches/<id>) et ses actions (#/fiches/<id>/<action>).
 export const FichesView = () => {
+  const route = useRoute();
+  if (route.vue === VUE_FICHES && route.mode === 'detail' && route.id) return <DetailFiche id={route.id} />;
+  if (route.vue === VUE_FICHES && route.mode === 'action' && route.id && route.action) return <ActionFichePage id={route.id} action={route.action} />;
+  return <ListeFiches />;
+};
+
+const ListeFiches = () => {
   const { hasPermission } = useAuth();
   const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('maintenance', 'create') || hasPermission('fuel', 'create');
-  const [date, setDate] = useState(aujourdhui);
+  const [date, setDate] = useState(() => dateDuContexte(aujourdhui));
   const [site, setSite] = useState('');
   const [shift, setShift] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -234,7 +247,7 @@ export const FichesView = () => {
                   <div className="flex items-center gap-3">
                     <Icone className="h-5 w-5 text-stone-400" />
                     <div>
-                      <p className="font-mono font-bold text-stone-900">{f.numero} <span className="ml-2 font-sans font-normal text-stone-500">{TYPES_FICHE[f.type].libelle}</span></p>
+                      <p className="font-mono font-bold text-stone-900"><a href={routeDetail(VUE_FICHES, f.id)} className="hover:underline">{f.numero}</a> <span className="ml-2 font-sans font-normal text-stone-500">{TYPES_FICHE[f.type].libelle}</span></p>
                       <p className="text-xs text-stone-500">
                         {detail(f)}{f.shift_id ? ` · shift ${shiftParId.get(f.shift_id)?.display_name ?? ''}` : ''}{f.agent ? ` · agent : ${f.agent}` : ''}
                         {f.motif_annulation ? ` · annulée : ${f.motif_annulation}` : ''}

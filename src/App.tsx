@@ -6,7 +6,8 @@ import { VerificationMfa } from './components/Auth/VerificationMfa';
 import { verificationRequise, type NiveauAssurance } from './components/Auth/mfa';
 import { supabase } from './lib/supabase';
 import { Sidebar } from './components/Layout/Sidebar';
-import { libelleVue } from './components/Layout/menu';
+import { VUES_OPERATIONS, libelleVue, resoudreVue } from './components/Layout/menu';
+import { avecContexte, contexteDepuisRequete } from './components/Operations/journal';
 import { TopBar } from './components/Layout/TopBar';
 import { BandeauDemonstration } from './components/Layout/BandeauDemonstration';
 import { SiteProvider } from './contexts/SiteContext';
@@ -15,7 +16,9 @@ import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { Embleme } from './components/Brand/Marque';
 import { EVENEMENT_ALLER_A } from './components/ui/navigation';
-import { naviguer, routeListe, useRoute } from './components/ui/routeur';
+import { lireRoute, naviguer, routeListe, useRoute } from './components/ui/routeur';
+
+const lireRouteCourante = () => lireRoute(window.location.hash);
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
@@ -79,6 +82,7 @@ const DriverBehaviorAnalyticsView = lazy(() => import('./components/Analyses/Ana
 const TCOAnalysisView = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.CoutTonneView })));
 const FleetHealthDashboard = lazy(() => import('./components/Analyses/AnalysesFlotte').then(m => ({ default: m.SanteFlotteView })));
 const CentrePilotageView = lazy(() => import('./components/Pilotage/CentrePilotageView').then(m => ({ default: m.CentrePilotageView })));
+const OperationsView = lazy(() => import('./components/Operations/OperationsView').then(m => ({ default: m.OperationsView })));
 const MesValidationsView = lazy(() => import('./components/Notifications/MesValidationsView').then(m => ({ default: m.MesValidationsView })));
 const QuickActionsPanel = lazy(() => import('./components/QuickActions/QuickActionsPanel'));
 
@@ -101,7 +105,15 @@ const MainApp = () => {
   // ete laissee (filtres conserves pendant la session).
   const route = useRoute();
   const currentView = route.vue || 'dashboard';
-  const setCurrentView = useCallback((vue: string) => naviguer(routeListe(vue)), []);
+  // Menu (D-088) : un alias de l'espace Operations transport ouvre l'ecran
+  // du module ; entre ecrans de cet espace, le contexte (date, site, shift,
+  // camion, chauffeur, voyage, rotation) suit dans l'adresse.
+  const setCurrentView = useCallback((entree: string) => {
+    const vue = resoudreVue(entree);
+    const depuis = lireRouteCourante();
+    const garder = VUES_OPERATIONS.has(vue) && VUES_OPERATIONS.has(depuis.vue);
+    naviguer(garder ? avecContexte(routeListe(vue), contexteDepuisRequete(depuis.requete)) : routeListe(vue));
+  }, []);
   const principal = useRef<HTMLElement>(null);
   const cleRoute = `${route.vue}/${route.mode}/${route.id ?? ''}/${route.action ?? ''}`;
   useEffect(() => { principal.current?.scrollTo?.({ top: 0 }); }, [cleRoute]);
@@ -270,6 +282,11 @@ const MainApp = () => {
         return <PlanificationView />;
       case 'dispatch':
         return <DispatchView />;
+      case 'operations':
+      case 'operations-journal':
+      case 'operations-anomalies':
+      case 'operations-controles':
+        return <OperationsView />;
       default:
         return <DashboardView />;
     }

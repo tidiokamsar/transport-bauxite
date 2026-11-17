@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight, MapPin, Search } from 'lucide-react';
-import { MENU, type MenuItem } from './menu';
+import { MENU, resoudreVue, type MenuItem } from './menu';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
 import { GlobalSearchModal } from '../Search/GlobalSearchModal';
@@ -46,7 +46,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
       return n;
     });
 
-  const accessible = (id: string) => id === 'dashboard' || canAccessModule(id);
+  const accessible = (id: string) => id === 'dashboard' || canAccessModule(resoudreVue(id));
 
   const rendre = (item: MenuItem, niveau = 0) => {
     const Icone = item.icon;

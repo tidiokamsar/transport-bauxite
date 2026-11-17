@@ -6,6 +6,8 @@ import { useSite } from '../../contexts/SiteContext';
 import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
 import { LienVue } from '../ui/LienVue';
+import { routeDetail } from '../ui/routeur';
+import { avecContexte, dateDuContexte } from '../Operations/journal';
 import {
   A_AFFECTER, TYPES_ENGIN, camionDisponible, chauffeurDisponible, instantane, raisonReaffectation, recommander,
   type Chauffeur, type Engin, type Recommandation,
@@ -75,7 +77,7 @@ export const DispatchView = () => {
   const { hasPermission } = useAuth();
   const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
-  const [date, setDate] = useState(aujourdhui);
+  const [date, setDate] = useState(() => dateDuContexte(aujourdhui));
   const [site, setSite] = useState('');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [aucunShift, setAucunShift] = useState(false);
@@ -426,7 +428,7 @@ export const DispatchView = () => {
                               )}
                             </td>
                           )}
-                          <td className="py-2.5 pr-3 font-semibold text-stone-900">{v.reference}{suspendu && <span className="ml-2"><Puce teinte="rouge">Suspendu</Puce></span>}</td>
+                          <td className="py-2.5 pr-3 font-semibold text-stone-900"><a href={avecContexte(routeDetail('trips', v.id), { date })} className="hover:underline">{v.reference}</a>{suspendu && <span className="ml-2"><Puce teinte="rouge">Suspendu</Puce></span>}</td>
                           <td className="py-2.5 pr-3 text-stone-700">{nomSite.get(v.arrival_site_id ?? '') ?? '—'}</td>
                           <td className="py-2.5 pr-3">{ligneRecommandation(r)}</td>
                           {peutEcrire && r && (

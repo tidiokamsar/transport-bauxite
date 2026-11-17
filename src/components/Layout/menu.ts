@@ -41,6 +41,27 @@ export const MENU: MenuItem[] = [
   { id: 'kilometrage', label: 'Kilométrage', icon: Gauge },
   { id: 'fiches', label: 'Fiches terrain', icon: ClipboardList },
   { id: 'tickets-cbg', label: 'Pesée CBG', icon: Scale },
+  // Espace Operations transport (D-088) : regroupe la chaine sans retirer les
+  // acces directs ci-dessus. Les entrees « op-* » sont des alias (ALIAS_MENU)
+  // qui ouvrent l'ecran du module avec le contexte de l'adresse.
+  {
+    id: 'operations-transport',
+    label: 'Opérations transport',
+    icon: Route,
+    children: [
+      { id: 'operations', label: 'Vue générale', icon: LayoutDashboard },
+      { id: 'op-planification', label: 'Objectifs planifiés', icon: CalendarDays },
+      { id: 'op-postes', label: 'Instances de shift', icon: Timer },
+      { id: 'op-dispatch', label: 'Affectation des voyages', icon: Waypoints },
+      { id: 'op-voyages', label: 'Registre des voyages', icon: Route },
+      { id: 'op-fiches', label: 'Cycle des fiches', icon: ClipboardList },
+      { id: 'op-pesee', label: 'Tickets et relevés CBG', icon: Scale },
+      { id: 'op-supervision', label: 'Supervision du jour', icon: Gauge },
+      { id: 'operations-anomalies', label: 'Anomalies et écarts', icon: AlertTriangle },
+      { id: 'operations-journal', label: 'Journal des événements', icon: Activity },
+      { id: 'operations-controles', label: 'Contrôles et clôtures', icon: ClipboardCheck },
+    ],
+  },
   {
     id: 'flotte',
     label: 'Flotte',
@@ -136,6 +157,24 @@ export const MENU: MenuItem[] = [
   },
   { id: 'settings', label: 'Paramètres', icon: Settings },
 ];
+
+/** Alias du menu Operations transport (D-088) : entree -> ecran du module. */
+export const ALIAS_MENU: Record<string, string> = {
+  'op-planification': 'planification',
+  'op-postes': 'postes',
+  'op-dispatch': 'dispatch',
+  'op-voyages': 'trips',
+  'op-fiches': 'fiches',
+  'op-pesee': 'tickets-cbg',
+  'op-supervision': 'centre-pilotage',
+};
+
+/** Ecran reellement ouvert par une entree du menu. */
+export const resoudreVue = (id: string): string => ALIAS_MENU[id] ?? id;
+
+/** Ecrans de l'espace Operations transport : le contexte de l'adresse les suit. */
+export const VUES_OPERATIONS = new Set(['operations', 'operations-journal', 'operations-anomalies', 'operations-controles',
+  'planification', 'postes', 'shifts', 'dispatch', 'trips', 'fiches', 'tickets-cbg', 'kilometrage']);
 
 /** Libelle d'un ecran, pour l'entete. */
 export const libelleVue = (id: string): string => {

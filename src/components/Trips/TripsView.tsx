@@ -9,9 +9,12 @@ import { formatNombre } from '../Dashboard/indicateurs';
 import { buildCSV } from '../../lib/exports';
 import { ETATS, PHASES, estEtat, phaseDe, tonnageVoyage, type Phase } from './cycle';
 import { COLONNES_VOYAGE, type Voyage } from './types';
-import { FicheVoyage } from './FicheVoyage';
 import { NouveauVoyage, type Option } from './NouveauVoyage';
 import { RapportsVoyages } from './RapportsVoyages';
+import { naviguer, routeDetail, useRoute } from '../ui/routeur';
+import { DetailVoyage } from '../Operations/DetailVoyage';
+import { ActionVoyage } from '../Operations/ActionVoyage';
+import { avecContexte, contexteDepuisRequete } from '../Operations/journal';
 
 // Voyages & Rotations (etape 2 de la reprise, CDC 12). Les voyages du jour
 // choisi, par phase du cycle ; chaque changement d'etat passe par la fiche
@@ -26,11 +29,22 @@ interface Vehicule { id: string; registration: string; vehicle_type: string; sta
 interface Chauffeur { id: string; name: string; status: string | null }
 interface Shift { id: string; display_name: string }
 
+// Aiguillage (D-088, pages D-090) : registre par etat, fiche operationnelle
+// du voyage (#/trips/<id>) et ses actions (#/trips/<id>/<action>).
 export const TripsView = () => {
+  const route = useRoute();
+  if (route.vue === 'trips' && route.mode === 'detail' && route.id) return <DetailVoyage id={route.id} />;
+  if (route.vue === 'trips' && route.mode === 'action' && route.id && route.action) return <ActionVoyage id={route.id} action={route.action} />;
+  return <RegistreVoyages />;
+};
+
+const RegistreVoyages = () => {
+  const route = useRoute();
+  const contexte = contexteDepuisRequete(route.requete);
   const { hasPermission } = useAuth();
   const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
-  const [date, setDate] = useState(aujourdhui);
+  const [date, setDate] = useState(() => (/^\d{4}-\d{2}-\d{2}$/.test(contexte.date ?? '') ? contexte.date as string : aujourdhui()));
   const [phase, setPhase] = useState<Phase | 'toutes'>('toutes');
   const [recherche, setRecherche] = useState('');
   const [voyages, setVoyages] = useState<Voyage[] | null>(null);
@@ -39,7 +53,6 @@ export const TripsView = () => {
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [chauffeurs, setChauffeurs] = useState<Chauffeur[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
-  const [ouvert, setOuvert] = useState<string | null>(null);
   const [creation, setCreation] = useState(false);
   const [rapports, setRapports] = useState(false);
 
@@ -129,7 +142,6 @@ export const TripsView = () => {
 
   const options = (liste: Vehicule[], types: string[]): Option[] =>
     liste.filter((v) => types.includes(v.vehicle_type) && v.status === 'active').map((v) => ({ id: v.id, libelle: v.registration }));
-  const voyageOuvert = voyages?.find((v) => v.id === ouvert) ?? null;
 
   return (
     <div className="space-y-6">
@@ -224,7 +236,7 @@ export const TripsView = () => {
                   const p = PHASES[phaseDe(v.etat)];
                   const t = tonnageVoyage(v);
                   return (
-                    <tr key={v.id} onClick={() => setOuvert(v.id)} className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-orange-50/50">
+                    <tr key={v.id} onClick={() => naviguer(avecContexte(routeDetail('trips', v.id), { ...contexte, date }))} className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-orange-50/50">
                       <td className="py-2.5 pr-3 font-semibold text-stone-900">{v.reference}</td>
                       <td className="py-2.5 pr-3 text-stone-700">{nom(noms.vehicule, v.vehicle_id)}</td>
                       <td className="py-2.5 pr-3 text-stone-700">{nom(noms.chauffeur, v.driver_id)}</td>
@@ -258,27 +270,11 @@ export const TripsView = () => {
           onFermer={() => setCreation(false)}
           onCree={(id) => {
             setCreation(false);
-            charger().then(() => setOuvert(id));
+            naviguer(routeDetail('trips', id));
           }}
         />
       )}
 
-      {voyageOuvert && (
-        <FicheVoyage
-          voyage={voyageOuvert}
-          peutEcrire={peutEcrire}
-          libelles={{
-            camion: nom(noms.vehicule, voyageOuvert.vehicle_id),
-            chauffeur: nom(noms.chauffeur, voyageOuvert.driver_id),
-            chargeuse: nom(noms.vehicule, voyageOuvert.loader_vehicle_id),
-            origine: nom(noms.site, voyageOuvert.departure_site_id),
-            destination: nom(noms.site, voyageOuvert.arrival_site_id),
-            shift: nom(noms.shift, voyageOuvert.shift_id),
-          }}
-          onFermer={() => setOuvert(null)}
-          onModifie={charger}
-        />
-      )}
     </div>
   );
 };

@@ -87,6 +87,7 @@ test.describe('Voyages & Rotations', () => {
     await page.screenshot({ path: 'test-results/voyages-liste.png', fullPage: true });
 
     await page.getByText('VYG-261110-001').click();
+    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
     const fiche = page.getByRole('dialog');
     await expect(fiche).toContainText('Mine Nimba → Dépôt');
     await expect(fiche).toContainText('CAT-980L-01');
@@ -110,6 +111,7 @@ test.describe('Voyages & Rotations', () => {
     );
     await ouvrirVoyages(page);
     await page.getByText('VYG-261110-001').click();
+    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
     const fiche = page.getByRole('dialog');
     await fiche.getByRole('button', { name: 'Contester' }).click();
     await fiche.getByRole('button', { name: /Enregistrer : En litige/ }).click();
