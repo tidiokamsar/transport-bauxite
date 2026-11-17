@@ -402,9 +402,9 @@ export const LiveMapView = () => {
   }
 
   return (
-    <div className="relative h-full w-full overflow-hidden flex">
+    <div className="relative flex h-full w-full flex-col overflow-hidden lg:flex-row">
       {/* Sidebar */}
-      <div className="w-96 bg-white border-r border-slate-200 flex flex-col h-full overflow-hidden shadow-lg">
+      <div className="flex max-h-[40vh] w-full flex-col overflow-hidden border-b border-slate-200 bg-white shadow-lg lg:h-full lg:max-h-none lg:w-96 lg:border-b-0 lg:border-r">
         <div className="p-5 border-b border-slate-200 bg-gradient-to-br from-blue-600 to-blue-700">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xl font-bold text-white flex items-center gap-2">
@@ -994,7 +994,7 @@ export const LiveMapView = () => {
                     {selectedTrip.departure_site} → {selectedTrip.arrival_site}
                   </p>
                 </div>
-                <div className="h-[600px] relative">
+                <div className="relative h-[55vh] min-h-[320px] sm:h-[600px]">
                   <MapContainer
                     center={[selectedTrip.current_latitude, selectedTrip.current_longitude]}
                     zoom={12}
@@ -1049,7 +1049,7 @@ export const LiveMapView = () => {
 
                 {/* GPS Coordinates */}
                 <div className="p-4 bg-slate-50 border-t border-slate-200">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
                       <p className="text-xs text-slate-500 mb-1">Latitude</p>
                       <p className="font-mono font-semibold text-slate-900">{selectedTrip.current_latitude.toFixed(6)}</p>

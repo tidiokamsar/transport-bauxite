@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { Menu } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { LoginPage } from './components/Auth/LoginPage';
@@ -115,6 +116,9 @@ const MainApp = () => {
     naviguer(garder ? avecContexte(routeListe(vue), contexteDepuisRequete(depuis.requete)) : routeListe(vue));
   }, []);
   const principal = useRef<HTMLElement>(null);
+  // Menu lateral en tiroir sur telephone et tablette (sous 1024 px).
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const fermerMenu = useCallback(() => setMenuOuvert(false), []);
   const cleRoute = `${route.vue}/${route.mode}/${route.id ?? ''}/${route.action ?? ''}`;
   useEffect(() => { principal.current?.scrollTo?.({ top: 0 }); }, [cleRoute]);
   // Double authentification (D-045) : un compte avec facteur verifie passe
@@ -295,15 +299,27 @@ const MainApp = () => {
   return (
     <ErrorBoundary>
       <div className="flex h-screen bg-sable">
-        <Sidebar currentView={currentView} onViewChange={setCurrentView} />
+        <Sidebar currentView={currentView} onViewChange={setCurrentView} ouvert={menuOuvert} onFermer={fermerMenu} />
         <div className="flex min-w-0 flex-1 flex-col">
         <BandeauDemonstration />
-        <TopBar
-          sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : currentView === 'securite-compte' ? 'Sécurité du compte' : libelleVue(currentView)}
-          onAllerA={setCurrentView}
-        />
-        <main ref={principal} className="flex-1 overflow-y-auto">
-          <div className="p-6 xl:p-8">
+        <div className="relative z-30 flex min-w-0 items-stretch">
+          <button
+            type="button"
+            onClick={() => setMenuOuvert(true)}
+            className="flex w-12 flex-shrink-0 items-center justify-center border-b border-stone-200/70 bg-white/80 text-stone-700 lg:hidden"
+            aria-label="Ouvrir le menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <TopBar
+              sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : currentView === 'securite-compte' ? 'Sécurité du compte' : libelleVue(currentView)}
+              onAllerA={setCurrentView}
+            />
+          </div>
+        </div>
+        <main ref={principal} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="px-4 py-4 sm:p-6 xl:p-8">
             <Suspense fallback={<LoadingFallback />}>
               <div className="animate-fade-in">
                 {renderView()}

@@ -13,9 +13,9 @@ export const Panneau = ({
   children: ReactNode;
   className?: string;
 }) => (
-  <section className={`rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte ${className}`}>
+  <section className={`min-w-0 rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5 ${className}`}>
     {(titre || action) && (
-      <header className="mb-4 flex items-center justify-between gap-3">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         {titre && <h2 className="text-lg font-bold text-stone-900">{titre}</h2>}
         {action}
       </header>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, MapPin, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, MapPin, Search, X } from 'lucide-react';
 import { MENU, resoudreVue, type MenuItem } from './menu';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -12,11 +12,15 @@ import { Embleme, NOM_PRODUIT, SOUS_TITRE_PRODUIT } from '../Brand/Marque';
 interface SidebarProps {
   currentView: string;
   onViewChange: (view: string) => void;
+  // Telephone et tablette (sous 1024 px) : le menu est un tiroir ouvert par le
+  // bouton de l'en-tete, ferme apres navigation, par le fond ou par Echap.
+  ouvert?: boolean;
+  onFermer?: () => void;
 }
 
 const groupeDe = (vue: string) => MENU.find((m) => m.children?.some((c) => c.id === vue))?.id;
 
-export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
+export const Sidebar = ({ currentView, onViewChange, ouvert: tiroirOuvert = false, onFermer }: SidebarProps) => {
   const { canAccessModule } = useAuth();
   const { sites, siteId, choisirSite } = useSite();
   const [ouverts, setOuverts] = useState<Set<string>>(() => new Set([groupeDe(currentView) ?? 'exploitation']));
@@ -33,10 +37,16 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
         e.preventDefault();
         setRecherche(true);
       }
+      if (e.key === 'Escape') onFermer?.();
     };
     window.addEventListener('keydown', raccourci);
     return () => window.removeEventListener('keydown', raccourci);
-  }, []);
+  }, [onFermer]);
+
+  const aller = (vue: string) => {
+    onViewChange(vue);
+    onFermer?.();
+  };
 
   const basculer = (id: string) =>
     setOuverts((o) => {
@@ -60,9 +70,9 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
     return (
       <div key={item.id}>
         <button
-          onClick={() => (item.children ? basculer(item.id) : onViewChange(item.id))}
+          onClick={() => (item.children ? basculer(item.id) : aller(item.id))}
           className={`group flex w-full items-center gap-3 rounded-xl text-left transition ${
-            niveau > 0 ? 'py-2 pl-11 pr-3 text-[13px]' : 'px-3 py-2.5 text-[15px]'
+            niveau > 0 ? 'min-h-10 py-2 pl-11 pr-3 text-[13px]' : 'min-h-10 px-3 py-2.5 text-[15px]'
           } ${
             actif
               ? 'bg-gradient-to-r from-orange-500 to-orange-600 font-semibold text-white shadow-lg shadow-orange-900/30'
@@ -81,13 +91,27 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
   };
 
   return (
-    <aside className="flex h-screen w-[17.5rem] flex-shrink-0 flex-col bg-gradient-to-b from-[#3d1f15] via-[#331a11] to-[#24120b] text-white shadow-2xl">
+    <>
+    {tiroirOuvert && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" aria-hidden="true" onClick={onFermer} />}
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex h-full w-[17.5rem] max-w-[85vw] flex-shrink-0 flex-col bg-gradient-to-b from-[#3d1f15] via-[#331a11] to-[#24120b] text-white shadow-2xl transition-transform duration-200 lg:static lg:z-auto lg:h-screen lg:max-w-none lg:translate-x-0 ${
+        tiroirOuvert ? 'translate-x-0' : '-translate-x-full'
+      }`}
+    >
       <div className="flex items-center gap-3 px-5 pb-5 pt-6">
         <Embleme className="h-14 w-14 flex-shrink-0 rounded-2xl shadow-lg" />
         <div>
           <p className="text-2xl font-black tracking-tight">{NOM_PRODUIT}</p>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-100/90">{SOUS_TITRE_PRODUIT}</p>
         </div>
+        <button
+          type="button"
+          onClick={onFermer}
+          className="ml-auto flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-stone-200 hover:bg-white/10 lg:hidden"
+          aria-label="Fermer le menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       <div className="px-3 pb-3">
@@ -110,7 +134,7 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
           <select
             value={siteId ?? ''}
             onChange={(e) => choisirSite(e.target.value || null)}
-            className="w-full cursor-pointer appearance-none bg-transparent text-[15px] font-medium text-white focus:outline-none"
+            className="w-full cursor-pointer appearance-none bg-transparent text-base font-medium text-white focus:outline-none"
           >
             <option value="" className="text-stone-900">Site : tous les sites</option>
             {sites.map((s) => (
@@ -123,7 +147,8 @@ export const Sidebar = ({ currentView, onViewChange }: SidebarProps) => {
         </label>
       </div>
 
-      <GlobalSearchModal isOpen={recherche} onClose={() => setRecherche(false)} onAllerA={onViewChange} />
+      <GlobalSearchModal isOpen={recherche} onClose={() => setRecherche(false)} onAllerA={aller} />
     </aside>
+    </>
   );
 };

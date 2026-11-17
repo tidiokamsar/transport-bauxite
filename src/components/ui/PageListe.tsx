@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns, RefreshCw, Search, Table } from 'lucide-react';
 import { exportToCSV } from '../../lib/exports';
 import { Panneau, SansDonnees } from './Panneau';
@@ -49,6 +49,20 @@ export interface PageListeProps<T> {
   onActualiser?: () => void;
 }
 
+const ETROIT = '(max-width: 639px)';
+/** Vrai sous 640 px (telephone) : la liste passe en cartes. */
+const useEcranEtroit = () => {
+  const [etroit, setEtroit] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(ETROIT).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const m = window.matchMedia(ETROIT);
+    const suivre = () => setEtroit(m.matches);
+    m.addEventListener('change', suivre);
+    return () => m.removeEventListener('change', suivre);
+  }, []);
+  return etroit;
+};
+
 const BOUTON_OUTIL = 'flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-stone-50 disabled:opacity-50';
 const INTERACTIF = 'button, a, input, select, textarea, label, summary';
 
@@ -60,6 +74,7 @@ export const PageListe = <T,>({
   const etat = etatDepuisRequete(route.vue === vue && route.mode === 'liste' ? route.requete : {});
   const [masquees, setMasquees] = useState<Set<string>>(() => new Set(colonnes.filter((c) => c.masquee).map((c) => c.id)));
   const [selection, setSelection] = useState<Set<string>>(new Set());
+  const etroit = useEcranEtroit();
 
   const changer = (modif: Partial<EtatListe>, garderPage = false) => {
     const suivant = { ...etat, ...modif, page: garderPage ? modif.page ?? etat.page : 1 };
@@ -111,7 +126,7 @@ export const PageListe = <T,>({
 
       <Panneau titre={lignes ? `${resultat.length} résultat${resultat.length > 1 ? 's' : ''}${filtresActifs ? ` sur ${lignes.length}` : ''}` : undefined}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
+          <div className="relative w-full min-w-0 flex-1 sm:w-auto sm:min-w-[220px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
             <input
               type="search" value={etat.recherche} onChange={(e) => changer({ recherche: e.target.value })}
@@ -122,7 +137,7 @@ export const PageListe = <T,>({
           {filtres.map((f) => (
             <select key={f.id} value={etat.filtres[f.id] ?? ''} aria-label={`Filtrer : ${f.libelle}`}
               onChange={(e) => changer({ filtres: { ...etat.filtres, [f.id]: e.target.value } })}
-              className="rounded-lg border border-stone-300 px-3 py-2 text-sm">
+              className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm sm:w-auto">
               <option value="">{f.libelle} : tous</option>
               {f.options.map((o) => <option key={o.valeur} value={o.valeur}>{o.libelle}</option>)}
             </select>
@@ -156,6 +171,36 @@ export const PageListe = <T,>({
             : <p role="status" className="py-8 text-center text-sm text-stone-500">Chargement…</p>
         ) : resultat.length === 0 ? (
           <SansDonnees message={filtresActifs ? 'Aucun résultat' : vide.message} detail={filtresActifs ? 'Aucune ligne ne correspond à la recherche ou aux filtres.' : vide.detail} />
+        ) : etroit ? (
+          // Telephone : une carte par ligne (libelle : valeur), le tableau a partir de 640 px.
+          <ul className="space-y-2" aria-label="Lignes">
+            {page.lignes.map((l) => {
+              const id = cle(l);
+              const [premiere, ...autres] = visibles;
+              return (
+                <li key={id} className="rounded-xl border border-stone-200 p-3 text-sm">
+                  <div className="flex items-start gap-2">
+                    {actionsGroupees && actionsGroupees.length > 0 && (
+                      <input type="checkbox" className="mt-1 h-5 w-5" aria-label={`Sélectionner ${libelleOuverture(l)}`} checked={selection.has(id)} onChange={() => basculer(id)} />
+                    )}
+                    <button type="button" onClick={() => ouvrirLigne(l)} aria-label={libelleOuverture(l)} className="min-w-0 flex-1 break-words text-left font-semibold text-orange-800 hover:underline">
+                      {premiere ? (premiere.rendu ? premiere.rendu(l) : (premiere.valeur(l) ?? '—')) : libelleOuverture(l)}
+                    </button>
+                  </div>
+                  {autres.length > 0 && (
+                    <dl className="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-3 gap-y-1">
+                      {autres.map((c) => (
+                        <div key={c.id} className="contents">
+                          <dt className="text-stone-500">{c.libelle}</dt>
+                          <dd className="min-w-0 break-words text-stone-900">{c.rendu ? c.rendu(l) : (c.valeur(l) ?? '—')}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -212,7 +257,7 @@ export const PageListe = <T,>({
         {lignes && resultat.length > 0 && (
           <nav aria-label="Pagination" className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-stone-600">
             <span>{page.debut} à {page.fin} sur {resultat.length}</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select value={etat.taille} aria-label="Lignes par page" onChange={(e) => changer({ taille: Number(e.target.value) })} className="rounded-lg border border-stone-300 px-2 py-1">
                 {TAILLES_PAGE.map((t) => <option key={t} value={t}>{t} par page</option>)}
               </select>

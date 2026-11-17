@@ -303,7 +303,7 @@ export const FleetIntelligenceView = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
           <div className="flex items-center justify-between mb-2">
             <Activity className="w-8 h-8 opacity-80" />
@@ -354,7 +354,7 @@ export const FleetIntelligenceView = () => {
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Map View */}
         <div className="col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-4 border-b border-slate-200 bg-slate-50">
@@ -378,7 +378,7 @@ export const FleetIntelligenceView = () => {
             </div>
           </div>
 
-          <div className="h-[600px] relative">
+          <div className="relative h-[55vh] min-h-[320px] sm:h-[600px]">
             <MapContainer
               center={mapCenter}
               zoom={mapZoom}

@@ -72,7 +72,7 @@ export const PageAction = ({
               <a href={routeDetail(vue, id)} className={BOUTON_SECONDAIRE}>Retour à la fiche</a>
             </div>
           ) : (
-            <form aria-label={titre} onSubmit={executer} aria-busy={enCours || undefined} className="space-y-4 rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte">
+            <form aria-label={titre} onSubmit={executer} aria-busy={enCours || undefined} className="space-y-4 rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5">
               {description && <div className="text-sm text-stone-600">{description}</div>}
               {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Action refusée par le serveur : {erreur}</p>}
               {children}

@@ -29,7 +29,7 @@ export const Douchette = ({ action, libelle = 'Code SIGTB ou numéro de série' 
   };
   return (
     <form onSubmit={chercher} role="search" aria-label={libelle} className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-[240px] flex-1">
+      <label className="relative w-full min-w-0 flex-1 sm:w-auto sm:min-w-[240px]">
         <span className="sr-only">{libelle}</span>
         <ScanLine className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
         <input value={saisie} onChange={(e) => setSaisie(e.target.value)} placeholder={`${libelle} (douchette)`} autoComplete="off"
