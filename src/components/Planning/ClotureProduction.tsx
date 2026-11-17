@@ -5,7 +5,8 @@ import { exportToCSV, printDocument } from '../../lib/exports';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SITE } from '../ui/referentiels';
-import { CHAMP, Fenetre } from './FenetresObjectif';
+import { CHAMP_FENETRE as CHAMP } from '../ui/Fenetre';
+import { routeAction } from '../ui/routeur';
 import { CATEGORIES_CAUSE, causesServeur, erreurCauses, type CauseSaisie } from './planAvance';
 
 // Cloture de planification d'une journee et d'un site (D-063) : bilan fige
@@ -56,8 +57,6 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
   const [commentaire, setCommentaire] = useState('');
   const [erreur, setErreur] = useState('');
   const [enCours, setEnCours] = useState(false);
-  const [annulation, setAnnulation] = useState(false);
-  const [motif, setMotif] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
   const [periode, setPeriode] = useState({ debut: `${date.slice(0, 8)}01`, fin: date });
   const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
@@ -114,18 +113,6 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
     chargerRapport();
   };
 
-  const annuler = async () => {
-    if (!cloture) return;
-    setEnCours(true);
-    const { error } = await supabase.rpc('annuler_cloture_planification', { p_id: cloture.id, p_motif: motif });
-    setEnCours(false);
-    if (error) { setErreur(error.message); return; }
-    setAnnulation(false);
-    setMotif('');
-    charger();
-    chargerRapport();
-  };
-
   const majCause = (i: number, champ: keyof CauseSaisie, v: string) => setCauses(causes.map((c, j) => (j === i ? { ...c, [champ]: v } : c)));
   const ecartLive = production && production.tonnes_cible !== null && production.tonnes_livrees !== null
     ? Number(production.tonnes_livrees) - Number(production.tonnes_cible) : null;
@@ -167,9 +154,9 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
             )}
             {cloture.commentaire && <p className="text-stone-600">{cloture.commentaire}</p>}
             {peutEcrire && (
-              <button onClick={() => setAnnulation(true)} className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
+              <a href={routeAction('planification', `cloture-${cloture.id}`, 'annuler')} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
                 <Unlock className="h-4 w-4" /> Annuler la clôture
-              </button>
+              </a>
             )}
           </div>
         ) : (
@@ -264,26 +251,6 @@ export const ClotureProduction = ({ date, siteId, sites, peutEcrire }: {
         </div>
         <Provenance source="rapport_production : journées closes = bilan figé ; non closes = calculées à la lecture (objectif de journée, sinon somme des shifts)" />
       </Panneau>
-
-      {annulation && (
-        <Fenetre
-          titre="Annuler la clôture"
-          onFermer={() => setAnnulation(false)}
-          largeur="max-w-lg"
-          pied={<>
-            <button onClick={() => setAnnulation(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100">Retour</button>
-            <button onClick={annuler} disabled={enCours || !motif.trim()} className="rounded-lg bg-red-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">Annuler la clôture</button>
-          </>}
-        >
-          <div className="space-y-3 px-6 py-5 text-sm">
-            <p className="text-stone-600">La clôture reste dans l'historique avec son motif ; les objectifs redeviennent modifiables.</p>
-            <label className="block">
-              <span className="mb-1 block font-medium text-stone-700">Motif (obligatoire)</span>
-              <input value={motif} onChange={(e) => setMotif(e.target.value)} className={CHAMP} />
-            </label>
-          </div>
-        </Fenetre>
-      )}
     </div>
   );
 };

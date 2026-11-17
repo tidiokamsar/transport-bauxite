@@ -220,6 +220,8 @@ test.describe('Dossier contractuel (D-079)', () => {
     await page.getByRole('button', { name: 'Contrats & Finance' }).click();
     await page.getByRole('button', { name: 'Dossier contractuel' }).click();
     await expect(page.getByRole('heading', { name: 'Dossier contractuel', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Fiche CBG-2026-01' }).click();
+    await page.getByRole('tab', { name: /Versions et grille/ }).click();
   };
 
   test('contrat actif : aucune suppression, tarif en vigueur modifie par avenant', async ({ page }) => {
@@ -227,14 +229,18 @@ test.describe('Dossier contractuel (D-079)', () => {
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/modifier_tarif_par_avenant', (route) => { appels.push(corps(route)); return repondre(route, 'v1'); });
     await ouvrirContrats(page);
-    await expect(page.getByRole('button', { name: 'Supprimer le tarif Transport mine - port' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /^Supprimer Contrat initial/ })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Modifier le tarif Transport mine - port par avenant' }).click();
-    const f = page.getByRole('dialog', { name: 'Modifier un tarif en vigueur par avenant' });
+    await page.getByRole('link', { name: 'Modifier le tarif Transport mine - port par avenant' }).waitFor();
+    await expect(page.getByRole('link', { name: 'Supprimer le tarif Transport mine - port' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^Supprimer Contrat initial/ })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Supprimer (brouillon)' })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Modifier le tarif Transport mine - port par avenant' }).click();
+    const f = page.getByRole('form', { name: 'Modifier un tarif en vigueur par avenant' });
     await f.getByLabel('Nouveau prix unitaire *').fill('5,25');
     await f.getByLabel("Intitulé de l'avenant *").fill('Révision du tarif port');
     await f.getByLabel(/Date d'effet de l'avenant/).fill('2025-12-01');
-    await expect(f.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    await f.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(f.getByRole('alert')).toContainText('Date d\'effet de l\'avenant après le 2026-01-01');
+    expect(appels).toHaveLength(0);
     await f.getByLabel(/Date d'effet de l'avenant/).fill('2026-07-01');
     await f.getByRole('button', { name: 'Enregistrer' }).click();
     await expect.poll(() => appels.length).toBe(1);
@@ -245,12 +251,16 @@ test.describe('Dossier contractuel (D-079)', () => {
     await simulerApi(page, jeu('brouillon'));
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/supprimer_element_contrat', (route) => { appels.push(corps(route)); return route.fulfill({ status: 200, contentType: 'application/json', body: 'null' }); });
-    page.on('dialog', (d) => d.accept('Doublon de saisie'));
     await ouvrirContrats(page);
-    await page.getByRole('button', { name: 'Modifier le tarif Transport mine - port', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Supprimer le tarif Transport mine - port' }).click();
+    await page.getByRole('link', { name: 'Modifier le tarif Transport mine - port', exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Supprimer le tarif Transport mine - port' }).click();
+    const f = page.getByRole('form', { name: 'Supprimer le tarif « Transport mine - port »' });
+    await expect(f.getByRole('button', { name: 'Supprimer' })).toBeDisabled();
+    await f.getByLabel('Motif *').fill('Doublon de saisie');
+    await f.getByRole('button', { name: 'Supprimer' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toEqual({ p_table: 'contrat_tarifs', p_id: 't1', p_motif: 'Doublon de saisie' });
+    await expect(page).toHaveURL(/#\/contrats\/c1\?onglet=grille$/);
   });
 });
 

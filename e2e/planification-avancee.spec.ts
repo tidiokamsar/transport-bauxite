@@ -29,6 +29,10 @@ const REFERENTIEL = {
   work_shifts: [{ id: SHIFT_JOUR, name: 'jour', display_name: 'Jour', start_time: '00:00:00', end_time: '23:59:00', shift_order: 1 }],
   contrats: [{ id: CONTRAT, reference: 'CT-CBG-01', intitule: 'Transport bauxite' }],
   v_realisation_objectifs: [objectif()],
+  objectifs_production: [{
+    id: 'o1', date_plan: aujourdhui(), site_id: SITE_MINE, shift_id: SHIFT_JOUR, version: 1, tonnes_cible: 1000, voyages_cible: null, camions_prevus: 3,
+    chargeuses_prevues: 1, statut: 'actif', motif: null, note: null, cree_par: null, cree_le: new Date().toISOString(), clos_le: null, clos_par: null, motif_annulation: null,
+  }],
 };
 
 const l = (rang: number, groupe: string, code: string, libelle: string, valeur: number | null, unite: string | null, source: string, remarque: string | null = null) =>
@@ -71,7 +75,7 @@ test.describe('Planification avancée', () => {
     await expect(bloc).toContainText('160 t');
     await expect(bloc).toContainText('Non mesurable');
     await expect(bloc).toContainText('100 t non ventilées');
-    await expect(bloc.getByRole('button', { name: 'Ventiler' })).toHaveCount(0);
+    await expect(bloc.getByRole('link', { name: 'Ventiler' })).toHaveCount(0);
   });
 
   test('ventiler un objectif envoie les lignes a ventiler_objectif', async ({ page }) => {
@@ -79,8 +83,9 @@ test.describe('Planification avancée', () => {
     let corps: Record<string, unknown> | null = null;
     await page.route('**/rest/v1/rpc/ventiler_objectif', (route) => { corps = route.request().postDataJSON(); return repondre(route, 1); });
     await ouvrir(page);
-    await page.getByRole('button', { name: 'Ventiler' }).click();
-    const fenetre = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Ventiler' }).click();
+    await expect(page).toHaveURL(/#\/planification\/o1\/ventiler$/);
+    const fenetre = page.getByRole('form', { name: 'Ventiler l\'objectif' });
     await fenetre.getByLabel('Destination 1').selectOption({ label: 'Dépôt CBG' });
     await fenetre.getByLabel('Contrat 1').selectOption({ label: 'CT-CBG-01 · Transport bauxite' });
     await fenetre.getByLabel('Tonnes 1').fill('1200');
@@ -108,8 +113,9 @@ test.describe('Planification avancée', () => {
     await page.screenshot({ path: 'test-results/planification-simulation.png', fullPage: true });
 
     await page.getByRole('button', { name: 'Retenir ce scénario' }).first().click();
-    const fenetre = page.getByRole('dialog');
-    await expect(fenetre).toContainText('Scénario retenu');
+    await expect(page).toHaveURL(/#\/planification\/o1\/modifier\?/);
+    await expect(page.getByText('Scénario retenu')).toBeVisible();
+    const fenetre = page.getByRole('form', { name: 'Réviser l\'objectif (version 2)' });
     await expect(fenetre.getByLabel('Objectif (tonnes) *')).toHaveValue('560');
     await fenetre.getByLabel(/Motif de la révision/).fill('Deux camions en panne, rattrapage impossible');
     await fenetre.getByRole('button', { name: 'Enregistrer la révision' }).click();
