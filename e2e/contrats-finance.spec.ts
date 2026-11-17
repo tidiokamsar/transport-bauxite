@@ -54,10 +54,13 @@ test.describe('Contrats et finance (D-065)', () => {
     await simulerApi(page, jeuContrat);
     const appels = await capturer(page, ['definir_clause']);
     await ouvrir(page, 'Dossier contractuel');
+    await page.getByRole('button', { name: 'Fiche CBG-2026-01' }).click();
     await expect(page.getByText('Fin le 31/12/2026')).toBeVisible();
     await expect(page.getByText('si renouvellement tacite : fin au 31/12/2027', { exact: false })).toBeVisible();
-    await page.getByRole('button', { name: '+ Ajouter une clause' }).click();
-    const f = page.getByRole('dialog', { name: 'Nouvelle clause chiffrée' });
+    await page.getByRole('tab', { name: /Versions et grille/ }).click();
+    await page.getByRole('link', { name: '+ Ajouter une clause' }).click();
+    await expect(page).toHaveURL(/#\/contrats\/c1\/clause\?version=v0$/);
+    const f = page.getByRole('form', { name: 'Nouvelle clause chiffrée' });
     await f.getByLabel('Type *').selectOption('penalite');
     await f.getByLabel('Libellé *').fill('Pénalité de disponibilité');
     await expect(f.getByLabel('Engagement mesuré (condition) *').locator('option')).toHaveText(['Choisir', 'Disponibilité']);
@@ -65,12 +68,16 @@ test.describe('Contrats et finance (D-065)', () => {
     await f.getByLabel('Déclenchement *').selectOption('non_tenu');
     await f.getByLabel('Base *').selectOption('taux');
     await f.getByLabel('Taux (%) *').fill('120');
-    await expect(f.getByRole('button', { name: 'Enregistrer' })).toBeDisabled();
+    await f.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(f.getByRole('alert')).toContainText('taux au plus 100 %');
+    expect(appels).toHaveLength(0);
     await f.getByLabel('Taux (%) *').fill('5');
     await f.getByLabel('Plafond HT par période (USD)').fill('3000');
     await f.getByRole('button', { name: 'Enregistrer' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0].corps).toMatchObject({ p_version: 'v0', p_type: 'penalite', p_engagement: 'e1', p_declenchement: 'non_tenu', p_base: 'taux', p_valeur: 5, p_plafond: 3000, p_id: null });
+    await expect(page).toHaveURL(/#\/contrats\/c1\?onglet=grille$/);
+    await expect(page.getByRole('status').filter({ hasText: 'Clause ajoutée.' })).toBeVisible();
   });
 
   test('budget depasse signale, nouveau budget, export comptable en CSV', async ({ page }) => {

@@ -34,7 +34,7 @@ test.describe('Dossier contractuel', () => {
     await page.getByRole('button', { name: 'Menu utilisateur' }).click();
     await expect(page.getByText('Chargé de contrats et facturation')).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('button', { name: 'Nouveau contrat' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Nouveau contrat' })).toBeVisible();
   });
 
   test('contrat, version en vigueur, tarifs et engagements', async ({ page }) => {
@@ -47,6 +47,10 @@ test.describe('Dossier contractuel', () => {
       contrat_engagements: [{ id: 'e1', version_id: 'v1', indicateur: 'disponibilite', libelle: 'Disponibilité mécanique', seuil: 85, unite: '%', sens: 'minimum', periodicite: 'mois', consequence: 'Pénalité de 2 % par point manquant', ordre: 0 }],
     });
     await ouvrir(page);
+    await page.getByRole('button', { name: 'Fiche CBG-2026-01' }).click();
+    await expect(page).toHaveURL(/#\/contrats\/c1$/);
+    const fiche = page.getByRole('article', { name: 'Fiche CBG-2026-01' });
+    await fiche.getByRole('tab', { name: /Versions et grille/ }).click();
     await expect(page.getByText('Version en vigueur : Avenant n° 1 · Révision des engagements')).toBeVisible();
     const avenant = page.getByRole('region', { name: 'Avenant n° 1 · Révision des engagements' });
     await expect(avenant).toContainText('4,75 USD par tonne');
@@ -66,15 +70,17 @@ test.describe('Dossier contractuel', () => {
       return route.fallback();
     });
     await ouvrir(page);
-    await page.getByRole('button', { name: 'Nouveau contrat' }).click();
-    const f = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Nouveau contrat' }).click();
+    const f = page.getByRole('form', { name: 'Nouveau contrat' });
     await f.getByLabel('Référence *').fill('NEEMBA-2026-01');
     await f.getByLabel('Contrepartie *').fill('Neemba');
     await f.getByLabel('Intitulé *').fill('Location d\'engins à l\'heure');
     await f.getByLabel('Nature *').selectOption({ label: 'Location (nous sommes facturés)' });
     await f.getByLabel('Début *').fill('2026-01-01');
     const enregistrer = f.getByRole('button', { name: 'Enregistrer' });
-    await expect(enregistrer).toBeDisabled();
+    await enregistrer.click();
+    await expect(f.getByRole('alert')).toContainText('Devise : code ISO de trois lettres');
+    expect(corps).toHaveLength(0);
     await f.getByLabel('Devise (code ISO) *').fill('usd');
     await enregistrer.click();
     await expect.poll(() => corps.length).toBe(1);

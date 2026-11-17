@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Ban, History, PenLine, Truck } from 'lucide-react';
+import { Ban, FileText, History, PenLine, Truck } from 'lucide-react';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Puce } from '../ui/Panneau';
 import { MINIMUM_JOURS, MINIMUM_VOYAGES, camionsNecessaires, type StatistiquesRotation, type Suivi } from './plan';
@@ -53,9 +53,7 @@ export const CarteObjectif = ({
   stats,
   disponibles,
   peutEcrire,
-  onReviser,
-  onAnnuler,
-  onHistorique,
+  liens,
   ventilation,
 }: {
   /** Bloc de ventilation par destination et contrat (D-063). */
@@ -67,9 +65,8 @@ export const CarteObjectif = ({
   stats: StatistiquesRotation | null | undefined;
   disponibles: { camions: number; indisponibles: number; chargeuses: number };
   peutEcrire: boolean;
-  onReviser: () => void;
-  onAnnuler: () => void;
-  onHistorique: () => void;
+  /** Pages de l'objectif (D-090) : fiche, historique, revision, annulation. */
+  liens: { fiche: string; historique: string; reviser: string; annuler: string };
 }) => {
   const cible = Number(objectif.tonnes_cible);
   const livre = Number(objectif.tonnes_livrees);
@@ -88,17 +85,20 @@ export const CarteObjectif = ({
         </div>
         <div className="flex items-center gap-1">
           <Puce teinte={statut.teinte}>{statut.libelle}</Puce>
-          <button onClick={onHistorique} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="Historique" aria-label="Historique">
+          <a href={liens.fiche} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="Fiche de l'objectif" aria-label="Fiche de l'objectif">
+            <FileText className="h-4 w-4" />
+          </a>
+          <a href={liens.historique} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="Historique" aria-label="Historique">
             <History className="h-4 w-4" />
-          </button>
+          </a>
           {peutEcrire && (
             <>
-              <button onClick={onReviser} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="Réviser" aria-label="Réviser">
+              <a href={liens.reviser} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="Réviser" aria-label="Réviser">
                 <PenLine className="h-4 w-4" />
-              </button>
-              <button onClick={onAnnuler} className="rounded-lg p-2 text-red-500 hover:bg-red-50" title="Annuler" aria-label="Annuler l'objectif">
+              </a>
+              <a href={liens.annuler} className="rounded-lg p-2 text-red-500 hover:bg-red-50" title="Annuler" aria-label="Annuler l'objectif">
                 <Ban className="h-4 w-4" />
-              </button>
+              </a>
             </>
           )}
         </div>

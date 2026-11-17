@@ -72,14 +72,6 @@ for (const { largeur, hauteur, nom } of ECRANS) {
   test.describe(`Fenêtres sur ${nom} (${largeur}x${hauteur})`, () => {
     test.beforeEach(async ({ page }) => { await simulerApi(page, JEU); });
 
-    test('définir un objectif : contenu défilant, boutons visibles', async ({ page }) => {
-      await aller(page, null, 'Planification', largeur, hauteur);
-      await page.getByRole('button', { name: 'Définir un objectif' }).click();
-      await page.screenshot({ path: `test-results/fenetre-objectif-${largeur}.png` });
-      // Sur portable le formulaire vide tient dans 90 % de la hauteur ; sur telephone il defile.
-      await verifierFenetre(page, 'Enregistrer l\'objectif', hauteur, largeur < 640);
-    });
-
     test('nouveau voyage', async ({ page }) => {
       await aller(page, null, 'Voyages & Rotations', largeur, hauteur);
       await page.getByRole('button', { name: 'Nouveau voyage' }).click();

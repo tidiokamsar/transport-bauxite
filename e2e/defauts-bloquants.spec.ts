@@ -54,7 +54,8 @@ test.describe('Défauts bloquants J1 (D-078)', () => {
 
     // Le poste s'ouvre sur le shift cree
     await page.getByRole('button', { name: 'Postes de travail', exact: true }).click();
-    const o = page.getByRole('form', { name: 'Ouverture de poste' });
+    await page.getByRole('link', { name: 'Ouvrir un poste' }).click();
+    const o =page.getByRole('form', { name: 'Ouverture de poste' });
     await o.getByLabel('Shift *').selectOption('s-jour');
     await o.getByLabel('Site *').selectOption(SITE_MINE);
     await page.getByRole('button', { name: 'Ouvrir le poste' }).click();

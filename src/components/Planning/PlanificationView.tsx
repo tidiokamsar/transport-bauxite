@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Target } from 'lucide-react';
+import { ecrireRoute, naviguer, routeAction, routeDetail, routeModifier, useRoute } from '../ui/routeur';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -8,12 +9,12 @@ import { SANS_SITE } from '../ui/referentiels';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { fenetreJournee, fenetreShift, suivre, totalJournee, type ShiftHoraire, type StatistiquesRotation } from './plan';
 import { CarteObjectif, type Realisation } from './CarteObjectif';
-import { AnnulerObjectif, DefinirObjectif, HistoriqueObjectif } from './FenetresObjectif';
-import { BlocVentilation, VentilerObjectif, type ContratClient, type Ventilation } from './VentilationObjectif';
+import { BlocVentilation, FormulaireVentilation, type Ventilation } from './VentilationObjectif';
 import { SimulationObjectifs } from './SimulationObjectifs';
 import { ClotureProduction } from './ClotureProduction';
 import { ComparaisonShifts } from './ComparaisonShifts';
-import type { Scenario } from './planAvance';
+import { PREFIXE_CLOTURE, VUE_PLANIFICATION, requeteScenario } from './objectifs';
+import { ActionCloture, ActionObjectif, DetailCloture, DetailObjectif, FormulaireObjectif, RegistreObjectifs } from './PagesObjectif';
 
 // Planification v1 (etape 3 de la reprise, CDC 6, D-023) : objectifs de
 // production par date, site de chargement et shift, compares aux voyages
@@ -21,9 +22,10 @@ import type { Scenario } from './planAvance';
 // Planification avancee (D-063) : ventilation par destination et contrat,
 // simulation et rattrapage, cloture et rapport, comparaison des shifts.
 
-type Onglet = 'objectifs' | 'simulation' | 'cloture' | 'shifts';
+type Onglet = 'objectifs' | 'registre' | 'simulation' | 'cloture' | 'shifts';
 const ONGLETS: { id: Onglet; libelle: string }[] = [
   { id: 'objectifs', libelle: 'Objectifs du jour' },
+  { id: 'registre', libelle: 'Registre des objectifs' },
   { id: 'simulation', libelle: 'Simulation et rattrapage' },
   { id: 'cloture', libelle: 'Clôture et rapport' },
   { id: 'shifts', libelle: 'Comparaison des shifts' },
@@ -36,17 +38,33 @@ const aujourdhui = () => {
 
 interface Engin { id: string; vehicle_type: string; status: string; site_id: string | null }
 
-type Fenetre =
-  | { type: 'definir'; initial?: { site_id: string; shift_id: string | null }; propose?: Scenario }
-  | { type: 'ventiler'; objectif: Realisation; libelle: string }
-  | { type: 'annuler'; objectif: Realisation; libelle: string }
-  | { type: 'historique'; objectif: Realisation; libelle: string };
+// Pages de la planification (D-090) : le tableau du jour reste la page
+// d'accueil du module ; objectif et cloture ont leur fiche, leur saisie et
+// leurs actions en pleine page. Date et volet sont conserves pendant la
+// session (retour depuis une fiche).
+const memoire: { date: string | null; onglet: Onglet } = { date: null, onglet: 'objectifs' };
 
 export const PlanificationView = () => {
+  const route = useRoute();
+  if (route.vue !== VUE_PLANIFICATION || route.mode === 'liste') return <TableauPlanification />;
+  if (route.mode === 'nouveau') return <FormulaireObjectif requete={route.requete} />;
+  const id = route.id ?? '';
+  if (id.startsWith(PREFIXE_CLOTURE)) {
+    const cloture = id.slice(PREFIXE_CLOTURE.length);
+    return route.mode === 'action' ? <ActionCloture id={cloture} action={route.action ?? ''} /> : <DetailCloture id={cloture} />;
+  }
+  if (route.mode === 'modifier') return <FormulaireObjectif id={id} requete={route.requete} />;
+  if (route.mode === 'action' && route.action === 'ventiler') return <FormulaireVentilation id={id} />;
+  if (route.mode === 'action' && route.action) return <ActionObjectif id={id} action={route.action} />;
+  return <DetailObjectif id={id} />;
+};
+
+const TableauPlanification = () => {
   const { hasPermission } = useAuth();
   const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('planning', 'create') || hasPermission('planning', 'edit');
-  const [date, setDate] = useState(aujourdhui);
+  const [date, setDateEtat] = useState(() => memoire.date ?? aujourdhui());
+  const setDate = (d: string) => { memoire.date = d; setDateEtat(d); };
   const [objectifs, setObjectifs] = useState<Realisation[] | null>(null);
   const [shifts, setShifts] = useState<ShiftHoraire[]>([]);
   const [engins, setEngins] = useState<Engin[]>([]);
@@ -54,28 +72,18 @@ export const PlanificationView = () => {
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
   const [maintenant, setMaintenant] = useState(() => new Date());
-  const [fenetre, setFenetre] = useState<Fenetre | null>(null);
-  const [onglet, setOnglet] = useState<Onglet>('objectifs');
+  const [onglet, setOngletEtat] = useState<Onglet>(memoire.onglet);
+  const setOnglet = (o: Onglet) => { memoire.onglet = o; setOngletEtat(o); };
   const [ventilations, setVentilations] = useState<Ventilation[]>([]);
-  const [contrats, setContrats] = useState<ContratClient[]>([]);
   const [erreurVentilations, setErreurVentilations] = useState('');
-  const [erreurContrats, setErreurContrats] = useState('');
 
   useEffect(() => {
     Promise.all([
       supabase.from('work_shifts').select('id, display_name, start_time, end_time').eq('is_active', true).order('shift_order'),
       supabase.from('vehicles').select('id, vehicle_type, status, site_id'),
-      supabase.from('contrats').select('id, reference, intitule').eq('nature', 'client').eq('statut', 'actif').order('reference'),
-    ]).then(([s, v, c]) => {
+    ]).then(([s, v]) => {
       setShifts((s.data ?? []) as ShiftHoraire[]);
       setEngins((v.data ?? []) as Engin[]);
-      if (c.error) {
-        setErreurContrats('Contrats clients indisponibles : ' + c.error.message);
-        setContrats([]);
-      } else {
-        setErreurContrats('');
-        setContrats((c.data ?? []) as ContratClient[]);
-      }
     });
   }, []);
 
@@ -179,11 +187,15 @@ export const PlanificationView = () => {
             className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm"
             aria-label="Date du plan"
           />
-          {peutEcrire && (
-            <button onClick={() => setFenetre({ type: 'definir' })} disabled={aucunSite} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow disabled:opacity-50">
+          {peutEcrire && (aucunSite ? (
+            <button type="button" disabled className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow disabled:opacity-50">
               <Plus className="h-4 w-4" /> Définir un objectif
             </button>
-          )}
+          ) : (
+            <a href={ecrireRoute({ vue: VUE_PLANIFICATION, mode: 'nouveau', requete: { date, ...(siteId ? { site: siteId } : {}) } })} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
+              <Plus className="h-4 w-4" /> Définir un objectif
+            </a>
+          ))}
         </div>
       </div>
 
@@ -227,9 +239,10 @@ export const PlanificationView = () => {
           objectifs={tries}
           libelle={libelleObjectif}
           peutEcrire={peutEcrire}
-          onRetenir={(o, s) => setFenetre({ type: 'definir', initial: { site_id: o.site_id, shift_id: o.shift_id }, propose: s })}
+          onRetenir={(o, s) => naviguer(ecrireRoute({ vue: VUE_PLANIFICATION, mode: 'modifier', id: o.id, requete: requeteScenario(s) }))}
         />
       )}
+      {onglet === 'registre' && <RegistreObjectifs nomSite={(id) => nomSite.get(id) ?? 'Site inconnu'} nomShift={(id) => (id ? shiftParId.get(id)?.display_name ?? 'Shift inconnu' : 'Journée')} />}
       {onglet === 'cloture' && <ClotureProduction date={date} siteId={siteId} sites={sites} peutEcrire={peutEcrire} />}
       {onglet === 'shifts' && (
         <ComparaisonShifts
@@ -264,9 +277,7 @@ export const PlanificationView = () => {
               stats={o.id in stats ? stats[o.id] : undefined}
               disponibles={disponibles(o.site_id)}
               peutEcrire={peutEcrire}
-              onReviser={() => setFenetre({ type: 'definir', initial: { site_id: o.site_id, shift_id: o.shift_id } })}
-              onAnnuler={() => setFenetre({ type: 'annuler', objectif: o, libelle: libelleObjectif(o) })}
-              onHistorique={() => setFenetre({ type: 'historique', objectif: o, libelle: libelleObjectif(o) })}
+              liens={{ fiche: routeDetail(VUE_PLANIFICATION, o.id), historique: routeDetail(VUE_PLANIFICATION, o.id, 'historique'), reviser: routeModifier(VUE_PLANIFICATION, o.id), annuler: routeAction(VUE_PLANIFICATION, o.id, 'annuler') }}
               ventilation={
                 <BlocVentilation
                   lignes={ventilations.filter((v) => v.objectif_id === o.id)}
@@ -274,7 +285,7 @@ export const PlanificationView = () => {
                   nomSite={(id) => nomSite.get(id) ?? 'Site inconnu'}
                   tonnesObjectif={Number(o.tonnes_cible)}
                   peutVentiler={peutEcrire}
-                  onVentiler={() => setFenetre({ type: 'ventiler', objectif: o, libelle: libelleObjectif(o) })}
+                  lienVentiler={routeAction(VUE_PLANIFICATION, o.id, 'ventiler')}
                 />
               }
             />
@@ -287,48 +298,6 @@ export const PlanificationView = () => {
       />
       </>)}
 
-      {fenetre?.type === 'definir' && (
-        <DefinirObjectif
-          date={date}
-          sites={siteId ? sites.filter((s) => s.id === siteId) : sites}
-          shifts={shifts}
-          existants={objectifs ?? []}
-          initial={fenetre.initial}
-          propose={fenetre.propose}
-          onFermer={() => setFenetre(null)}
-          onEnregistre={() => { setFenetre(null); charger(); }}
-        />
-      )}
-      {fenetre?.type === 'ventiler' && (
-        <VentilerObjectif
-          objectifId={fenetre.objectif.id}
-          siteChargement={fenetre.objectif.site_id}
-          tonnesObjectif={Number(fenetre.objectif.tonnes_cible)}
-          libelle={fenetre.libelle}
-          destinations={sites}
-          contrats={contrats}
-          erreurContrats={erreurContrats}
-          onFermer={() => setFenetre(null)}
-          onEnregistre={() => { setFenetre(null); charger(); }}
-        />
-      )}
-      {fenetre?.type === 'annuler' && (
-        <AnnulerObjectif
-          id={fenetre.objectif.id}
-          libelle={fenetre.libelle}
-          onFermer={() => setFenetre(null)}
-          onAnnule={() => { setFenetre(null); charger(); }}
-        />
-      )}
-      {fenetre?.type === 'historique' && (
-        <HistoriqueObjectif
-          date={fenetre.objectif.date_plan}
-          siteId={fenetre.objectif.site_id}
-          shiftId={fenetre.objectif.shift_id}
-          libelle={fenetre.libelle}
-          onFermer={() => setFenetre(null)}
-        />
-      )}
     </div>
   );
 };
