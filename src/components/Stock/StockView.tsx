@@ -56,7 +56,7 @@ export const StockView = () => {
 
   const charger = useCallback(async () => {
     const [a, d, l, m, s, r, lo, lm, o, v] = await Promise.all([
-      supabase.from('stock_items').select('id, item_code, name, unit_of_measure, unit_price, minimum_threshold, quantity_in_stock, active, category_id, suivi').order('item_code'),
+      supabase.from('stock_items').select('id, item_code, name, unit_of_measure, unit_price, minimum_threshold, active, category_id, suivi').order('item_code'),
       supabase.from('warehouses').select('id, code, name, warehouse_type, site_id, active').order('code'),
       supabase.from('v_stock_disponibilite').select('stock_item_id, warehouse_id, quantite, reserve, libre'),
       supabase.from('stock_movements').select('id, movement_number, movement_date, movement_type, stock_item_id, quantity, from_warehouse_id, to_warehouse_id, reference_piece, motif, notes, annule_mouvement_id')
@@ -72,7 +72,11 @@ export const StockView = () => {
     ]);
     // Toute lecture en echec est signalee (D-067 revue C8), jamais une liste vide silencieuse.
     setErreur([a, d, l, m, s, r, lo, lm, o, v].map((x) => x.error?.message).find(Boolean) ?? '');
-    setArticles((a.data ?? []) as Article[]);
+    // Quantite = somme des depots visibles (D-086) : le cache tous depots
+    // `quantity_in_stock` n'est plus lisible par les comptes.
+    const quantites = new Map<string, number>();
+    for (const x of (l.data ?? []) as Ligne[]) quantites.set(x.stock_item_id, (quantites.get(x.stock_item_id) ?? 0) + Number(x.quantite ?? 0));
+    setArticles(((a.data ?? []) as Omit<Article, 'quantity_in_stock'>[]).map((x) => ({ ...x, quantity_in_stock: quantites.get(x.id) ?? 0 })));
     setDepots((d.data ?? []) as Depot[]);
     setLignes((l.data ?? []) as Ligne[]);
     setMouvements((m.data ?? []) as Mouvement[]);
