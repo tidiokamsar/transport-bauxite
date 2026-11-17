@@ -19,6 +19,18 @@ SELECT t.reference AS voyage, v.registration AS camion, t.etat, tk.ticket, tk.br
  WHERE t.id::text LIKE 'dec0de00-%'
  ORDER BY t.reference;
 
+\echo '=== J1 (D-081) : releve officiel CBG -> releve KOGON -> rapprochement concordant -> tonnage de base de la reconciliation'
+SELECT rl.ticket, rl.brut - rl.tare AS net_cbg_officiel, k.net_kogon, rp.classes, l.tonnage_cbg, l.tonnage_base,
+       rp.classes = ARRAY['concordant'] AND l.tonnage_cbg = rl.brut - rl.tare AND l.tonnage_base = rl.brut - rl.tare
+         AND NOT EXISTS (SELECT 1 FROM public.anomalies_pesee a WHERE a.ligne_id = rl.id AND a.statut <> 'cloturee') AS ok
+  FROM public.releves_cbg r
+  JOIN public.releves_cbg_lignes rl ON rl.releve_id = r.id
+  JOIN public.rapprochements_pesee rp ON rp.ligne_id = rl.id
+  LEFT JOIN LATERAL (SELECT rp.net_kogon) k ON true
+  JOIN public.reconciliation_lignes l ON l.trip_id = rp.trip_id
+ WHERE r.id::text LIKE 'dec0de00-%' AND r.statut <> 'annule'
+ ORDER BY rl.ticket;
+
 \echo '=== J1 : facture = somme des lignes = tonnage facturable x tarif ; TTC = HT + TVA ; encaissements = TTC'
 SELECT f.numero, r.tonnage_facturable, (SELECT sum(l.tonnage_base) FROM public.reconciliation_lignes l WHERE l.reconciliation_id = r.id) AS somme_lignes_reconciliation,
        f.montant_ht, (SELECT sum(fl.montant) FROM public.facture_lignes fl WHERE fl.facture_id = f.id) AS somme_lignes_facture,
