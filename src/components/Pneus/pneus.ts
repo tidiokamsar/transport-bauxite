@@ -3,7 +3,7 @@ import type { TeintePuce } from '../ui/Panneau';
 // Cycle de vie des pneus (D-052) : memes regles que les fonctions serveur
 // (normalisation des positions, operations permises selon l'etat).
 
-export type EtatPneu = 'stored' | 'active' | 'damaged' | 'retired';
+export type EtatPneu = 'stored' | 'active' | 'damaged' | 'retired' | 'en_intervention';
 export type ActionPneu = 'monter' | 'demonter' | 'permuter' | 'inspecter' | 'rechaper' | 'reparer' | 'reformer';
 
 export const ETATS_PNEU: Record<EtatPneu, { texte: string; teinte: TeintePuce }> = {
@@ -11,6 +11,8 @@ export const ETATS_PNEU: Record<EtatPneu, { texte: string; teinte: TeintePuce }>
   active: { texte: 'Monté', teinte: 'vert' },
   damaged: { texte: 'À décider', teinte: 'orange' },
   retired: { texte: 'Réformé', teinte: 'gris' },
+  // D-091 : chez le prestataire (réparation, rechapage, expertise).
+  en_intervention: { texte: 'En intervention', teinte: 'orange' },
 };
 
 // Pneu sorti du registre par l'annulation de sa reception (D-067) : il porte
@@ -29,6 +31,11 @@ export const TYPES_OPERATION: Record<string, string> = {
   reparation: 'Réparation',
   reforme: 'Réforme',
   annulation: 'Annulation',
+  transfert: 'Transfert',
+  envoi_intervention: 'Envoi en intervention',
+  retour_intervention: 'Retour d’intervention',
+  remise_en_service: 'Remise en service',
+  correction: 'Correction',
 };
 
 export const LIBELLES_ACTION: Record<ActionPneu, string> = {
