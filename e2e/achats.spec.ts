@@ -36,27 +36,60 @@ test.describe('Circuit achat', () => {
       await page.route(`**/rest/v1/rpc/${fonction}`, (route) => { appels.push({ fonction, corps: route.request().postDataJSON() }); return repondre(route, 'ok'); });
     }
     await ouvrir(page);
-    await page.getByRole('button', { name: 'Nouveau bon de commande' }).click();
-    const f = page.getByRole('form', { name: 'Saisie bon de commande' });
+    await page.getByRole('link', { name: 'Nouveau bon de commande' }).click();
+    const f = page.getByRole('form', { name: 'Nouveau bon de commande' });
     await f.getByLabel('Fournisseur *').selectOption('f1');
     await f.getByLabel('Dépôt de livraison *').selectOption('w1');
-    await page.getByLabel('Article ligne 1').selectOption('a1');
-    await page.getByLabel('Quantité ligne 1').fill('4');
-    await page.getByLabel('Prix ligne 1').fill('5000');
-    await expect(page.getByText('20 000 GNF')).toBeVisible();
-    await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+    await f.getByLabel('Article ligne 1').selectOption('a1');
+    await f.getByLabel('Quantité ligne 1').fill('4');
+    await f.getByLabel('Prix ligne 1').fill('5000');
+    await expect(f.getByText('20 000 GNF')).toBeVisible();
+    await f.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'enregistrer_bon_commande', corps: { p_id: null, p_fournisseur: 'f1', p_depot: 'w1', p_taxes: 0,
       p_lignes: [{ article: 'a1', designation: null, quantite: 4, prix_unitaire: 5000 }] } });
 
+    // Le bon approuve s'ouvre depuis la liste ; la reception est une page d'action.
+    await page.goto('/#/purchases');
     await page.getByRole('button', { name: 'Ouvrir BC-2026-00007' }).click();
-    await page.getByRole('button', { name: 'Réceptionner', exact: true }).click();
-    await page.getByLabel('Reçu Filtre à huile').fill('6');
-    await page.getByLabel('Refusé Filtre à huile').fill('1');
-    await expect(page.getByRole('button', { name: 'Enregistrer la réception' })).toBeDisabled();
-    await page.getByLabel('Motif du refus Filtre à huile').fill('Carton abîmé');
-    await page.getByRole('button', { name: 'Enregistrer la réception' }).click();
+    await expect(page.getByRole('article', { name: 'Fiche BC-2026-00007' })).toBeVisible();
+    await page.getByRole('link', { name: 'Réceptionner', exact: true }).click();
+    const r = page.getByRole('form', { name: 'Réceptionner le bon' });
+    await r.getByLabel('Reçu Filtre à huile').fill('6');
+    await r.getByLabel('Refusé Filtre à huile').fill('1');
+    await expect(r.getByRole('button', { name: 'Enregistrer la réception' })).toBeDisabled();
+    await r.getByLabel('Motif du refus Filtre à huile').fill('Carton abîmé');
+    await r.getByRole('button', { name: 'Enregistrer la réception' }).click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[1]).toMatchObject({ fonction: 'receptionner_bon_commande', corps: { p_id: 'po1', p_lignes: [{ ligne: 'l1', recue: 6, refusee: 1, motif_refus: 'Carton abîmé' }] } });
+    await expect(page.getByRole('article', { name: 'Fiche BC-2026-00007' })).toBeVisible();
+    await expect(page.getByText('Réception enregistrée : les articles sont entrés en stock.')).toBeVisible();
+  });
+
+  test('rejet motive en page d\'action, refuse au demandeur du bon', async ({ page }) => {
+    await simulerApi(page, { ...jeu, purchase_orders: [{ ...BON, status: 'submitted' }], achats_journal: [
+      { id: 'j1', purchase_order_id: 'po1', evenement: 'soumission', motif: null, par: 'autre', le: '2026-11-14T09:00:00Z' },
+    ] });
+    const appels: Record<string, unknown>[] = [];
+    await page.route('**/rest/v1/rpc/decider_bon_commande', (route) => { appels.push(route.request().postDataJSON()); return repondre(route, null); });
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/purchases/po1?onglet=historique');
+    await expect(page.getByText('Soumis à approbation')).toBeVisible();
+    await page.getByRole('link', { name: 'Rejeter' }).click();
+    const f = page.getByRole('form', { name: 'Rejeter le bon' });
+    await expect(f.getByRole('button', { name: 'Rejeter' })).toBeDisabled();
+    await f.getByLabel('Motif *').fill('Prix hors marché');
+    await f.getByRole('button', { name: 'Rejeter' }).click();
+    await expect.poll(() => appels.length).toBe(1);
+    expect(appels[0]).toEqual({ p_id: 'po1', p_approuver: false, p_motif: 'Prix hors marché' });
+  });
+
+  test('approbation refusee au demandeur, meme ouverte par son adresse', async ({ page }) => {
+    await simulerApi(page, { ...jeu, purchase_orders: [{ ...BON, status: 'submitted', requested_by: PROFIL[0].id }] });
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/purchases/po1/approuver');
+    await expect(page.getByText('Action impossible')).toBeVisible();
+    await expect(page.getByText('L\'approbation revient à une autre personne que le demandeur.')).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Approuver le bon' })).toHaveCount(0);
   });
 });

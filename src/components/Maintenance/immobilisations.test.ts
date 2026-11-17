@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { bornesMois, disponibilite, formatDuree, heuresDansPeriode, totalParImputation, type Immobilisation } from './immobilisations';
+import {
+  actionImmobilisationInterdite, bornesMois, disponibilite, erreursDeclaration, formatDuree, heuresDansPeriode, totalParImputation, type Immobilisation,
+} from './immobilisations';
 
 const h = (jour: number, heure: number) => new Date(2026, 10, jour, heure);
 const immo = (debut: Date, fin: Date | null, imputation: Immobilisation['imputation'], statut: Immobilisation['statut'] = fin ? 'cloturee' : 'ouverte'): Immobilisation => ({
@@ -44,5 +46,23 @@ describe('immobilisations', () => {
     expect(formatDuree(6)).toBe('6 h');
     expect(formatDuree(76)).toBe('3 j 4 h');
     expect(formatDuree(48)).toBe('2 j');
+  });
+});
+
+describe('immobilisations : pages (D-090)', () => {
+  it('cloture refusee si une intervention du loueur est en cours', () => {
+    expect(actionImmobilisationInterdite('cloturer', 'ouverte', true, false)).toBeNull();
+    expect(actionImmobilisationInterdite('cloturer', 'ouverte', true, true)).toMatch(/remise en service/);
+    expect(actionImmobilisationInterdite('cloturer', 'cloturee', true, false)).toMatch(/déjà clôturée/);
+    expect(actionImmobilisationInterdite('corriger', 'cloturee', true, false)).toBeNull();
+    expect(actionImmobilisationInterdite('annuler', 'annulee', true, false)).toMatch(/annulée/);
+    expect(actionImmobilisationInterdite('annuler', 'ouverte', false, false)).toMatch(/Droit/);
+  });
+
+  it('declaration : imputation sans valeur par defaut, debut non futur', () => {
+    const base = { engin: 'v1', debut: '2026-11-10T08:00', cause: 'panne', imputation: 'loueur', description: 'Fuite', reference: '' };
+    expect(erreursDeclaration(base, new Date(2026, 10, 10, 12))).toEqual([]);
+    expect(erreursDeclaration({ ...base, imputation: '' }, new Date(2026, 10, 10, 12))).toContain('Imputation requise (aucune valeur par défaut).');
+    expect(erreursDeclaration(base, new Date(2026, 10, 10, 7)).join()).toMatch(/futur/);
   });
 });

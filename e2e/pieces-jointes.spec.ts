@@ -4,7 +4,8 @@ import { ADMIN, PROFIL, SITE_MINE, repondre, simulerApi } from './api-simulee';
 // Pieces justificatives (D-083) avec l'API simulee : etat vide, depot en
 // trois temps (enregistrement, envoi au stockage, confirmation), refus d'un
 // type non admis sans appel au serveur, echec d'envoi explicite, annulation
-// motivee.
+// motivee. Les pieces d'une livraison CBG sont dans l'onglet « Pièces
+// jointes » de sa fiche (D-090), plus dans une fenetre.
 
 const LIVRAISON = { id: 'l1', reference: 'LIV-CBG-13', date_livraison: '2026-11-14', site_id: SITE_MINE, site: { name: 'Mine de Nimba' },
   volume_litres: 5000, prix_litre: 12000, montant: 60000000, document_ref: null };
@@ -22,7 +23,9 @@ const ouvrir = async (page: Page) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Carburant', exact: true }).click();
   await page.getByRole('button', { name: 'Livraisons et factures CBG', exact: true }).click();
-  await page.getByRole('button', { name: 'Pièces livraison LIV-CBG-13' }).click();
+  await page.getByRole('button', { name: 'Fiche LIV-CBG-13' }).click();
+  await page.getByRole('article', { name: 'Fiche LIV-CBG-13' }).getByRole('tab', { name: 'Pièces jointes' }).click();
+  await expect(page).toHaveURL(/#\/livraisons-cbg\/l1\?onglet=pieces$/);
 };
 
 test.describe('Pieces justificatives', () => {
@@ -45,7 +48,7 @@ test.describe('Pieces justificatives', () => {
       return repondre(route, 'deposee');
     });
     await ouvrir(page);
-    const fenetre = page.getByRole('dialog', { name: 'Pièces justificatives : livraison LIV-CBG-13' });
+    const fenetre = page.getByRole('tabpanel', { name: 'Pièces jointes' });
     await expect(fenetre.getByText('Aucune pièce justificative')).toBeVisible();
     await fenetre.getByLabel('Fichier à joindre').setInputFiles(PDF);
     await fenetre.getByRole('button', { name: 'Joindre', exact: true }).click();
@@ -65,7 +68,7 @@ test.describe('Pieces justificatives', () => {
     await page.route('**/storage/v1/object/pieces/**', (route) =>
       route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' }) }));
     await ouvrir(page);
-    const fenetre = page.getByRole('dialog', { name: 'Pièces justificatives : livraison LIV-CBG-13' });
+    const fenetre = page.getByRole('tabpanel', { name: 'Pièces jointes' });
     await fenetre.getByLabel('Fichier à joindre').setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
     await expect(fenetre.getByRole('alert')).toContainText('Type de fichier non admis');
     await expect(fenetre.getByRole('button', { name: 'Joindre', exact: true })).toBeDisabled();
@@ -89,7 +92,7 @@ test.describe('Pieces justificatives', () => {
       return repondre(route, null);
     });
     await ouvrir(page);
-    const fenetre = page.getByRole('dialog', { name: 'Pièces justificatives : livraison LIV-CBG-13' });
+    const fenetre = page.getByRole('tabpanel', { name: 'Pièces jointes' });
     await fenetre.getByRole('button', { name: 'Annuler BL 13.pdf' }).click();
     const confirmer = fenetre.getByRole('button', { name: 'Confirmer l’annulation' });
     await expect(confirmer).toBeDisabled();

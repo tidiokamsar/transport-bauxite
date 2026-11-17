@@ -50,39 +50,69 @@ test.describe('Stocks avances (D-067)', () => {
     const appels = await capturer(page, ['reserver_stock', 'mouvement_stock', 'lever_reservation_stock']);
     await ouvrir(page, 'Stocks & Achats', 'Stocks');
 
+    await page.getByRole('tab', { name: 'Réservations' }).click();
     await expect(page.getByText('RES-2026-00001')).toBeVisible();
+    await page.getByRole('tab', { name: 'Valorisation' }).click();
     await expect(page.getByText(/150\s000 GNF \(partielle\)/)).toBeVisible();
     await page.getByRole('button', { name: 'Détail valorisation MAG-A' }).click();
     await expect(page.getByText('Sans données').first()).toBeVisible();
 
-    await page.getByRole('button', { name: 'Réserver', exact: true }).click();
-    const f = page.getByRole('form', { name: 'Saisie stock' });
-    await f.getByLabel('Article *').selectOption('a1');
-    await f.getByLabel('Dépôt *').selectOption('d1');
-    await f.getByLabel('Quantité *').fill('2');
-    await f.getByLabel('Affectation (chantier, équipe)').fill('Chantier nord');
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await page.getByRole('link', { name: 'Réserver', exact: true }).click();
+    const r = page.getByRole('form', { name: 'Réservation (sans sortie physique)' });
+    await r.getByLabel('Article *').selectOption('a1');
+    await r.getByLabel('Dépôt *').selectOption('d1');
+    await r.getByLabel('Quantité *').fill('2');
+    await r.getByLabel('Affectation (chantier, équipe)').fill('Chantier nord');
+    await r.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'reserver_stock', corps: { p_article: 'a1', p_depot: 'd1', p_quantite: 2, p_affectation: 'Chantier nord', p_ordre_maintenance: null } });
 
-    await page.getByRole('button', { name: 'Sortir RES-2026-00001' }).click();
+    // Sortie sur reservation depuis la fiche de la reservation.
+    await page.goto('/#/stock/reservation-r1');
+    await expect(page.getByRole('article', { name: 'Fiche RES-2026-00001' })).toBeVisible();
+    await page.getByRole('link', { name: 'Sortir', exact: true }).click();
+    const f = page.getByRole('form', { name: 'Sortie de stock' });
     await expect(f.getByLabel('Réservation consommée')).toHaveValue('r1');
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[1]).toMatchObject({ fonction: 'mouvement_stock', corps: { p_article: 'a1', p_type: 'exit', p_quantite: 3, p_depot_source: 'd1', p_reservation: 'r1', p_lots: null } });
 
-    await page.getByRole('button', { name: 'Sortie', exact: true }).click();
+    // Article suivi par lot : la sortie est bloquee tant que les lots manquent.
+    await page.goto('/#/stock/nouveau?objet=exit');
     await f.getByLabel('Article *').selectOption('a2');
     await f.getByLabel('Depuis *').selectOption('d1');
     await f.getByLabel('Quantité *').fill('2');
-    await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await expect(f.getByText('Saisie à compléter :')).toBeVisible();
+    expect(appels).toHaveLength(2);
     await f.getByLabel(/Lots \(un par ligne/).fill('l1 2');
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(3);
     expect(appels[2]).toMatchObject({ fonction: 'mouvement_stock', corps: { p_article: 'a2', p_type: 'exit', p_lots: [{ code: 'L1', quantite: 2 }], p_reservation: null } });
 
+    await page.goto('/#/stock?onglet=lots');
     await page.getByLabel('Tracer un lot').fill('l1');
     await expect(page.getByText(/REC-2026-00001/)).toBeVisible();
+  });
+
+  test('levee d\'une reservation : motif exige par le serveur', async ({ page }) => {
+    await simulerApi(page, {
+      profiles: PROFIL, stock_items: [{ id: 'a1', item_code: 'FLT-001', name: 'Filtre à huile', unit_of_measure: 'piece', active: true, suivi: 'aucun' }],
+      warehouses: [{ id: 'd1', code: 'MAG-A', name: 'Magasin', warehouse_type: 'main', site_id: null, active: true }],
+      v_reservations_stock: [{ id: 'r1', numero: 'RES-2026-00001', stock_item_id: 'a1', warehouse_id: 'd1', quantite: 4, maintenance_order_id: null, vehicle_id: null,
+        affectation: 'Chantier nord', note: null, reserve_le: '2026-11-18T08:00:00Z', motif_levee: null, quantite_consommee: 0, quantite_restante: 4, statut: 'active' }],
+      stock_movements: [],
+    });
+    const appels = await capturer(page, ['lever_reservation_stock']);
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/stock/reservation-r1');
+    await page.getByRole('link', { name: 'Lever', exact: true }).click();
+    const f = page.getByRole('form', { name: 'Lever la réservation RES-2026-00001' });
+    await expect(f.getByRole('button', { name: 'Lever la réservation' })).toBeDisabled();
+    await f.getByLabel('Motif *').fill('Travaux reportés');
+    await f.getByRole('button', { name: 'Lever la réservation' }).click();
+    await expect.poll(() => appels.length).toBe(1);
+    expect(appels[0]).toMatchObject({ fonction: 'lever_reservation_stock', corps: { p_id: 'r1', p_motif: 'Travaux reportés' } });
   });
 
   test('bon de commande avec ligne de pneus, reception des pneus et des lots', async ({ page }) => {
@@ -102,27 +132,29 @@ test.describe('Stocks avances (D-067)', () => {
     const appels = await capturer(page, ['enregistrer_bon_commande', 'receptionner_bon_commande']);
     await ouvrir(page, 'Stocks & Achats', 'Achats');
 
-    await page.getByRole('button', { name: 'Nouveau bon de commande' }).click();
-    const f = page.getByRole('form', { name: 'Saisie bon de commande' });
+    await page.getByRole('link', { name: 'Nouveau bon de commande' }).click();
+    const f = page.getByRole('form', { name: 'Nouveau bon de commande' });
     await f.getByLabel('Fournisseur *').selectOption('f1');
     await f.getByLabel('Dépôt de livraison *').selectOption('w1');
-    await page.getByLabel('Article ligne 1').selectOption('__pneu__');
-    await page.getByLabel('Marque pneu ligne 1').fill('Michelin');
-    await page.getByLabel('Modèle pneu ligne 1').fill('XDR');
-    await page.getByLabel('Quantité ligne 1').fill('2');
-    await page.getByLabel('Prix ligne 1').fill('3000000');
-    await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+    await f.getByLabel('Article ligne 1').selectOption('__pneu__');
+    await f.getByLabel('Marque pneu ligne 1').fill('Michelin');
+    await f.getByLabel('Modèle pneu ligne 1').fill('XDR');
+    await f.getByLabel('Quantité ligne 1').fill('2');
+    await f.getByLabel('Prix ligne 1').fill('3000000');
+    await f.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'enregistrer_bon_commande', corps: { p_lignes: [{ article: null, quantite: 2, prix_unitaire: 3000000, pneu: { marque: 'Michelin', modele: 'XDR', dimension: null } }] } });
 
+    await page.goto('/#/purchases');
     await page.getByRole('button', { name: 'Ouvrir BC-2026-00009' }).click();
-    await page.getByRole('button', { name: 'Réceptionner', exact: true }).click();
-    await page.getByLabel('Reçu Huile moteur').fill('4');
-    await page.getByLabel('Reçu Pneu Michelin XDR').fill('2');
-    await page.getByLabel('Numéros des pneus Pneu Michelin XDR').fill('pn-001\npn-002');
-    await expect(page.getByRole('button', { name: 'Enregistrer la réception' })).toBeDisabled();
-    await page.getByLabel('Lots Huile moteur').fill('L9 4');
-    await page.getByRole('button', { name: 'Enregistrer la réception' }).click();
+    await page.getByRole('link', { name: 'Réceptionner', exact: true }).click();
+    const r = page.getByRole('form', { name: 'Réceptionner le bon' });
+    await r.getByLabel('Reçu Huile moteur').fill('4');
+    await r.getByLabel('Reçu Pneu Michelin XDR').fill('2');
+    await r.getByLabel('Numéros des pneus Pneu Michelin XDR').fill('pn-001\npn-002');
+    await expect(r.getByRole('button', { name: 'Enregistrer la réception' })).toBeDisabled();
+    await r.getByLabel('Lots Huile moteur').fill('L9 4');
+    await r.getByRole('button', { name: 'Enregistrer la réception' }).click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[1]).toMatchObject({ fonction: 'receptionner_bon_commande', corps: { p_id: 'po1', p_lignes: [
       { ligne: 'l1', recue: 4, lots: [{ code: 'L9', quantite: 4 }] },
