@@ -6,7 +6,7 @@
 | 2 Modele | Fait | migration `20261121230000_pneus_cycle_de_vie` |
 | 3 Migration | Developpe, teste | rejeu des migrations, idempotence verifiee (double application) |
 | 4 a 11 Coeur serveur (cycle, positions, inspections, usure, interventions, stock, couts, alertes, droits, pieces) | Developpe, teste | pgTAP 72 |
-| Ecran (socle D-090) | A faire (lot suivant) | ecran Pneus actuel conserve ; etat `en_intervention` et nouveaux types d'operation affiches |
+| Ecran (socle D-090) | Developpe (2026-11-17) | branche `lot-12/pneus-ecrans` : dix espaces, fiche pneu en 12 onglets, actions et saisies en pleine page ; E2E non rejouees (D-093) |
 | Deploiement | Non fait | branche `lot-12/pneus-cycle-de-vie` |
 
 Etat au sens du bloc 1 section 5 : **Developpe** et **Teste** ; ni fusionne, ni deploye, ni utilisable.
