@@ -182,6 +182,11 @@ Aucun des quatorze composants n'existe dans `src/components/ui/` au 33ab8ef. `ui
 | BulkActionBar | 21 | 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 16, 17, 18, 20, 22, 23, 24 |
 
 ## 5. Détail par module
+| Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
+|---|---|---|---|---|---|
+| Référentiel, montage, démontage, permutation, contrôle | `Pneus/PneusView` | `tires` (cache), `pneus_operations` (journal), `monter_pneu`, `demonter_pneu`, `permuter_pneu`, `inspecter_pneu`, `annuler_operation_pneu` (D-052) | DÉPLOYÉ | P1 | Anciennes tables `tire_*` à supprimer (décision du propriétaire) |
+| Achat, réception, stock, rechapage, rebut, coût par km, durée de vie, performance par marque | `Pneus/PneusView`, `Pneus/PerformancePneus`, `Purchases/PurchasesView` | `enregistrer_pneu`, `rechaper_pneu`, `reparer_pneu`, `reformer_pneu`, `v_pneus` (km, coût au km), `v_pneus_a_surveiller` (D-052) ; lignes de pneus des bons et réception par `receptionner_bon_commande` (`receptions_achat_pneus`), `v_pneus_performance`, réglage `pneu_reforme_precoce_km` (D-067, branche d'intégration) | À TESTER | P1 | Annulation d'une réception de pneus tant qu'ils n'ont que leur entrée (dérogation à D-052 à confirmer) ; pas de référentiel des modèles |
+| Cycle de vie complet (D-091) : carcasse codée, configurations de positions, montage contrôlé, inspections détaillées, usure, interventions et remise en service séparée, coûts par catégorie, indicateurs km/heure/tonne, 13 alertes, blocages, proposition d'immobilisation, pièces jointes | Écran au lot suivant (socle D-090) ; `Pneus/PneusView` conservé | Migration `20261121230000`, pgTAP 72 ; `docs/SIGTB_TIRES_*` | TESTÉ (branche `lot-12/pneus-cycle-de-vie`) | P1 | Écran ; configurations, seuils et critères à fournir par le propriétaire |
 
 Pour chaque module : état et preuve de chaque bloc, changements vérifiés depuis la fiche, écarts ordonnés (repris de la fin de la fiche, taille S/M/L, dépendances, suivi) et composants communs attendus. « main 33ab8ef, déploiement non consigné » signale un apport fusionné après la dernière release consignée (8df078d).
 
