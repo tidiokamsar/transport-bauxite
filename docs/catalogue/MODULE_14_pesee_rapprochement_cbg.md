@@ -9,6 +9,35 @@ aucun guide de rôle, aucun PV. Aucun élément n'est donc UTILISABLE ni
 VALIDÉ. « DÉPLOYÉ » signifie : code et migration en production, tests
 automatisés verts sur la base du serveur.
 
+## Mise à jour du 2026-11-16 : pesée à deux sources (D-081)
+
+Branche `lot-j1/pesee-deux-sources` (base `lot-j1/defauts-bloquants`),
+migration `20261121180000_pesee_deux_sources`, test pgTAP 62 (70
+assertions), unitaires `src/components/Fiches/pesee.test.ts`, E2E
+`e2e/tickets-cbg.spec.ts`, guide `docs/guides/guide-pesee.md`. État :
+DÉVELOPPÉ et TESTÉ (rejeu local), non fusionné, non déployé. Ce
+qui suit prime sur les sections ci-dessous quand elles divergent.
+
+Règle du propriétaire : CBG fait la pesée officielle, l'agent KOGON relève
+ce qu'il observe. `tickets_pesee_cbg` est en réalité le **relevé KOGON du
+ticket CBG** (saisi avec la rotation) : conservée, documentée, recopiée dans
+la source B. La source officielle est le relevé CBG importé.
+
+| Élément | État après D-081 |
+|---|---|
+| Écran « Pesée CBG » (ex « Tickets CBG »), 4 espaces : A relevés officiels CBG, B fiches terrain KOGON, C rapprochement côte à côte, D anomalies et validations | DÉVELOPPÉ (`TicketsCbgView.tsx`, `PeseeRelevesCbg.tsx`, `PeseeFichesKogon.tsx`, `PeseeRapprochement.tsx`, `PeseeAnomalies.tsx`) |
+| 14.4 Import : contrôle des colonnes, aperçu, lignes rejetées avec motif, empreinte SHA-256, re-import refusé, doublon inter-relevés signalé, rapport, annulation motivée | DÉVELOPPÉ (`importer_releve_cbg_v2`, `annuler_releve_cbg`) ; CSV seul (aucune dépendance .xlsx), fichier original : `piece_id` réservé au lot pièces jointes |
+| Source B : fiche terrain KOGON autonome (sans voyage possible), identifiant de saisie idempotent, anomalie signalée par l'agent, correction par remplacement motivé, brouillon local | DÉVELOPPÉ (`releves_terrain_kogon`, `saisir_releve_terrain_kogon`) ; pas de mode hors ligne complet |
+| 14.5 Rapprochement à trois termes (CBG, KOGON, rotation), 10 classes, plusieurs constats par ligne, passes conservées | DÉVELOPPÉ (`rapprocher_pesees`) ; l'ancien `rapprocher_releve_cbg` reste en base, plus appelé par l'écran |
+| Tolérance t et % par site avec repli global, versionnée | DÉVELOPPÉ (`parametres_tolerance_pesee`, `definir_tolerance_pesee`) ; valeur à fournir par le propriétaire |
+| 14.6 Anomalies : statuts, responsable, preuve, historique immuable, séparation soumission / clôture d'un écart de poids, gel après réconciliation close | DÉVELOPPÉ (`anomalies_pesee`, `journal_anomalies_pesee`, `agir_anomalie_pesee`) |
+| 14.7 Réconciliation : `tonnage_cbg` = relevé officiel, `tonnage_kogon` = relevé KOGON, `sans_releve_cbg`, `ecart_releve_cbg`, `releve_cbg_ambigu`, `anomalie_pesee_ouverte` | DÉVELOPPÉ (`actualiser_reconciliation` rebasée) |
+| Décision d'écart D-050 par `window.prompt` (section 7) | Retirée de l'écran (actions motivées dans l'espace D) |
+
+Restent ouverts : pièces jointes (scan, relevé PDF), Excel natif, réconciliation
+journalière (14.8), états imprimables, notifications, `sans_releve_cbg`
+bloquant ou non (question au propriétaire, D-081).
+
 ## 1. Objectifs et périmètre
 
 Faire du ticket de pesée CBG la preuve unique du tonnage livré, et du
