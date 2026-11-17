@@ -200,9 +200,10 @@ test.describe('Corrections des ecrans herites (D-061)', () => {
       if (route.request().method() !== 'GET') { ecritures.push({ methode: route.request().method(), corps: route.request().postDataJSON() }); return route.fulfill({ status: 204, body: '' }); }
       return route.fallback();
     });
-    page.on('dialog', (d) => d.accept());
     await aller(page, 'Flotte', 'Chauffeurs');
     await page.getByText('Alpha Diallo').click();
+    // Action en pleine page (D-090), jamais de suppression.
+    await page.getByRole('link', { name: 'Archiver le dossier' }).click();
     await page.getByRole('button', { name: 'Archiver le dossier' }).click();
     await expect.poll(() => ecritures.length).toBe(1);
     expect(ecritures[0]).toMatchObject({ methode: 'PATCH', corps: { status: 'terminated' } });
