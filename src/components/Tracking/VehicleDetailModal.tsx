@@ -565,7 +565,7 @@ export const VehicleDetailModal = ({ vehicleId, isOpen, onClose }: VehicleDetail
             {activeTab === 'map' && vehicle.gps_position && (
               <div className="space-y-6">
                 <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                  <div className="h-[500px]">
+                  <div className="h-[50vh] min-h-[300px] sm:h-[500px]">
                     <MapContainer
                       center={[vehicle.gps_position.latitude, vehicle.gps_position.longitude]}
                       zoom={11}

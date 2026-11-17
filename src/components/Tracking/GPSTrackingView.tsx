@@ -236,7 +236,7 @@ export const GPSTrackingView = () => {
         </div>
 
         {/* Carte GPS en temps réel */}
-        <div className="relative h-[700px] bg-gray-100">
+        <div className="relative h-[60vh] min-h-[320px] bg-gray-100 sm:h-[700px]">
           <LiveMapView />
         </div>
       </div>

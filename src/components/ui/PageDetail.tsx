@@ -94,9 +94,9 @@ export const PageDetail = ({
     <article aria-label={`Fiche ${reference}`} className="space-y-5">
       <FilAriane elements={arianeModule(vue, module, { libelle: reference })} />
       {retour}
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte">
+      <header className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5">
         <div className="min-w-0">
-          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-black text-stone-900">
+          <h1 className="flex flex-wrap items-center gap-3 break-words text-xl font-black text-stone-900 sm:text-2xl">
             {titre ?? reference}
             {statut && <Puce teinte={statut.teinte}>{statut.libelle}</Puce>}
           </h1>
@@ -114,11 +114,11 @@ export const PageDetail = ({
       </header>
       {annonce && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{annonce}</p>}
 
-      <div role="tablist" aria-label="Sections de la fiche" className="flex flex-wrap gap-1 border-b border-stone-200">
+      <div role="tablist" aria-label="Sections de la fiche" className="-mx-4 flex gap-1 overflow-x-auto border-b border-stone-200 px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {onglets.map((o) => (
           <button key={o.id} type="button" role="tab" aria-selected={o.id === actif?.id} aria-controls={`onglet-${o.id}`} id={`tab-${o.id}`}
             onClick={() => choisir(o.id)}
-            className={`-mb-px rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold ${o.id === actif?.id ? 'border-orange-600 text-orange-800' : 'border-transparent text-stone-500 hover:text-stone-800'}`}>
+            className={`-mb-px shrink-0 whitespace-nowrap rounded-t-lg border-b-2 px-4 py-2 text-sm font-semibold ${o.id === actif?.id ? 'border-orange-600 text-orange-800' : 'border-transparent text-stone-500 hover:text-stone-800'}`}>
             {o.libelle}{o.compte != null && <span className="ml-1.5 rounded-full bg-stone-100 px-1.5 text-xs text-stone-600">{o.compte}</span>}
           </button>
         ))}
@@ -132,7 +132,7 @@ export const PageDetail = ({
 export const Informations = ({ groupes }: { groupes: { titre: string; champs: [string, ReactNode][] }[] }) => (
   <div className="grid gap-4 lg:grid-cols-2">
     {groupes.map((g) => (
-      <section key={g.titre} aria-label={g.titre} className="rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte">
+      <section key={g.titre} aria-label={g.titre} className="rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5">
         <h2 className="mb-3 font-bold text-stone-900">{g.titre}</h2>
         <dl className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-3 gap-y-2 text-sm">
           {g.champs.map(([libelle, valeur]) => (
@@ -161,7 +161,7 @@ export const Relation = <T,>({ titre, lignes, erreur, colonnes, vide, lien, cle,
   lien?: (l: T) => string;
   note?: ReactNode;
 }) => (
-  <section aria-label={titre} className="rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte">
+  <section aria-label={titre} className="rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5">
     <h2 className="mb-3 font-bold text-stone-900">{titre}{lignes && lignes.length > 0 && <span className="ml-2 text-sm font-normal text-stone-500">({lignes.length})</span>}</h2>
     {erreur ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>
       : lignes === null ? <p role="status" className="text-sm text-stone-500">Chargement…</p>
