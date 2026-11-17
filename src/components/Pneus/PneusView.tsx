@@ -1,305 +1,206 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CircleDot, History, Plus, RefreshCw } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { CircleDot, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
+import { PageListe } from '../ui/PageListe';
+import { Provenance, Puce } from '../ui/Panneau';
+import { useRoute } from '../ui/routeur';
+import type { ColonneListe, FiltreListe } from '../ui/liste';
+import { ETATS_PNEU, etatAffiche, texteKm, type EtatPneu } from './pneus';
+import { Douchette } from './communsPneus';
 import {
-  ETATS_PNEU, LIBELLES_ACTION, MOTIF_ANNULATION_RECEPTION, etatAffiche, TYPES_OPERATION, actionsPossibles, normaliserPosition, texteCoutKm, texteKm,
-  type ActionPneu, type EtatPneu,
-} from './pneus';
-import { PerformancePneus } from './PerformancePneus';
+  ESPACES_PNEUS, VUE_PNEUS, droitsPneus, estEspace, gnf, indicateur, lireIdRoute, nombre, routeEspace, routeSaisie,
+  useLecture, useRegistre, type EspacePneus, type PneuLigne,
+} from './socle';
+import {
+  EspaceAnomalies, EspaceCouts, EspaceInspections, EspaceMaintenance, EspaceMontage, EspaceParametrage, EspacePerformance, EspaceStocks,
+} from './EspacesPneus';
+import { DetailPneu } from './DetailPneu';
+import { ActionPneu } from './ActionPneu';
+import { FormulairePneus } from './FormulairesPneu';
 
-// Pneus (D-052) : registre et cycle de vie individuel. Chaque operation
-// passe par une fonction serveur et s'inscrit au journal ; une erreur se
-// corrige en annulant la derniere operation, avec motif.
-
-interface Pneu {
-  id: string; tire_number: string; brand: string; model: string; dimension: string | null; status: EtatPneu;
-  vehicle_id: string | null; position: string | null; site_id: string | null; purchase_price: number | null;
-  retread_count: number; max_retreads: number | null; nb_montages: number; km_parcourus: number | null; km_incomplet: boolean;
-  cout_total: number | null; cout_km: number | null; derniere_profondeur_mm: number | null; profondeur_mesuree_le: string | null;
-}
-interface Alerte { id: string; tire_number: string; motif: 'profondeur' | 'inspection'; derniere_profondeur_mm: number | null; last_inspection_date: string | null; installation_date: string | null }
-interface Operation {
-  id: string; type: string; effectue_le: string; saisi_le: string; vehicle_id: string | null; position: string | null; position_precedente: string | null;
-  site_id: string | null; compteur_km: number | null; profondeur_mm: number | null; pression_bar: number | null; etat_sortie: string | null;
-  cout: number | null; prestataire: string | null; motif: string | null; note: string | null; annule_operation_id: string | null;
-}
-interface Lib { id: string; libelle: string }
-
-const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
-const num = (v: string) => (v.trim() === '' ? undefined : Number(v.replace(',', '.')));
-const texte = (v: string) => (v.trim() === '' ? undefined : v.trim());
-// Montants en GNF et nombre de rechapages : entiers (colonnes bigint et
-// integer, D-078) ; une decimale est refusee avec un message, jamais arrondie.
-const ENTIERS: Record<string, string> = { p_prix_achat: 'Prix d\'achat (GNF)', p_cout: 'Coût (GNF)', p_rechapages_max: 'Rechapages maximum' };
-const quand = (v: string) => (v ? new Date(v).toISOString() : undefined);
-const date = (v: string) => new Date(v).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+// Gestion des pneus (D-052, D-091) au standard des pages (D-090) : dix
+// espaces sous l'entree de menu Pneus (#/tires?espace=...), fiche du pneu
+// (#/tires/<id>), saisies (#/tires/nouveau?objet=...), actions metier
+// (#/tires/<id>/<action>). Remplace l'ancien ecran a fenetres.
 
 export const PneusView = () => {
-  const { hasPermission, profile } = useAuth();
-  const estAdmin = profile?.role === 'admin';
-  const peutEcrire = estAdmin || hasPermission('vehicles', 'edit') || hasPermission('maintenance', 'edit');
-  const [pneus, setPneus] = useState<Pneu[] | null>(null);
-  const [annulesReception, setAnnulesReception] = useState<Set<string>>(new Set());
-  const [alertes, setAlertes] = useState<Alerte[]>([]);
-  const [engins, setEngins] = useState<Lib[]>([]);
-  const [sites, setSites] = useState<Lib[]>([]);
-  const [fournisseurs, setFournisseurs] = useState<Lib[]>([]);
-  const [seuils, setSeuils] = useState<Record<string, string>>({});
-  const [version, setVersion] = useState(0);
-  const [filtre, setFiltre] = useState('');
-  const [saisie, setSaisie] = useState(false);
-  const [action, setAction] = useState<{ type: ActionPneu; pneu: Pneu } | null>(null);
-  const [historique, setHistorique] = useState<{ pneu: Pneu; operations: Operation[] } | null>(null);
-  const [champs, setChamps] = useState<Record<string, string>>({});
-  const [erreur, setErreur] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const charger = useCallback(async () => {
-    const [p, a, v, s, f, ar] = await Promise.all([
-      supabase.from('v_pneus').select('*').order('tire_number'),
-      supabase.from('v_pneus_a_surveiller').select('id, tire_number, motif, derniere_profondeur_mm, last_inspection_date, installation_date'),
-      supabase.from('vehicles').select('id, registration').order('registration'),
-      supabase.from('sites').select('id, name').order('name'),
-      supabase.from('suppliers').select('id, company_name').order('company_name'),
-      supabase.from('pneus_operations').select('tire_id, type, motif').eq('type', 'annulation').like('motif', `${MOTIF_ANNULATION_RECEPTION}%`),
-    ]);
-    setErreur(p.error?.message ?? a.error?.message ?? ar.error?.message ?? '');
-    setAnnulesReception(new Set((ar.data ?? [])
-      .filter((x) => x.type === 'annulation' && String(x.motif ?? '').startsWith(MOTIF_ANNULATION_RECEPTION))
-      .map((x) => x.tire_id as string)));
-    setPneus((p.data ?? []) as Pneu[]);
-    setAlertes((a.data ?? []) as Alerte[]);
-    setEngins((v.data ?? []).map((x) => ({ id: x.id as string, libelle: x.registration as string })));
-    setSites((s.data ?? []).map((x) => ({ id: x.id as string, libelle: x.name as string })));
-    setFournisseurs((f.data ?? []).map((x) => ({ id: x.id as string, libelle: x.company_name as string })));
-    setVersion((n) => n + 1);
-    setVersion((n) => n + 1);
-    if (estAdmin) {
-      const { data } = await supabase.from('settings').select('key, value').in('key', ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']);
-      setSeuils(Object.fromEntries((data ?? []).map((x) => [x.key as string, String((x.value as { value?: string })?.value ?? '')])));
-    }
-  }, [estAdmin]);
-  useEffect(() => { charger(); }, [charger]);
-
-  const engin = useMemo(() => new Map(engins.map((e) => [e.id, e.libelle])), [engins]);
-  const site = useMemo(() => new Map(sites.map((e) => [e.id, e.libelle])), [sites]);
-  const liste = (pneus ?? []).filter((p) => !filtre || p.status === filtre);
-  const c = (k: string) => champs[k] ?? '';
-  const poser = (k: string, v: string) => setChamps({ ...champs, [k]: v });
-  const emplacement = (p: Pick<Pneu, 'vehicle_id' | 'position' | 'site_id'>) =>
-    p.vehicle_id ? `${engin.get(p.vehicle_id) ?? '?'} · ${p.position ?? '?'}` : p.site_id ? site.get(p.site_id) ?? '?' : 'Sans emplacement';
-
-  const ouvrirHistorique = async (pneu: Pneu) => {
-    const { data, error } = await supabase.from('pneus_operations').select('*').eq('tire_id', pneu.id)
-      .order('effectue_le', { ascending: false }).order('saisi_le', { ascending: false });
-    if (error) { setErreur(error.message); return; }
-    setHistorique({ pneu, operations: (data ?? []) as Operation[] });
-  };
-  const executer = async (fonction: string, args: Record<string, unknown>, succes: string) => {
-    for (const [cle, libelle] of Object.entries(ENTIERS)) {
-      const v = args[cle];
-      if (typeof v === 'number' && Number.isNaN(v)) { setErreur(`${libelle} : nombre illisible`); return false; }
-      if (typeof v === 'number' && !Number.isInteger(v)) { setErreur(`${libelle} : nombre entier attendu (sans décimales)`); return false; }
-    }
-    setBusy(true); setErreur(''); setMessage('');
-    const { error } = await supabase.rpc(fonction, Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined)));
-    setBusy(false);
-    if (error) { setErreur(error.message); return false; }
-    setMessage(succes); await charger();
-    if (historique) await ouvrirHistorique(historique.pneu);
-    return true;
-  };
-
-  const enregistrer = () => executer('enregistrer_pneu', {
-    p_numero: c('numero').trim(), p_marque: c('marque').trim(), p_modele: c('modele').trim(), p_site: c('site'),
-    p_dimension: texte(c('dimension')), p_date_achat: c('achat') || undefined, p_prix_achat: num(c('prix')),
-    p_fournisseur: c('fournisseur') || undefined, p_profondeur_mm: num(c('profondeur')), p_rechapages_max: num(c('rechapages')),
-    p_reference: texte(c('reference')), p_note: texte(c('note')), p_date: quand(c('date')),
-  }, 'Pneu enregistré en stock.').then((ok) => { if (ok) { setSaisie(false); setChamps({}); } });
-
-  const valider = () => {
-    if (!action) return;
-    const id = action.pneu.id;
-    const commun = { p_tire: id, p_date: quand(c('date')) };
-    const appels: Record<ActionPneu, [string, Record<string, unknown>]> = {
-      monter: ['monter_pneu', { ...commun, p_vehicle: c('engin'), p_position: normaliserPosition(c('position')), p_km: num(c('km')), p_profondeur_mm: num(c('profondeur')), p_pression_bar: num(c('pression')), p_note: texte(c('note')) }],
-      demonter: ['demonter_pneu', { ...commun, p_motif: c('motif').trim(), p_etat: c('etat'), p_site: c('site'), p_km: num(c('km')), p_profondeur_mm: num(c('profondeur')), p_note: texte(c('note')) }],
-      permuter: ['permuter_pneu', { ...commun, p_position: normaliserPosition(c('position')), p_km: num(c('km')), p_motif: texte(c('motif')) }],
-      inspecter: ['inspecter_pneu', { ...commun, p_profondeur_mm: num(c('profondeur')), p_pression_bar: num(c('pression')), p_km: num(c('km')), p_note: texte(c('note')) }],
-      rechaper: ['rechaper_pneu', { ...commun, p_prestataire: c('prestataire').trim(), p_site: c('site'), p_cout: num(c('cout')), p_profondeur_mm: num(c('profondeur')), p_reference: texte(c('reference')), p_note: texte(c('note')) }],
-      reparer: ['reparer_pneu', { ...commun, p_site: c('site'), p_cout: num(c('cout')), p_prestataire: texte(c('prestataire')), p_profondeur_mm: num(c('profondeur')), p_reference: texte(c('reference')), p_note: texte(c('note')) }],
-      reformer: ['reformer_pneu', { ...commun, p_motif: c('motif').trim() }],
-    };
-    const [fonction, args] = appels[action.type];
-    executer(fonction, args, `${LIBELLES_ACTION[action.type]} : opération enregistrée.`).then((ok) => { if (ok) { setAction(null); setChamps({}); } });
-  };
-  const pretAction = (() => {
-    if (!action) return false;
-    switch (action.type) {
-      case 'monter': return !!c('engin') && !!normaliserPosition(c('position'));
-      case 'demonter': return !!c('motif').trim() && !!c('etat') && !!c('site');
-      case 'permuter': return !!normaliserPosition(c('position'));
-      case 'inspecter': return c('profondeur').trim() !== '' || c('pression').trim() !== '';
-      case 'rechaper': return !!c('prestataire').trim() && !!c('site');
-      case 'reparer': return !!c('site');
-      case 'reformer': return !!c('motif').trim();
-      default: return false;
-    }
-  })();
-
-  const annuler = (o: Operation) => {
-    const motif = window.prompt(`Motif de l'annulation (${TYPES_OPERATION[o.type]} du ${date(o.effectue_le)})`);
-    if (!motif?.trim()) return;
-    executer('annuler_operation_pneu', { p_operation: o.id, p_motif: motif }, 'Opération annulée.');
-  };
-  const enregistrerSeuils = async () => {
-    setErreur(''); setMessage('');
-    for (const cle of ['pneu_profondeur_min_mm', 'pneu_inspection_max_jours', 'pneu_reforme_precoce_km']) {
-      const v = (seuils[cle] ?? '').trim().replace(',', '.');
-      const { error } = v === ''
-        ? await supabase.from('settings').delete().eq('key', cle)
-        : await supabase.from('settings').upsert({ key: cle, value: { value: v }, category: 'pneus', description: 'Seuil d\'alerte des pneus (D-052)' }, { onConflict: 'key' });
-      if (error) { setErreur(error.message); return; }
-    }
-    setMessage('Seuils enregistrés.'); await charger();
-  };
-
-  const annulees = new Set((historique?.operations ?? []).filter((o) => o.annule_operation_id).map((o) => o.annule_operation_id));
-  const derniere = (historique?.operations ?? []).find((o) => o.type !== 'annulation' && !annulees.has(o.id));
-  const champ = (k: string, libelle: string, props: Record<string, unknown> = {}) =>
-    <label className="text-sm">{libelle}<input value={c(k)} onChange={(e) => poser(k, e.target.value)} className={CHAMP} {...props} /></label>;
-  const choixSite = (libelle = 'Site de stockage *') => <label className="text-sm">{libelle}<select value={c('site')} onChange={(e) => poser('site', e.target.value)} className={CHAMP}><option value="">Choisir</option>{sites.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></label>;
-
-  return <div className="space-y-5">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-2xl font-black text-stone-900">Pneus</h2>
-        <p className="text-sm text-stone-500">Registre et cycle de vie de chaque pneu : montage, permutation, inspection, démontage, réparation, rechapage, réforme.</p></div>
-      <div className="flex gap-2">
-        {peutEcrire && <button onClick={() => { setSaisie(true); setAction(null); setChamps({}); }} className="flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Pneu</button>}
-        <button onClick={charger} className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"><RefreshCw className="h-4 w-4" /> Actualiser</button>
-      </div>
-    </header>
-    {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-    {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
-
-    {saisie && <Panneau titre="Nouveau pneu (entrée en stock)">
-      <div role="form" aria-label="Saisie pneu" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {champ('numero', 'Numéro (marquage) *')}
-        {champ('marque', 'Marque *')}
-        {champ('modele', 'Modèle *')}
-        {champ('dimension', 'Dimension', { placeholder: '315/80 R22.5' })}
-        {choixSite()}
-        {champ('date', 'Entrée le', { type: 'datetime-local' })}
-        {champ('profondeur', 'Profondeur initiale (mm)', { inputMode: 'decimal' })}
-        {champ('rechapages', 'Rechapages maximum', { inputMode: 'numeric' })}
-        {champ('achat', 'Date d\'achat', { type: 'date' })}
-        {champ('prix', 'Prix d\'achat (GNF)', { inputMode: 'numeric' })}
-        <label className="text-sm">Fournisseur<select value={c('fournisseur')} onChange={(e) => poser('fournisseur', e.target.value)} className={CHAMP}><option value="">Non renseigné</option>{fournisseurs.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></label>
-        {champ('reference', 'Pièce (bon de réception)')}
-      </div>
-      <div className="mt-3 flex gap-2">
-        <button disabled={busy || !(c('numero').trim() && c('marque').trim() && c('modele').trim() && c('site'))} onClick={enregistrer} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
-        <button onClick={() => setSaisie(false)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Annuler</button>
-      </div>
-    </Panneau>}
-
-    {action && <Panneau titre={`${LIBELLES_ACTION[action.type]} le pneu ${action.pneu.tire_number}`}>
-      <p className="mb-3 text-sm text-stone-600">Emplacement actuel : {emplacement(action.pneu)}</p>
-      <div role="form" aria-label="Opération pneu" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {champ('date', 'Date de l\'opération', { type: 'datetime-local' })}
-        {action.type === 'monter' && <>
-          <label className="text-sm">Engin *<select value={c('engin')} onChange={(e) => poser('engin', e.target.value)} className={CHAMP}><option value="">Choisir</option>{engins.map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></label>
-          {champ('position', 'Position *', { placeholder: 'AV G, AR1 D EXT…' })}
-        </>}
-        {action.type === 'permuter' && champ('position', 'Nouvelle position *')}
-        {action.type === 'demonter' && <>
-          {champ('motif', 'Motif *', { placeholder: 'Usure, crevaison, coupure…' })}
-          <label className="text-sm">État au démontage *<select value={c('etat')} onChange={(e) => poser('etat', e.target.value)} className={CHAMP}><option value="">Choisir</option><option value="stored">Réutilisable (en stock)</option><option value="damaged">À décider (réparation, rechapage, réforme)</option></select></label>
-          {choixSite('Site de dépose *')}
-        </>}
-        {(action.type === 'rechaper' || action.type === 'reparer') && <>
-          {champ('prestataire', action.type === 'rechaper' ? 'Prestataire *' : 'Prestataire')}
-          {champ('cout', 'Coût (GNF)', { inputMode: 'numeric' })}
-          {choixSite('Site de retour *')}
-          {champ('reference', 'Pièce (facture, bon)')}
-        </>}
-        {action.type === 'reformer' && champ('motif', 'Motif de la réforme *')}
-        {action.type === 'permuter' && champ('motif', 'Motif')}
-        {['monter', 'demonter', 'permuter', 'inspecter'].includes(action.type) && champ('km', 'Compteur engin (km)', { inputMode: 'decimal' })}
-        {['monter', 'demonter', 'inspecter', 'rechaper', 'reparer'].includes(action.type) && champ('profondeur', 'Profondeur (mm)', { inputMode: 'decimal' })}
-        {['monter', 'inspecter'].includes(action.type) && champ('pression', 'Pression (bar)', { inputMode: 'decimal' })}
-        {action.type !== 'reformer' && action.type !== 'permuter' && champ('note', 'Observation')}
-      </div>
-      {action.type === 'reformer' && <p className="mt-2 text-sm text-orange-800">La réforme est définitive : le pneu ne pourra plus être monté.</p>}
-      <div className="mt-3 flex gap-2">
-        <button disabled={busy || !pretAction} onClick={valider} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Valider l'opération</button>
-        <button onClick={() => setAction(null)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Annuler</button>
-      </div>
-    </Panneau>}
-
-    <Panneau titre={`À surveiller (${alertes.length})`}>
-      {alertes.length === 0 ? <SansDonnees message="Aucun pneu sous le seuil de profondeur ni en retard d'inspection (seuils fixés par l'administrateur)" /> :
-        <ul className="divide-y divide-stone-100 text-sm">{alertes.map((a) => <li key={a.id} className="py-2">
-          <b>{a.tire_number}</b> · {a.motif === 'profondeur'
-            ? <Puce teinte="rouge">Profondeur {a.derniere_profondeur_mm} mm</Puce>
-            : <Puce teinte="orange">Inspection en retard (dernière : {a.last_inspection_date ?? 'aucune'})</Puce>}</li>)}</ul>}
-    </Panneau>
-
-    {estAdmin && <Panneau titre="Seuils d'alerte">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="text-sm">Profondeur minimale (mm)<input aria-label="Profondeur minimale (mm)" value={seuils.pneu_profondeur_min_mm ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_profondeur_min_mm: e.target.value })} className={CHAMP} /></label>
-        <label className="text-sm">Inspection au plus tard tous les (jours)<input aria-label="Inspection maximale (jours)" value={seuils.pneu_inspection_max_jours ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_inspection_max_jours: e.target.value })} className={CHAMP} /></label>
-        <label className="text-sm">Réforme précoce en dessous de (km)<input aria-label="Réforme précoce (km)" value={seuils.pneu_reforme_precoce_km ?? ''} onChange={(e) => setSeuils({ ...seuils, pneu_reforme_precoce_km: e.target.value })} className={CHAMP} /></label>
-        <div className="flex items-end"><button onClick={enregistrerSeuils} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Enregistrer les seuils</button></div>
-      </div>
-      <p className="mt-2 text-xs text-stone-500">Vide : pas d'alerte de ce type.</p>
-    </Panneau>}
-
-    <PerformancePneus version={version} />
-
-    <Panneau titre="Registre">
-      <select aria-label="Filtrer par état" value={filtre} onChange={(e) => setFiltre(e.target.value)} className="mb-3 rounded border border-stone-300 px-3 py-2 text-sm">
-        <option value="">Tous les états</option>{Object.entries(ETATS_PNEU).map(([k, v]) => <option key={k} value={k}>{v.texte}</option>)}</select>
-      {pneus === null ? <p>Chargement…</p> : liste.length === 0 ? <SansDonnees message="Aucun pneu enregistré" /> :
-        <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500">
-          <th className="py-2 pr-3">Pneu</th><th className="py-2 pr-3">État</th><th className="py-2 pr-3">Emplacement</th><th className="py-2 pr-3">Km parcourus</th>
-          <th className="py-2 pr-3">Coût au km</th><th className="py-2 pr-3">Profondeur</th><th className="py-2 pr-3">Rechapages</th><th /></tr></thead>
-          <tbody>{liste.map((p) => <tr key={p.id} className="border-b border-stone-100 align-top">
-            <td className="py-2 pr-3"><b>{p.tire_number}</b><span className="block text-xs text-stone-500">{p.brand} {p.model}{p.dimension ? ` · ${p.dimension}` : ''}</span></td>
-            <td className="py-2 pr-3">{(() => { const e = etatAffiche(p.status, annulesReception.has(p.id)); return <Puce teinte={e.teinte}>{e.texte}</Puce>; })()}</td>
-            <td className="py-2 pr-3">{emplacement(p)}</td>
-            <td className="py-2 pr-3">{texteKm(p.km_parcourus, p.km_incomplet, p.nb_montages)}</td>
-            <td className="py-2 pr-3">{texteCoutKm(p.cout_km)}</td>
-            <td className="py-2 pr-3">{p.derniere_profondeur_mm === null ? 'Sans données' : <>{p.derniere_profondeur_mm} mm<span className="block text-xs text-stone-500">{p.profondeur_mesuree_le && date(p.profondeur_mesuree_le)}</span></>}</td>
-            <td className="py-2 pr-3">{p.retread_count}{p.max_retreads !== null ? ` / ${p.max_retreads}` : ''}</td>
-            <td className="py-2"><div className="flex flex-wrap gap-1">
-              {peutEcrire && actionsPossibles(p.status).map((a) => <button key={a} onClick={() => { setAction({ type: a, pneu: p }); setSaisie(false); setChamps({}); }}
-                aria-label={`${LIBELLES_ACTION[a]} ${p.tire_number}`} className="rounded border border-stone-300 px-2 py-1 text-xs">{LIBELLES_ACTION[a]}</button>)}
-              <button onClick={() => ouvrirHistorique(p)} aria-label={`Historique ${p.tire_number}`} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><History className="h-3 w-3" /> Historique</button>
-            </div></td>
-          </tr>)}</tbody></table></div>}
-    </Panneau>
-
-    {historique && <Panneau titre={`Historique du pneu ${historique.pneu.tire_number}`}>
-      {historique.operations.length === 0 ? <SansDonnees message="Aucune opération au journal" /> :
-        <ul className="divide-y divide-stone-100 text-sm">{historique.operations.map((o) => <li key={o.id} className={`flex flex-wrap items-start justify-between gap-2 py-2 ${annulees.has(o.id) ? 'text-stone-400 line-through' : ''}`}>
-          <div><CircleDot className="mr-1 inline h-3 w-3" /><b>{TYPES_OPERATION[o.type] ?? o.type}</b> · {date(o.effectue_le)}
-            {o.vehicle_id && <> · {engin.get(o.vehicle_id) ?? '?'} {o.position_precedente ? `${o.position_precedente} → ` : ''}{o.position}</>}
-            {o.site_id && !o.vehicle_id && <> · {site.get(o.site_id) ?? '?'}</>}
-            {o.compteur_km !== null && <> · {o.compteur_km} km</>}
-            {o.profondeur_mm !== null && <> · {o.profondeur_mm} mm</>}
-            {o.pression_bar !== null && <> · {o.pression_bar} bar</>}
-            {o.etat_sortie && <> · {ETATS_PNEU[o.etat_sortie as EtatPneu]?.texte}</>}
-            {o.prestataire && <> · {o.prestataire}</>}
-            {o.cout !== null && <> · {o.cout} GNF</>}
-            {(o.motif || o.note) && <span className="block text-xs text-stone-500">{o.motif ?? ''}{o.motif && o.note ? ' · ' : ''}{o.note ?? ''}</span>}
-          </div>
-          {peutEcrire && derniere?.id === o.id && o.type !== 'entree' &&
-            <button onClick={() => annuler(o)} aria-label={`Annuler ${TYPES_OPERATION[o.type]}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Annuler</button>}
-        </li>)}</ul>}
-    </Panneau>}
-  </div>;
+  const route = useRoute();
+  if (route.vue !== VUE_PNEUS || route.mode === 'liste') return <EspacesPneus requete={route.vue === VUE_PNEUS ? route.requete : {}} />;
+  if (route.mode === 'nouveau') return <FormulairePneus objet={route.requete.objet ?? 'carcasse'} requete={route.requete} />;
+  const cible = lireIdRoute(route.id ?? '');
+  if (route.mode === 'modifier') return <FormulairePneus objet="correction" id={cible.id} requete={route.requete} />;
+  if (route.mode === 'action' && route.action) return <ActionPneu idRoute={route.id ?? ''} action={route.action} requete={route.requete} />;
+  if (cible.prefixe === 'engin') return <EspacesPneus requete={{ espace: 'montage', engin: cible.id }} />;
+  if (cible.prefixe) return <EspacesPneus requete={{ espace: 'parametrage' }} />;
+  return <DetailPneu id={cible.id} />;
 };
+
+// Espace ouvert pendant la session : les filtres de PageListe reecrivent la
+// requete de l'adresse, l'espace est donc garde ici (comme Stock).
+let dernierEspace: EspacePneus = 'tableau';
+
+const EspacesPneus = ({ requete }: { requete: Record<string, string> }) => {
+  const { hasPermission, profile } = useAuth();
+  const droits = droitsPneus(hasPermission, profile?.role);
+  const [espace, setEspace] = useState<EspacePneus>(() => (estEspace(requete.espace) ? requete.espace : dernierEspace));
+  useEffect(() => { if (estEspace(requete.espace)) setEspace(requete.espace); }, [requete.espace]);
+  useEffect(() => { dernierEspace = espace; }, [espace]);
+
+  const contenu: Record<EspacePneus, ReactNode> = {
+    tableau: <TableauDeBord />,
+    registre: <Registre droits={droits} />,
+    montage: <EspaceMontage droits={droits} engin={requete.engin} />,
+    inspections: <EspaceInspections droits={droits} />,
+    maintenance: <EspaceMaintenance droits={droits} />,
+    stocks: <EspaceStocks />,
+    anomalies: <EspaceAnomalies droits={droits} />,
+    performance: <EspacePerformance />,
+    couts: <EspaceCouts />,
+    parametrage: <EspaceParametrage droits={droits} />,
+  };
+
+  return (
+    <div className="space-y-5">
+      <nav aria-label="Espaces du module Pneus" className="flex flex-wrap gap-1 border-b border-stone-200">
+        {ESPACES_PNEUS.map(([e, libelle]) => (
+          <a key={e} href={routeEspace(e)} aria-current={e === espace ? 'page' : undefined} onClick={() => setEspace(e)}
+            className={`-mb-px rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold ${e === espace ? 'border-orange-600 text-orange-800' : 'border-transparent text-stone-500 hover:text-stone-800'}`}>
+            {libelle}
+          </a>
+        ))}
+      </nav>
+      {contenu[espace]}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------- 1. tableau de bord
+
+const Tuile = ({ libelle, valeur, detail, vers, alerte }: { libelle: string; valeur: ReactNode; detail?: string; vers: string; alerte?: boolean }) => (
+  <a href={vers} className={`block rounded-2xl border bg-white p-4 shadow-carte hover:border-orange-400 ${alerte ? 'border-orange-300' : 'border-stone-200/70'}`}>
+    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{libelle}</p>
+    <p className="mt-1 text-2xl font-black text-stone-900">{valeur}</p>
+    {detail && <p className="mt-1 text-xs text-stone-500">{detail}</p>}
+  </a>
+);
+
+const TableauDeBord = () => {
+  const r = useRegistre();
+  const couts = useLecture<{ montant: number | null }>(() => supabase.from('v_pneus_couts').select('montant'), 'coûts des pneus');
+  const ind = useLecture<{ cout_total: number | null; km: number | null; heures: number | null; tonnes: number | null; cout_km: number | null; cout_heure: number | null; cout_tonne: number | null }>(
+    () => supabase.from('v_pneus_indicateurs').select('cout_total, km, heures, tonnes, cout_km, cout_heure, cout_tonne'), 'indicateurs des pneus');
+  const p = r.pneus.lignes;
+  if (r.erreur && !p) return <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{r.erreur}</p>;
+  if (!p) return <p role="status" className="py-8 text-center text-sm text-stone-500">Chargement…</p>;
+
+  const reels = p.filter((x) => !r.annuleReception.has(x.id));
+  const compte = (etat: EtatPneu) => reels.filter((x) => x.status === etat).length;
+  const aSurveiller = reels.filter((x) => r.alertesParPneu.has(x.id)).length;
+  const inspectionsRetard = reels.filter((x) => (r.alertesParPneu.get(x.id) ?? []).some((a) => a.regle === 'pneu_inspection_retard')).length;
+  const immobilisants = reels.filter((x) => r.proposes.has(x.id) || (r.alertesParPneu.get(x.id) ?? []).some((a) => a.regle === 'pneu_defaut_critique')).length;
+  const connus = (couts.lignes ?? []).filter((c) => c.montant !== null);
+  const inconnus = (couts.lignes ?? []).length - connus.length;
+  // Ratio flotte sur les seuls pneus dont l'indicateur est calcule par le serveur.
+  const ratio = (cle: 'km' | 'heures' | 'tonnes', indic: 'cout_km' | 'cout_heure' | 'cout_tonne', unite: string) => {
+    const l = (ind.lignes ?? []).filter((x) => x[indic] !== null && x.cout_total !== null && (x[cle] ?? 0) > 0);
+    if (!l.length) return { valeur: 'Données insuffisantes', detail: 'Aucun pneu avec coût et activité complets' };
+    const total = l.reduce((s, x) => s + Number(x.cout_total), 0) / l.reduce((s, x) => s + Number(x[cle]), 0);
+    return { valeur: nombre(total, unite) ?? '', detail: `Sur ${l.length} pneu${l.length > 1 ? 's' : ''} aux données complètes` };
+  };
+  const km = ratio('km', 'cout_km', 'GNF/km');
+  const h = ratio('heures', 'cout_heure', 'GNF/h');
+  const t = ratio('tonnes', 'cout_tonne', 'GNF/t');
+  const reg = (f: Record<string, string>) => routeEspace('registre', f);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-black text-stone-900"><CircleDot className="h-6 w-6 text-orange-600" /> Pneus : tableau de bord</h1>
+          <p className="text-stone-500">Chaque indicateur ouvre la liste correspondante.</p>
+        </div>
+        <Douchette />
+      </div>
+      {r.erreur && <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{r.erreur}</p>}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+        <Tuile libelle="Parc" valeur={reels.filter((x) => x.status !== 'retired').length} detail="Hors réformés" vers={reg({ 'f.parc': 'oui' })} />
+        <Tuile libelle="Montés" valeur={compte('active')} vers={reg({ 'f.etat': 'active' })} />
+        <Tuile libelle="Disponibles" valeur={compte('stored')} detail="En stock, réutilisables" vers={reg({ 'f.etat': 'stored' })} />
+        <Tuile libelle="À décider" valeur={compte('damaged')} vers={reg({ 'f.etat': 'damaged' })} />
+        <Tuile libelle="En intervention" valeur={compte('en_intervention')} vers={routeEspace('maintenance')} />
+        <Tuile libelle="Réformés" valeur={compte('retired')} vers={reg({ 'f.etat': 'retired' })} />
+        <Tuile libelle="À surveiller" valeur={r.alertes ? aSurveiller : '…'} detail="Pneus avec alerte active" vers={reg({ 'f.alerte': 'oui' })} alerte={aSurveiller > 0} />
+        <Tuile libelle="Immobilisants" valeur={r.alertes ? immobilisants : '…'} detail="Défaut critique ou proposition ouverte" vers={routeEspace('anomalies')} alerte={immobilisants > 0} />
+        <Tuile libelle="Inspections en retard" valeur={r.alertes ? inspectionsRetard : '…'} vers={reg({ 'f.alerte': 'pneu_inspection_retard' })} alerte={inspectionsRetard > 0} />
+        <Tuile libelle="Dépenses" valeur={couts.lignes ? gnf(connus.reduce((s, c) => s + Number(c.montant), 0)) ?? '' : '…'}
+          detail={inconnus ? `${inconnus} coût${inconnus > 1 ? 's' : ''} non renseigné${inconnus > 1 ? 's' : ''}` : 'Tous les coûts renseignés'} vers={routeEspace('couts')} />
+        <Tuile libelle="Coût / km" valeur={ind.lignes ? km.valeur : '…'} detail={km.detail} vers={routeEspace('couts')} />
+        <Tuile libelle="Coût / heure" valeur={ind.lignes ? h.valeur : '…'} detail={h.detail} vers={routeEspace('couts')} />
+        <Tuile libelle="Coût / tonne" valeur={ind.lignes ? t.valeur : '…'} detail={t.detail} vers={routeEspace('couts')} />
+      </div>
+      {(couts.erreur || ind.erreur) && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{couts.erreur} {ind.erreur}</p>}
+      <Provenance source="v_pneus, v_pneus_couts, v_pneus_indicateurs, alerts (règles D-091), pneus_propositions_immobilisation" heure={new Date()} />
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------- 2. registre
+
+const Registre = ({ droits }: { droits: ReturnType<typeof droitsPneus> }) => {
+  const r = useRegistre();
+  const colonnes = useMemo<ColonneListe<PneuLigne>[]>(() => [
+    { id: 'code', libelle: 'Code SIGTB', valeur: (p) => p.code_sigtb },
+    { id: 'serie', libelle: 'N° de série', valeur: (p) => p.numero_serie ?? (p.sans_numero_serie ? 'Sans numéro' : p.tire_number) },
+    { id: 'marque', libelle: 'Marque / modèle', valeur: (p) => [p.brand, p.model].filter(Boolean).join(' ') || null },
+    { id: 'dimension', libelle: 'Dimension', valeur: (p) => p.dimension },
+    {
+      id: 'etat', libelle: 'État', valeur: (p) => etatAffiche(p.status, r.annuleReception.has(p.id)).texte,
+      rendu: (p) => { const e = etatAffiche(p.status, r.annuleReception.has(p.id)); return <Puce teinte={e.teinte}>{e.texte}</Puce>; },
+    },
+    { id: 'engin', libelle: 'Engin / position', valeur: (p) => (p.vehicle_id ? `${r.nomEngin.get(p.vehicle_id) ?? 'Engin'} · ${p.position ?? ''}` : null) },
+    { id: 'site', libelle: 'Site', valeur: (p) => (p.site_id ? r.nomSite.get(p.site_id) ?? null : null) },
+    { id: 'profondeur', libelle: 'Profondeur', valeur: (p) => p.derniere_profondeur_mm, rendu: (p) => nombre(p.derniere_profondeur_mm, 'mm') ?? 'Sans données', alignement: 'droite' },
+    { id: 'km', libelle: 'Km', valeur: (p) => p.km_parcourus, rendu: (p) => texteKm(p.km_parcourus, p.km_incomplet, p.nb_montages), alignement: 'droite' },
+    { id: 'coutkm', libelle: 'Coût / km', valeur: (p) => p.cout_km, rendu: (p) => indicateur(p.cout_km, 'GNF/km'), alignement: 'droite', masquee: true },
+    { id: 'alertes', libelle: 'Alertes', valeur: (p) => r.alertesParPneu.get(p.id)?.length ?? 0, alignement: 'droite' },
+  ], [r.annuleReception, r.nomEngin, r.nomSite, r.alertesParPneu]);
+
+  const filtres = useMemo<FiltreListe<PneuLigne>[]>(() => [
+    { id: 'etat', libelle: 'État', options: Object.entries(ETATS_PNEU).map(([v, e]) => ({ valeur: v, libelle: e.texte })), correspond: (p, v) => p.status === v },
+    { id: 'parc', libelle: 'Parc', options: [{ valeur: 'oui', libelle: 'Hors réformés' }], correspond: (p) => p.status !== 'retired' },
+    {
+      id: 'alerte', libelle: 'Alerte', options: [{ valeur: 'oui', libelle: 'Avec alerte' }, { valeur: 'pneu_inspection_retard', libelle: 'Inspection en retard' }],
+      correspond: (p, v) => (v === 'oui' ? r.alertesParPneu.has(p.id) : (r.alertesParPneu.get(p.id) ?? []).some((a) => a.regle === v)),
+    },
+    {
+      id: 'site', libelle: 'Site', options: [...r.nomSite].map(([valeur, libelle]) => ({ valeur, libelle })),
+      correspond: (p, v) => p.site_id === v,
+    },
+  ], [r.alertesParPneu, r.nomSite]);
+
+  return (
+    <div className="space-y-4">
+      <Douchette />
+      <PageListe
+        vue={VUE_PNEUS}
+        titre="Registre des pneus"
+        sousTitre="Une carcasse = un code SIGTB permanent ; état recalculé depuis le journal des opérations."
+        lignes={r.pneus.lignes}
+        erreur={r.erreur}
+        colonnes={colonnes}
+        filtres={filtres}
+        recherche={(p, t) => [p.code_sigtb, p.numero_serie, p.tire_number, p.brand, p.model, p.dimension].some((v) => (v ?? '').toLowerCase().includes(t.toLowerCase()))}
+        placeholderRecherche="Code SIGTB, numéro de série, marque, dimension"
+        cle={(p) => p.id}
+        libelleOuverture={(p) => `Fiche ${p.code_sigtb}`}
+        actions={droits.ecriture ? <a href={routeSaisie('carcasse')} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-semibold text-white"><Plus className="h-4 w-4" /> Nouvelle carcasse</a> : undefined}
+        nomExport="registre-pneus"
+        vide={{ message: 'Aucun pneu enregistré', detail: droits.ecriture ? 'Créez une carcasse ou réceptionnez un achat de pneus (Achats).' : 'Aucun pneu dans votre périmètre.' }}
+        provenance={<Provenance source="v_pneus (D-091), alerts" />}
+        onActualiser={r.pneus.recharger}
+      />
+    </div>
+  );
+};
+
