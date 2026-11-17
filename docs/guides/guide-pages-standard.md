@@ -119,8 +119,8 @@ le composant `ui/Fenetre` lui-même.
 | 24 | `Documents/VehicleDocumentModal.tsx` | Documents de la flotte | À convertir |
 | 25 | `Tracking/LiveMapView.tsx` | Suivi GPS | À convertir |
 | 26 | `Tracking/VehicleDetailModal.tsx` | Suivi GPS | À convertir |
-| 27 | `HR/EmployeeModal.tsx` | RH : employés | À convertir |
-| 28 | `HR/EmployeeDetailsModal.tsx` | RH : employés | À convertir |
+| 27 | `HR/EmployeeModal.tsx` | RH : employés | Converti (D-094), retiré |
+| 28 | `HR/EmployeeDetailsModal.tsx` | RH : employés | Converti (D-094), retiré |
 | 29 | `HR/PayrollModal.tsx` | RH : paie | À convertir |
 | 30 | `HR/PayrollDetailsModal.tsx` | RH : paie | À convertir |
 | 31 | `Settings/UserModal.tsx` | Paramètres : utilisateurs | À convertir |
