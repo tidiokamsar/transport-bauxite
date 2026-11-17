@@ -5,7 +5,7 @@
 // 4 000 t, 1 200 t livrees, 30 voyages) ; aucune n'est une donnee reelle.
 import type { Page } from '@playwright/test';
 import { simulerApi } from '../../e2e/api-simulee.ts';
-import { JOUR, type Jeu } from '../captures/jeu-captures.ts';
+import { JOUR, JEU_BASE, DEPOT, MINE, type Jeu } from '../captures/jeu-captures.ts';
 
 const maintenant = new Date().toISOString();
 const SOURCE = 'exemple (démonstration)';
@@ -54,10 +54,28 @@ const MES_VALIDATIONS = [
   { categorie: 'Facturation', objet: 'facture', reference: 'Facture (brouillon)', detail: 'Facture de 1 180 USD à signer', depuis: maintenant, ecran: 'invoices' },
 ];
 
+// Simulation du dispatch : statistiques de trajets observees (fictives).
+const STATISTIQUES_TRAJETS = [{
+  arrival_site_id: DEPOT, jours_observes: 14, voyages_livres: 420, charge_moyenne: 40.2, voyages_pesees: 410,
+  cycle_moyen_min: 74, cycles_mesures: 400, rotation_moyenne_min: 78, rotations_mesurees: 395, rotation_min_observee: 61, rotation_max_observee: 102,
+}];
+
 export const RPC_VIDEO: Jeu = {
+  statistiques_trajets: STATISTIQUES_TRAJETS,
   indicateurs_pilotage: INDICATEURS_PILOTAGE,
   indicateurs_dispatch: INDICATEURS_DISPATCH,
   mes_validations: MES_VALIDATIONS,
+};
+
+// Graphique de production du tableau de bord : voyages livres du jour (fictifs),
+// ajoutes aux voyages du jeu de captures, pour les plans du tableau de bord.
+const livre = (n: number, heure: number, net: number) => {
+  const d = new Date(); d.setHours(heure, 20, 0, 0);
+  return { id: `tl${n}`, reference: `VYG-EX-1${String(n).padStart(2, '0')}`, vehicle_id: 'v1', departure_site_id: MINE,
+    arrival_site_id: DEPOT, status: 'completed', etat: 'DELIVERED', actual_arrival_time: d.toISOString(), net_weight: net, load_weight: net, planned_date: JOUR };
+};
+export const JEUX_VIDEO: Record<string, Jeu> = {
+  production: { trips: [...(JEU_BASE.trips ?? []), ...[7, 8, 9, 10, 11, 12, 13, 14].flatMap((h, i) => [livre(i * 2, h, 40.1 + (i % 3) * 0.4), livre(i * 2 + 1, h, 39.6 + (i % 2) * 0.5)])] },
 };
 
 /** API simulee des tests, plus les reponses RPC fictives de la video. */

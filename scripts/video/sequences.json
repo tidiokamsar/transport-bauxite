@@ -13,7 +13,7 @@
       "phrases": [
         { "texte": "SIGTB est la plateforme de Kogon Mining pour gérer ce transport de bout en bout.", "plan": { "carte": "circuit" } },
         { "texte": "Une seule chaîne relie la planification, le terrain, la pesée, les contrats et la facturation." },
-        { "texte": "Chaque indicateur affiche sa source, sa période et son heure.", "plan": { "adresse": "#/dashboard", "surligner": "Tonnes livrées" } }
+        { "texte": "Chaque indicateur affiche sa source, sa période et son heure.", "plan": { "adresse": "#/dashboard", "jeu": "production", "surligner": "Tonnes livrées" } }
       ]
     },
     {
@@ -76,7 +76,7 @@
       "phrases": [
         { "texte": "Pour piloter, le centre de pilotage et la boîte des validations rassemblent ce qui attend une décision.", "plan": { "adresse": "#/centre-pilotage", "surligner": "Tonnes livrées" } },
         { "texte": "Les validations en attente sont regroupées par domaine.", "plan": { "adresse": "#/mes-validations", "surligner": "FR-EX-001" } },
-        { "texte": "Les alertes et les rapports sont produits à partir des mêmes données.", "plan": { "adresse": "#/dashboard", "surligner": "Carburant distribué" } }
+        { "texte": "Les alertes et les rapports sont produits à partir des mêmes données.", "plan": { "adresse": "#/dashboard", "jeu": "production", "surligner": "Carburant distribué" } }
       ]
     },
     {

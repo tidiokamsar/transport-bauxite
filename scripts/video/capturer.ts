@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { jeuPour, FICHE } from '../captures/jeu-captures.ts';
-import { simulerApiVideo } from './jeu-video.ts';
+import { simulerApiVideo, JEUX_VIDEO } from './jeu-video.ts';
 import { ICI, FPS, LARGEUR, BANDE, HAUTEUR, plans, sequences, type Plan } from './commun.ts';
 
 const travail = process.argv[2];
@@ -20,6 +20,7 @@ if (!['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Erro
 
 const JEUX: Record<string, Record<string, unknown[]>> = {
   fiche_a_controler: { fiches_terrain: [FICHE('f1', 'FR-EX-001', 'rotations', 'a_controler', { nb_ecarts: 1 })] },
+  ...JEUX_VIDEO,
 };
 
 const fichierCibles = join(travail, 'cibles.json');
@@ -58,7 +59,10 @@ const bandes = async (nav: Browser) => {
 };
 
 const ecran = async (nav: Browser, p: Plan) => {
-  const contexte = await nav.newContext({ viewport: { width: 1600, height: Math.round((HAUTEUR - BANDE) / 1.2) }, deviceScaleFactor: 1.2, locale: 'fr-FR' });
+  // Plan « defiler » : fenetre haute, sans defilement, puis capture d'une
+  // fenetre de hauteur normale autour de l'element (pas de blanc sous le menu).
+  const hauteur = Math.round((HAUTEUR - BANDE) / 1.2);
+  const contexte = await nav.newContext({ viewport: { width: 1600, height: p.defiler ? 2200 : hauteur }, deviceScaleFactor: 1.2, locale: 'fr-FR' });
   const page = await contexte.newPage();
   await simulerApiVideo(page, jeuPour(p.jeu ? JEUX[p.jeu] : {}));
   await page.goto(`${base}/${p.adresse}`);
@@ -72,21 +76,17 @@ const ecran = async (nav: Browser, p: Plan) => {
     await page.waitForTimeout(1200);
   }
   // Surlignage de l'element commente ; son centre guide le zoom.
-  const cible = await page.evaluate(async ({ surligner, defiler }) => {
-    let centre = { cx: 0.55, cy: 0.45 };
+  const cible = await page.evaluate(async ({ surligner, defiler, hauteur }) => {
+    let centre: { cx: number; cy: number; haut?: number } = { cx: 0.55, cy: 0.45 };
     if (!surligner) return centre;
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     let n: Node | null;
     while ((n = w.nextNode())) {
       const el = n.parentElement;
       if (!el || !n.textContent?.toLowerCase().includes(surligner.toLowerCase())) continue;
-      if (defiler) {
-        el.scrollIntoView({ block: 'start' });
-        document.documentElement.style.background = '#faf6f2'; document.body.style.background = '#faf6f2';
-        await new Promise((f) => setTimeout(f, 400));
-      }
       const r = el.getBoundingClientRect();
       if (r.width < 4 || r.height < 4 || r.top < 0 || r.bottom > innerHeight || r.left < 0) continue;
+      const haut = defiler ? Math.max(0, Math.min(r.top - 110, innerHeight - hauteur)) : 0;
       const cadre = document.createElement('div');
       Object.assign(cadre.style, {
         position: 'fixed', left: `${r.left - 10}px`, top: `${r.top - 8}px`, width: `${r.width + 20}px`, height: `${r.height + 16}px`,
@@ -94,14 +94,14 @@ const ecran = async (nav: Browser, p: Plan) => {
         zIndex: '99998', pointerEvents: 'none',
       });
       document.body.appendChild(cadre);
-      centre = { cx: (r.left + r.width / 2) / innerWidth, cy: (r.top + r.height / 2) / innerHeight };
+      centre = { cx: (r.left + r.width / 2) / innerWidth, cy: (r.top - haut + r.height / 2) / (defiler ? hauteur : innerHeight), haut };
       return centre;
     }
     return null;
-  }, { surligner: p.surligner ?? '', defiler: !!p.defiler });
+  }, { surligner: p.surligner ?? '', defiler: !!p.defiler, hauteur });
   if (!cible) console.log(`ATTENTION ${p.nom} : « ${p.surligner} » introuvable`);
-  cibles[p.nom] = cible ?? { cx: 0.55, cy: 0.45 };
-  await page.screenshot({ path: join(images, `${p.nom}.png`) });
+  cibles[p.nom] = cible ? { cx: cible.cx, cy: cible.cy } : { cx: 0.55, cy: 0.45 };
+  await page.screenshot({ path: join(images, `${p.nom}.png`), clip: p.defiler ? { x: 0, y: cible?.haut ?? 0, width: 1600, height: hauteur } : undefined });
   console.log(`ecran ${p.nom} ${p.adresse}${cible ? '' : ' (sans surlignage)'}`);
   await contexte.close();
 };

@@ -2,7 +2,7 @@
 
 Fichiers : `docs/presentation/SIGTB_presentation.mp4` (H.264 + AAC, 1920x1080, 25 i/s), copie `SIGTB_presentation_720p.mp4` (1280x720), sous-titres incrustés (copie `SIGTB_presentation.srt`). Voix : synthèse Windows « Microsoft Hortense Desktop », débit 0, une phrase par fichier, 0,35 s de silence entre phrases et 0,75 s entre séquences. Fond : nappe synthétique générée par ffmpeg (accord tenu, sans mélodie), à -28 dB, atténuée sous la voix (sidechaincompress).
 
-Images : cartes animées (`scripts/video/cartes.html`) et écrans réels de SIGTB construits depuis le dépôt, servis en local sur l'API simulée des tests E2E, avec le jeu fictif de `scripts/captures/jeu-captures.ts` et les réponses serveur fictives de `scripts/video/jeu-video.ts` (indicateurs du tableau de bord, du dispatch et du centre de pilotage, validations en attente). Le mock des tests n'est pas modifié. Toutes les données sont fictives ; la bande de titre au-dessus de chaque écran porte « Données de démonstration ». Aucun chiffre de performance n'est avancé. Chaque phrase a son plan : zoom lent vers l'élément encadré en orange, ou carte animée.
+Images : cartes animées (`scripts/video/cartes.html`) et écrans réels de SIGTB construits depuis le dépôt, servis en local sur l'API simulée des tests E2E, avec le jeu fictif de `scripts/captures/jeu-captures.ts` et les réponses serveur fictives de `scripts/video/jeu-video.ts` (indicateurs du tableau de bord, du dispatch et du centre de pilotage, statistiques de la simulation du dispatch, validations en attente, voyages livrés du graphique de production). Le mock des tests n'est pas modifié. Toutes les données sont fictives ; la bande de titre au-dessus de chaque écran porte « Données de démonstration ». Aucun chiffre de performance n'est avancé. Chaque phrase a son plan : zoom lent vers l'élément encadré en orange, ou carte animée.
 
 Source unique du texte : `scripts/video/sequences.json`.
 
@@ -64,4 +64,4 @@ Synchronisation : chaque phrase dure sa voix plus sa pause ; un plan couvre ses 
 ## Limites
 
 - Voix de synthèse Windows ; les sigles SIGTB et CBG sont épelés (substitution dans `voix.ps1`).
-- Écrans sur données fictives : quelques zones secondaires calculées par le serveur restent « Sans données » (simulation de scénarios du dispatch, graphique de production du tableau de bord), faute de réponse simulée.
+- Écrans sur données fictives uniquement. Les plans du Dispatch qui montrent le bas de l'écran sont capturés dans une fenêtre haute, sans défilement, puis recadrés autour de l'élément commenté.
