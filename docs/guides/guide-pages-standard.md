@@ -104,18 +104,18 @@ le composant `ui/Fenetre` lui-même.
 | 9 | `Fiches/FicheImprimable.tsx` | Fiches terrain (aperçu imprimable) | Hors lot (refonte en cours) |
 | 10 | `Fiches/PeseeRelevesCbg.tsx` | Tickets CBG, relevés CBG (pièces) | À convertir |
 | 11 | `Trips/KilometrageView.tsx` | Relevés kilométriques (pièces) | À convertir |
-| 12 | `Fuel/LivraisonsCbgView.tsx` | Carburant : livraisons CBG (pièces) | À convertir |
-| 13 | `Fuel/PleinsView.tsx` | Carburant : distribution | À convertir |
+| 12 | `Fuel/LivraisonsCbgView.tsx` | Carburant : livraisons CBG (pièces) | Converti (D-090, complément J2) : livraisons et factures CBG en pages |
+| 13 | `Fuel/PleinsView.tsx` | Carburant : distribution | Converti (D-090, complément J2) |
 | 14 | `Facturation/ReconciliationView.tsx` | Réconciliation | Converti (D-090, complément J1), fenêtre retirée |
 | 15 | `Facturation/RecouvrementView.tsx` | Recouvrement | Converti (D-090, complément J1), fenêtre et lettre en superposition retirées |
 | 16 | `Facturation/FactureImprimable.tsx` | Factures (aperçu imprimable) | Converti (D-090, complément J1) : aperçu en pleine page |
 | 17 | `Contrats/ContratsView.tsx` | Contrats | Converti (D-090, complément J1), fenêtre retirée |
 | 18 | `Contrats/Formulaires.tsx` | Contrats | Converti (D-090, complément J1) : saisies en pleine page |
-| 19 | `Contrats/FacturesNeembaView.tsx` | Factures Neemba | À convertir |
+| 19 | `Contrats/FacturesNeembaView.tsx` | Factures Neemba | Converti (D-090, complément J2), fenêtres et lettre en superposition retirées |
 | 20 | `Contrats/ComitesView.tsx` | Comités | À convertir |
-| 21 | `Contrats/EngagementsView.tsx` | Engagements | À convertir |
+| 21 | `Contrats/EngagementsView.tsx` | Engagements | Converti (D-090, complément J2) : remise et aperçu du rapport en pages |
 | 22 | `Planning/FenetresObjectif.tsx` | Planification | Converti (D-090, complément J1), fichier retiré |
-| 23 | `Maintenance/FenetresImmobilisation.tsx` | Immobilisations | À convertir |
+| 23 | `Maintenance/FenetresImmobilisation.tsx` | Immobilisations | Converti (D-090, complément J2), fichier retiré |
 | 24 | `Documents/VehicleDocumentModal.tsx` | Documents de la flotte | À convertir |
 | 25 | `Tracking/LiveMapView.tsx` | Suivi GPS | À convertir |
 | 26 | `Tracking/VehicleDetailModal.tsx` | Suivi GPS | À convertir |
@@ -136,6 +136,21 @@ Complément J1 (2026-11-17) : sont aussi convertis, hors recensement
 `Facturation/FacturesView.tsx`. Restent avec un `window.prompt` :
 `Contrats/EngagementsView.tsx` (remise du rapport) et
 `Paiements/PaiementsView.tsx`.
+
+Complément J2 (2026-11-17) : sont aussi convertis, hors recensement
+(panneaux en ligne, `window.prompt`, `window.confirm`, `Fenetre`),
+`Fuel/StocksCarburantView.tsx`, `Maintenance/ImmobilisationsView.tsx`,
+`Maintenance/InterventionsLoueurView.tsx`, `Maintenance/MaintenanceView.tsx`,
+`Maintenance/PreventiveMaintenanceView.tsx`, `Purchases/PurchasesView.tsx`,
+`Stock/StockView.tsx` (`ReservationsStock.tsx` retiré), `Suppliers/*`
+(`FicheFournisseur.tsx` et `ConsultationsFournisseurs.tsx` retirés),
+`Costs/CostsView.tsx`, `Finance/FinanceView.tsx` (suivi budgétaire) et
+`Paiements/PaiementsView.tsx`. Plusieurs objets dans une même vue :
+identifiant de route préfixé (`facture-<id>`, `mouvement-<id>`,
+`article-<id>`, `consultation-<id>`...) ou paramètre `?objet=` en
+création, règle pure testée dans chaque module ; `routeur.ts` inchangé.
+Plus aucun `window.prompt` dans les modules J2. Les pointages engins n'ont
+pas d'écran propre (saisie par les fiches terrain, hors lot).
 
 Ordre conseillé : chaîne J1 d'abord (10 à 16, puis 17 à 19), puis J2
 (13, 23, 24), puis les autres.
