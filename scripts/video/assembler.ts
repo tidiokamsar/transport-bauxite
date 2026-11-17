@@ -1,13 +1,18 @@
 // Assemblage de la video : un clip par plan (zoom lent vers l'element
 // surligne sous la bande de titre, images des cartes), fondus enchaines
-// (xfade), voix placee phrase par phrase, sous-titres SRT incrustes, nappe
-// synthetique discrete generee par ffmpeg qui s'efface sous la voix
-// (sidechaincompress), H.264 + AAC, faststart. Produit aussi une copie 720p.
-// Usage : node scripts/video/assembler.ts <travail> <sortie.mp4> [sortie_720p.mp4]
+// et glissements (xfade), voix placee phrase par phrase, sous-titres SRT
+// incrustes, musique de fond (variable MUSIQUE = chemin du fichier) a
+// -16 LUFS, effacee d'environ 22 dB sous la voix (sidechaincompress), fondus
+// d'entree 1 s et de sortie 3 s, loudnorm final a -14 LUFS, H.264 + AAC,
+// faststart. Sans MUSIQUE : nappe synthetique generee par ffmpeg.
+// Si la video depasse la musique, un raccord (fondu de 2 s, sous la voix)
+// reprend un passage d'une duree multiple du temps pour finir sur la fin du morceau.
+// Produit aussi une copie 720p.
+// Usage : MUSIQUE=<fichier> node scripts/video/assembler.ts <travail> <sortie.mp4> [sortie_720p.mp4]
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { FFMPEG, FPS, FONDU, LARGEUR, HAUTEUR, BANDE, plans } from './commun.ts';
+import { FFMPEG, FPS, FONDU, LARGEUR, HAUTEUR, BANDE, plans, dureeMedia } from './commun.ts';
 
 const travail = resolve(process.argv[2] ?? '');
 const sortie = resolve(process.argv[3] ?? join(travail, 'SIGTB_presentation.mp4'));
@@ -23,12 +28,14 @@ const H = HAUTEUR - BANDE;
 for (const [rang, p] of tous.entries()) {
   const clip = join(travail, 'clips', `${p.nom}.mp4`);
   const n = Math.round(p.duree * FPS);
+  // REUTILISER_CLIPS=1 : garde un clip deja produit (a reserver aux reprises sans changement de duree).
+  if (process.env.REUTILISER_CLIPS && existsSync(clip)) continue;
   const code = ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(FPS)];
   if (p.carte) {
     ff(['-framerate', String(FPS), '-i', join(travail, 'images', p.nom, '%04d.jpg'), '-frames:v', String(n), ...code, clip]);
   } else {
     const c = cibles[p.nom] ?? { cx: 0.55, cy: 0.45 };
-    const a = p.surligner ? 0.14 : 0.07;
+    const a = p.surligner ? 0.10 : 0.05;
     // Un plan sur deux s'ouvre en zoom avant, l'autre en leger recul : un mouvement par phrase.
     const z = rang % 2 === 0 ? `1+${a}*on/${n}` : `1+${a}-${a * 0.6}*on/${n}`;
     const x = `clip(${c.cx.toFixed(3)}*iw-iw/zoom/2,0,iw-iw/zoom)`;
@@ -86,7 +93,8 @@ const filtres: string[] = [];
 let prec = '[0:v]';
 tous.forEach((p, i) => {
   if (i === 0) return;
-  const transition = p.sequence.id === tous[i - 1].sequence.id ? 'fade' : 'fadeblack';
+  // Changement de sequence : fondu au noir ; dans une sequence, alternance sobre fondu / glissement.
+  const transition = p.sequence.id !== tous[i - 1].sequence.id ? 'fadeblack' : (i % 2 ? 'smoothleft' : 'fade');
   filtres.push(`${prec}[${i}:v]xfade=transition=${transition}:duration=${FONDU}:offset=${p.debut.toFixed(3)}[x${i}]`);
   prec = `[x${i}]`;
 });
@@ -97,12 +105,36 @@ const etiquettes = phrases.map((ph, k) => {
   filtres.push(`[${tous.length + k}:a]aresample=48000,aformat=channel_layouts=mono,adelay=${ms}:all=1[p${k}]`);
   return `[p${k}]`;
 });
-filtres.push(`${etiquettes.join('')}amix=inputs=${phrases.length}:normalize=0,apad,atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,asplit=2[voix][cle]`);
-// Nappe : accord tenu (la, mi, la, do diese), modulations lentes, filtree ; aucune melodie.
-const nappe = "0.30*sin(2*PI*110*t)+0.22*sin(2*PI*164.81*t)*(0.7+0.3*sin(2*PI*0.05*t))+0.16*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*0.08*t))+0.10*sin(2*PI*277.18*t)*(0.5+0.5*sin(2*PI*0.06*t))";
-filtres.push(`aevalsrc='${nappe}':s=48000:d=${total.toFixed(3)},lowpass=f=700,afade=t=in:d=3,afade=t=out:st=${(total - 4).toFixed(3)}:d=4,volume=-28dB[nappe]`);
-filtres.push('[nappe][cle]sidechaincompress=threshold=0.03:ratio=6:attack=60:release=900[fond]');
-filtres.push('[voix][fond]amix=inputs=2:normalize=0,alimiter=limit=0.95,aformat=channel_layouts=stereo[a]');
+filtres.push(`${etiquettes.join('')}amix=inputs=${phrases.length}:normalize=0,apad,atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo,asplit=2[voix][cle]`);
+const musique = process.env.MUSIQUE;
+const indexMusique = tous.length + phrases.length;
+if (musique && existsSync(musique)) {
+  entrees.push('-i', musique);
+  const longueur = dureeMedia(musique);
+  const tempoFichier = join(travail, 'tempo.json');
+  const temps = existsSync(tempoFichier) ? 60 / JSON.parse(readFileSync(tempoFichier, 'utf8')).bpm : 1;
+  const m = `[${indexMusique}:a]aresample=48000,aformat=channel_layouts=stereo`;
+  if (total + 0.5 > longueur) {
+    // Raccord a mi-parcours (voix presente, musique effacee) : on rejoue un
+    // passage de duree multiple du temps pour finir sur la fin du morceau.
+    const decalage = Math.ceil((total - longueur + 2.5) / temps) * temps;
+    const raccord = Math.round(longueur / 2);
+    filtres.push(`${m},asplit=2[m1][m2]`);
+    filtres.push(`[m1]atrim=0:${raccord + 1}[ma]`);
+    filtres.push(`[m2]atrim=${(raccord - decalage - 1).toFixed(3)},asetpts=PTS-STARTPTS[mb]`);
+    filtres.push('[ma][mb]acrossfade=d=2:c1=tri:c2=tri[mbrut]');
+  } else {
+    filtres.push(`${m}[mbrut]`);
+  }
+  filtres.push(`[mbrut]atrim=0:${total.toFixed(3)},loudnorm=I=-16:TP=-2:LRA=11,aresample=48000,afade=t=in:d=1,afade=t=out:st=${(total - 3).toFixed(3)}:d=3[fondbrut]`);
+  // Environ -22 dB sous la voix (voix a -16 LUFS, seuil bas, rapport eleve).
+  filtres.push('[fondbrut][cle]sidechaincompress=threshold=0.006:ratio=16:attack=25:release=700:knee=4[fond]');
+} else {
+  const nappe = "0.30*sin(2*PI*110*t)+0.22*sin(2*PI*164.81*t)*(0.7+0.3*sin(2*PI*0.05*t))+0.16*sin(2*PI*220*t)*(0.6+0.4*sin(2*PI*0.08*t))+0.10*sin(2*PI*277.18*t)*(0.5+0.5*sin(2*PI*0.06*t))";
+  filtres.push(`aevalsrc='${nappe}':s=48000:d=${total.toFixed(3)},lowpass=f=700,afade=t=in:d=3,afade=t=out:st=${(total - 4).toFixed(3)}:d=4,volume=-28dB,aformat=channel_layouts=stereo[nappe]`);
+  filtres.push('[nappe][cle]sidechaincompress=threshold=0.03:ratio=6:attack=60:release=900[fond]');
+}
+filtres.push('[voix][fond]amix=inputs=2:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[a]');
 writeFileSync(join(travail, 'filtre.txt'), filtres.join(';\n'));
 ff([...entrees, '-/filter_complex', 'filtre.txt', '-map', '[v]', '-map', '[a]', '-t', total.toFixed(3),
   '-c:v', 'libx264', '-preset', 'slow', '-crf', '23', '-profile:v', 'high', '-pix_fmt', 'yuv420p', '-r', String(FPS),

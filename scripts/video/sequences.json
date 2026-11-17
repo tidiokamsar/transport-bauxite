@@ -11,7 +11,7 @@
     {
       "id": "02-presentation", "titre": "SIGTB",
       "phrases": [
-        { "texte": "SIGTB est la plateforme de Kogon Mining pour gérer ce transport de bout en bout.", "plan": { "carte": "circuit" } },
+        { "texte": "SIGTB, le Système Intégré de Gestion du Transport de Bauxite, est la plateforme de Kogon Mining pour gérer ce transport de bout en bout.", "plan": { "carte": "circuit" } },
         { "texte": "Une seule chaîne relie la planification, le terrain, la pesée, les contrats et la facturation." },
         { "texte": "Chaque indicateur affiche sa source, sa période et son heure.", "plan": { "adresse": "#/dashboard", "jeu": "production", "surligner": "Tonnes livrées" } }
       ]
