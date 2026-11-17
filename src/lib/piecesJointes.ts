@@ -2,7 +2,9 @@
 // migration 20261121200000 (le serveur reste seul juge : ces controles
 // evitent seulement un aller-retour inutile et donnent un message clair).
 
-export type ObjetPiece = 'voyage' | 'ticket_pesee_cbg' | 'releve_compteur' | 'releve_cbg' | 'livraison_carburant_cbg';
+export type ObjetPiece = 'voyage' | 'ticket_pesee_cbg' | 'releve_compteur' | 'releve_cbg' | 'livraison_carburant_cbg'
+  // D-091 (migration 20261121230000) : pneu, inspection et intervention de pneu.
+  | 'pneu' | 'pneu_inspection' | 'pneu_intervention';
 
 /** Taille maximale d'un fichier, comme public.pieces_taille_max(). */
 export const TAILLE_MAX = 10 * 1024 * 1024;
