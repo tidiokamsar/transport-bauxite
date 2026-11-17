@@ -98,9 +98,9 @@ le composant `ui/Fenetre` lui-même.
 | 3 | `Vehicles/FicheVehicule.tsx` | Véhicules et engins | Converti (D-090), retiré |
 | 4 | `Drivers/DriverModal.tsx` | Chauffeurs | Converti (D-090), retiré |
 | 5 | `Dispatch/FenetreDecision.tsx` | Dispatch | Hors lot (refonte en cours) |
-| 6 | `Trips/FicheVoyage.tsx` | Voyages & Rotations | Hors lot (refonte en cours) |
+| 6 | `Trips/FicheVoyage.tsx` | Voyages & Rotations | Partiel (D-088) : fiche du voyage en page `#/trips/<id>` ; saisie des étapes et de la pesée encore en fenêtre |
 | 7 | `Trips/NouveauVoyage.tsx` | Voyages & Rotations | Hors lot (refonte en cours) |
-| 8 | `Fiches/SaisieFiche.tsx` | Fiches terrain | Hors lot (refonte en cours) |
+| 8 | `Fiches/SaisieFiche.tsx` | Fiches terrain | Partiel (D-088) : fiche et cycle D-089 en pages `#/fiches/<id>` ; saisie D-028 encore en fenêtre |
 | 9 | `Fiches/FicheImprimable.tsx` | Fiches terrain (aperçu imprimable) | Hors lot (refonte en cours) |
 | 10 | `Fiches/PeseeRelevesCbg.tsx` | Tickets CBG, relevés CBG (pièces) | À convertir |
 | 11 | `Trips/KilometrageView.tsx` | Relevés kilométriques (pièces) | À convertir |
