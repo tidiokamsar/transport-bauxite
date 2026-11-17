@@ -2,11 +2,16 @@ import { useState } from 'react';
 import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { instantane, type Chauffeur, type Engin, type Recommandation } from './recommandation';
+import { messageErreur } from './controle';
+
+const CONFIANCE = { elevee: 'élevée', moyenne: 'moyenne', faible: 'faible' } as const;
 
 // Decision du dispatcher sur une recommandation (CDC 11.5) : modifier
 // (autre camion, chauffeur ou engin), refuser, ou reaffecter un voyage
 // affecte. Le motif est obligatoire ; le serveur controle les contraintes
-// et historise la decision.
+// et historise la decision. D-087 : appel par affecter_voyage avec la version
+// lue par l'ecran (conflit concurrent refuse avec un message clair) ; detail
+// de la recommandation (contraintes, capacite, duree, confiance).
 
 const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
 
@@ -20,10 +25,13 @@ export const FenetreDecision = ({
   camions,
   chauffeurs,
   engins,
+  version,
   onFermer,
   onDecide,
 }: {
   mode: ModeDecision;
+  /** Version du voyage pour le dispatch (decisions et suspensions connues). */
+  version: number;
   reference: string;
   recommandation: Recommandation;
   /** Raison de la reaffectation, reprise comme motif propose. */
@@ -49,7 +57,7 @@ export const FenetreDecision = ({
     setErreur('');
     const modifie = camion !== (recommandation.camion?.id ?? '') || chauffeur !== (recommandation.chauffeur?.id ?? '')
       || engin !== (recommandation.engin?.id ?? '');
-    const { error } = await supabase.rpc('decider_affectation', {
+    const { error } = await supabase.rpc('affecter_voyage', {
       p_trip_id: recommandation.voyageId,
       p_decision: refus ? 'refusee' : modifie ? 'modifiee' : 'acceptee',
       p_vehicle_id: refus ? null : camion || null,
@@ -57,9 +65,10 @@ export const FenetreDecision = ({
       p_loader_vehicle_id: refus ? null : engin || null,
       p_recommandation: instantane(recommandation),
       p_motif: motif,
+      p_version_attendue: version,
     });
     setEnCours(false);
-    if (error) setErreur(error.message);
+    if (error) setErreur(messageErreur(error));
     else onDecide();
   };
 
@@ -87,7 +96,18 @@ export const FenetreDecision = ({
           <div className="rounded-lg bg-stone-50 p-3 text-stone-600">
             <p className="font-medium text-stone-700">Recommandation</p>
             <p>{[recommandation.camion?.registration, recommandation.chauffeur?.name, recommandation.engin?.registration].filter(Boolean).join(' · ') || 'Aucune'}</p>
+            <details className="mt-1">
+              <summary className="cursor-pointer text-xs font-medium text-stone-700">Détail de la recommandation (confiance {CONFIANCE[recommandation.confiance]})</summary>
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
+                {recommandation.explications.map((e) => <li key={e}>{e}</li>)}
+                {recommandation.contraintes.map((c) => <li key={c}>Contrainte vérifiée : {c}</li>)}
+                <li>Capacité retenue : {recommandation.capacite === null ? 'inconnue' : `${recommandation.capacite} t`}</li>
+                <li>Durée estimée : {recommandation.dureeEstimeeMin === null ? 'non mesurée' : `${recommandation.dureeEstimeeMin} min (cycle observé)`}</li>
+                {recommandation.manques.map((m) => <li key={m}>Donnée manquante : {m}</li>)}
+              </ul>
+            </details>
           </div>
+          {!refus && <p className="text-xs text-stone-500">Un choix différent de la recommandation est enregistré comme « modifiée », avec le motif et les ressources remplacées.</p>}
           {!refus && (
             <>
               <label className="block">

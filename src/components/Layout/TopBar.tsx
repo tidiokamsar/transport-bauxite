@@ -4,10 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { DeconnexionDialog } from './DeconnexionDialog';
+import { libelleShiftCourant, type EtatPoste } from '../Dispatch/controle';
 
-// Barre superieure, maquette du proprietaire (2026-11-09). Date, shift en
-// cours (table work_shifts) et nombre d'alertes actives (table alerts) sont
-// lus en base ; sans donnee, la puce l'indique au lieu d'inventer.
+// Barre superieure, maquette du proprietaire (2026-11-09). Date, shift et
+// nombre d'alertes actives (table alerts) sont lus en base ; sans donnee, la
+// puce l'indique au lieu d'inventer. D-087 : un shift n'est « en cours » que
+// si une instance (postes) est ouverte ou en cours ; sinon la puce dit la
+// plage horaire configuree, « non ouvert », ou « hors plage horaire ». Une
+// lecture impossible n'est plus confondue avec « aucun shift defini ».
 
 const LIBELLES_ROLE: Record<string, string> = {
   admin: 'Administrateur',
@@ -22,6 +26,7 @@ const LIBELLES_ROLE: Record<string, string> = {
 };
 
 interface Shift {
+  id: string;
   name: string;
   display_name: string | null;
   start_time: string;
@@ -33,18 +38,7 @@ const minutes = (hhmmss: string) => {
   return h * 60 + m;
 };
 
-const shiftCourant = (shifts: Shift[], maintenant: Date): Shift | null => {
-  const t = maintenant.getHours() * 60 + maintenant.getMinutes();
-  return (
-    shifts.find((s) => {
-      const d = minutes(s.start_time);
-      const f = minutes(s.end_time);
-      return d <= f ? t >= d && t < f : t >= d || t < f;
-    }) ?? null
-  );
-};
-
-const hm = (t: string) => t.slice(0, 5);
+const jourLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const TopBar = ({
   sousTitre,
@@ -56,7 +50,8 @@ export const TopBar = ({
   const { profile, user } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [maintenant, setMaintenant] = useState(() => new Date());
-  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [shifts, setShifts] = useState<Shift[] | null>([]);
+  const [instance, setInstance] = useState<{ etat: EtatPoste; shift_id: string } | null>(null);
   const [alertes, setAlertes] = useState<number | null>(null);
   const [aTraiter, setATraiter] = useState<number | null>(null);
   const [menu, setMenu] = useState<'aide' | 'profil' | null>(null);
@@ -73,10 +68,21 @@ export const TopBar = ({
     let actif = true;
     supabase
       .from('work_shifts')
-      .select('name, display_name, start_time, end_time')
+      .select('id, name, display_name, start_time, end_time')
       .eq('is_active', true)
-      .then(({ data }) => {
-        if (actif) setShifts((data ?? []) as Shift[]);
+      .then(({ data, error }) => {
+        if (actif) setShifts(error ? null : (data ?? []) as Shift[]);
+      });
+    // Instance ouverte ou en cours du jour (perimetre du profil, RLS).
+    supabase
+      .from('postes')
+      .select('statut, shift_id')
+      .eq('date_poste', jourLocal(new Date()))
+      .in('statut', ['en_cours', 'ouvert'])
+      .limit(1)
+      .then(({ data, error }) => {
+        const p = !error && Array.isArray(data) ? (data[0] as { statut: EtatPoste; shift_id: string } | undefined) : undefined;
+        if (actif) setInstance(p ? { etat: p.statut, shift_id: p.shift_id } : null);
       });
     // Les alertes sont calculees par le serveur a la lecture (D-068) :
     // actualisation (sans effet si recente), puis comptage des actives.
@@ -111,8 +117,14 @@ export const TopBar = ({
   }, []);
 
   const prenom = profile?.full_name?.trim().split(/\s+/)[0] || 'à vous';
-  const shift = shiftCourant(shifts, maintenant);
-  const jour = shift ? minutes(shift.start_time) < minutes(shift.end_time) : true;
+  const shiftInstance = instance && shifts ? shifts.find((s) => s.id === instance.shift_id) : undefined;
+  const puce = libelleShiftCourant(
+    shifts ? shifts.map((s) => ({ ...s, display_name: s.display_name || s.name })) : null,
+    instance && shiftInstance ? { etat: instance.etat, libelle: shiftInstance.display_name || shiftInstance.name } : null,
+    maintenant,
+  );
+  const reference = shiftInstance ?? null;
+  const jour = reference ? minutes(reference.start_time) < minutes(reference.end_time) : maintenant.getHours() >= 6 && maintenant.getHours() < 18;
   const IconeShift = jour ? Sun : Moon;
   const date = maintenant.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -130,14 +142,14 @@ export const TopBar = ({
         </span>
 
         <span className="hidden items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/70 px-4 py-1.5 shadow-sm xl:flex">
-          <IconeShift className={`h-6 w-6 ${shift ? 'text-orange-400' : 'text-stone-300'}`} />
-          {shift ? (
-            <span className="leading-tight">
-              <span className="block font-semibold text-stone-900">Shift {shift.display_name || shift.name}</span>
-              <span className="block text-sm text-stone-500">{hm(shift.start_time)} – {hm(shift.end_time)}</span>
-            </span>
+          <IconeShift className={`h-6 w-6 ${puce.actif ? 'text-orange-400' : 'text-stone-300'}`} />
+          {shifts && shifts.length > 0 ? (
+            <button type="button" onClick={() => onAllerA('dispatch')} className="text-left leading-tight" title="Le shift n'est en cours que s'il est ouvert (Dispatch, onglet Shift)">
+              <span className="block font-semibold text-stone-900">{puce.titre}</span>
+              <span className="block text-sm text-stone-500">{puce.detail}</span>
+            </button>
           ) : (
-            <button type="button" onClick={() => onAllerA('shifts')} className="text-sm text-stone-500 underline underline-offset-2 hover:text-stone-800">Aucun shift défini</button>
+            <button type="button" onClick={() => onAllerA('shifts')} className="text-sm text-stone-500 underline underline-offset-2 hover:text-stone-800">{puce.titre}</button>
           )}
         </span>
 
