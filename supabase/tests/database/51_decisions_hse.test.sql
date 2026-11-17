@@ -412,8 +412,8 @@ SELECT lives_ok($$SELECT public.signer_plan_prevention((SELECT id FROM p3))$$, '
 RESET ROLE;
 
 -- Contre-revue D-068, constat 2 : sans droit de lecture RH, le nom d'un employe n'est pas recopie.
-INSERT INTO public.employees (id, employee_number, first_name, last_name, "position", department)
-VALUES ('00000000-0000-4000-a680-0000000000e1', 'D068-E1', 'Aissatou', 'Diallo', 'Agent', 'Exploitation') ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.employees (id, employee_number, first_name, last_name, "position", department, hire_date)
+VALUES ('00000000-0000-4000-a680-0000000000e1', 'D068-E1', 'Aissatou', 'Diallo', 'Agent', 'Exploitation', current_date) ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.droits_utilisateur (utilisateur, module, niveau) VALUES ('00000000-0000-4000-a680-000000000002', 'hr', 'aucun')
 ON CONFLICT (utilisateur, module) DO UPDATE SET niveau = EXCLUDED.niveau;
 SELECT pg_temp.se_connecter('00000000-0000-4000-a680-000000000002');
