@@ -15,6 +15,13 @@ LANGUAGE sql AS $$
            true);
 $$;
 
+-- Cache tous depots (D-044), illisible par les comptes depuis D-086 : lu
+-- par le proprietaire du test.
+CREATE FUNCTION pg_temp.cache_article(p_id uuid) RETURNS public.stock_items.quantity_in_stock%TYPE
+LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  SELECT quantity_in_stock FROM public.stock_items WHERE id = p_id;
+$$;
+
 SELECT plan(17);
 
 INSERT INTO auth.users (id, email) VALUES
@@ -49,7 +56,7 @@ CREATE TEMP TABLE e1 AS SELECT public.mouvement_stock('00000000-0000-4000-9a00-0
 GRANT SELECT ON e1 TO authenticated;
 SELECT matches((SELECT movement_number FROM public.stock_movements WHERE id = (SELECT id FROM e1)), '^MVT-[0-9]{4}-[0-9]{6}$',
   'numero de mouvement attribue par le serveur');
-SELECT is((SELECT quantity_in_stock FROM public.stock_items WHERE id = '00000000-0000-4000-9a00-0000000000f1'), 20, 'entree : 20 en stock');
+SELECT is(pg_temp.cache_article('00000000-0000-4000-9a00-0000000000f1'), 20, 'entree : 20 en stock');
 SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-9a00-0000000000f1', 'exit', 25, '00000000-0000-4000-9a00-0000000000d1')$$,
   '22023', NULL, 'sortie superieure au stock refusee');
 SELECT lives_ok($$SELECT public.mouvement_stock('00000000-0000-4000-9a00-0000000000f1', 'transfer', 8, '00000000-0000-4000-9a00-0000000000d1', '00000000-0000-4000-9a00-0000000000d2', now() - interval '1 hour')$$,
@@ -66,7 +73,7 @@ SELECT is(public.inventorier_stock('00000000-0000-4000-9a00-0000000000f1', '0000
   'inventaire conforme : aucun mouvement');
 SELECT lives_ok($$SELECT public.annuler_mouvement_stock((SELECT id FROM public.stock_movements WHERE reference_piece = 'OT-12'), 'Sortie saisie sur le mauvais article')$$,
   'sortie annulee par contre-mouvement');
-SELECT is((SELECT quantity_in_stock FROM public.stock_items WHERE id = '00000000-0000-4000-9a00-0000000000f1'), 19,
+SELECT is(pg_temp.cache_article('00000000-0000-4000-9a00-0000000000f1'), 19,
   'apres annulation : 11 au magasin + 8 a l''atelier');
 SELECT throws_ok($$UPDATE public.stock_movements SET quantity = 1$$, '42501', NULL, 'mouvement non modifiable');
 RESET ROLE;

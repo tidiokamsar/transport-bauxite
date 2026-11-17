@@ -17,6 +17,13 @@ LANGUAGE sql AS $$
            true);
 $$;
 
+-- Cache tous depots (D-044), illisible par les comptes depuis D-086 : lu
+-- par le proprietaire du test.
+CREATE FUNCTION pg_temp.cache_article(p_id uuid) RETURNS public.stock_items.quantity_in_stock%TYPE
+LANGUAGE sql SECURITY DEFINER SET search_path = '' AS $$
+  SELECT quantity_in_stock FROM public.stock_items WHERE id = p_id;
+$$;
+
 SELECT plan(47);
 
 -- Donnees de test (sans JWT : gardes inactives).
@@ -97,7 +104,7 @@ SELECT lives_ok($$SELECT public.mouvement_stock('00000000-0000-4000-9d00-0000000
   'sortie de 3 pieces imputee a l''ordre');
 SELECT is((SELECT vehicle_id FROM public.stock_movements WHERE maintenance_order_id = '00000000-0000-4000-9d00-000000000021'),
   '00000000-0000-4000-9d00-0000000000b1'::uuid, 'engin de l''ordre repris sur le mouvement');
-SELECT is((SELECT quantity_in_stock FROM public.stock_items WHERE id = '00000000-0000-4000-9d00-0000000000d1'), 7,
+SELECT is(pg_temp.cache_article('00000000-0000-4000-9d00-0000000000d1'), 7,
   'le stock du registre baisse (pas de second inventaire)');
 SELECT throws_ok($$SELECT public.mouvement_stock('00000000-0000-4000-9d00-0000000000d1', 'return', 5, NULL,
   '00000000-0000-4000-9d00-0000000000c1', now(), NULL, NULL, NULL, '00000000-0000-4000-9d00-000000000021')$$,
