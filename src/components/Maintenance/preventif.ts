@@ -42,3 +42,63 @@ export const dernierReleveParEngin = (releves: (Releve & { vehicle_id: string })
   }
   return m;
 };
+
+// Pages standard (D-090) : adresse, colonnes, saisie et regles des actions.
+
+export const VUE_PREVENTIF = 'preventive';
+export const MODULE_PREVENTIF = 'Maintenance préventive';
+
+export interface Planning {
+  id: string; vehicle_id: string | null; title: string; description: string | null; maintenance_type: string;
+  interval_km: number | null; interval_days: number | null; last_maintenance_km: number | null; last_maintenance_date: string | null;
+  next_service_km: number | null; next_service_date: string | null; estimated_cost: number | null; is_active: boolean | null;
+  created_at: string | null; updated_at: string | null;
+}
+
+export const COLONNES_PLANNING = 'id, vehicle_id, title, description, maintenance_type, interval_km, interval_days, last_maintenance_km, last_maintenance_date, next_service_km, next_service_date, estimated_cost, is_active, created_at, updated_at';
+
+export const TYPES_PLANNING = ['Vidange moteur', 'Graissage', 'Remplacement des filtres', 'Contrôle des freins', 'Contrôle de la transmission',
+  'Contrôle hydraulique', 'Contrôle électrique', 'Révision générale', 'Autre'];
+
+export const ACTIONS_PLANNING = ['desactiver', 'reactiver'] as const;
+export type ActionPlanning = typeof ACTIONS_PLANNING[number];
+
+export const actionPlanningInterdite = (action: ActionPlanning, actif: boolean, droit: boolean): string | null => {
+  if (!droit) return 'Droit d\'écriture sur la maintenance requis.';
+  if (action === 'desactiver') return actif ? null : 'Planning déjà désactivé.';
+  return actif ? 'Planning déjà actif.' : null;
+};
+
+export type SaisiePlanning = {
+  engin: string; titre: string; type: string; description: string; km: string; jours: string; dernierKm: string; derniereDate: string; cout: string;
+};
+
+export const saisieDepuisPlanning = (p?: Planning | null): SaisiePlanning => ({
+  engin: p?.vehicle_id ?? '', titre: p?.title ?? '', type: p?.maintenance_type ?? '', description: p?.description ?? '',
+  km: p?.interval_km?.toString() ?? '', jours: p?.interval_days?.toString() ?? '', dernierKm: p?.last_maintenance_km?.toString() ?? '',
+  derniereDate: p?.last_maintenance_date ?? '', cout: p?.estimated_cost?.toString() ?? '',
+});
+
+const nombre = (v: string): number | null => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
+
+export const erreursPlanning = (f: SaisiePlanning): string[] => {
+  const km = nombre(f.km); const jours = nombre(f.jours); const dernierKm = nombre(f.dernierKm); const cout = nombre(f.cout);
+  const invalide = (n: number | null) => n !== null && (Number.isNaN(n) || n < 0);
+  return [
+    ...(!f.engin ? ['Choisissez l\'engin.'] : []),
+    ...(!f.titre.trim() ? ['Intitulé obligatoire.'] : []),
+    ...(!f.type ? ['Choisissez le type d\'intervention.'] : []),
+    ...(invalide(km) ? ['Intervalle en km : nombre positif attendu.'] : []),
+    // Intervalle en jours : entier (colonne integer, D-078).
+    ...(invalide(jours) || (jours !== null && !Number.isInteger(jours)) ? ['Intervalle en jours : nombre entier attendu (sans décimales).'] : []),
+    ...(!((km ?? 0) > 0 || (jours ?? 0) > 0) ? ['Au moins un intervalle (km ou jours) supérieur à zéro.'] : []),
+    ...(invalide(dernierKm) ? ['Compteur de la dernière intervention : nombre positif attendu.'] : []),
+    ...(invalide(cout) ? ['Coût estimé : nombre positif attendu.'] : []),
+  ];
+};
+
+export const valeursPlanning = (f: SaisiePlanning) => ({
+  vehicle_id: f.engin, title: f.titre.trim(), maintenance_type: f.type, description: f.description.trim() || null,
+  interval_km: nombre(f.km), interval_days: nombre(f.jours), last_maintenance_km: nombre(f.dernierKm),
+  last_maintenance_date: f.derniereDate || null, estimated_cost: nombre(f.cout),
+});
