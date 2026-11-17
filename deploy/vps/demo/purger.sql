@@ -61,7 +61,8 @@ CREATE TEMP TABLE purge_detache (t text, id text, colonne text) ON COMMIT DROP;
 INSERT INTO purge_operationnelles
 SELECT to_regclass('public.' || x) FROM unnest(ARRAY[
   'trips', 'trip_events', 'decisions_dispatch', 'dispatch_assignments', 'mission_requirements',
-  'fiches_terrain', 'postes', 'postes_equipe', 'postes_evenements', 'objectifs_production',
+  'fiches_terrain', 'fiches_journal', 'fiches_lots', 'fiches_remises', 'fiches_retours', 'fiches_rotations_lignes',
+  'fiches_ecarts', 'postes', 'postes_equipe', 'postes_evenements', 'objectifs_production',
   'trip_waypoints', 'trip_route_tracking', 'vehicle_tracking', 'tracking_events',
   'geofence_violations', 'geofence_alerts', 'eco_driving_scores', 'alerts']) x
 WHERE to_regclass('public.' || x) IS NOT NULL;

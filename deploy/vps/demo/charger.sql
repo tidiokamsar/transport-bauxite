@@ -594,7 +594,7 @@ CREATE TEMP TABLE demo_journaux (t regclass PRIMARY KEY);
 INSERT INTO demo_journaux SELECT to_regclass('public.' || x) FROM unnest(ARRAY[
   'trip_events', 'postes_evenements', 'journal_contrats', 'factures_journal', 'fournisseurs_journal', 'achats_journal',
   'immobilisations_journal', 'journal_flotte', 'journal_shifts', 'consultations_journal', 'calculs_clauses_journal',
-  'notifications', 'risques_versions']) x WHERE to_regclass('public.' || x) IS NOT NULL;
+  'notifications', 'risques_versions', 'fiches_journal']) x WHERE to_regclass('public.' || x) IS NOT NULL;
 DO $$
 DECLARE v text;
 BEGIN
