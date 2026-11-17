@@ -27,7 +27,7 @@ Priorités du mandat : **P0** sécurité, intégrité, risque critique ; **P1** 
 1. **Colonnes inexistantes.** Les noms de tables appelés par le navigateur existent tous, mais de nombreux écrans hérités envoient ou filtrent des colonnes absentes. PostgREST refuse ces appels et beaucoup d'écrans ignorent l'erreur : l'écran paraît vide ou l'enregistrement échoue sans message. Écrans touchés : Stocks, Achats, Fournisseurs, Pneus, Incidents, Maintenance préventive, Coûts, Rapports, Sites, Alertes, Recherche globale, RH (employés).
 2. **Écritures directes depuis le navigateur.** Tous les écrans hérités écrivent directement dans les tables, sans fonction serveur ni transaction. Plusieurs suppriment des enregistrements métier (`purchase_orders`, `tires`, `payroll_records`, `employee_attendance`, `maintenance_orders`, `maintenance_schedules`, `geofence_zones`, `sites`, `drivers`, `alerts`).
 3. **Trois régimes RLS.** (A) Politiques par module `lecture_module` / `ecriture_module` (D-012). (B) Politique d'écriture seule, sans lecture : seuls les rédacteurs du module lisent. (C) RLS active sans aucune politique : tout appel est refusé, administrateur compris (`tire_*` opérations, `smart_notifications`, `geofence_*`, `iot_*` hors carburant, `trip_waypoints`, `trip_route_tracking`, `quick_actions_log`, `waste_management`).
-4. **Aucun stockage de fichiers.** Pas de `supabase.storage`, aucun `input type=file`, aucun bucket : pièces jointes, justificatifs CBG et GED impossibles en l'état.
+4. **Aucun stockage de fichiers.** Pas de `supabase.storage`, aucun `input type=file`, aucun bucket : pièces jointes, justificatifs CBG et GED impossibles en l'état. *Mise à jour du 2026-11-16 (D-083) : pièces justificatives développées (bucket privé `pieces`, table `pieces_jointes`, composant `ui/PiecesJointes`), non déployées.*
 5. **Exports.** `src/lib/exports.ts` (CSV, impression PDF par fenêtre HTML ; « Excel » = CSV). Pas de bibliothèque xlsx ou PDF. Utilisé par les écrans repris ; plusieurs écrans hérités ont des boutons Exporter sans action.
 6. **Notifications.** Quatre tables sans chaîne : `notifications` (aucun lecteur ni écrivain), `smart_notifications` (régime C), `alert_notifications` (écrite par une fonction jamais lue), `geofence_alerts` (fonction Edge seulement).
 7. **Hors ligne.** `src/lib/offline.ts` n'est appelé par aucun écran : la file est toujours vide.
@@ -262,7 +262,8 @@ Légende des colonnes : **Fonctionnalité** (sous-module), **Écran / fichiers**
 | Fonctionnalité | Écran / fichiers | Données et serveur | Statut | P | Travaux |
 |---|---|---|---|---|---|
 | Documents de véhicules (métadonnées) | `Documents/*` | `vehicle_documents` | PARTIEL | P1 | Fichier impossible : pas de stockage |
-| Stockage de fichiers, classement, versions, prévisualisation, recherche, rétention, partage contrôlé | - | - | MANQUANT | P1 | Lot D : bucket privé, table `documents` polymorphe, politiques par module et site |
+| Pièces justificatives de la chaîne J1 (voyage, ticket CBG, relevé compteur, relevé CBG, livraison carburant) : dépôt, liste, téléchargement, annulation motivée | `ui/PiecesJointes` (fiche voyage, Tickets CBG, Kilométrage, Livraisons CBG) | `pieces_jointes`, bucket privé `pieces`, `enregistrer_piece_jointe`, `confirmer_piece_jointe`, `annuler_piece_jointe`, politiques `storage.objects` (D-083) | DÉVELOPPÉ, TESTÉ | P1 | Déploiement du service storage sur accord (hébergement, section 12) ; autres modules par extension de `piece_resoudre_objet` |
+| Classement, versions, prévisualisation, recherche, rétention, partage contrôlé | - | - | MANQUANT | P1 | Lot D, sur le socle D-083 |
 | OCR, signature électronique, circuits de validation | - | - | MANQUANT | P3 | - |
 
 ### 24. Bureau numérique et workflow

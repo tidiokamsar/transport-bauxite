@@ -19,7 +19,13 @@
 # restauration sont reappliques.
 #
 # Usage :
-#   restaurer.sh <conteneur> <fichier.dump>
+#   restaurer.sh <conteneur> <fichier.dump> [<fichier.pieces.tar.gz>]
+# Pieces justificatives (D-083) : le schema storage (buckets, objets,
+# politiques) est restaure avec la base ; l'archive des fichiers, si elle
+# est donnee, est extraite apres une restauration reussie : pour sigtb-db
+# dans /opt/sigtb/pile/volumes/storage (service sigtb-storage arrete, le
+# dossier existant est deplace a cote, jamais supprime), pour un autre
+# conteneur dans DOSSIER_PIECES (obligatoire).
 # Pour le conteneur de production (sigtb-db), la variable
 # CONFIRMER_RESTAURATION_PRODUCTION=oui est exigee : une restauration remet la
 # base a l'etat du dump et exige l'autorisation du proprietaire (guide de
@@ -27,7 +33,19 @@
 set -uo pipefail
 CONTENEUR=${1:?conteneur attendu}
 DUMP=${2:?fichier de sauvegarde attendu}
+PIECES=${3:-}
 [ -f "$DUMP" ] || { echo "ECHEC : $DUMP introuvable"; exit 1; }
+if [ -n "$PIECES" ]; then
+  [ -f "$PIECES" ] || { echo "ECHEC : $PIECES introuvable"; exit 1; }
+  if [ -f "$PIECES.sha256" ]; then
+    ( cd "$(dirname "$PIECES")" && sha256sum -c --quiet "$(basename "$PIECES").sha256" ) || { echo "ECHEC empreinte de $PIECES"; exit 1; }
+  fi
+  if [ "$CONTENEUR" = sigtb-db ]; then
+    DOSSIER_PIECES=/opt/sigtb/pile/volumes/storage
+    [ "$(docker inspect -f '{{.State.Running}}' sigtb-storage 2>/dev/null)" != true ]       || { echo "ECHEC : arreter le service storage avant la restauration des fichiers (docker stop sigtb-storage)"; exit 1; }
+  fi
+  [ -n "${DOSSIER_PIECES:-}" ] || { echo "ECHEC : DOSSIER_PIECES requis pour extraire $PIECES"; exit 1; }
+fi
 if [ "$CONTENEUR" = sigtb-db ] && [ "${CONFIRMER_RESTAURATION_PRODUCTION:-}" != oui ]; then
   echo "ECHEC : restauration de la production sans CONFIRMER_RESTAURATION_PRODUCTION=oui"; exit 1
 fi
@@ -57,7 +75,7 @@ RETOUR=$($PSQL -tA -c "select string_agg(format('ALTER DEFAULT PRIVILEGES FOR RO
 
 # Le releve est ecrit sur disque avant la neutralisation : en cas
 # d'interruption, il se rejoue a la main (psql -1 -f <fichier>).
-FICHIER_RETOUR=/root/sigtb-droits-par-defaut-$(date -u +%Y%m%dT%H%M%SZ).sql
+FICHIER_RETOUR=${SIGTB_DOSSIER_RETOUR:-/root}/sigtb-droits-par-defaut-$(date -u +%Y%m%dT%H%M%SZ).sql
 printf '%s\n' "$RETOUR" > "$FICHIER_RETOUR" || { echo "ECHEC ecriture de $FICHIER_RETOUR"; exit 1; }
 echo "droits par defaut releves dans $FICHIER_RETOUR"
 
@@ -104,7 +122,7 @@ SQL
 debut=$(date +%s)
 docker exec -i "$CONTENEUR" pg_restore -U supabase_admin $HOTE -d postgres \
   --clean --if-exists --single-transaction --exit-on-error \
-  -n public -n auth -n supabase_migrations -n archive_bolt < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
+  -n public -n auth -n storage -n supabase_migrations -n archive_bolt < "$DUMP" > /tmp/sigtb-restauration.log 2>&1
 code=$?
 echo "pg_restore : code $code, $(grep -c 'error:' /tmp/sigtb-restauration.log) erreur(s), $(( $(date +%s) - debut )) s"
 grep 'error:' /tmp/sigtb-restauration.log | sort | uniq -c | sort -rn | head -5 | sed 's/^/    /'
@@ -123,5 +141,17 @@ if [ "$code" -ne 0 ]; then
   echo "ECHEC restauration (aucune modification, transaction annulee)"; exit "$code"
 fi
 rm -f "$FICHIER_RETOUR"
+
+# 4. Fichiers des pieces justificatives (D-083), apres la base.
+if [ -n "$PIECES" ]; then
+  if [ -d "$DOSSIER_PIECES" ] && [ -n "$(ls -A "$DOSSIER_PIECES" 2>/dev/null)" ]; then
+    ANCIEN="$DOSSIER_PIECES.avant-$(date -u +%Y%m%dT%H%M%SZ)"
+    mv "$DOSSIER_PIECES" "$ANCIEN" || { echo "ECHEC deplacement de $DOSSIER_PIECES (base restauree, fichiers non restaures)"; exit 1; }
+    echo "fichiers existants conserves dans $ANCIEN"
+  fi
+  mkdir -p "$DOSSIER_PIECES"
+  tar -xzf "$PIECES" -C "$DOSSIER_PIECES" || { echo "ECHEC extraction de $PIECES (base restauree, fichiers incomplets)"; exit 1; }
+  echo "fichiers des pieces restaures : $(find "$DOSSIER_PIECES" -type f | wc -l) fichier(s) dans $DOSSIER_PIECES"
+fi
 [ -n "$apres" ] || { echo "RESTAURATION TERMINEE (validee, ne pas relancer) mais ECART : aucun droit par defaut dans le schema public ; rejouer les droits attendus avant toute migration"; exit 2; }
 echo "RESTAURATION TERMINEE"

@@ -51,6 +51,34 @@ test.describe('Réconciliation et facturation', () => {
     expect(decisions[0]).toMatchObject({ p_ligne_id: '2', p_decision: 'facturable', p_motif: 'Écart expliqué par la tare du pont' });
   });
 
+  test('ticket CBG rectifie : facturation decidee par un approbateur (D-082)', async ({ page }) => {
+    await simulerApi(page, {
+      profiles: PROFIL, contrats: [CONTRAT], sites: [], reconciliations: [REC],
+      reconciliation_lignes: [ligne('3', 'VYG-003', ['ticket_rectifie'], 39)],
+    });
+    const decisions = await capturer(page, 'decider_ligne_reconciliation');
+    page.on('dialog', (d) => d.accept('Rectification controlee sur le releve CBG'));
+    await aller(page, 'Contrats & Finance', 'Réconciliation mensuelle');
+    await expect(page.getByText('Ticket CBG rectifié (décision d\'un approbateur distinct)')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Facturer VYG-003' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Approuver la facturation VYG-003' }).click();
+    await expect.poll(() => decisions.length).toBe(1);
+    expect(decisions[0]).toMatchObject({ p_ligne_id: '3', p_decision: 'facturable', p_motif: 'Rectification controlee sur le releve CBG' });
+  });
+
+  test('ticket CBG rectifie : sans approbation, pas de bouton de facturation', async ({ page }) => {
+    const CHEF = [{ id: ADMIN, role: 'operations_manager', full_name: 'Chef Test', status: 'active', site_id: null }];
+    const DROITS = ['dashboard', 'invoices', 'contracts'].map((module) => ({ role: 'operations_manager', module, can_view: true, can_create: true, can_edit: true, can_delete: false, can_approve: false }));
+    await simulerApi(page, {
+      profiles: CHEF, role_permissions: DROITS, contrats: [CONTRAT], sites: [], reconciliations: [REC],
+      reconciliation_lignes: [ligne('3', 'VYG-003', ['ticket_rectifie'], 39)],
+    });
+    await aller(page, 'Contrats & Finance', 'Réconciliation mensuelle');
+    await expect(page.getByText('Facturation : approbateur')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approuver la facturation VYG-003' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Exclure VYG-003' })).toBeVisible();
+  });
+
   test('facture a signer : seul le Directeur voit et utilise la signature', async ({ page }) => {
     const DG = [{ id: ADMIN, role: 'director', full_name: 'Directeur Test', status: 'active', site_id: null }];
     const DROITS = ['dashboard', 'invoices', 'contracts'].map((module) => ({ role: 'director', module, can_view: true, can_create: true, can_edit: true, can_delete: false, can_approve: true }));

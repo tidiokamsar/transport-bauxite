@@ -278,6 +278,7 @@ PR quand la dette diminue ; ne jamais les remonter.
 - Demonstration PURGEE le 2026-11-16 (D-076, ordre du proprietaire) : la production ne contient plus que les 3 comptes ; des la premiere saisie reelle, deploiement en production = « toujours demander » (bloc 1, section 4). Historique D-020 : identifiants
   `dec0de00-`, bandeau visible, purge par `deploy/vps/demo/demo.sh apercu` puis `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> deploy/vps/demo/demo.sh purger` (D-074)
   obligatoire avant la premiere saisie reelle.
+- Donnees d'exemple (D-084) : `demo.sh charger` charge un jeu fictif de 5 lignes au plus par table, isole du reel, ecrit par les fonctions serveur (identifiants `dec0de00-`, numeros `DEMO-`, acteurs sans mot de passe et bannis) ; `demo.sh coherence` ; purge par l'outillage D-074, qui retire aussi les preuves immuables et les comptes d'exemple. Non charge en production : chargement sur decision du proprietaire.
 - Cycle voyage (CDC 12, LOT 06) : `trips.etat` ne change que par
   `creer_voyage` / `avancer_voyage` (garde `trips_garde_cycle`), journal
   `trip_events` immuable. Deploye le 2026-11-10 (PR #32).
@@ -319,3 +320,4 @@ PR quand la dette diminue ; ne jamais les remonter.
 - Perimetre site (D-038, LOT 02 phase 1) : `site_permis(site)` borne les policies de vehicles, trips (depart ou arrivee), drivers et fiches_terrain ; un profil sans site est global, un profil affecte ne voit que son site ; organisations = referentiel administrateur. Fonctions serveur non encore bornees (phase 2).
 - Gardes d'ecriture (D-039) : declencheurs site_permis sur trips (depart ou arrivee), vehicles, drivers, fiches_terrain, pointages_engins et immobilisations ; les fonctions SECURITY DEFINER respectent le perimetre malgre la RLS bypassée.
 - Socle MFA (D-040) : garde_aal2 exige aal2 pour droits, rectifications de tickets et signature de facture, seulement si settings mfa_exige = true (desactive tant que les facteurs TOTP ne sont pas inscrits).
+- Pieces justificatives (D-083, lot 23, developpe, non deploye) : bucket prive `pieces` du service storage (`supabase/storage-api:v1.89.12`), table `pieces_jointes` (ecriture par `enregistrer_piece_jointe`, `confirmer_piece_jointe`, `annuler_piece_jointe` ; jamais de suppression), composant `ui/PiecesJointes` ; deploiement : `docs/SIGTB_2.0_HEBERGEMENT_VPS.md` section 12.

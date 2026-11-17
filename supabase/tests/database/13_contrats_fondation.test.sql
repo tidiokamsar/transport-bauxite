@@ -58,10 +58,10 @@ SELECT throws_ok($$INSERT INTO public.contrat_tarifs (version_id, libelle, unite
 
 UPDATE public.contrat_tarifs SET prix = 4.75 WHERE version_id = '00000000-0000-4000-8d00-0000000000e1';
 SELECT is((SELECT (avant->>'prix') || ' -> ' || (apres->>'prix') FROM public.journal_contrats
-  WHERE table_cible = 'contrat_tarifs' AND action = 'UPDATE'), '4.5 -> 4.75', 'modification journalisee avec avant et apres');
+  WHERE table_cible = 'contrat_tarifs' AND action = 'UPDATE' AND contrat_id = '00000000-0000-4000-8d00-0000000000c1'), '4.5 -> 4.75', 'modification journalisee avec avant et apres');
 SELECT is((SELECT count(*)::int FROM public.journal_contrats WHERE contrat_id = '00000000-0000-4000-8d00-0000000000c1'), 5,
   'journal rattache au contrat (4 creations, 1 modification)');
-SELECT is((SELECT auteur FROM public.journal_contrats WHERE table_cible = 'contrats'),
+SELECT is((SELECT auteur FROM public.journal_contrats WHERE table_cible = 'contrats' AND contrat_id = '00000000-0000-4000-8d00-0000000000c1'),
   '00000000-0000-4000-8d00-000000000001'::uuid, 'auteur journalise');
 
 UPDATE public.contrats SET statut = 'actif' WHERE id = '00000000-0000-4000-8d00-0000000000c1';

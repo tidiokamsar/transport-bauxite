@@ -5,23 +5,36 @@
 # production (memes options, conservation des droits, D-073). La base de
 # production n'est que lue (comptages et empreintes des droits). Le conteneur
 # est detruit a la fin. Code de sortie 0 seulement si tout est identique.
+# Pieces justificatives (D-083) : l'archive des fichiers du meme horodatage
+# (sigtb-<ts>.pieces.tar.gz) est extraite dans un dossier temporaire ; chaque
+# objet de storage.objects restaure doit y avoir son fichier, de la taille
+# enregistree. Sans archive, l'absence est signalee et compte comme ecart
+# des qu'un objet existe.
 set -uo pipefail
 ICI=$(cd "$(dirname "$0")" && pwd)
 DEST=/opt/sigtb/sauvegardes
 DUMP=${1:-$(ls -1t "$DEST"/sigtb-*.dump | head -1)}
 NOM="sigtb-restauration-test-$(date +%s)"
+PIECES="${DUMP%.dump}.pieces.tar.gz"
+DOSSIER_PIECES=$(mktemp -d /tmp/sigtb-pieces-test.XXXXXX)
 IMAGE=$(docker inspect -f '{{.Config.Image}}' sigtb-db)
 echo "dump    : $DUMP ($(stat -c %s "$DUMP") octets)"
 echo "image   : $IMAGE"
 ( cd "$(dirname "$DUMP")" && sha256sum -c "$(basename "$DUMP").sha256" ) || { echo "ECHEC empreinte"; exit 1; }
 MDP=$(openssl rand -hex 16)
 docker run -d --name "$NOM" --network none -e POSTGRES_PASSWORD="$MDP" "$IMAGE" >/dev/null || { echo "ECHEC demarrage"; exit 1; }
-trap 'docker rm -f "$NOM" >/dev/null 2>&1; echo "conteneur $NOM detruit"' EXIT
+trap 'docker rm -f "$NOM" >/dev/null 2>&1; rm -rf "$DOSSIER_PIECES"; echo "conteneur $NOM detruit"' EXIT
 for i in $(seq 1 60); do
   docker exec "$NOM" pg_isready -U postgres -h localhost >/dev/null 2>&1 && break; sleep 2
 done
 sleep 5
-bash "$ICI/restaurer.sh" "$NOM" "$DUMP" || { echo "ECHEC restauration"; exit 1; }
+if [ -f "$PIECES" ]; then
+  echo "pieces  : $PIECES ($(stat -c %s "$PIECES") octets)"
+  DOSSIER_PIECES="$DOSSIER_PIECES" bash "$ICI/restaurer.sh" "$NOM" "$DUMP" "$PIECES" || { echo "ECHEC restauration"; exit 1; }
+else
+  echo "pieces  : aucune archive $PIECES"
+  bash "$ICI/restaurer.sh" "$NOM" "$DUMP" || { echo "ECHEC restauration"; exit 1; }
+fi
 REQ="select 'migrations', count(*)::text from supabase_migrations.schema_migrations
  union all select 'auth_users', count(*)::text from auth.users
  union all select 'profiles', count(*)::text from public.profiles
@@ -41,6 +54,10 @@ REQ="select 'migrations', count(*)::text from supabase_migrations.schema_migrati
  union all select 'droits_tables_authenticated', count(*)::text from information_schema.role_table_grants where table_schema = 'public' and grantee = 'authenticated'
  union all select 'empreinte_droits_fonctions', left(md5(string_agg(p.oid::regprocedure::text || coalesce(p.proacl::text, ''), ',' order by p.oid::regprocedure::text)), 12) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'
  union all select 'empreinte_droits_tables', left(md5(string_agg(c.oid::regclass::text || coalesce(c.relacl::text, ''), ',' order by c.oid::regclass::text)), 12) from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'v', 'm', 'S', 'p')
+ union all select 'storage_buckets', CASE WHEN to_regclass('storage.buckets') IS NULL THEN 'absent' ELSE (xpath('/row/c/text()', query_to_xml('select count(*) as c from storage.buckets', false, true, '')))[1]::text END
+ union all select 'storage_objets', CASE WHEN to_regclass('storage.objects') IS NULL THEN 'absent' ELSE (xpath('/row/c/text()', query_to_xml('select count(*) as c from storage.objects', false, true, '')))[1]::text END
+ union all select 'pieces_jointes', CASE WHEN to_regclass('public.pieces_jointes') IS NULL THEN 'absent' ELSE (xpath('/row/c/text()', query_to_xml('select count(*) as c from public.pieces_jointes', false, true, '')))[1]::text END
+ union all select 'politiques_storage', count(*)::text from pg_policies where schemaname = 'storage'
  union all select 'empreinte_droits_par_defaut', left(md5(string_agg(pg_get_userbyid(defaclrole)::text || defaclobjtype::text || defaclacl::text, ',' order by pg_get_userbyid(defaclrole)::text || defaclobjtype::text)), 12) from pg_default_acl where defaclnamespace = 'public'::regnamespace"
 docker exec sigtb-db psql -U supabase_admin -d postgres -tA -F ' ' -c "$REQ" > /tmp/prod.txt
 docker exec "$NOM" psql -U supabase_admin -h localhost -d postgres -tA -F ' ' -c "$REQ" > /tmp/rest.txt
@@ -49,4 +66,19 @@ join <(sort /tmp/prod.txt) <(sort /tmp/rest.txt) | awk '{ printf "%s %s %s %s\n"
 ecarts=$(grep -c ' ECART$' /tmp/compare.txt)
 [ "$(wc -l < /tmp/compare.txt)" -eq "$(wc -l < /tmp/prod.txt)" ] || ecarts=$((ecarts + 1))
 rm -f /tmp/prod.txt /tmp/rest.txt /tmp/compare.txt
+
+# Fichiers des objets restaures (D-083) : <dossier>/<GLOBAL_S3_BUCKET>/<tenant>/<bucket>/<nom>/<version>.
+if [ "$(docker exec "$NOM" psql -U supabase_admin -h localhost -d postgres -tA -c "select to_regclass('storage.objects') is not null")" = t ]; then
+  manquants=0; verifies=0
+  while IFS='|' read -r bucket nom version taille; do
+    [ -z "$bucket" ] && continue
+    verifies=$((verifies + 1))
+    f=$(compgen -G "$DOSSIER_PIECES/*/*/$bucket/$nom/$version" | head -1)
+    if [ -z "$f" ] || [ "$(stat -c %s "$f")" != "$taille" ]; then
+      manquants=$((manquants + 1)); echo "    fichier absent ou de taille differente : $bucket/$nom ($version)"
+    fi
+  done < <(docker exec "$NOM" psql -U supabase_admin -h localhost -d postgres -tA -F '|' -c              "select bucket_id, name, coalesce(version, ''), coalesce(metadata->>'size', '') from storage.objects order by 1, 2")
+  echo "fichiers_pieces $verifies objet(s) verifie(s), $manquants absent(s) ou different(s) $([ "$manquants" -eq 0 ] && echo OK || echo ECART)"
+  ecarts=$((ecarts + manquants))
+fi
 if [ "$ecarts" -eq 0 ]; then echo "RESTAURATION IDENTIQUE"; else echo "RESTAURATION : $ecarts ECART(S)"; exit 1; fi

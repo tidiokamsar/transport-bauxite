@@ -24,7 +24,7 @@ proprietaire n'a pas cree l'administrateur.
 | Authentification (GoTrue) | Connexion par mot de passe, session, `getUser` (10 appels), deconnexion ; `signUp` (2 appels, code mort, C10) |
 | Fonctions SQL appelees | `calculate_employee_payroll`, `log_user_activity` |
 | Edge Functions (Deno) | `iot-ingestion`, `geofence-monitor`, appelees par les boitiers et non par l'interface |
-| Stockage de fichiers | Aucun appel |
+| Stockage de fichiers | Aucun appel (mesure du 2026-11-08) ; pieces justificatives depuis D-083, section 12 |
 | Temps reel | Aucun appel |
 | Securite | RLS et `auth.uid()` dans les migrations ; `has_module_write`, `is_admin` |
 | Client | `@supabase/supabase-js` ^2.57.4 ; variables `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
@@ -261,3 +261,146 @@ sauvegarde est prise avant chaque operation.
 | 2026-11-17 | `main` 3ff151d (PR #104 pesee CBG a deux sources D-081) | `sauvegarder.sh` ; `appliquer-migrations.sh --tests` (62 fichiers verts, test 62 : 93) ; release `web/releases/3ff151d` (precedente : 33ab8ef) | Migration `20261121180000` (66) ; REST 401 ; restauration identique |
 | 2026-11-15 | Test de restauration (phase 7) | `sauvegarder.sh` (sigtb-20261115T224535Z.dump) puis `deploy/vps/tester-restauration.sh` : conteneur jetable de la meme image, sans reseau, detruit en fin de test | Empreinte valide ; restauration en 4 s ; comptages identiques a la production (50 migrations, 3 comptes, 27 engins, 1 813 voyages, 18 026 evenements, 277 politiques, 289 fonctions) ; 7 erreurs sans effet sur les donnees (role `supabase_functions_admin` absent d'une image nue) |
 | 2026-11-16 | Test de restauration avec droits (D-073) | `deploy/vps/tester-restauration.sh` (nouvelle version, via `restaurer.sh`) sur sigtb-20261115T224535Z.dump, conteneur jetable sans reseau detruit en fin de test ; production lue seulement | 0 erreur `pg_restore`, 3 s ; 19 controles identiques (comptages, 65 fonctions executables par `anon`, 240 par `authenticated`, droits des tables, empreintes des droits des fonctions, des tables et des droits par defaut). Le test du 2026-11-15 (comptages seuls) masquait la reouverture des fonctions internes par une restauration simple |
+
+## 12. Pieces justificatives : service storage (D-083)
+
+Accord du proprietaire : D-069, reponse 2 (bucket prive, politiques par
+module et site, controle du type et de la taille). La production contient
+des donnees reelles depuis D-076 et D-078 : ce deploiement releve de
+« toujours demander » (bloc 1, section 4) et attend l'accord explicite du
+proprietaire. Rien de ce qui suit n'a ete execute sur le serveur au
+2026-11-16.
+
+### 12.1 Ce qui change
+
+| Element | Changement |
+|---|---|
+| `deploy/vps/docker-compose.yml` | Service `storage` (`sigtb-storage`), image `supabase/storage-api:v1.89.12` : celle du modele officiel `self-hosted/v0.8.4` (fichier `docker/docker-compose.yml`, service `storage`), dont viennent deja les images des autres services. Fichiers sur `./volumes/storage` (`/opt/sigtb/pile/volumes/storage`), limite 10 Mio, pas d'imgproxy, pas de protocole S3, aucun port publie |
+| Passerelle Envoy | Inchangee : la configuration officielle copiee par `installer.sh` route deja `/storage/v1/` vers `storage:5000` (cluster `storage`, resolution DNS reguliere, aucun redemarrage) |
+| `deploy/vps/sigtb.caddy` | `/storage/v1/object/*` relaye vers `127.0.0.1:8200`, corps borne a 11 Mo ; `/storage/v1/s3*` et `/storage/v1/upload/*` refuses (404) ; le reste de `/storage/*` reste refuse |
+| Migration `20261121200000_pieces_jointes` | Table `pieces_jointes`, fonctions, bucket `pieces` et politiques de `storage.objects` (posees seulement si les tables storage existent ; `appliquer-migrations.sh` rappelle `configurer_stockage_pieces()` a chaque passage) |
+| `sauvegarder.sh` | Archive `sigtb-<ts>.pieces.tar.gz` des fichiers, prise apres le dump, avec empreinte |
+| `restaurer.sh` | Schema `storage` restaure avec la base ; archive des fichiers extraite si elle est donnee (troisieme argument) |
+| `tester-restauration.sh` | Comptages storage et pieces, verification fichier par fichier (presence et taille) dans l'archive |
+
+### 12.2 Procedure pas a pas (root, sur le VPS)
+
+Arret au premier ecart. `TS=$(date -u +%Y%m%dT%H%M%SZ)` en debut de
+session ; toutes les copies portent ce suffixe.
+
+1. **Depot.** Copie du depot au SHA fusionne dans `/opt/sigtb/depot/<sha>`,
+   lien `courant` ; verifier `git -C /opt/sigtb/depot/<sha> log -1`.
+2. **Sauvegarde avant.** `/opt/sigtb/outils/sauvegarder.sh` (ancienne
+   version) ; verifier le `.dump`, son `.sha256` et la ligne de journal.
+3. **Outils.** Pour `sauvegarder.sh`, `restaurer.sh` et
+   `tester-restauration.sh` : `cp /opt/sigtb/outils/<f> /opt/sigtb/outils/<f>.avant-$TS`,
+   copie de `deploy/vps/<f>`, puis `bash -n /opt/sigtb/outils/<f>`.
+4. **Variables.** Sans afficher de valeur :
+   `grep -cE '^(GLOBAL_S3_BUCKET|STORAGE_TENANT_ID|REGION|JWT_SECRET|ANON_KEY|SERVICE_ROLE_KEY)=' /opt/sigtb/pile/.env`
+   doit rendre 6 (le `.env` vient du `.env.example` du modele v0.8.4, qui
+   les contient). Sinon, arret : aucune valeur n'est inventee.
+5. **Service storage seul.**
+   ```bash
+   cd /opt/sigtb/pile
+   cp docker-compose.yml docker-compose.yml.avant-$TS
+   docker compose ps --format '{{.Name}} {{.CreatedAt}}' > /root/sigtb-conteneurs-avant-$TS.txt
+   cp /opt/sigtb/depot/courant/deploy/vps/docker-compose.yml docker-compose.yml
+   docker compose config --quiet
+   mkdir -p volumes/storage && chmod 700 volumes/storage
+   docker compose pull storage
+   docker compose up -d --no-deps storage
+   docker inspect -f '{{.State.Health.Status}}' sigtb-storage   # healthy (30 s au plus)
+   docker compose ps --format '{{.Name}} {{.CreatedAt}}' | grep -v sigtb-storage | diff - /root/sigtb-conteneurs-avant-$TS.txt
+   docker logs sigtb-storage 2>&1 | tail -5
+   docker exec sigtb-db psql -U supabase_admin -d postgres -tAc "select to_regclass('storage.objects')"
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8200/storage/v1/status   # 200
+   ```
+   Le `diff` ne doit rien afficher (aucun autre conteneur recree) ; la
+   requete rend `storage.objects` (tables creees par le service).
+6. **Migrations.** `bash /opt/sigtb/depot/courant/deploy/vps/appliquer-migrations.sh --tests` :
+   `20261121200000` appliquee, ligne « Stockage des pieces : configure »,
+   tous les fichiers pgTAP OK, dont `64_pieces_jointes` (49 assertions,
+   aucune sautee). Controle :
+   `select id, public, file_size_limit from storage.buckets` rend
+   `pieces | f | 10485760`.
+7. **Caddy (serveur web partage).**
+   ```bash
+   cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.avant-$TS
+   cp /etc/caddy/sigtb.caddy /etc/caddy/sigtb.caddy.avant-$TS
+   # etat des autres sites avant : code HTTP de la racine de chaque site
+   for h in $(grep -hoE '^[a-z0-9.-]+\.[a-z]{2,}' /etc/caddy/Caddyfile /etc/caddy/*.caddy | sort -u); do
+     echo "$h $(curl -s -o /dev/null -m 10 -w '%{http_code}' https://$h/)"; done > /root/caddy-sites-avant-$TS.txt
+   cp /opt/sigtb/depot/courant/deploy/vps/sigtb.caddy /etc/caddy/sigtb.caddy
+   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+   ```
+   Si `caddy validate` echoue : `cp /etc/caddy/sigtb.caddy.avant-$TS /etc/caddy/sigtb.caddy`
+   et arret (Caddy n'a pas ete recharge). Sinon :
+   ```bash
+   systemctl reload caddy && systemctl is-active caddy
+   for h in $(cut -d' ' -f1 /root/caddy-sites-avant-$TS.txt); do
+     echo "$h $(curl -s -o /dev/null -m 10 -w '%{http_code}' https://$h/)"; done | diff /root/caddy-sites-avant-$TS.txt -
+   ```
+   Jamais `systemctl restart caddy`. Le `diff` ne doit rien afficher ; au
+   moindre ecart, retour arriere immediat (12.3, point 1). Controles SIGTB :
+   ```bash
+   B=https://sigtb.infranetgn.com
+   curl -s -o /dev/null -w '%{http_code}\n' $B/                              # 200
+   curl -s -o /dev/null -w '%{http_code}\n' $B/rest/v1/                      # inchange par rapport a avant
+   curl -s -o /dev/null -w '%{http_code}\n' $B/storage/v1/object/pieces/x    # 400 (service storage, jeton absent)
+   curl -s -o /dev/null -w '%{http_code}\n' $B/storage/v1/s3                 # 404
+   curl -s -o /dev/null -w '%{http_code}\n' $B/storage/v1/bucket             # 404
+   curl -s -o /dev/null -w '%{http_code}\n' $B/storage/v1/upload/resumable   # 404
+   ```
+8. **Interface.** Build et release habituels (`web/releases/<sha>`, lien
+   `current`) ; la release precedente est conservee.
+9. **Apres deploiement.** Aucun depot d'essai en production : une piece ne
+   se supprime pas (annulation seulement). Le premier depot est fait par un
+   utilisateur reel sur une piece reelle, puis controle dans
+   `pieces_jointes` (statut `deposee`). Ensuite
+   `/opt/sigtb/outils/sauvegarder.sh` (nouvelle version : ligne
+   « pieces ... ») puis `/opt/sigtb/outils/tester-restauration.sh` :
+   `RESTAURATION IDENTIQUE`, lignes `storage_buckets`, `storage_objets`,
+   `pieces_jointes`, `politiques_storage` et `fichiers_pieces` OK.
+10. **Journal.** Ligne en section 11 et notes de version.
+
+### 12.3 Retour arriere
+
+1. Caddy : `cp /etc/caddy/sigtb.caddy.avant-$TS /etc/caddy/sigtb.caddy`,
+   `caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`,
+   `systemctl reload caddy`, puis la meme boucle de controle des autres
+   sites. Les pieces ne sont plus joignables ; rien n'est perdu.
+2. Service : `cd /opt/sigtb/pile && docker compose stop storage && docker compose rm -f storage`,
+   puis `cp docker-compose.yml.avant-$TS docker-compose.yml`. Le volume
+   `volumes/storage` et les tables storage sont conserves (aucune
+   suppression).
+3. Interface : lien `current` vers la release precedente.
+4. Base : rien a defaire (migration additive) ; ne jamais supprimer
+   `pieces_jointes` ni les tables storage.
+
+### 12.4 Restauration des fichiers
+
+`restaurer.sh sigtb-db <dump> <archive.pieces.tar.gz>` exige
+`CONFIRMER_RESTAURATION_PRODUCTION=oui` (accord du proprietaire) et le
+service arrete (`docker stop sigtb-storage`) ; le dossier `volumes/storage`
+existant est deplace en `volumes/storage.avant-<ts>`, jamais supprime ;
+redemarrer ensuite par `docker compose up -d --no-deps storage`.
+
+### 12.5 Comment c'est teste sans le serveur
+
+- `npm run test:rls:rejeu` : la migration rejoue dans l'image Postgres seule
+  (tables storage absentes : `configurer_stockage_pieces()` rend `absent`,
+  rien n'echoue) ; avant les tests, `scripts/rejeu-socle-storage.sql` cree
+  un socle storage minimal (colonnes relevees sur storage-api v1.89.12) et
+  pose bucket et politiques ; le test 64 verifie alors aussi le bucket et
+  les politiques.
+- `bash scripts/integration-stockage.sh` : rejeu des migrations, puis le
+  vrai service `supabase/storage-api:v1.89.12` sur un reseau Docker prive ;
+  parcours HTTP complet et refus (autre site, chemin non enregistre,
+  ecrasement, suppression, type, taille, anon) : 21 controles OK le
+  2026-11-16. Le test 64 a aussi ete joue contre les tables creees par ce
+  service (49 assertions OK).
+- Restauration : dump d'une base avec storage reel et archive des fichiers
+  du service, restaures par `restaurer.sh` dans un conteneur vierge :
+  buckets, objets, pieces, politiques, proprietaire et droits de
+  `storage.objects` identiques ; 2 fichiers sur 2 retrouves avec leur
+  taille (2026-11-16).

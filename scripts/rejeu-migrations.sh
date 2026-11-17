@@ -111,6 +111,14 @@ while read -r f; do
 done <<< "$CONNUS"
 
 if [ "$TESTS" -eq 1 ]; then
+  # Tables storage (D-083) : creees par le service storage-api dans la pile
+  # reelle, absentes de l'image Postgres seule. Socle minimal pour les
+  # tests du bucket et des politiques (scripts/rejeu-socle-storage.sql).
+  docker cp scripts/rejeu-socle-storage.sql "$NOM":/rejeu/socle-storage.sql >/dev/null
+  if ! psql_admin -q -X -v ON_ERROR_STOP=1 -f /rejeu/socle-storage.sql >/dev/null 2>&1; then
+    echo "::error::socle storage du rejeu : echec"
+    STATUT=1
+  fi
   for t in supabase/tests/database/*.test.sql; do
     sortie=$(docker exec "$NOM" psql -U postgres -h localhost -d postgres -X -q -t \
       -f "/rejeu/tests/database/$(basename "$t")" 2>&1)

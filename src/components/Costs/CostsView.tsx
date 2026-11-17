@@ -9,6 +9,10 @@ import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
 // Couts directs (D-058) : une depense s'enregistre par la fonction serveur
 // enregistrer_cout (droit d'ecriture costs, perimetre du site) ; elle ne se
 // modifie ni ne se supprime, elle s'annule avec un motif (annuler_cout).
+// Montants saisis TTC, compares aux budgets TTC (D-082). Une depense qui
+// reprend une piece du circuit fournisseur (bon de commande, facture du
+// loueur) la cite : elle ne compte pas au realise budgetaire, la piece y est
+// deja (pas de double compte).
 // Les totaux sont donnes par devise, jamais additionnes entre devises. Le
 // cout par tonne et la rentabilite sont dans Rapports (rapport mensuel) et
 // Reporting > Cout direct par tonne.
@@ -19,6 +23,7 @@ interface Cout {
   cost_categories: { name: string; category_type: string } | null; vehicles: { registration: string } | null; sites: { name: string } | null;
 }
 interface Lib { id: string; libelle: string }
+interface PieceReprise { source: 'bon_commande' | 'facture_loueur'; id: string; libelle: string }
 
 const CHAMP = 'mt-1 w-full rounded border border-stone-300 px-3 py-2 text-sm';
 const DEVISES = ['GNF', 'USD', 'EUR'];
@@ -26,7 +31,7 @@ const MODES = ['Virement', 'Chèque', 'Espèces', 'Mobile money', 'Autre'];
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const moisCourant = () => new Date().toISOString().slice(0, 7);
 const nombre = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 2 });
-const SAISIE_VIDE = { date: '', description: '', montant: '', devise: '', categorie: '', site: '', vehicule: '', reference: '', mode: '', notes: '' };
+const SAISIE_VIDE = { date: '', description: '', montant: '', devise: '', categorie: '', site: '', vehicule: '', reference: '', mode: '', notes: '', piece: '' };
 
 export const CostsView = () => {
   const { hasPermission } = useAuth();
@@ -39,6 +44,8 @@ export const CostsView = () => {
   const [sites, setSites] = useState<Lib[]>([]);
   const [engins, setEngins] = useState<Lib[]>([]);
   const [saisie, setSaisie] = useState<typeof SAISIE_VIDE | null>(null);
+  const [pieces, setPieces] = useState<PieceReprise[]>([]);
+  const [erreurPieces, setErreurPieces] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
   const [erreur, setErreur] = useState('');
   const [message, setMessage] = useState('');
@@ -69,13 +76,31 @@ export const CostsView = () => {
   const totaux = totauxParDevise(pourTotaux);
   const repartition = repartitionParCategorie(pourTotaux);
 
+  // Pieces du circuit fournisseur lisibles par le compte (RLS), chargees a
+  // l'ouverture du formulaire.
+  const ouvrirSaisie = async () => {
+    setSaisie({ ...SAISIE_VIDE, date: aujourdhui() });
+    const [b, f] = await Promise.all([
+      supabase.from('purchase_orders').select('id, po_number').in('status', ['approved', 'partially_received', 'received', 'closed'])
+        .order('po_date', { ascending: false }).limit(200),
+      supabase.from('factures_fournisseur').select('id, numero_fournisseur').order('date_facture', { ascending: false }).limit(200),
+    ]);
+    setErreurPieces(b.error || f.error ? `Pièces fournisseur non chargées : ${(b.error ?? f.error)?.message}` : '');
+    setPieces([
+      ...(b.data ?? []).map((x) => ({ source: 'bon_commande' as const, id: x.id as string, libelle: `Bon ${x.po_number as string}` })),
+      ...(f.data ?? []).map((x) => ({ source: 'facture_loueur' as const, id: x.id as string, libelle: `Facture loueur ${x.numero_fournisseur as string}` })),
+    ]);
+  };
+
   const enregistrer = async () => {
     if (!saisie) return;
     setBusy(true); setErreur(''); setMessage('');
+    const piece = pieces.find((x) => `${x.source}:${x.id}` === saisie.piece);
     const { error } = await supabase.rpc('enregistrer_cout', {
       p_date: saisie.date, p_description: saisie.description.trim(), p_montant: Number(saisie.montant.replace(',', '.')), p_devise: saisie.devise,
       p_categorie: saisie.categorie || null, p_site: saisie.site || null, p_vehicule: saisie.vehicule || null,
       p_reference: saisie.reference.trim() || null, p_mode_paiement: saisie.mode || null, p_notes: saisie.notes.trim() || null,
+      p_piece_source: piece?.source ?? null, p_piece_id: piece?.id ?? null,
     });
     setBusy(false);
     if (error) { setErreur(error.message); return; }
@@ -104,7 +129,7 @@ export const CostsView = () => {
         <p className="text-sm text-stone-500">Dépenses d'exploitation saisies dans SIGTB (hors location des engins). Une dépense ne se supprime pas : elle s'annule avec un motif.</p></div>
       <div className="flex gap-2">
         <button onClick={charger} className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"><RefreshCw className="h-4 w-4" /> Actualiser</button>
-        {peutSaisir && <button onClick={() => setSaisie({ ...SAISIE_VIDE, date: aujourdhui() })} className="flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Nouvelle dépense</button>}
+        {peutSaisir && <button onClick={ouvrirSaisie} className="flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Nouvelle dépense</button>}
       </div>
     </header>
     {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
@@ -114,7 +139,7 @@ export const CostsView = () => {
       <div role="form" aria-label="Nouvelle dépense" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-sm">Date *<input type="date" max={aujourdhui()} value={saisie.date} onChange={(e) => maj('date', e.target.value)} className={CHAMP} /></label>
         <label className="text-sm lg:col-span-3">Description *<input value={saisie.description} onChange={(e) => maj('description', e.target.value)} className={CHAMP} /></label>
-        <label className="text-sm">Montant *<input inputMode="decimal" value={saisie.montant} onChange={(e) => maj('montant', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm">Montant TTC *<input inputMode="decimal" value={saisie.montant} onChange={(e) => maj('montant', e.target.value)} className={CHAMP} /></label>
         <label className="text-sm">Devise *<select value={saisie.devise} onChange={(e) => maj('devise', e.target.value)} className={CHAMP}>
           <option value="">Choisir</option>{DEVISES.map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
         <label className="text-sm">Catégorie<select value={saisie.categorie} onChange={(e) => maj('categorie', e.target.value)} className={CHAMP}>
@@ -127,8 +152,11 @@ export const CostsView = () => {
         <label className="text-sm">Mode de paiement<select value={saisie.mode} onChange={(e) => maj('mode', e.target.value)} className={CHAMP}>
           <option value="">Non renseigné</option>{MODES.map((m) => <option key={m} value={m}>{m}</option>)}</select></label>
         <label className="text-sm">Notes<input value={saisie.notes} onChange={(e) => maj('notes', e.target.value)} className={CHAMP} /></label>
+        <label className="text-sm lg:col-span-2">Reprend une pièce du circuit fournisseur<select value={saisie.piece} onChange={(e) => maj('piece', e.target.value)} className={CHAMP}>
+          <option value="">Aucune</option>{pieces.map((x) => <option key={`${x.source}:${x.id}`} value={`${x.source}:${x.id}`}>{x.libelle}</option>)}</select></label>
       </div>
-      <p className="mt-2 text-xs text-stone-500">Une dépense sans site n'est visible que des profils sans affectation de site.</p>
+      {erreurPieces && <p role="alert" className="mt-2 text-xs text-amber-800">{erreurPieces}</p>}
+      <p className="mt-2 text-xs text-stone-500">Montant toutes taxes comprises (TTC), comme les budgets. Une dépense qui reprend une pièce fournisseur (bon de commande, facture du loueur) n'est pas recomptée au réalisé budgétaire : la pièce y figure déjà. Une dépense sans site n'est visible que des profils sans affectation de site.</p>
       <div className="mt-3 flex gap-2">
         <button disabled={busy || !saisieValide} onClick={enregistrer} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer</button>
         <button onClick={() => setSaisie(null)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Annuler</button>

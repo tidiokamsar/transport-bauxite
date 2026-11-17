@@ -20,7 +20,7 @@ export const ANOMALIES: Record<string, { libelle: string; bloquante: boolean }> 
   non_accepte: { libelle: 'Livré, pas encore accepté', bloquante: true },
   ticket_double: { libelle: 'Ticket de pesée en double', bloquante: true },
   sans_ticket_cbg: { libelle: 'Sans ticket CBG', bloquante: true },
-  ticket_rectifie: { libelle: 'Ticket CBG rectifié', bloquante: true },
+  ticket_rectifie: { libelle: 'Ticket CBG rectifié (décision d\'un approbateur distinct)', bloquante: true },
   net_superieur_capacite: { libelle: 'Net du ticket supérieur à la capacité du camion (unité à vérifier : tonnes)', bloquante: true },
   sans_fiche: { libelle: 'Sans fiche terrain', bloquante: false },
 };

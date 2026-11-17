@@ -3,8 +3,9 @@
 # Derivee du modele officiel Supabase `self-hosted/v0.8.4`
 # (supabase/supabase, docker/docker-compose.yml, commit 189adda), reduite
 # aux services utilises par SIGTB (SIGTB_2.0_HEBERGEMENT_VPS.md, section 2) :
-#   db, auth, rest, api-gw (Envoy), functions.
-# Retires : studio, meta, realtime, storage, imgproxy, supavisor.
+#   db, auth, rest, api-gw (Envoy), functions, storage (D-083, pieces
+#   justificatives, ajoute le 2026-11-16).
+# Retires : studio, meta, realtime, imgproxy, supavisor.
 #
 # Differences avec le modele officiel :
 #  - un seul port publie, et seulement sur 127.0.0.1 (Caddy du serveur est
@@ -184,6 +185,52 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       JWT_EXP: ${JWT_EXPIRY}
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "log_min_messages=fatal"]
+
+  # Pieces justificatives (D-083). Image et variables du modele officiel
+  # self-hosted/v0.8.4 (docker/docker-compose.yml, service storage :
+  # supabase/storage-api:v1.89.12), avec ces differences :
+  #  - fichiers sur le volume local ./volumes/storage (sauvegarde par
+  #    sauvegarder.sh) ;
+  #  - FILE_SIZE_LIMIT a 10 Mio (le bucket `pieces` est borne a la meme
+  #    valeur par la migration 20261121200000 ; Caddy refuse au-dela) ;
+  #  - pas d'imgproxy : aucune transformation d'image n'est utilisee
+  #    (ENABLE_IMAGE_TRANSFORMATION=false, pas de dependance) ;
+  #  - pas de protocole S3 : les cles S3_PROTOCOL_* ne sont pas transmises
+  #    et Caddy refuse /storage/v1/s3 ;
+  #  - aucun port publie : joignable seulement par la passerelle (route
+  #    /storage/v1/ du modele officiel vers storage:5000).
+  storage:
+    container_name: sigtb-storage
+    image: supabase/storage-api:v1.89.12
+    restart: unless-stopped
+    volumes:
+      - ./volumes/storage:/var/lib/storage:z
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://storage:5000/status"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      POSTGREST_URL: http://rest:3000
+      AUTH_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      STORAGE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL}
+      REQUEST_ALLOW_X_FORWARDED_PATH: "true"
+      FILE_SIZE_LIMIT: 10485760
+      STORAGE_BACKEND: file
+      GLOBAL_S3_BUCKET: ${GLOBAL_S3_BUCKET}
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: ${STORAGE_TENANT_ID}
+      REGION: ${REGION}
+      ENABLE_IMAGE_TRANSFORMATION: "false"
 
 volumes:
   db-config:
