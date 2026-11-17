@@ -28,16 +28,16 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Opérationnelle avec limites | 34 |
 | Partielle | 7 |
 | Visuelle seulement | 4 |
-| Non disponible | 8 |
+| Non disponible | 9 |
 | Désactivée par configuration | 3 |
 | Réservée à un rôle | 8 |
-| **Total** | **176** |
+| **Total** | **177** |
 
 ## Synthèse par module
 
 | Module | Opér. et testée | Opér. avec limites | Partielle | Visuelle seulement | Non disponible | Désactivée | Rôle | Total |
 |---|---|---|---|---|---|---|---|---|
-| Accès | 3 | 1 | 1 | 0 | 1 | 2 | 0 | 8 |
+| Accès | 3 | 1 | 1 | 0 | 2 | 2 | 0 | 9 |
 | Interface | 7 | 2 | 1 | 0 | 1 | 0 | 0 | 11 |
 | Pilotage | 5 | 1 | 0 | 0 | 0 | 0 | 0 | 6 |
 | Sites | 3 | 2 | 0 | 0 | 0 | 0 | 0 | 5 |
@@ -81,6 +81,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Se souvenir de moi | Page de connexion | Tous | Opérationnelle avec limites | Auth/LoginPage.tsx (souvenir local du navigateur) | Figure 2.1 | MGU 2.F.1 | Mémorisé sur le poste seulement |
 | Connexion Microsoft 365 | Page de connexion, bouton Microsoft | Tous | Désactivée par configuration | LoginPage.tsx signInWithOAuth azure + aucun fournisseur azure dans deploy/vps/docker-compose.yml | Figure 2.1 | MGU 2.H | Le bouton existe, le fournisseur n'est pas configuré : message « Connexion Microsoft 365 indisponible » |
 | Mot de passe oublié par courriel | Page de connexion, lien Mot de passe oublié | Tous | Non disponible | LoginPage.tsx (message : reinitialisation par e-mail non activee) + aucun SMTP | Figure 2.2 | MGU 2.F.4 | L'administrateur attribue un nouveau mot de passe |
+| Changer son propre mot de passe | Sécurité du compte | Tous | Non disponible | Aucun appel updateUser dans src/ | Figure 2.4 | MGU 35 | L'administrateur attribue un nouveau mot de passe |
 | Double authentification TOTP (inscription, retrait, code a la connexion) | Sécurité du compte (#/securite-compte), menu profil | Tous | Opérationnelle et testée | Auth/SecuriteCompte.tsx, VerificationMfa.tsx, garde_aal2 + pgTAP 24 + E2E double-authentification | Figure 2.4 | MGU 2.F.3 | - |
 | Exigence MFA pour opérations sensibles (mfa_exige) | Sécurité du compte | Administrateur | Désactivée par configuration | settings mfa_exige, garde_aal2 + pgTAP 24 | Figure 2.4 | MAD 13 | Inactive tant que le propriétaire ne l'active pas (CLAUDE.md, toujours demander) |
 | Déconnexion | Barre supérieure, menu profil, Se déconnecter | Tous | Opérationnelle et testée | Layout/TopBar.tsx signOut + E2E connexion | Figure 2.5 | MGU 2.F.2 | - |

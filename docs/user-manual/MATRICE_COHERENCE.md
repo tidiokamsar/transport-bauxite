@@ -12,6 +12,7 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Accès | Se souvenir de moi | Page de connexion | Figure 2.1 | MGU 2.F.1 | aucun test nommé | Documentée, capture à venir |
 | Accès | Connexion Microsoft 365 | Page de connexion, bouton Microsoft | Figure 2.1 | MGU 2.H | aucun test nommé | Documentée comme désactivée |
 | Accès | Mot de passe oublié par courriel | Page de connexion, lien Mot de passe oublié | Figure 2.2 | MGU 2.F.4 | aucun test nommé | Non documentable (non opérationnelle) |
+| Accès | Changer son propre mot de passe | Sécurité du compte | Figure 2.4 | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
 | Accès | Double authentification TOTP (inscription, retrait, code a la connexion) | Sécurité du compte (#/securite-compte), menu profil | Figure 2.4 | MGU 2.F.3 | pgTAP 24 ; E2E double-authentification | Documentée, capture à venir |
 | Accès | Exigence MFA pour opérations sensibles (mfa_exige) | Sécurité du compte | Figure 2.4 | MAD 13 | pgTAP 24 | Documentée comme désactivée |
 | Accès | Déconnexion | Barre supérieure, menu profil, Se déconnecter | Figure 2.5 | MGU 2.F.2 | E2E connexion | Documentée, capture à venir |
@@ -191,7 +192,7 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 |---|---|
 | Documentée, capture à venir | 159 |
 | Documentée comme désactivée | 3 |
-| Non documentable (non opérationnelle) | 8 |
+| Non documentable (non opérationnelle) | 9 |
 | Documentée, sans capture prévue | 2 |
 | Documentée comme écran sans données | 4 |
 
