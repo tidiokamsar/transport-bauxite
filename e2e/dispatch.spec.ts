@@ -81,7 +81,7 @@ test.describe('Dispatch', () => {
 
   test('panne : voyage a reaffecter, reaffectation motivee', async ({ page }) => {
     await simulerApi(page, JEU);
-    const decisions = await capturer(page, 'decider_affectation');
+    const decisions = await capturer(page, 'affecter_voyage');
     await ouvrir(page);
     await expect(page.getByText('Camion RC-1009 indisponible (immobilisé)')).toBeVisible();
     await page.getByRole('button', { name: 'Réaffecter' }).click();
@@ -90,12 +90,12 @@ test.describe('Dispatch', () => {
     await expect(fenetre.getByLabel('Chauffeur').locator('option')).toHaveText(['Choisir', 'Alpha Test', 'Bah Test']);
     await fenetre.getByRole('button', { name: 'Enregistrer la décision' }).click();
     await expect.poll(() => decisions.length).toBe(1);
-    expect(decisions[0]).toMatchObject({ p_trip_id: 't3', p_motif: 'Camion RC-1009 indisponible (immobilisé)' });
+    expect(decisions[0]).toMatchObject({ p_trip_id: 't3', p_motif: 'Camion RC-1009 indisponible (immobilisé)', p_version_attendue: 0 });
   });
 
   test('refus : motif obligatoire, rien n\'est affecte', async ({ page }) => {
     await simulerApi(page, JEU);
-    const decisions = await capturer(page, 'decider_affectation');
+    const decisions = await capturer(page, 'affecter_voyage');
     await ouvrir(page);
     await page.getByRole('button', { name: 'Refuser VYG-001' }).click();
     const fenetre = page.getByRole('dialog');
@@ -106,14 +106,38 @@ test.describe('Dispatch', () => {
     expect(decisions[0]).toMatchObject({ p_trip_id: 't1', p_decision: 'refusee', p_vehicle_id: null, p_driver_id: null });
   });
 
-  test('preparation du shift depuis l\'objectif', async ({ page }) => {
-    await simulerApi(page, JEU);
-    const preparations = await capturer(page, 'preparer_voyages');
+  test('preparation du shift en etapes depuis l objectif (D-087), confirmation humaine', async ({ page }) => {
+    await simulerApi(page, { ...JEU, postes: [{ id: 'p1', statut: 'ouvert', version: 3, date_poste: aujourdhui(), shift_id: SHIFT, site_id: SITE_MINE }] });
+    await page.route('**/rest/v1/rpc/besoin_shift', (route) => {
+      const h = (route.request().postDataJSON() as { p_hypothese_charge_pct: number | null }).p_hypothese_charge_pct;
+      return repondre(route, [{
+        tonnes_cible: 200, voyages_cible: null, capacite_utile_t: 40, camions_disponibles: 2, hypothese_charge_pct: h,
+        cycle_observe_min: null, rotations_mesurees: 0, besoin_voyages: h ? Math.ceil(200 / (40 * h / 100)) : null,
+        voyages_existants: 3, proposition: h ? Math.ceil(200 / (40 * h / 100)) - 3 : null, base_calcul: h ? 'calcul' : 'Hypothese de charge a saisir',
+      }]);
+    });
+    const confirmations = await capturer(page, 'confirmer_plan_shift');
     await ouvrir(page);
-    await expect(page.getByText(/Proposition : 2 voyage\(s\), 5 voyages visés par l'objectif/)).toBeVisible();
-    await page.getByRole('combobox').filter({ hasText: 'Choisir' }).selectOption({ label: 'Dépôt' });
-    await page.getByRole('button', { name: 'Créer les voyages' }).click();
-    await expect.poll(() => preparations.length).toBe(1);
-    expect(preparations[0]).toMatchObject({ p_date: aujourdhui(), p_site_id: SITE_MINE, p_destination_id: SITE_DEPOT, p_shift_id: SHIFT, p_nombre: 2 });
+    await page.getByRole('tab', { name: 'Shift et préparation' }).click();
+    await page.getByRole('button', { name: 'Préparer le shift' }).click();
+    const fenetre = page.getByRole('dialog');
+    await expect(fenetre.getByText('200 t')).toBeVisible();
+    await fenetre.getByRole('button', { name: 'Suivant' }).click();
+    await expect(fenetre.getByText('Hypothèse de charge à saisir', { exact: false })).toBeVisible();
+    await fenetre.getByLabel('Hypothèse de charge').fill('80');
+    await expect(fenetre.getByText('200 t / (40 t × 80 %) = 7 voyage(s)')).toBeVisible();
+    await fenetre.getByRole('button', { name: 'Suivant' }).click();
+    await expect(fenetre.getByText('Proposition : 4 voyage(s)', { exact: false })).toBeVisible();
+    await fenetre.getByLabel('Destination').selectOption({ label: 'Dépôt' });
+    await fenetre.getByLabel('Nombre de voyages').fill('5');
+    await expect(fenetre.getByRole('button', { name: 'Suivant' })).toBeDisabled();
+    await fenetre.getByLabel('Motif de la correction (obligatoire)').fill('Un camion de renfort');
+    await fenetre.getByRole('button', { name: 'Suivant' }).click();
+    await fenetre.getByRole('button', { name: 'Confirmer et créer 5 voyage(s)' }).click();
+    await expect.poll(() => confirmations.length).toBe(1);
+    expect(confirmations[0]).toMatchObject({
+      p_date: aujourdhui(), p_site_id: SITE_MINE, p_shift_id: SHIFT, p_destination_id: SITE_DEPOT,
+      p_hypothese_charge_pct: 80, p_nombre: 5, p_motif: 'Un camion de renfort', p_version_attendue: 0,
+    });
   });
 });

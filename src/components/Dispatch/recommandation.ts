@@ -20,6 +20,7 @@ export interface Engin {
   vehicle_type: string;
   status: string;
   site_id: string | null;
+  capacity_tonnes?: number | null;
 }
 
 export interface Chauffeur {
@@ -39,7 +40,43 @@ export interface Recommandation {
   impossible: string | null;
   /** Avertissements non bloquants (sanction de conduite en vigueur, D-066). */
   avertissements: string[];
+  /** D-087 : capacite retenue du camion (t), null si inconnue. */
+  capacite: number | null;
+  /** D-087 : duree estimee = temps de cycle observe du shift, null si non mesure. */
+  dureeEstimeeMin: number | null;
+  /** D-087 : contraintes verifiees pour cette proposition. */
+  contraintes: string[];
+  /** D-087 : confiance selon la qualite des donnees, et ce qui manque. */
+  confiance: Confiance;
+  manques: string[];
 }
+
+export type Confiance = 'elevee' | 'moyenne' | 'faible';
+
+/** Contexte facultatif du centre de controle (D-087). */
+export interface ContexteRecommandation {
+  /** Engins a immobilisation ouverte. */
+  immobilises?: Set<string>;
+  /** Chauffeurs sans habilitation requise valide : id -> habilitations manquantes. Undefined = non lu. */
+  nonHabilites?: Map<string, string>;
+  /** Chauffeurs engages sur un voyage hors du shift : id -> camion. */
+  chauffeursEngages?: Map<string, string>;
+  /** Temps de cycle moyen observe (min), null si non mesure. */
+  cycleMin?: number | null;
+}
+
+/** Confiance : 4 criteres de qualite des donnees, chacun nomme s'il manque. */
+export const evaluerConfiance = (q: { chauffeurConnu: boolean; cycleConnu: boolean; capaciteConnue: boolean; habilitationsLues: boolean }) => {
+  const manques = [
+    ...(q.chauffeurConnu ? [] : ['aucun historique du chauffeur sur ce camion']),
+    ...(q.cycleConnu ? [] : ['temps de cycle non mesuré sur ce shift']),
+    ...(q.capaciteConnue ? [] : ['capacité du camion inconnue']),
+    ...(q.habilitationsLues ? [] : ['habilitations non lues']),
+  ];
+  const score = 4 - manques.length;
+  const confiance: Confiance = score === 4 ? 'elevee' : score >= 2 ? 'moyenne' : 'faible';
+  return { confiance, manques };
+};
 
 export const TYPES_CAMION = ['tipper', 'flatbed'];
 export const TYPES_ENGIN = ['loader', 'excavator'];
@@ -96,6 +133,7 @@ export const recommander = ({
   chauffeurs,
   habitudes,
   sanctions,
+  contexte = {},
 }: {
   date: string;
   voyages: VoyageShift[];
@@ -106,7 +144,17 @@ export const recommander = ({
   habitudes: Map<string, string>;
   /** Sanctions de conduite en vigueur par chauffeur (avertissement seulement). */
   sanctions?: Map<string, SanctionConduite[]>;
+  contexte?: ContexteRecommandation;
 }): Recommandation[] => {
+  const immobilises = contexte.immobilises ?? new Set<string>();
+  const nonHabilites = contexte.nonHabilites;
+  const engagesAilleurs = contexte.chauffeursEngages ?? new Map<string, string>();
+  const cycleMin = contexte.cycleMin ?? null;
+  // Chauffeur utilisable : actif, permis valide, habilite (si lu), pas engage
+  // avec un autre camion hors du shift.
+  const utilisable = (c: Chauffeur, camion: string) =>
+    chauffeurDisponible(c, date) && !nonHabilites?.has(c.id)
+    && (!engagesAilleurs.has(c.id) || engagesAilleurs.get(c.id) === camion);
   const actifs = voyages.filter((v) => !ANNULES.includes(v.etat ?? ''));
   const chargeCamion = new Map<string, number>();
   const chargeEngin = new Map<string, number>();
@@ -129,18 +177,20 @@ export const recommander = ({
       const site = voyage.departure_site_id;
       const explications: string[] = [];
       const camions = engins
-        .filter((e) => camionDisponible(e) && e.id !== exclureCamion && (e.site_id === null || e.site_id === site))
+        .filter((e) => camionDisponible(e) && !immobilises.has(e.id) && e.id !== exclureCamion && (e.site_id === null || e.site_id === site))
         .sort((a, b) => (chargeCamion.get(a.id) ?? 0) - (chargeCamion.get(b.id) ?? 0) || parImmat(a, b));
 
       let camion: Engin | null = null;
       let chauffeur: Chauffeur | null = null;
+      let chauffeurConnu = false;
       for (const c of camions) {
         const auVolant = chauffeurDuCamion.get(c.id);
         if (auVolant) {
           const ch = chauffeurParId.get(auVolant);
-          if (ch && chauffeurDisponible(ch, date)) {
+          if (ch && utilisable(ch, c.id)) {
             camion = c;
             chauffeur = ch;
+            chauffeurConnu = true;
             explications.push(`${c.registration} : ${chargeCamion.get(c.id) ?? 0} voyage(s) sur le shift, le moins chargé`);
             explications.push(`${ch.name} est déjà au volant de ce camion sur le shift`);
             break;
@@ -149,15 +199,16 @@ export const recommander = ({
         }
         const habituel = habitudes.get(c.id);
         const ch = habituel ? chauffeurParId.get(habituel) : undefined;
-        const choisi = ch && chauffeurDisponible(ch, date) && !camionDuChauffeur.has(ch.id)
-          ? { ch, raison: `${ch.name} est le chauffeur habituel de ce camion (14 jours)` }
+        const choisi = ch && utilisable(ch, c.id) && !camionDuChauffeur.has(ch.id)
+          ? { ch, raison: `${ch.name} est le chauffeur habituel de ce camion (14 jours)`, connu: true }
           : (() => {
-              const l = libres.find((x) => chauffeurDisponible(x, date) && !camionDuChauffeur.has(x.id));
-              return l ? { ch: l, raison: `${l.name} est disponible (sur aucun camion du shift)` } : null;
+              const l = libres.find((x) => utilisable(x, c.id) && !camionDuChauffeur.has(x.id));
+              return l ? { ch: l, raison: `${l.name} est disponible (sur aucun camion du shift)`, connu: false } : null;
             })();
         if (choisi) {
           camion = c;
           chauffeur = choisi.ch;
+          chauffeurConnu = choisi.connu;
           explications.push(`${c.registration} : ${chargeCamion.get(c.id) ?? 0} voyage(s) sur le shift, le moins chargé`);
           explications.push(choisi.raison);
           break;
@@ -165,14 +216,14 @@ export const recommander = ({
       }
 
       const engin = engins
-        .filter((e) => e.status === 'active' && TYPES_ENGIN.includes(e.vehicle_type) && (e.site_id === null || e.site_id === site))
+        .filter((e) => e.status === 'active' && !immobilises.has(e.id) && TYPES_ENGIN.includes(e.vehicle_type) && (e.site_id === null || e.site_id === site))
         .sort((a, b) => (chargeEngin.get(a.id) ?? 0) - (chargeEngin.get(b.id) ?? 0) || parImmat(a, b))[0] ?? null;
       if (engin) explications.push(`${engin.registration} : ${chargeEngin.get(engin.id) ?? 0} voyage(s) à charger, la file la plus courte`);
       else explications.push('Aucune chargeuse ou pelle active sur le site');
 
       let impossible: string | null = null;
       if (camions.length === 0) impossible = 'Aucun camion disponible sur le site';
-      else if (!camion) impossible = 'Aucun chauffeur disponible au permis valide';
+      else if (!camion) impossible = nonHabilites ? 'Aucun chauffeur disponible, au permis valide et habilité' : 'Aucun chauffeur disponible au permis valide';
 
       if (camion && chauffeur) {
         chargeCamion.set(camion.id, (chargeCamion.get(camion.id) ?? 0) + 1);
@@ -182,15 +233,34 @@ export const recommander = ({
       if (engin && camion) chargeEngin.set(engin.id, (chargeEngin.get(engin.id) ?? 0) + 1);
 
       const avertissement = !impossible && chauffeur ? avertissementSanction(chauffeur.name, sanctions?.get(chauffeur.id)) : null;
+      const capacite = camion?.capacity_tonnes ?? null;
+      const contraintes = impossible ? [] : [
+        'Camion actif, de type benne, du site de chargement, sans immobilisation ouverte',
+        `Permis du chauffeur valide le ${date}`,
+        nonHabilites ? 'Habilitations requises valides à la date du voyage' : 'Habilitations non lues : contrôlées par le serveur',
+        'Chauffeur sur un seul camion du shift',
+        engin ? 'Engin de chargement actif du site' : 'Sans engin de chargement',
+      ];
+      const { confiance, manques } = impossible
+        ? { confiance: 'faible' as Confiance, manques: [impossible] }
+        : evaluerConfiance({ chauffeurConnu, cycleConnu: cycleMin !== null, capaciteConnue: capacite !== null, habilitationsLues: nonHabilites !== undefined });
       return {
         voyageId: voyage.id, camion, chauffeur, engin, explications: impossible ? [impossible] : explications, impossible,
         avertissements: avertissement ? [avertissement] : [],
+        capacite, dureeEstimeeMin: impossible ? null : cycleMin, contraintes, confiance, manques,
       };
     });
 };
 
 /** Instantane de la recommandation, historise avec la decision. */
 export const instantane = (r: Recommandation) => ({
+  camion_id: r.camion?.id ?? null,
+  chauffeur_id: r.chauffeur?.id ?? null,
+  engin_id: r.engin?.id ?? null,
+  capacite: r.capacite,
+  duree_estimee_min: r.dureeEstimeeMin,
+  confiance: r.confiance,
+  contraintes: r.contraintes,
   camion: r.camion?.registration ?? null,
   chauffeur: r.chauffeur?.name ?? null,
   engin: r.engin?.registration ?? null,

@@ -8,6 +8,14 @@ purgée de la démonstration (D-076). Aucun élément n'est UTILISABLE ni
 VALIDÉ : aucun compte réel, aucun référentiel réel, aucun guide de rôle,
 aucun PV.
 
+## Mise à jour D-087 (2026-11-17, état constaté sur la branche `lot-06/dispatch-control-center`)
+
+État : **Développé et testé** (pgTAP 65, vitest, E2E sur API simulée) ; non fusionné, non déployé. Rien n'est « utilisable » ni « validé » tant que les rôles et données réels ne l'ont pas rejoué.
+
+- Instance de shift (`postes`) : états planifié, ouvert, en cours, clôturé, validé, annulé ; `version` ; journal `postes_journal` append-only. Fonctions : `planifier_poste`, `ouvrir_poste` (ouvre aussi un planifié), `changer_etat_poste` (démarrer, annuler motivé), `cloturer_shift` (motif si voyages non terminés), `cloturer_poste` (même refus).
+- Incohérence corrigée : la barre supérieure et le filtre du Dispatch ne présentent plus un shift configuré comme actif ; « Shift X en cours » seulement si une instance est ouverte ou en cours.
+- L'écran Postes de travail garde ses fonctions, affiche les nouveaux états et exploite un poste en cours comme un poste ouvert ; planifier, démarrer et annuler se font depuis Dispatch, onglet Shift. Sa clôture (`cloturer_poste`) est refusée si des voyages ne sont pas terminés : la clôture motivée passe par le Dispatch.
+
 ## Synthèse des états
 
 | # | Fonctionnalité (liste du propriétaire, standard 12 blocs) | État | Preuve |
