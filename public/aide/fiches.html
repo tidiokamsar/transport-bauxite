@@ -1,0 +1,44 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>14. Fiches terrain : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>14. Fiches terrain</h2>
+<h3>A. Présentation</h3>
+<p>Les fiches terrain sont des fiches papier numérotées par le serveur, préparées pour une date, un site et un shift, imprimées, remises à un agent, retournées signées, saisies, contrôlées et validées. La fiche signée est la preuve des heures et des tonnages.</p>
+<table><tr><th>Type</th><th>Préfixe</th><th>Contenu</th><th>Droit d&#x27;écriture</th></tr><tr><td>Rotations camion</td><td>FR</td><td>Rotations d&#x27;un camion pour le shift</td><td><code>trips</code></td></tr><tr><td>Pointage des engins</td><td>FP</td><td>Horamètres, arrêts et causes</td><td><code>maintenance</code></td></tr><tr><td>Carburant</td><td>FC</td><td>Distribution : engin, litres, compteur</td><td><code>fuel</code></td></tr></table>
+<h3>B. Principes métier</h3>
+<ul><li>Seize états : À préparer, Préparée, À imprimer, Imprimée, À remettre, Remise à l&#x27;agent, En utilisation, Retournée, À saisir, Saisie en cours, Saisie terminée, À contrôler, À corriger, Validée, Archivée, Annulée.</li><li>L&#x27;état ne change que par les actions du cycle ; une fiche validée, archivée ou annulée est figée.</li><li>Le contrôle relève les écarts sans rien corriger (FR : voyage sans ligne, ticket CBG absent ou différent, km contre relevés... ; FP : horamètre en recul, arrêt sans immobilisation... ; FC : sans cuve, solde de cuve insuffisant...).</li><li>La validation revient à une autre personne que tout auteur de la saisie ; motif si des écarts subsistent.</li><li>Chaque arrêt saisi sur une FP devient une immobilisation de l&#x27;engin. Le prix du litre n&#x27;est jamais saisi sur une FC.</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Fiches terrain</b> (liste, préparation <code>#/fiches/nouveau</code>, lots d&#x27;impression, de remise et de retour <code>#/fiches/lot/&lt;action&gt;?ids=...</code>) ; fiche <code>#/fiches/&lt;identifiant&gt;</code> avec ses actions en pages <code>#/fiches/&lt;identifiant&gt;/&lt;action&gt;</code> (imprimer, remettre, retour, saisir-ligne, saisir-pointage, saisir-carburant, terminer-saisie, soumettre, controler, renvoyer, valider, archiver, annuler) ; <b>Opérations transport &gt; Cycle des fiches</b>. Le camion et le chauffeur du contexte filtrent la liste (bandeau avec retrait).</p>
+<h3>D. Écrans</h3>
+<p>Figure 14.1 (capture à venir) : liste des fiches d&#x27;une date, d&#x27;un site et d&#x27;un shift, boutons de préparation. Figure 14.2 (capture à venir) : fiche imprimable A4 (rotations en paysage). Figure 14.3 (capture à venir) : remise à l&#x27;agent et retour. Figure 14.4 (capture à venir) : saisie d&#x27;une FR (heures, ticket CBG, brut et tare en tonnes). Figure 14.5 (capture à venir) : saisie d&#x27;une FP (opérateur, horamètres, arrêts). Figure 14.6 (capture à venir) : saisie d&#x27;une FC (engin, chauffeur, litres, servi depuis, compteur). Figure 14.7 (capture à venir) : fin de saisie et soumission au contrôle. Figure 14.8 (capture à venir) : résultat du contrôle (écarts), boutons Renvoyer en correction et Valider. Figure 14.9 (capture à venir) : annulation motivée.</p>
+<h3>E. Actions disponibles</h3>
+<p>Préparer ; enregistrer l&#x27;impression (réimpression motivée) ; remettre à l&#x27;agent ; enregistrer le retour ; saisir (FR, FP, FC) ; saisir une rotation reliée au voyage ; terminer la saisie ; soumettre au contrôle ; contrôler ; renvoyer en correction ; valider ; archiver ; annuler (motif).</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>14.F.1 Préparer</b> : choisir date, site, shift ; <b>Préparer N fiche(s) de rotations</b> (une par camion ayant des voyages du dispatch), <b>Préparer la fiche de pointage</b>, <b>Préparer la fiche carburant</b>.</p>
+<p><b>14.F.2 Imprimer</b> : <b>Imprimer les fiches préparées</b>, puis enregistrer l&#x27;impression ; une réimpression demande un motif.</p>
+<p><b>14.F.3 Remettre et recevoir</b> : fiche, <b>Remettre à l&#x27;agent</b> (nom de l&#x27;agent, heure non future) ; au retour, <b>Enregistrer le retour</b>.</p>
+<p><b>14.F.4 Saisir une FR</b> : pour chaque voyage du camion : heures dans l&#x27;ordre (arrivée chargement, début et fin de chargement, départ, arrivée destination, début et fin de déchargement), puis pesée CBG au dépôt (heure, numéro de ticket, brut et tare en tonnes, référence). <b>Enregistrer</b> la ligne : message vert (état atteint) ou rouge (raison du refus). Une étape déjà enregistrée est ignorée.</p>
+<p><b>14.F.5 Saisir une FP</b> : pour chaque engin : opérateur, horamètre début et fin, observations ; <b>Arrêt</b> pour chaque arrêt (début, fin, cause, imputation obligatoires sauf la fin) ; <b>Enregistrer</b>.</p>
+<p><b>14.F.6 Saisir une FC</b> : une ligne par plein : engin, chauffeur, litres, « Servi depuis » (cuve suivie ou hors stockage suivi), compteur ou horamètre ; <b>Enregistrer les pleins</b>.</p>
+<p><b>14.F.7 Terminer et soumettre</b> : <b>Terminer la saisie</b>, puis <b>Soumettre au contrôle</b>.</p>
+<p><b>14.F.8 Contrôler et valider</b> : un contrôleur lance <b>Contrôler</b> ; il lit les écarts ; <b>Renvoyer en correction</b> (motif) ou, s&#x27;il n&#x27;est pas auteur de la saisie, <b>Valider</b> (motif si écarts) ; puis <b>Archiver</b>.</p>
+<p><b>14.F.9 Annuler</b> : <b>Annuler la fiche</b>, motif ; refusé si la fiche est déjà portée par un ticket, un événement de voyage ou une sortie de stock, ou si elle est à contrôler.</p>
+<h3>G. Exemple pratique</h3>
+<p>Fiche FR d&#x27;exemple du camion AB-1234 : 3 rotations saisies ; le contrôle relève « ticket CBG absent » sur la troisième ; la fiche est renvoyée en correction ; l&#x27;agent saisit le ticket ; un autre contrôleur valide.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>« Aucun voyage de ce camion à cette date » : les voyages se préparent au Dispatch.</li><li>« Fiche ... close » : fiche déjà saisie ou annulée.</li><li>« Index d&#x27;horametre incoherents (fin inferieure au debut) ».</li><li>La saisie anticipée avant retour reste possible et est tracée.</li><li>Le brouillon de saisie est enregistré sur le serveur (<code>enregistrer_brouillon_fiche</code>) et repris à la saisie suivante.</li><li>Impression, remise et retour se font fiche par fiche ou par lot de fiches sélectionnées dans la liste.</li><li>La création de lots numérotés (LF-AAMMJJ-NNN) et l&#x27;attribution de fiches à un agent existent côté serveur (<code>creer_lot_fiches</code>, <code>attribuer_fiches</code>) sans écran.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Dispatch (voyages), Voyages (étapes), Pesée (ticket), Immobilisations (arrêts FP), Carburant (sorties FC à valider au registre, écrites à la validation pour les lignes du cycle).</p>
+<h3>J. Exercice</h3>
+<p>Validez une fiche dont vous avez saisi une ligne. Résultat attendu : refus (séparation des tâches).</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>FR, FP, FC</b> : fiche de rotations, de pointage, carburant.</li><li><b>Écart de contrôle</b> : différence relevée par le contrôle, sans correction automatique.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>33. Suivi GPS, géorepérage, capteurs et environnement : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>33. Suivi GPS, géorepérage, capteurs et environnement</h2>
+<h3>A. Présentation</h3>
+<p>Écrans prévus pour des capteurs et un suivi de position : <b>Suivi GPS</b>, <b>Intelligence flotte</b>, <b>Historique des trajets</b>, <b>Géorepérage</b> (menu Exploitation), <b>Jauges connectées</b> (Carburant), <b>Capteurs IoT</b>, <b>Environnement</b> (Reporting &amp; Analyse).</p>
+<h3>B. Principes métier</h3>
+<p>Aucun matériel GPS ni capteur n&#x27;est installé : ces écrans n&#x27;ont pas de données réelles et l&#x27;affichent. Une position ancienne n&#x27;est jamais présentée comme en direct. Le géorepérage enregistre des zones, sans aucune détection (moteur géographique absent). L&#x27;écran Environnement est une maquette : ses boutons n&#x27;ont pas d&#x27;effet.</p>
+<h3>C. Navigation</h3>
+<p>Voir A.</p>
+<h3>D. Écrans</h3>
+<p>Figure 33.1 (capture à venir) : suivi GPS sans données. Figure 33.2 (capture à venir) : géorepérage, saisie d&#x27;une zone cercle ou polygone. Figure 33.3 (capture à venir) : capteurs IoT, « Aucun tracker GPS configuré ». Figure 33.4 (capture à venir) : environnement (maquette).</p>
+<h3>E. Actions disponibles</h3>
+<p>Lecture ; créer et désactiver une zone de géorepérage (écriture <code>gps_tracking</code>).</p>
+<h3>F. Procédures pas à pas</h3>
+<p>Aucune procédure opérationnelle tant qu&#x27;un matériel n&#x27;est pas choisi (extension à déclencheur).</p>
+<h3>G. Exemple pratique</h3>
+<p>Sans objet.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Ne pas utiliser ces écrans pour une décision : ils sont vides par construction.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Le Dispatch et le tableau de bord n&#x27;utilisent aucune position.</p>
+<h3>J. Exercice</h3>
+<p>Ouvrez Capteurs IoT. Résultat attendu : « Aucun tracker GPS configuré ».</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Extension à déclencheur</b> : fonction qui ne sera développée qu&#x27;après un événement fixé (ici, le choix d&#x27;un matériel).</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

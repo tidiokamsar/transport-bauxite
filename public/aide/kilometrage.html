@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>13. Kilométrage : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>13. Kilométrage</h2>
+<h3>A. Présentation</h3>
+<p>Établit des kilomètres vérifiables par voyage, notamment pour contrôler un tarif de location au kilomètre.</p>
+<h3>B. Principes métier</h3>
+<p>Cinq notions distinctes : distance de référence (référentiel site à site, avec sa source), déclarée, mesurée (deux relevés d&#x27;odomètre), validée (décision humaine), facturable (trajet chargé, plus retour à vide si le tarif le prévoit). Rien n&#x27;est estimé : sans distance validée, les kilomètres sont « non vérifiables ».</p>
+<h3>C. Navigation</h3>
+<p>Menu <b>Kilométrage</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 13.1 (capture à venir) : distances de référence. Figure 13.2 (capture à venir) : relevés de compteur d&#x27;un voyage, avec pièce jointe (photo du compteur). Figure 13.3 (capture à venir) : validation de la distance.</p>
+<h3>E. Actions disponibles</h3>
+<p>Créer ou désactiver une distance de référence (droit <code>contracts</code> ou administrateur) ; saisir un relevé ; corriger un relevé (motif) ; valider la distance d&#x27;un voyage (droit <code>contracts</code>) ; joindre une photo.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>13.F.1 Saisir une distance de référence</b> : origine, destination, distance, source ; enregistrer. Une distance se désactive, ne se supprime pas.</p>
+<p><b>13.F.2 Saisir un relevé</b> : voyage, moment (départ chargé, arrivée dépôt, fin de rotation, autre), source (fiche, saisie, photo, GPS), valeur, heure. Contrôles : valeur positive, heure non future, cohérente avec les relevés précédent et suivant de l&#x27;engin. Un relevé existant pour le même voyage et le même moment se corrige avec motif (le nouveau remplace l&#x27;ancien, qui reste visible).</p>
+<p><b>13.F.3 Valider une distance</b> : voyage livré ; validateur autre que l&#x27;auteur des relevés ; motif si la distance diffère de la mesure ou si la mesure manque. Chaque validation est une version.</p>
+<h3>G. Exemple pratique</h3>
+<p>Relevés d&#x27;exemple 120 345 km au départ chargé et 120 389 km à l&#x27;arrivée : mesure 44 km ; référence 45 km ; le chargé de contrats valide 44 km sans motif.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Le rapport d&#x27;engagements lit encore les anciens champs de compteur du voyage, pas les distances validées.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Voyages ; contrôle des factures Neemba au kilomètre (chapitre 27).</p>
+<h3>J. Exercice</h3>
+<p>Validez une distance dont vous avez saisi les relevés. Résultat attendu : refus (séparation, réglage <code>kilometrage_validation_separee</code> exigé par défaut).</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Distance facturable</b> : distance validée du trajet chargé, plus retour à vide si prévu au tarif.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

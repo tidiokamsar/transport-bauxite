@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>17. Véhicules et engins : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>17. Véhicules et engins</h2>
+<h3>A. Présentation</h3>
+<p>Registre des engins : camions semi-remorques, chargeuses, pelle, loués à Neemba ou appartenant à l&#x27;exploitant.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Pas de suppression physique : un engin se suspend, se remet en service ou se réforme, avec motif, au journal de flotte.</li><li>Le statut « immobilisé » ou « en maintenance » est posé par la déclaration d&#x27;une immobilisation (chapitre 21) ; le Dispatch le lit sans autre saisie.</li><li>Un engin créé par un profil rattaché à un site est enregistré sur ce site.</li><li>L&#x27;unité de facturation de la location (km, heure, tonne, jour, mois, forfait) se choisit engin par engin dans le contrat (chapitre 27), pas ici.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Flotte &gt; Véhicules et engins</b> (page standard <code>#/vehicles</code>).</p>
+<h3>D. Écrans</h3>
+<p>Figure 17.1 (capture à venir) : liste des engins et fiche (informations, relations : voyages, pleins, contrôles, immobilisations, documents ; historique). Figure 17.2 (capture à venir) : formulaire d&#x27;engin. Figure 17.3 (capture à venir) : propriété et rattachement au contrat de location. Figure 17.4 (capture à venir) : actions Suspendre, Remettre en service, Réformer avec motif.</p>
+<h3>E. Actions disponibles</h3>
+<p>Créer, modifier ; définir la propriété et rattacher à un contrat de location ; suspendre, remettre en service, réformer (motif) ; exporter la liste en CSV.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>17.F.1 Consulter un engin</b> : liste, filtre, clic, onglets. <b>17.F.2 Créer un engin</b> : <b>Nouveau</b>, immatriculation, type, marque et modèle, site, capacité ; enregistrer. <b>17.F.3 Rattacher au contrat Neemba</b> : fiche, propriété (loué), choisir le contrat parmi les contrats rattachables ; enregistrer. Sans ce rattachement, l&#x27;évaluation de Neemba reste sans données. <b>17.F.4 Suspendre un engin</b> : fiche, <b>Suspendre</b>, motif ; <b>Remettre en service</b> pour lever.</p>
+<h3>G. Exemple pratique</h3>
+<p>Le camion d&#x27;exemple AB-1234 est rattaché au contrat Neemba d&#x27;exemple ; il apparaît dans les mesures de l&#x27;évaluation du loueur.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Pas d&#x27;import en masse du registre ; pièces jointes non disponibles sur un engin.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Dispatch, Voyages, Carburant, Pneus, Immobilisations, Contrats, Documents.</p>
+<h3>J. Exercice</h3>
+<p>Suspendez un engin sans motif. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Engin loué</b> : engin dont le propriétaire est Neemba, rattaché à un contrat de location.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

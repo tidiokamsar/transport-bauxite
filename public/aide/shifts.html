@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>8. Shifts : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>8. Shifts</h2>
+<h3>A. Présentation</h3>
+<p>Les shifts sont les plages de travail communes à tous les sites (par exemple Jour 06:00-18:00, Nuit 18:00-06:00).</p>
+<h3>B. Principes métier</h3>
+<ul><li>Seul un profil sans site, administrateur ou titulaire de <code>settings</code>, crée, modifie (motif) ou désactive (motif) un shift.</li><li>Heures à la minute ; fin différente du début ; fin avant le début = shift de nuit.</li><li>Deux shifts actifs ne se chevauchent pas (minuit compris). Nom et libellé uniques.</li><li>Un shift ne se supprime jamais ; le journal trace chaque action.</li><li>Un shift configuré est distinct de son <b>instance</b> (le poste d&#x27;une date et d&#x27;un site, chapitre 10).</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Exploitation &gt; Shifts</b>.</p>
+<h3>D. Écrans</h3>
+<p>Pages standard (D-090, D-088 complément) : liste <code>#/shifts</code>, fiche <code>#/shifts/&lt;identifiant&gt;</code> (onglet Historique = journal), formulaire <code>#/shifts/nouveau</code> et <code>#/shifts/&lt;identifiant&gt;/modifier</code>, désactivation motivée en page d&#x27;action <code>#/shifts/&lt;identifiant&gt;/desactiver</code> (elle remplace l&#x27;ancienne petite fenêtre du navigateur).</p>
+<p>Figure 8.1 (capture à venir) : liste des shifts. Figure 8.2 (capture à venir) : fiche du shift, onglet Historique (journal des shifts). Figure 8.3 (capture à venir) : formulaire du shift en pleine page (nom, libellé, début, fin, ordre). Figure 8.4 (capture à venir) : page de désactivation avec motif.</p>
+<h3>E. Actions disponibles</h3>
+<p>Créer, modifier avec motif, désactiver avec motif ; consulter le journal.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>8.F.1 Créer un shift</b> : nouveau shift, saisir nom, libellé, heures, ordre ; enregistrer. Erreur fréquente : chevauchement avec un shift actif.</p>
+<p><b>8.F.2 Désactiver un shift</b> : ouvrir la fiche du shift, <b>Désactiver</b> ; la page d&#x27;action demande le motif ; confirmer. Il n&#x27;est plus proposé aux saisies.</p>
+<h3>G. Exemple pratique</h3>
+<p>Création de « Jour » 06:00-18:00 puis « Nuit » 18:00-06:00 : les deux sont acceptés ; un troisième « Relève » 17:00-19:00 est refusé (chevauchement).</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Sans shift actif, Dispatch, Postes et Fiches l&#x27;indiquent et renvoient vers cet écran.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Planification (objectif par shift), Postes, Dispatch, Fiches terrain, indicateur de la barre supérieure.</p>
+<h3>J. Exercice</h3>
+<p>Saisissez un shift 22:00-06:00 alors que « Nuit » 18:00-06:00 est actif. Résultat attendu : refus pour chevauchement.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Shift</b> : plage horaire type.</li><li><b>Instance de shift</b> : le poste de travail d&#x27;une date et d&#x27;un site.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

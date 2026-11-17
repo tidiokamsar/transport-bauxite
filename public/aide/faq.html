@@ -1,0 +1,62 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Questions fréquentes : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h1>SIGTB : questions fréquentes des utilisateurs</h1>
+<p>Version SIGTB documentée : <code>origin/main</code> 1896cde (2026-11-17). Date de rédaction : 2026-11-17 (<code>date -u</code>). Mission D-092, phase 1. Renvois : MGU = manuel général.</p>
+<h2>Accès et compte</h2>
+<p><b>Comment obtenir un compte ?</b> Auprès de l&#x27;administrateur de la plateforme ; il n&#x27;y a pas d&#x27;inscription libre.</p>
+<p><b>J&#x27;ai oublié mon mot de passe.</b> La réinitialisation par courriel n&#x27;est pas activée : l&#x27;administrateur vous attribue un nouveau mot de passe.</p>
+<p><b>Puis-je changer mon mot de passe moi-même ?</b> Non, pas depuis l&#x27;application aujourd&#x27;hui.</p>
+<p><b>Le bouton Microsoft 365 ne fonctionne pas.</b> Le fournisseur n&#x27;est pas configuré ; utilisez votre adresse et votre mot de passe.</p>
+<p><b>J&#x27;ai perdu le téléphone qui porte mon code.</b> Prévenez l&#x27;administrateur ; conservez la clé de secours notée à l&#x27;inscription.</p>
+<p><b>Existe-t-il une application mobile ?</b> Non ; SIGTB s&#x27;utilise dans un navigateur.</p>
+<h2>Écrans et menus</h2>
+<p><b>Je ne vois pas un menu dont un collègue parle.</b> Votre compte n&#x27;a pas le droit de lecture du module ; demandez-le à l&#x27;administrateur.</p>
+<p><b>Je vois un bouton mais l&#x27;action est refusée.</b> Le serveur est seul juge : lisez le message (droit, périmètre, séparation des tâches, règle métier).</p>
+<p><b>Que veut dire « sans données » ?</b> Qu&#x27;aucune saisie n&#x27;existe pour la période ou que la donnée manque. SIGTB n&#x27;estime jamais une valeur.</p>
+<p><b>Que veut dire « Non visible avec vos droits de lecture » ?</b> Ce domaine vous est fermé ; ce n&#x27;est pas un zéro.</p>
+<p><b>Le sélecteur de site du menu me donne-t-il accès aux autres sites ?</b> Non, c&#x27;est un filtre d&#x27;affichage. Votre périmètre est fixé par l&#x27;administrateur.</p>
+<p><b>Pourquoi un écran reste-t-il vide (Suivi GPS, Capteurs IoT, Jauges connectées) ?</b> Aucun matériel n&#x27;est installé ; ces écrans n&#x27;ont pas de données réelles (MGU chapitre 33).</p>
+<p><b>L&#x27;écran Environnement a des boutons sans effet.</b> C&#x27;est une maquette encore au menu ; ne pas l&#x27;utiliser.</p>
+<p><b>Comment retrouver vite un voyage, un engin, une facture ?</b> Ctrl K, au moins deux caractères.</p>
+<p><b>Puis-je partager un écran avec un collègue ?</b> Oui, en copiant l&#x27;adresse de la page ; il ne verra que ce que ses droits permettent.</p>
+<h2>Saisie et corrections</h2>
+<p><b>Je me suis trompé dans une saisie validée.</b> On ne réécrit pas : utilisez l&#x27;annulation motivée, la rectification ou la nouvelle version prévue par le module ; l&#x27;original reste visible.</p>
+<p><b>Pourquoi un motif est-il demandé ?</b> Pour tracer chaque décision et chaque correction ; c&#x27;est une règle du serveur.</p>
+<p><b>Pourquoi ne puis-je pas valider ma propre saisie ?</b> Séparation des tâches : une autre personne valide (carburant, distances, achats, paiements, fiches, clôtures de poste, remises en service, anomalies de pesée).</p>
+<p><b>La connexion a coupé pendant ma saisie.</b> La saisie n&#x27;est pas enregistrée ; recommencez. Chaque ligne est enregistrée en une seule opération, rien n&#x27;est écrit à moitié. Exception : la fiche KOGON garde un brouillon sur le poste.</p>
+<p><b>Message « Heure ... dans le futur » ou « Heure anterieure au dernier evenement ».</b> Corrigez l&#x27;heure d&#x27;après la fiche papier.</p>
+<p><b>Message « en cours de modification ».</b> Quelqu&#x27;un a modifié la même donnée en même temps ; rechargez l&#x27;écran et recommencez.</p>
+<h2>Exploitation</h2>
+<p><b>La barre supérieure affiche « non ouvert ».</b> Aucune instance du shift n&#x27;est ouverte : ouvrez-la au Dispatch (onglet Shift et préparation) ou dans Postes de travail.</p>
+<p><b>Le Dispatch ne propose aucun nombre de voyages.</b> Il manque l&#x27;objectif du jour, la capacité des camions ou l&#x27;hypothèse de charge : rien n&#x27;est supposé.</p>
+<p><b>Un chauffeur est refusé à l&#x27;affectation.</b> Lisez le motif : permis expiré, habilitation exigée manquante, déjà affecté sur le shift, site fermé.</p>
+<p><b>Un camion est refusé.</b> Il est inactif, n&#x27;est pas une benne, a une immobilisation ouverte ou est engagé avec un autre chauffeur.</p>
+<p><b>Le départ au chargement est refusé.</b> Le contrôle avant départ est exigé et absent ou non conforme pour ce camion aujourd&#x27;hui.</p>
+<p><b>J&#x27;ai reçu le ticket CBG après la livraison.</b> Fiche du voyage, « Rattacher le ticket CBG », motif du retard.</p>
+<p><b>Ticket refusé « deja utilise sur un autre voyage ».</b> Vérifiez le numéro sur le ticket CBG.</p>
+<p><b>Brut et tare : kilos ou tonnes ?</b> Tonnes, comme sur le ticket CBG.</p>
+<h2>Pesée et facturation</h2>
+<p><b>Qui fait foi entre CBG et KOGON ?</b> CBG. La fiche KOGON est un relevé observé, rapproché du relevé officiel.</p>
+<p><b>Je ne peux pas importer le relevé une seconde fois.</b> Un même fichier ne s&#x27;importe qu&#x27;une fois (empreinte).</p>
+<p><b>Pourquoi un voyage n&#x27;est-il pas facturable ?</b> Ligne à examiner, anomalie de pesée ouverte, sans relevé CBG, ticket rectifié, net supérieur à la capacité... Lisez les anomalies de la ligne de réconciliation.</p>
+<p><b>Qui signe une facture ?</b> Le directeur, jamais celui qui l&#x27;a préparée.</p>
+<p><b>Une facture émise est fausse.</b> Créez un avoir ; une facture émise ne se modifie pas.</p>
+<p><b>SIGTB paie-t-il les fournisseurs ?</b> Non ; il enregistre la décision et l&#x27;exécution faite hors système.</p>
+<h2>Alertes et validations</h2>
+<p><b>Pourquoi aucune alerte d&#x27;immobilisation longue ?</b> Le seuil n&#x27;est pas saisi par l&#x27;administrateur.</p>
+<p><b>Recevrai-je les alertes par courriel ou SMS ?</b> Non, pas aujourd&#x27;hui ; consultez la cloche et Mes validations.</p>
+<p><b>Mes validations est vide alors qu&#x27;un collègue attend ma décision.</b> Vous êtes peut-être l&#x27;auteur de la saisie, ou il vous manque le droit requis ; ou l&#x27;élément est hors de votre site.</p>
+<h2>Pièces justificatives</h2>
+<p><b>Sur quoi puis-je joindre un fichier ?</b> Voyage, ticket CBG, relevé de compteur, relevé CBG, livraison de carburant CBG.</p>
+<p><b>Quels formats ?</b> PDF, JPEG, PNG, WebP, 10 Mio au plus ; CSV et XLSX en plus pour un relevé CBG.</p>
+<p><b>Comment retirer une pièce jointe par erreur ?</b> Par une annulation motivée ; le fichier reste consultable.</p><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

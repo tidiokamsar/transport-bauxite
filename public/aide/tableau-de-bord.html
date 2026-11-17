@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>4. Tableau de bord et centre de pilotage : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>4. Tableau de bord et centre de pilotage</h2>
+<h3>A. Présentation</h3>
+<p>Le <b>Tableau de bord</b> donne la vue globale des opérations ; le <b>Centre de pilotage</b> affiche les indicateurs de référence avec filtres, comparaison et export.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Les indicateurs sont calculés par le serveur (<code>indicateurs_pilotage</code>), jamais dans le navigateur.</li><li>Chaque indicateur porte sa source, sa fiabilité (mesure, partielle, sans données), sa période et l&#x27;heure du calcul.</li><li>Un domaine que vos droits ne permettent pas de lire affiche « Non visible avec vos droits de lecture », jamais 0.</li><li>Une position de plus de 15 minutes n&#x27;est jamais présentée comme en direct.</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Tableau de bord</b> ; menu <b>Centre de pilotage</b> ; alias <b>Opérations transport &gt; Supervision du jour</b> vers le Centre de pilotage.</p>
+<h3>D. Écrans</h3>
+<p>Figure 4.1 (capture à venir) : Tableau de bord, cartes d&#x27;indicateurs avec source et heure. Figure 4.2 (capture à venir) : Centre de pilotage, filtres site, shift, véhicule, partenaire, seconde période et colonne d&#x27;écart, boutons Exporter et Imprimer.</p>
+<h3>E. Actions disponibles</h3>
+<p>Filtrer ; comparer deux périodes ; exporter en CSV (période, filtres, source et heure en tête) ; imprimer.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>4.F.1 Lire le tableau de bord</b> : ouvrir le menu, lire chaque carte avec sa source et son heure ; « sans données » signifie qu&#x27;aucune saisie n&#x27;existe pour la période.</p>
+<p><b>4.F.2 Comparer deux périodes au centre de pilotage</b></p>
+<ul><li>Accès : Centre de pilotage.</li><li>Saisie : période principale, puis seconde période ; filtres si besoin.</li><li>Contrôles : un indicateur qui n&#x27;a pas la dimension filtrée (par exemple les engins en service filtrés par shift) est rendu « sans données » avec le motif.</li><li>Résultat : les deux valeurs et l&#x27;écart côte à côte.</li><li>Vérification : la fiabilité de chaque ligne ; une valeur partielle se lit avec prudence.</li><li>Export : <b>Exporter</b> produit un CSV ; <b>Imprimer</b> imprime avec l&#x27;en-tête des filtres.</li></ul>
+<h3>G. Exemple pratique</h3>
+<p>Le directeur compare la semaine en cours à la précédente pour le site d&#x27;exemple « Site minier A » : tonnes livrées et voyages s&#x27;affichent avec l&#x27;écart ; les engins en service, mesurés à l&#x27;instant, n&#x27;ont pas de seconde valeur.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Pas de graphique d&#x27;évolution ; pas d&#x27;indicateurs financiers du directeur (facturé, encaissé, marge) sur ces écrans (chapitre 35).</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Lit les voyages, objectifs, postes, engins, immobilisations, carburant et achats.</p>
+<h3>J. Exercice</h3>
+<p>Exportez le centre de pilotage filtré sur un site. Résultat attendu : un CSV dont l&#x27;en-tête cite le site, la période et l&#x27;heure du calcul.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Fiabilité</b> : mesure (donnée complète), partielle, sans données.</li><li><b>Indicateur instantané</b> : calculé à l&#x27;heure du calcul, pas sur la période.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

@@ -1,0 +1,36 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>6. Centre des décisions : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>6. Centre des décisions</h2>
+<h3>A. Présentation</h3>
+<p>Le <b>Centre des décisions</b> réunit les alertes calculées par le serveur et les décisions en attente, par priorité.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Priorité : 1 alerte critique, 2 décision en attente, 3 avertissement, 4 information, puis de la plus ancienne à la plus récente.</li><li>Les alertes sont écrites par le serveur seulement (<code>actualiser_alertes</code>), à l&#x27;ouverture de l&#x27;écran et de la barre supérieure, au plus une fois toutes les 30 secondes. Il n&#x27;y a pas de calcul planifié : un seuil franchi la nuit apparaît à la première ouverture suivante.</li><li>Neuf règles : immobilisation longue, intervention Neemba en retard, contrôle avant départ non conforme, écart d&#x27;inventaire carburant, document ou habilitation expiré, action corrective en retard, voyage livré sans ticket CBG, EPI à renouveler, inspection en retard.</li><li>Les trois règles à seuil (immobilisation, carburant, ticket) ne produisent rien tant que l&#x27;administrateur n&#x27;a pas saisi le seuil ; les six autres sont actives sauf mise hors service.</li><li>Une alerte dont la condition disparaît reste affichée « condition levée » jusqu&#x27;à sa résolution ; une alerte résolue ne renaît pas pour le même objet.</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Exploitation &gt; Centre des décisions</b>, ou la cloche de la barre supérieure.</p>
+<h3>D. Écrans</h3>
+<p>Figure 6.1 (capture à venir) : liste des alertes et décisions avec priorité, règle, objet, date, état. Figure 6.2 (capture à venir) : résolution d&#x27;une alerte avec motif.</p>
+<h3>E. Actions disponibles</h3>
+<p>Prendre en compte une alerte ; la résoudre avec un motif (écriture du module de la règle) ; ouvrir l&#x27;objet concerné.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>6.F.1 Lire les alertes</b> : ouvrir l&#x27;écran ; chaque alerte se voit avec le droit de lecture du module de sa règle et si l&#x27;objet (voyage, engin, site) est dans votre périmètre.</p>
+<p><b>6.F.2 Résoudre une alerte</b> : ouvrir l&#x27;alerte, traiter la cause dans le module (par exemple clôturer l&#x27;immobilisation), puis <b>Résoudre</b>, saisir le motif, confirmer. Résultat : l&#x27;alerte quitte les alertes actives ; le compteur de la cloche baisse.</p>
+<h3>G. Exemple pratique</h3>
+<p>L&#x27;administrateur a fixé le seuil <code>alerte_voyage_sans_ticket_h</code> à 24 (exemple). Un voyage livré depuis 30 heures sans ticket produit une alerte ; le contrôleur rattache le ticket (12.F.5) puis résout l&#x27;alerte avec le motif « ticket remis par le chauffeur ».</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Aucune alerte de seuil : vérifier que le seuil est saisi (manuel administrateur, section 10).</li><li>Pas d&#x27;envoi d&#x27;alerte par courriel ou SMS.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Maintenance, Carburant, HSE, Flotte, Chauffeurs, Voyages ; seuils dans Paramètres &gt; Général.</p>
+<h3>J. Exercice</h3>
+<p>Citez les trois règles qui restent muettes sans seuil. Résultat attendu : immobilisation longue, écart d&#x27;inventaire carburant, voyage livré sans ticket.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Condition levée</b> : la cause de l&#x27;alerte a disparu, la résolution humaine reste à faire.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

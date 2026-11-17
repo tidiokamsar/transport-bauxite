@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>28. Réconciliation, facturation CBG et recouvrement : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>28. Réconciliation, facturation CBG et recouvrement</h2>
+<h3>A. Présentation</h3>
+<p>Chaîne de facturation de CBG : réconciliation mensuelle du tonnage justifié, facture, signature du directeur, émission, avoir, encaissement, relances.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Le tonnage CBG est celui du relevé officiel ; un tonnage ne se saisit jamais à la main ; une erreur se corrige à la source, puis on actualise.</li><li>Un voyage n&#x27;est ligne que d&#x27;une seule réconciliation ; deux réconciliations d&#x27;un même contrat ne se chevauchent pas sur la période et les sites.</li><li>Une ligne sans tonnage de base ou avec des anomalies non examinées ne devient pas facturable.</li><li>La signature est réservée au rôle directeur, jamais le préparateur ; une facture émise est immuable et se corrige par un avoir.</li><li>Numéros sans trou : <code>FAC-AAAA-NNNN</code>, <code>AV-AAAA-NNNN</code>.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Contrats &amp; Finance</b> : <b>Réconciliation mensuelle</b> (<code>#/reconciliation</code>), <b>Facturation</b> (<code>#/invoices</code>), <b>Recouvrement</b> (<code>#/recouvrement</code>).</p>
+<h3>D. Écrans</h3>
+<p>Figure 28.1 (capture à venir) : réconciliation, lignes, anomalies, décisions. Figure 28.2 (capture à venir) : génération d&#x27;une facture depuis une réconciliation clôturée. Figure 28.3 (capture à venir) : fiche facture et circuit (brouillon, à signer, signée, émise, annulée). Figure 28.4 (capture à venir) : signature ou renvoi par le directeur. Figure 28.5 (capture à venir) : création d&#x27;un avoir. Figure 28.6 (capture à venir) : facture imprimable A4. Figure 28.7 (capture à venir) : créances, encaissement, relances.</p>
+<h3>E. Actions disponibles</h3>
+<p>Ouvrir, actualiser, décider les lignes, clôturer une réconciliation ; générer une facture ; soumettre, signer ou renvoyer (directeur), émettre, annuler ; créer un avoir ; imprimer ; encaisser ; relancer (niveaux 1 rappel, 2 relance, 3 mise en demeure) et imprimer la lettre.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>28.F.1 Réconcilier un mois</b></p>
+<ul><li>Préconditions : relevés CBG importés et rapprochés ; anomalies traitées.</li><li>Saisie : contrat client, période, trajet facultatif, base de tonnage (accepté, reçu ou chargé), tolérance d&#x27;écart chargé et reçu (sans valeur par défaut).</li><li>Contrôles : anomalies relevées (base absente, sans pesée, écart hors tolérance, litige, rejet, ticket en double, ticket rectifié, sans relevé CBG, net supérieur à la capacité, anomalie de pesée ouverte, sans fiche terrain).</li><li>Décision : chaque ligne à examiner, facturable ou exclue, motif obligatoire.</li><li>Confirmation : <b>Clôturer</b>, refusé tant qu&#x27;une ligne reste à examiner. Le tonnage facturable est figé.</li></ul>
+<p><b>28.F.2 Générer la facture</b> : depuis la réconciliation clôturée ; une ligne par tarif à la tonne de la version en vigueur ; taux de taxe saisi (0 si exonéré). <b>28.F.3 Soumettre et émettre</b> : <b>Soumettre</b> (à signer) ; après signature, <b>Émettre</b> (date non future) : numéro définitif, échéance = émission + délai du contrat ; <b>Imprimer</b>. <b>28.F.4 Signer (directeur)</b> : facture à signer, <b>Signer</b> ; ou <b>Renvoyer</b> avec motif. Session aal2 si l&#x27;exigence MFA est active. <b>28.F.5 Créer un avoir</b> : facture émise, <b>Avoir</b>, montant (au plus le reste HT après avoirs), motif ; même circuit. <b>28.F.6 Encaisser et relancer</b> : Recouvrement, créance, <b>Encaisser</b> (date entre émission et aujourd&#x27;hui, montant au plus le reste dû, mode) ; après échéance, <b>Relancer</b> (niveau, canal).</p>
+<h3>G. Exemple pratique</h3>
+<p>Réconciliation d&#x27;exemple d&#x27;octobre : 1 200 voyages, 1 195 facturables, 5 exclus (ticket rectifié) ; facture d&#x27;exemple 48 000 t au tarif d&#x27;exemple ; signée par le directeur, émise, encaissée en deux virements.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Une décision « facturable » est annulée si une anomalie bloquante nouvelle apparaît ou si le tonnage change.</li><li>Pas d&#x27;annulation motivée d&#x27;un encaissement saisi par erreur.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Voyages, Pesée CBG, Contrats (tarifs, délai), Mes validations (facture à signer).</p>
+<h3>J. Exercice</h3>
+<p>Signez une facture que vous avez préparée avec un compte directeur. Résultat attendu : refus (signataire différent du préparateur).</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Base de tonnage</b> : tonnage retenu (accepté, reçu ou chargé).</li><li><b>Avoir</b> : facture négative qui corrige une facture émise.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

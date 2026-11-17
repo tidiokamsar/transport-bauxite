@@ -1,0 +1,42 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>3. Découverte de l&#x27;interface : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>3. Découverte de l&#x27;interface</h2>
+<h3>A. Présentation</h3>
+<p>L&#x27;écran comprend le menu latéral (gauche), la barre supérieure, le bandeau d&#x27;exemple (seulement quand des données d&#x27;exemple sont chargées) et la zone de travail.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Le menu n&#x27;affiche une entrée que si le compte peut lire le module correspondant. C&#x27;est un confort : la barrière est le serveur.</li><li>Le sélecteur de site du menu filtre l&#x27;affichage ; il ne donne aucun droit supplémentaire.</li><li>L&#x27;adresse de la page décrit l&#x27;écran (<code>#/vue</code>, <code>#/vue/identifiant</code>) : le bouton retour du navigateur fonctionne, un lien se partage avec un collègue qui a les mêmes droits.</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu latéral : Tableau de bord, Mes validations, Centre de pilotage, Exploitation, Planification, Postes de travail, Dispatch, Voyages &amp; Rotations, Kilométrage, Fiches terrain, Pesée CBG, Opérations transport, Flotte, Carburant, Maintenance, Pneus, Stocks &amp; Achats, Contrats &amp; Finance, RH &amp; Sécurité, Reporting &amp; Analyse, Paramètres. Les rubriques à flèche s&#x27;ouvrent sur leurs sous-entrées.</p>
+<h3>D. Écrans</h3>
+<p>Figure 3.1 (capture à venir) : menu latéral déplié, sélecteur de site et champ « Rechercher... ». Figure 3.2 (capture à venir) : fenêtre de recherche globale avec résultats par type (engin, chauffeur, voyage, ordre de travail, facture, site). Figure 3.3 (capture à venir) : barre supérieure avec date, indicateur du shift, compteur Mes validations (boîte), compteur d&#x27;alertes (cloche), aide, menu du profil. Figure 3.4 (capture à venir) : page liste standard (recherche, filtres, tri par colonne, pagination, choix des colonnes, bouton Exporter CSV). Figure 3.5 (capture à venir) : page détail standard (fil d&#x27;Ariane, référence, statut, boutons d&#x27;action, onglets Informations, Relations, Historique, Pièces jointes). Figure 3.6 (capture à venir) : onglet Pièces jointes avec dépôt, liste et annulation motivée.</p>
+<p>Éléments de la barre supérieure :</p>
+<ul><li><b>Indicateur du shift</b> : « Shift X en cours » seulement si une instance de poste est ouverte ou en cours ; sinon « non ouvert », « hors plage horaire », « aucun shift défini » ou « shifts indisponibles ». Un clic mène au Dispatch ou à l&#x27;écran Shifts.</li><li><b>Boîte</b> : nombre d&#x27;éléments de Mes validations ; clic : chapitre 5.</li><li><b>Cloche</b> : nombre d&#x27;alertes actives ; clic : Centre des décisions (chapitre 6).</li><li><b>Aide</b> : rappels (recherche Ctrl K, sens de « sans données », contact de l&#x27;administrateur).</li><li><b>Profil</b> : chapitre 2.</li></ul>
+<p>Pages standard : les modules Sites, Véhicules et engins, Chauffeurs, Planification, Postes, Dossier contractuel, Réconciliation, Facturation, Recouvrement, ainsi que la fiche du voyage et la fiche terrain, utilisent des pages standard (liste, fiche, formulaire, action en pleine page). Les autres écrans gardent leur présentation propre (onglets, fenêtres).</p>
+<h3>E. Actions disponibles</h3>
+<p>Rechercher (Ctrl K) ; filtrer, trier, paginer, choisir les colonnes et exporter en CSV une liste standard ; ouvrir une fiche ; consulter l&#x27;historique ; déposer et annuler une pièce jointe sur les objets qui l&#x27;acceptent.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>3.F.1 Rechercher un élément</b> Ctrl K (ou <b>Rechercher...</b> dans le menu), taper au moins deux caractères (immatriculation, nom, numéro de permis, référence de voyage, numéro d&#x27;ordre ou de facture, nom de site), flèches haut et bas, Entrée pour ouvrir. Seuls les éléments que vos droits et votre site permettent de lire apparaissent.</p>
+<p><b>3.F.2 Travailler dans une liste standard</b> Saisir un mot dans la recherche (sans tenir compte des accents), choisir un filtre, cliquer un titre de colonne pour trier, changer de page. Les filtres sont conservés dans l&#x27;adresse et au retour sur la liste pendant la session. Un clic sur une ligne ouvre la fiche. Une lecture refusée par le serveur s&#x27;affiche comme une erreur, jamais comme une liste vide.</p>
+<p><b>3.F.3 Exporter une liste</b> Bouton <b>Exporter CSV</b> : le fichier reprend les lignes filtrées et les colonnes affichées. Ouvrir dans un tableur.</p>
+<p><b>3.F.4 Joindre une pièce justificative</b></p>
+<ul><li>Préconditions : objet d&#x27;un type accepté (voyage, ticket CBG, relevé de compteur, relevé CBG, livraison de carburant CBG) ; droit d&#x27;écriture du module de l&#x27;objet ; site du périmètre.</li><li>Accès : onglet ou bloc <b>Pièces jointes</b> de l&#x27;objet.</li><li>Saisie : choisir le fichier : PDF, JPEG, PNG ou WebP, 10 Mio au plus ; CSV et XLSX seulement pour un relevé CBG.</li><li>Contrôles : le serveur enregistre la pièce, le fichier est déposé dans un espace privé, puis le serveur vérifie la taille et le type réellement stockés.</li><li>Résultat : la pièce apparaît avec sa taille, sa date et « par vous ».</li><li>Correction : une pièce ne se supprime pas ; elle s&#x27;annule avec un motif et reste consultable.</li></ul>
+<h3>G. Exemple pratique</h3>
+<p>Rechercher l&#x27;immatriculation d&#x27;exemple « AB-1234 » avec Ctrl K, ouvrir l&#x27;engin, consulter son onglet Historique, revenir à la liste par le bouton retour du navigateur : la liste retrouve ses filtres.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li><b>Hors ligne</b> : sans connexion, toute saisie échoue et doit être refaite ; il n&#x27;y a pas de file d&#x27;attente locale (sauf le brouillon de la fiche KOGON, chapitre 15).</li><li><b>Menu incomplet</b> : l&#x27;entrée n&#x27;apparaît pas faute de droit de lecture ; demander à l&#x27;administrateur.</li><li><b>Pièce jointe sur un site, un engin ou un chauffeur</b> : l&#x27;onglet signale que ce type d&#x27;objet ne les accepte pas encore.</li><li><b>Langue</b> : la traduction anglaise est incomplète.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Toutes les pages partagent ces composants ; le contexte (date, site, shift, camion, chauffeur, voyage) suit dans l&#x27;adresse entre les écrans de l&#x27;espace Opérations transport (chapitre 16).</p>
+<h3>J. Exercice</h3>
+<p>Ouvrez Flotte &gt; Véhicules et engins, filtrez sur un statut, triez par immatriculation, exportez en CSV. Résultat attendu : un fichier dont les lignes correspondent à la liste filtrée.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Liste standard</b> : page de liste commune (recherche, filtres, tri, pagination, export).</li><li><b>Fiche</b> : page de détail d&#x27;un objet, avec onglets.</li><li><b>Pièce jointe</b> : fichier justificatif rattaché à un objet, jamais supprimé.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

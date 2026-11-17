@@ -1,0 +1,41 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2. Accès et première connexion : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>2. Accès et première connexion</h2>
+<h3>A. Présentation</h3>
+<p>L&#x27;accès se fait par navigateur à l&#x27;adresse <b>https://sigtb.infranetgn.com</b>. Il n&#x27;existe pas d&#x27;application mobile ni de mode hors ligne.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Un compte est créé par l&#x27;administrateur, avec un rôle et un site d&#x27;affectation (ou « compte global » motivé). Il n&#x27;y a pas d&#x27;inscription libre.</li><li>Un compte inactif ou suspendu perd tous ses droits côté serveur.</li><li>La double authentification (code TOTP) est proposée à chaque utilisateur ; son exigence pour les opérations sensibles est un réglage de l&#x27;administrateur, inactif aujourd&#x27;hui.</li></ul>
+<h3>C. Navigation</h3>
+<p>Page de connexion, puis menu du profil (en haut à droite) : <b>Sécurité du compte</b>, <b>Langue</b>, <b>Se déconnecter</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 2.1 (capture à venir) : page de connexion, champs adresse e-mail et mot de passe, case « Se souvenir de moi », lien « Mot de passe oublié ? », bouton « Se connecter », bouton Microsoft 365. Figure 2.2 (capture à venir) : message affiché sous « Mot de passe oublié ? ». Figure 2.3 (capture à venir) : écran de saisie du code de double authentification. Figure 2.4 (capture à venir) : écran Sécurité du compte (niveau de session, inscription d&#x27;un facteur, QR code masqué, liste des facteurs, Mes délégations). Figure 2.5 (capture à venir) : menu du profil ouvert (nom, adresse, rôle, Sécurité du compte, Langue, Se déconnecter).</p>
+<h3>E. Actions disponibles</h3>
+<p>Se connecter ; afficher le mot de passe saisi ; se souvenir de l&#x27;adresse sur ce poste ; inscrire, confirmer et retirer un facteur TOTP ; saisir le code à la connexion ; changer la langue ; se déconnecter.</p>
+<p>Non disponibles : réinitialisation du mot de passe par courriel ; changement de son propre mot de passe depuis l&#x27;application ; connexion Microsoft 365 (bouton présent, fournisseur non configuré).</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>2.F.1 Se connecter</b></p>
+<ul><li>Préconditions : compte créé par l&#x27;administrateur ; adresse et mot de passe reçus de lui.</li><li>Accès : ouvrir https://sigtb.infranetgn.com.</li><li>Saisie : adresse e-mail, mot de passe ; cocher « Se souvenir de moi » sur un poste personnel seulement.</li><li>Contrôles : adresse et mot de passe vérifiés par le service d&#x27;authentification.</li><li>Confirmation : cliquer <b>Se connecter</b>.</li><li>Résultat : le tableau de bord s&#x27;affiche ; si un facteur TOTP est inscrit, l&#x27;écran du code s&#x27;affiche d&#x27;abord (Figure 2.3).</li><li>Vérification : le nom et le rôle apparaissent dans le menu du profil (Figure 2.5).</li><li>Erreurs : identifiants refusés, compte inactif : contacter l&#x27;administrateur.</li></ul>
+<p><b>2.F.2 Se déconnecter</b> Menu du profil, <b>Se déconnecter</b>. Sur un poste partagé, se déconnecter à chaque fin de poste.</p>
+<p><b>2.F.3 Activer la double authentification</b></p>
+<ul><li>Préconditions : une application d&#x27;authentification sur le téléphone.</li><li>Accès : menu du profil, <b>Sécurité du compte</b>.</li><li>Saisie : lancer l&#x27;inscription ; scanner le QR code (ou recopier la clé de secours, masquée par défaut) ; saisir le code à six chiffres affiché par l&#x27;application.</li><li>Résultat : le facteur apparaît vérifié ; à la connexion suivante, le code est demandé.</li><li>Vérification : « Session actuelle : vérifiée en deux étapes » après la prochaine connexion.</li><li>Erreurs : code refusé (heure du téléphone décalée, code expiré) : saisir le code suivant.</li></ul>
+<p><b>2.F.4 Mot de passe oublié</b> Le lien affiche : la réinitialisation par e-mail n&#x27;est pas activée. Demander un nouveau mot de passe à l&#x27;administrateur (manuel administrateur, section 3).</p>
+<h3>G. Exemple pratique</h3>
+<p>Un chef de poste (compte d&#x27;exemple) reçoit son accès, se connecte, inscrit son facteur TOTP, se déconnecte, puis se reconnecte avec son code : l&#x27;écran Sécurité du compte indique une session vérifiée en deux étapes.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Bouton Microsoft 365 : message « Connexion Microsoft 365 indisponible » ; utiliser l&#x27;adresse et le mot de passe.</li><li>Téléphone perdu : demander à l&#x27;administrateur ; il n&#x27;existe pas de procédure de secours dans l&#x27;écran autre que la clé de secours notée à l&#x27;inscription.</li><li>Message « Confirmation en deux etapes (MFA) requise pour cette operation » : l&#x27;exigence MFA est active et la session n&#x27;a pas été confirmée par code ; se reconnecter avec le code.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Le rôle et le site du compte déterminent le menu visible et les données lues dans tous les modules. Les délégations reçues ou données se gèrent dans <b>Sécurité du compte &gt; Mes délégations</b> (manuel administrateur, section 7).</p>
+<h3>J. Exercice</h3>
+<p>Connectez-vous, ouvrez Sécurité du compte et relevez le niveau de votre session. Résultat attendu : « mot de passe seul » sans facteur, « vérifiée en deux étapes » avec facteur et code saisi.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>TOTP</b> : code à usage unique calculé par une application d&#x27;authentification.</li><li><b>aal1, aal2</b> : niveau de session ; aal2 = session confirmée par code.</li><li><b>Compte global</b> : compte sans site d&#x27;affectation, qui voit tous les sites.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

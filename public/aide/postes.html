@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>10. Postes de travail : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>10. Postes de travail</h2>
+<h3>A. Présentation</h3>
+<p>Un poste est l&#x27;instance d&#x27;un shift pour une date et un site : équipe, présence, événements, consignes et bilan.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Un seul poste par shift, site et date ; ouverture au plus un jour à l&#x27;avance.</li><li>États : planifié, ouvert, en cours, clôturé, validé, annulé.</li><li>Les consignes reçues reprennent les consignes de sortie du dernier poste clos du site.</li><li>Un chauffeur n&#x27;est affecté qu&#x27;à un poste par shift. Une absence demande un motif.</li><li>La clôture exige toute l&#x27;équipe pointée et des consignes pour le poste suivant (même « rien à signaler ») ; elle est refusée si des voyages ne sont pas terminés, sauf clôture du shift motivée au Dispatch (11.F.6).</li><li>La validation de la clôture revient à une autre personne (droit <code>planning</code>).</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Postes de travail</b> (page standard <code>#/postes</code>), ou <b>Opérations transport &gt; Instances de shift</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 10.1 (capture à venir) : liste des postes et fiche (équipe, présences). Figure 10.2 (capture à venir) : journal des événements du poste. Figure 10.3 (capture à venir) : clôture et rapport de poste imprimable.</p>
+<h3>E. Actions disponibles</h3>
+<p>Ouvrir ; composer l&#x27;équipe ; pointer présent ou absent (retard en minutes) ; consigner un événement (incident, arrêt, retard, sécurité, information) ; clôturer ; valider la clôture ; imprimer le rapport ; annuler une instance (motif, refusé si un voyage est engagé).</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>10.F.1 Ouvrir un poste et composer l&#x27;équipe</b> : Postes, <b>Nouveau</b>, date, site, shift ; enregistrer ; ajouter chaque chauffeur ou engin ; pointer chacun.</p>
+<p><b>10.F.2 Consigner un événement</b> : fiche du poste, catégorie, heure non future, description. Le journal ne se modifie pas.</p>
+<p><b>10.F.3 Clôturer puis faire valider</b> : vérifier que tous sont pointés, saisir les consignes de sortie et le rapport, <b>Clôturer</b> ; un autre responsable ouvre Mes validations, puis valide la clôture.</p>
+<h3>G. Exemple pratique</h3>
+<p>Poste de nuit d&#x27;exemple : 8 chauffeurs, 1 absent (motif « maladie »), un arrêt chargeuse consigné à 02:10 ; clôture à 06:05 avec consignes « chargeuse à surveiller » ; validation par le responsable des opérations à 07:00.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Retrait d&#x27;un membre de l&#x27;équipe : non disponible ; l&#x27;absence se pointe.</li><li>Validation par l&#x27;auteur de la clôture : refusée.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Shifts, Chauffeurs, Engins ; le Dispatch planifie et démarre l&#x27;instance ; bilan dans les Rapports.</p>
+<h3>J. Exercice</h3>
+<p>Tentez de clôturer un poste avec un membre non pointé. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Consignes de sortie</b> : informations transmises au poste suivant.</li><li><b>Bilan figé</b> : tonnes cible et livrées, voyages, présents, absents, événements à la clôture.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

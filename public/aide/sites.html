@@ -1,0 +1,40 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>7. Sites, infrastructures et fermetures : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>7. Sites, infrastructures et fermetures</h2>
+<h3>A. Présentation</h3>
+<p>Référentiel des sites (sites miniers, dépôts), de leurs infrastructures (points de chargement, dépôts, pont-bascule, station, atelier, zone de sécurité) et de leurs fermetures.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Un site se désactive, il ne se supprime pas.</li><li>Coordonnées GPS facultatives (latitude et longitude ensemble, degrés décimaux) ; capacité de stockage en tonnes ; responsable choisi parmi les comptes actifs ; le stock d&#x27;un site ne se saisit pas.</li><li>Une fermeture du site entier couvrant la journée bloque toute affectation de voyage partant du site ou y arrivant ; la fermeture d&#x27;une seule infrastructure est informative.</li><li>Une fermeture ne se modifie pas ; elle se lève par anticipation, avec date et motif.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Exploitation &gt; Sites</b> (page standard <code>#/sites</code>) ; <b>Exploitation &gt; Infrastructures et fermetures</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 7.1 (capture à venir) : liste des sites (nom, type, organisation, statut). Figure 7.2 (capture à venir) : formulaire de site en pleine page avec erreurs en temps réel. Figure 7.3 (capture à venir) : fiche du site, actions Modifier, Désactiver ou Réactiver. Figure 7.4 (capture à venir) : infrastructures d&#x27;un site. Figure 7.5 (capture à venir) : déclaration et levée d&#x27;une fermeture.</p>
+<h3>E. Actions disponibles</h3>
+<p>Créer, modifier, désactiver, réactiver un site (droit <code>settings</code>) ; déclarer une infrastructure ; déclarer une fermeture ; lever une fermeture par anticipation.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>7.F.1 Consulter un site</b> : liste, clic sur la ligne, onglets de la fiche.</p>
+<p><b>7.F.2 Créer un site</b></p>
+<ul><li>Préconditions : organisation existante (Paramètres &gt; Organisations, administrateur).</li><li>Accès : Sites, <b>Nouveau</b>.</li><li>Saisie : nom, type, organisation ; facultatif : localisation, coordonnées, responsable, capacité.</li><li>Contrôles : erreurs affichées en temps réel ; envoi bloqué tant qu&#x27;il en reste.</li><li>Confirmation : <b>Enregistrer</b>.</li><li>Résultat : la fiche du site s&#x27;ouvre.</li><li>Erreurs : message du serveur affiché tel quel (par exemple droit manquant).</li></ul>
+<p><b>7.F.3 Désactiver un site</b> : fiche du site, <b>Désactiver</b>. Limite : aucun motif n&#x27;est conservé, le site n&#x27;a pas de journal.</p>
+<p><b>7.F.4 Déclarer une infrastructure</b> : Infrastructures et fermetures, choisir le site, ajouter l&#x27;infrastructure (type, nom, capacité et unité : t/h ou camions/h pour être prise en compte par la simulation).</p>
+<p><b>7.F.5 Déclarer puis lever une fermeture</b> : choisir le site ou l&#x27;infrastructure, période et motif obligatoires, enregistrer. Pour lever : <b>Lever</b>, date et motif.</p>
+<h3>G. Exemple pratique</h3>
+<p>Le dépôt d&#x27;exemple « Dépôt B » est fermé une journée pour travaux : la fermeture du site entier est déclarée ; ce jour-là, toute affectation vers ce dépôt est refusée par le dispatch avec « Site ferme le ... ».</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Une modification de site conserve tous les champs non modifiés.</li><li>Pièces jointes non disponibles sur un site.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Les sites bornent le périmètre des comptes, des voyages, des engins, des chauffeurs et de presque tous les registres ; les fermetures sont lues par le Dispatch ; les capacités par la simulation de la Planification et du Dispatch.</p>
+<h3>J. Exercice</h3>
+<p>Déclarez une fermeture d&#x27;un pont-bascule d&#x27;exemple. Résultat attendu : la fermeture est enregistrée et n&#x27;empêche pas l&#x27;affectation d&#x27;un voyage (fermeture d&#x27;infrastructure informative).</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Infrastructure</b> : élément d&#x27;un site (point de chargement, dépôt, pont-bascule, station, atelier, zone de sécurité).</li><li><b>Fermeture</b> : période d&#x27;indisponibilité, du site entier ou d&#x27;une infrastructure.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

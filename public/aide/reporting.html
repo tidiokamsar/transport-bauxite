@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>32. Reporting et analyses : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>32. Reporting et analyses</h2>
+<h3>A. Présentation</h3>
+<p>Rapports calculés par le serveur (client, loueur, shift, mensuel jour par jour), coût direct par tonne, santé et fiabilité de la flotte, performance des chauffeurs.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Un rapport figé est immuable ; on fige un nouveau rapport pour remplacer.</li><li>Les analyses n&#x27;affichent que des mesures sur données réelles ; une absence est « sans données ».</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Reporting &amp; Analyse</b> : <b>Rapports</b>, <b>Coût direct par tonne</b>, <b>Santé de la flotte</b>, <b>Fiabilité des engins</b>, <b>Performance chauffeurs</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 32.1 (capture à venir) : rapports (choix, paramètres, sections, export CSV, impression, figer, 20 derniers rapports figés). Figure 32.2 (capture à venir) : coût direct par tonne. Figure 32.3 (capture à venir) : santé de la flotte. Figure 32.4 (capture à venir) : fiabilité des engins. Figure 32.5 (capture à venir) : performance des chauffeurs.</p>
+<h3>E. Actions disponibles</h3>
+<p>Calculer, exporter en CSV, imprimer, figer (écriture <code>reports</code>), réexporter un rapport figé.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>32.F.1 Produire et figer un rapport mensuel</b> : Rapports, type, période, site ; <b>Calculer</b> ; vérifier ; <b>Exporter</b> ; <b>Figer</b> avec une note.</p>
+<h3>G. Exemple pratique</h3>
+<p>Rapport mensuel d&#x27;exemple par jour : voyages, livrés, tonnes livrées et acceptées, gasoil, incidents, immobilisations, heures pointées ; figé le 1er du mois suivant.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Pas de graphique, pas d&#x27;export Excel natif ni PDF serveur ; pas de rapport de rentabilité ; liste des rapports figés limitée aux 20 derniers.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Tous les modules de données.</p>
+<h3>J. Exercice</h3>
+<p>Figez un rapport puis tentez de le modifier. Résultat attendu : aucune modification possible.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Rapport figé</b> : instantané immuable d&#x27;un rapport.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>
