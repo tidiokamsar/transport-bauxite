@@ -1,0 +1,189 @@
+1
+00:00:00,150 --> 00:00:06,166
+Chaque jour, des camions chargés de bauxite
+font la navette entre la mine et le dépôt.
+
+2
+00:00:06,216 --> 00:00:10,399
+Et chaque tonne facturée à CBG
+doit pouvoir être justifiée :
+
+3
+00:00:10,449 --> 00:00:13,502
+par un voyage, par une pesée, par une pièce.
+
+4
+00:00:14,070 --> 00:00:19,921
+SIGTB est la plateforme de Kogon Mining
+pour gérer ce transport de bout en bout.
+
+5
+00:00:19,971 --> 00:00:24,495
+Une seule chaîne relie la
+planification, le terrain, la pesée,
+
+6
+00:00:24,545 --> 00:00:26,782
+les contrats et la facturation.
+
+7
+00:00:26,832 --> 00:00:31,282
+Chaque indicateur affiche sa
+source, sa période et son heure.
+
+8
+00:00:31,830 --> 00:00:37,471
+La journée commence par l'objectif de
+production, fixé par site et par shift.
+
+9
+00:00:37,521 --> 00:00:43,088
+Le chef de poste ouvre son poste, pointe
+son équipe et reçoit les consignes.
+
+10
+00:00:43,670 --> 00:00:47,003
+Au dispatch, SIGTB propose une affectation :
+
+11
+00:00:47,053 --> 00:00:51,540
+un camion disponible, un
+chauffeur habilité, une chargeuse.
+
+12
+00:00:51,590 --> 00:00:54,923
+Le système recommande, le dispatcher décide.
+
+13
+00:00:54,973 --> 00:01:00,767
+Chaque décision est contrôlée par le
+serveur et conservée dans l'historique.
+
+14
+00:01:01,350 --> 00:01:05,537
+Chaque voyage suit un cycle strict,
+du chargement à la livraison.
+
+15
+00:01:05,587 --> 00:01:07,948
+Les étapes s'enchaînent dans l'ordre,
+
+16
+00:01:07,998 --> 00:01:13,032
+et chaque changement d'état est inscrit
+dans un journal qui ne se réécrit pas.
+
+17
+00:01:13,590 --> 00:01:18,439
+Sur le terrain, l'agent note les
+rotations sur une fiche numérotée.
+
+18
+00:01:18,489 --> 00:01:21,583
+À son retour, il la saisit ligne par ligne.
+
+19
+00:01:21,633 --> 00:01:27,067
+Les écarts sont détectés, puis la fiche
+est validée par une autre personne.
+
+20
+00:01:27,590 --> 00:01:30,361
+La pesée officielle de CBG fait foi.
+
+21
+00:01:30,411 --> 00:01:34,907
+Son relevé est importé avec
+une empreinte, puis rapproché,
+
+22
+00:01:34,957 --> 00:01:37,807
+ticket par ticket, de la fiche KOGON.
+
+23
+00:01:37,857 --> 00:01:42,117
+Tout écart devient une
+anomalie, examinée puis conclue.
+
+24
+00:01:42,630 --> 00:01:45,077
+Les coûts suivent la même règle.
+
+25
+00:01:45,127 --> 00:01:49,914
+Le carburant est reçu, distribué
+et inventorié, cuve par cuve.
+
+26
+00:01:49,964 --> 00:01:53,190
+Les pneus sont suivis montage par montage.
+
+27
+00:01:53,240 --> 00:01:58,807
+Les immobilisations des engins loués
+à Neemba sont déclarées et tracées.
+
+28
+00:01:59,310 --> 00:02:05,099
+En fin de période, la réconciliation rassemble
+les voyages et les tonnages acceptés.
+
+29
+00:02:05,149 --> 00:02:09,687
+La facture est préparée selon le
+contrat, signée par le directeur,
+
+30
+00:02:09,737 --> 00:02:13,927
+jamais par celui qui l'a préparée,
+et numérotée à l'émission.
+
+31
+00:02:13,977 --> 00:02:17,542
+Chaque ligne remonte à ses
+voyages et à ses tickets.
+
+32
+00:02:18,150 --> 00:02:24,934
+Pour piloter, le centre de pilotage et la boîte des
+validations rassemblent ce qui attend une décision.
+
+33
+00:02:24,984 --> 00:02:30,772
+Les rapports de poste, journaliers et mensuels
+sont produits à partir des mêmes données.
+
+34
+00:02:31,350 --> 00:02:34,079
+La sécurité est assurée par le serveur :
+
+35
+00:02:34,129 --> 00:02:37,136
+des droits par rôle, par module et par site,
+
+36
+00:02:37,186 --> 00:02:41,166
+un journal de chaque opération,
+des sauvegardes vérifiées.
+
+37
+00:02:41,216 --> 00:02:46,307
+Une correction est un nouvel événement,
+jamais une réécriture silencieuse.
+
+38
+00:02:46,870 --> 00:02:47,378
+SIGTB :
+
+39
+00:02:47,428 --> 00:02:51,047
+chaque tonne tracée, chaque facture justifiée.
+
+40
+00:02:51,097 --> 00:02:52,403
+Prochaine étape :
+
+41
+00:02:52,453 --> 00:02:57,588
+charger vos référentiels et lancer
+la recette sur le site pilote.
