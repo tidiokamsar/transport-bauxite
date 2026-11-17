@@ -224,7 +224,7 @@ const MainApp = () => {
       case 'contrats':
         return <ContratsView />;
       case 'reconciliation':
-        return <ReconciliationView onFactureCreee={() => setCurrentView('invoices')} />;
+        return <ReconciliationView />;
       case 'invoices':
         return <FacturesView />;
       case 'costs':

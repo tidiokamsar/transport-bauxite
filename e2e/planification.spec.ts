@@ -99,8 +99,9 @@ test.describe('Planification', () => {
       return repondre(route, 'nouvel-objectif');
     });
     await ouvrir(page);
-    await page.getByRole('button', { name: 'Définir un objectif' }).click();
-    const fenetre = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Définir un objectif' }).click();
+    await expect(page).toHaveURL(/#\/planification\/nouveau/);
+    const fenetre = page.getByRole('form', { name: 'Définir un objectif' });
     await fenetre.getByLabel('Site de chargement *').selectOption({ label: 'Mine Nimba' });
     await fenetre.getByLabel('Portée').selectOption({ label: 'Shift Jour (00:00 – 23:59)' });
     await fenetre.getByLabel('Objectif (tonnes) *').fill('4800');
@@ -108,6 +109,33 @@ test.describe('Planification', () => {
     await fenetre.getByRole('button', { name: 'Enregistrer l\'objectif' }).click();
     await expect.poll(() => corps).not.toBeNull();
     expect(corps).toMatchObject({ p_site_id: SITE_MINE, p_shift_id: SHIFT_JOUR, p_tonnes: 4800, p_camions: 20, p_voyages: null, p_motif: null });
+    await expect(page).toHaveURL(/#\/planification\/nouvel-objectif$/);
+  });
+
+  test('fiche d\'un objectif : versions, historique, annulation motivee en page', async ({ page }) => {
+    const version = (v: number, statut: string, extra: Record<string, unknown> = {}) => ({
+      id: `o${v}`, date_plan: aujourdhui(), site_id: SITE_MINE, shift_id: SHIFT_JOUR, version: v, tonnes_cible: v === 1 ? 5000 : 4800, voyages_cible: null,
+      camions_prevus: null, chargeuses_prevues: null, statut, motif: v === 1 ? null : 'Chargeuse en attente de pièce', note: null, cree_par: null,
+      cree_le: new Date(Date.now() - (3 - v) * 3_600_000).toISOString(), clos_le: null, clos_par: null, motif_annulation: null, ...extra,
+    });
+    await simulerApi(page, {
+      ...REFERENTIEL, v_realisation_objectifs: [objectif({ id: 'o2' })], v_realisation_ventilation: [],
+      objectifs_production: [version(2, 'actif'), version(1, 'remplace', { clos_le: new Date(Date.now() - 3_600_000).toISOString() })],
+    });
+    const annulations: Record<string, unknown>[] = [];
+    await page.route('**/rest/v1/rpc/annuler_objectif', (route) => { annulations.push(route.request().postDataJSON()); return repondre(route, null); });
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/planification/o2?onglet=historique');
+    const fiche = page.getByRole('article', { name: /^Fiche Mine Nimba · Shift Jour/ });
+    await expect(fiche.getByText('Version 1 remplacée')).toBeVisible();
+    await expect(fiche.getByText('Motif : Chargeuse en attente de pièce')).toBeVisible();
+    await fiche.getByRole('link', { name: 'Annuler l\'objectif' }).click();
+    const f = page.getByRole('form', { name: 'Annuler l\'objectif' });
+    await expect(f.getByRole('button', { name: 'Annuler l\'objectif' })).toBeDisabled();
+    await f.getByLabel('Motif *').fill('Arrêt de la mine');
+    await f.getByRole('button', { name: 'Annuler l\'objectif' }).click();
+    await expect.poll(() => annulations.length).toBe(1);
+    expect(annulations[0]).toMatchObject({ p_id: 'o2', p_motif: 'Arrêt de la mine' });
   });
 
   test('le tableau de bord reprend l\'objectif du jour', async ({ page }) => {

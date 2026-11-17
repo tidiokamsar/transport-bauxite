@@ -106,15 +106,15 @@ le composant `ui/Fenetre` lui-même.
 | 11 | `Trips/KilometrageView.tsx` | Relevés kilométriques (pièces) | À convertir |
 | 12 | `Fuel/LivraisonsCbgView.tsx` | Carburant : livraisons CBG (pièces) | À convertir |
 | 13 | `Fuel/PleinsView.tsx` | Carburant : distribution | À convertir |
-| 14 | `Facturation/ReconciliationView.tsx` | Réconciliation | À convertir |
-| 15 | `Facturation/RecouvrementView.tsx` | Recouvrement | À convertir |
-| 16 | `Facturation/FactureImprimable.tsx` | Factures (aperçu imprimable) | À convertir |
-| 17 | `Contrats/ContratsView.tsx` | Contrats | À convertir |
-| 18 | `Contrats/Formulaires.tsx` | Contrats | À convertir |
+| 14 | `Facturation/ReconciliationView.tsx` | Réconciliation | Converti (D-090, complément J1), fenêtre retirée |
+| 15 | `Facturation/RecouvrementView.tsx` | Recouvrement | Converti (D-090, complément J1), fenêtre et lettre en superposition retirées |
+| 16 | `Facturation/FactureImprimable.tsx` | Factures (aperçu imprimable) | Converti (D-090, complément J1) : aperçu en pleine page |
+| 17 | `Contrats/ContratsView.tsx` | Contrats | Converti (D-090, complément J1), fenêtre retirée |
+| 18 | `Contrats/Formulaires.tsx` | Contrats | Converti (D-090, complément J1) : saisies en pleine page |
 | 19 | `Contrats/FacturesNeembaView.tsx` | Factures Neemba | À convertir |
 | 20 | `Contrats/ComitesView.tsx` | Comités | À convertir |
 | 21 | `Contrats/EngagementsView.tsx` | Engagements | À convertir |
-| 22 | `Planning/FenetresObjectif.tsx` | Planification | À convertir |
+| 22 | `Planning/FenetresObjectif.tsx` | Planification | Converti (D-090, complément J1), fichier retiré |
 | 23 | `Maintenance/FenetresImmobilisation.tsx` | Immobilisations | À convertir |
 | 24 | `Documents/VehicleDocumentModal.tsx` | Documents de la flotte | À convertir |
 | 25 | `Tracking/LiveMapView.tsx` | Suivi GPS | À convertir |
@@ -128,6 +128,14 @@ le composant `ui/Fenetre` lui-même.
 | 33 | `Layout/DeconnexionDialog.tsx` | Transverse : confirmation de déconnexion | Reste une fenêtre (confirmation brève) |
 | 34 | `Search/GlobalSearchModal.tsx` | Transverse : recherche globale | Reste une fenêtre (palette de recherche) |
 | 35 | `ui/PiecesJointes.tsx` | Transverse : `AttachmentModal` | Remplacée par l'onglet Pièces jointes au fil des conversions |
+
+Complément J1 (2026-11-17) : sont aussi convertis, hors recensement
+(fenêtres de la planification passant par `FenetresObjectif`, ou
+`window.prompt`), `Planning/VentilationObjectif.tsx`,
+`Planning/ClotureProduction.tsx` (annulation), `Postes/PostesView.tsx` et
+`Facturation/FacturesView.tsx`. Restent avec un `window.prompt` :
+`Contrats/EngagementsView.tsx` (remise du rapport) et
+`Paiements/PaiementsView.tsx`.
 
 Ordre conseillé : chaîne J1 d'abord (10 à 16, puis 17 à 19), puis J2
 (13, 23, 24), puis les autres.

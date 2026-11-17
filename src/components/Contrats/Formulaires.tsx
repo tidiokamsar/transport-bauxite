@@ -1,50 +1,34 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ErreurFenetre, Fenetre as FenetreCommune } from '../ui/Fenetre';
+import { CHAMP_FENETRE } from '../ui/Fenetre';
+import { ChampPage, PageFormulaire, SectionFormulaire } from '../ui/PageFormulaire';
+import { poserAnnonce, routeDetail, routeListe } from '../ui/routeur';
 import { supabase } from '../../lib/supabase';
 import {
-  INDICATEURS, NATURES, PERIODICITES, RENOUVELLEMENTS, STATUTS, TYPES_CLAUSE, UNITES_TARIF,
+  INDICATEURS, MODULE_CONTRATS, NATURES, PERIODICITES, RENOUVELLEMENTS, TYPES_CLAUSE, UNITES_TARIF, VUE_CONTRATS, erreursContrat,
   type Clause, type Contrat, type Engagement, type Tarif, type Version,
 } from './types';
 
-// Saisie du dossier contractuel. Ecriture directe sous RLS (module
-// contracts) ; chaque creation, modification ou suppression est
-// journalisee par le serveur (journal_contrats).
+// Saisie du dossier contractuel en pleine page (D-026, D-090, remplace les
+// fenetres modales). Ecriture inchangee : directe sous RLS (module
+// contracts) pour le contrat, ses versions, tarifs et engagements, chaque
+// ecriture journalisee par le serveur (journal_contrats) ; fonctions
+// serveur pour l'avenant (creer_avenant), le tarif en vigueur
+// (modifier_tarif_par_avenant) et la clause (definir_clause).
 
-const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
+const CHAMP = CHAMP_FENETRE;
+const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
+const texte = (v: string) => (v.trim() === '' ? null : v.trim());
+const messageServeur = (error: { code?: string; message: string }) => (error.code === '23505' ? 'Cette référence ou ce numéro existe déjà.' : error.message);
 
-const Fenetre = ({ titre, onFermer, onValider, enCours, valide, erreur, children }: {
-  titre: string;
-  onFermer: () => void;
-  onValider: () => void;
-  enCours: boolean;
-  valide: boolean;
-  erreur: string;
-  children: ReactNode;
-}) => (
-  <FenetreCommune
-    titre={titre}
-    onFermer={onFermer}
-    enCours={enCours}
-    onSubmit={(e) => { e.preventDefault(); if (valide && !enCours) onValider(); }}
-    pied={<>
-      <button type="button" onClick={onFermer} disabled={enCours} className="rounded-lg px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50">Annuler</button>
-      <button type="submit" disabled={!valide || enCours} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 text-sm font-bold text-white disabled:opacity-50">
-        {enCours ? 'Enregistrement...' : 'Enregistrer'}
-      </button>
-    </>}
-  >
-    <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-      <ErreurFenetre className="sm:col-span-2">{erreur}</ErreurFenetre>
-      {children}
-    </div>
-  </FenetreCommune>
-);
+/** Saisie modifiee : comparaison avec la saisie initiale. */
+const useSaisieLocale = <V extends Record<string, unknown>>(initiale: V) => {
+  const [origine] = useState(initiale);
+  const [f, setF] = useState(initiale);
+  return { f, setF, modifie: JSON.stringify(f) !== JSON.stringify(origine) };
+};
 
-const Champ = ({ libelle, large = false, children }: { libelle: string; large?: boolean; children: ReactNode }) => (
-  <label className={`block ${large ? 'sm:col-span-2' : ''}`}>
-    <span className="mb-1 block font-medium text-stone-700">{libelle}</span>
-    {children}
-  </label>
+const Champ = ({ libelle, large = false, aide, children }: { libelle: string; large?: boolean; aide?: ReactNode; children: ReactNode }) => (
+  <ChampPage libelle={libelle} aide={aide} className={large ? 'sm:col-span-2' : ''}>{children}</ChampPage>
 );
 
 const Choix = ({ valeur, options, onChange }: { valeur: string; options: Record<string, string>; onChange: (v: string) => void }) => (
@@ -54,140 +38,151 @@ const Choix = ({ valeur, options, onChange }: { valeur: string; options: Record<
   </select>
 );
 
-const nombre = (v: string) => (v.trim() === '' ? null : Number(v.replace(/\s/g, '').replace(',', '.')));
-const texte = (v: string) => (v.trim() === '' ? null : v.trim());
+/** Page de saisie d'un element du contrat ; retour a la grille de la fiche apres succes. */
+const SaisieElement = ({ contrat, titre, description, modifie, erreurs, enregistrer, succes, children }: {
+  contrat: Contrat;
+  titre: string;
+  description?: ReactNode;
+  modifie: boolean;
+  erreurs: string[];
+  /** Renvoie le message d'erreur du serveur, ou null. */
+  enregistrer: () => Promise<string | null>;
+  succes: string;
+  children: ReactNode;
+}) => (
+  <PageFormulaire
+    vue={VUE_CONTRATS}
+    module={MODULE_CONTRATS}
+    titre={titre}
+    reference={contrat.reference}
+    id={contrat.id}
+    description={description}
+    modifie={modifie}
+    erreurs={erreurs}
+    libelleSoumettre="Enregistrer"
+    onSoumettre={async () => {
+      const erreur = await enregistrer();
+      if (erreur) return { erreur };
+      poserAnnonce(succes);
+      return { vers: routeDetail(VUE_CONTRATS, contrat.id, 'grille') };
+    }}
+  >
+    <SectionFormulaire titre={titre}>{children}</SectionFormulaire>
+  </PageFormulaire>
+);
 
-/** Enregistre une ligne (creation ou modification) et rapporte l'erreur du serveur. */
-const useEnregistrement = (table: string, id: string | undefined, onFait: () => void) => {
-  const [erreur, setErreur] = useState('');
-  const [enCours, setEnCours] = useState(false);
-  const enregistrer = async (ligne: Record<string, unknown>) => {
-    setEnCours(true);
-    setErreur('');
-    const { error } = id
-      ? await supabase.from(table).update(ligne).eq('id', id)
-      : await supabase.from(table).insert(ligne);
-    setEnCours(false);
-    if (error) setErreur(error.code === '23505' ? 'Cette référence ou ce numéro existe déjà.' : error.message);
-    else onFait();
-  };
-  return { erreur, enCours, enregistrer };
+const ecrire = async (table: string, id: string | undefined, ligne: Record<string, unknown>) => {
+  const { error } = id ? await supabase.from(table).update(ligne).eq('id', id) : await supabase.from(table).insert(ligne);
+  return error ? messageServeur(error) : null;
 };
 
-export const FormulaireContrat = ({ contrat, onFermer, onFait }: { contrat?: Contrat; onFermer: () => void; onFait: () => void }) => {
-  const [f, setF] = useState({
-    reference: contrat?.reference ?? '',
-    intitule: contrat?.intitule ?? '',
-    nature: contrat?.nature ?? '',
-    contrepartie: contrat?.contrepartie ?? '',
-    devise: contrat?.devise ?? '',
-    date_debut: contrat?.date_debut ?? '',
-    date_fin: contrat?.date_fin ?? '',
-    statut: contrat?.statut ?? 'brouillon',
-    delai: contrat?.delai_paiement_jours?.toString() ?? '',
-    description: contrat?.description ?? '',
-    preavis: contrat?.preavis_jours?.toString() ?? '',
-    renouvellement: contrat?.renouvellement ?? '',
-    duree: contrat?.renouvellement_duree_mois?.toString() ?? '',
-  });
-  const { erreur, enCours, enregistrer } = useEnregistrement('contrats', contrat?.id, onFait);
-  const entierOuVide = (v: string, min: number) => v.trim() === '' || (/^\d+$/.test(v.trim()) && Number(v) >= min);
-  const valide = Boolean(f.reference.trim() && f.intitule.trim() && f.nature && f.contrepartie.trim() && /^[A-Z]{3}$/.test(f.devise) && f.date_debut)
-    && entierOuVide(f.preavis, 0) && entierOuVide(f.duree, 1);
+/** Contrat : creation (brouillon) ou modification ; le statut change par l'action « Changer le statut ». */
+export const FormulaireContrat = ({ contrat, chargement, erreurChargement }: { contrat?: Contrat | null; chargement?: boolean; erreurChargement?: string }) => {
+  const initiale = {
+    reference: contrat?.reference ?? '', intitule: contrat?.intitule ?? '', nature: contrat?.nature ?? '', contrepartie: contrat?.contrepartie ?? '',
+    devise: contrat?.devise ?? '', date_debut: contrat?.date_debut ?? '', date_fin: contrat?.date_fin ?? '',
+    delai: contrat?.delai_paiement_jours?.toString() ?? '', description: contrat?.description ?? '', preavis: contrat?.preavis_jours?.toString() ?? '',
+    renouvellement: contrat?.renouvellement ?? '', duree: contrat?.renouvellement_duree_mois?.toString() ?? '',
+  };
+  const { f, setF, modifie } = useSaisieLocale(initiale);
+  const corps = {
+    reference: f.reference.trim(), intitule: f.intitule.trim(), nature: f.nature, contrepartie: f.contrepartie.trim(),
+    devise: f.devise, date_debut: f.date_debut, date_fin: f.date_fin || null,
+    delai_paiement_jours: nombre(f.delai), description: texte(f.description),
+    preavis_jours: nombre(f.preavis), renouvellement: f.renouvellement || null, renouvellement_duree_mois: nombre(f.duree),
+  };
+
+  const soumettre = async (): Promise<{ erreur: string } | { vers: string }> => {
+    if (contrat) {
+      const { error } = await supabase.from('contrats').update(corps).eq('id', contrat.id);
+      if (error) return { erreur: messageServeur(error) };
+      poserAnnonce('Contrat mis à jour (modification journalisée).');
+      return { vers: routeDetail(VUE_CONTRATS, contrat.id) };
+    }
+    const { data, error } = await supabase.from('contrats').insert({ ...corps, statut: 'brouillon' }).select('id');
+    if (error) return { erreur: messageServeur(error) };
+    const nouveau = (data as { id: string }[] | null)?.[0]?.id;
+    poserAnnonce('Contrat créé en brouillon : saisissez le contrat initial et sa grille.');
+    return { vers: nouveau ? routeDetail(VUE_CONTRATS, nouveau) : routeListe(VUE_CONTRATS) };
+  };
+
   return (
-    <Fenetre
+    <PageFormulaire
+      vue={VUE_CONTRATS}
+      module={MODULE_CONTRATS}
       titre={contrat ? `Modifier ${contrat.reference}` : 'Nouveau contrat'}
-      onFermer={onFermer}
-      enCours={enCours}
-      valide={valide}
-      erreur={erreur}
-      onValider={() => enregistrer({
-        reference: f.reference.trim(), intitule: f.intitule.trim(), nature: f.nature, contrepartie: f.contrepartie.trim(),
-        devise: f.devise, date_debut: f.date_debut, date_fin: f.date_fin || null, statut: f.statut,
-        delai_paiement_jours: nombre(f.delai), description: texte(f.description),
-        preavis_jours: nombre(f.preavis), renouvellement: f.renouvellement || null, renouvellement_duree_mois: nombre(f.duree),
-      })}
+      reference={contrat?.reference}
+      id={contrat?.id}
+      description={contrat ? 'Le statut se change par l\'action « Changer le statut » de la fiche.' : 'Le contrat est créé en brouillon : saisir le contrat initial et sa grille, puis l\'activer.'}
+      modifie={modifie}
+      erreurs={erreursContrat(f)}
+      onSoumettre={soumettre}
+      libelleSoumettre="Enregistrer"
+      chargement={chargement}
+      erreurChargement={erreurChargement}
     >
-      <Champ libelle="Référence *"><input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Contrepartie *"><input value={f.contrepartie} onChange={(e) => setF({ ...f, contrepartie: e.target.value })} placeholder="CBG, Neemba..." className={CHAMP} /></Champ>
-      <Champ libelle="Intitulé *" large><input value={f.intitule} onChange={(e) => setF({ ...f, intitule: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Nature *"><Choix valeur={f.nature} options={NATURES} onChange={(nature) => setF({ ...f, nature: nature as Contrat['nature'] })} /></Champ>
-      <Champ libelle="Devise (code ISO) *">
-        <input value={f.devise} onChange={(e) => setF({ ...f, devise: e.target.value.toUpperCase().slice(0, 3) })} placeholder="GNF, USD..." className={CHAMP} />
-      </Champ>
-      <Champ libelle="Début *"><input type="date" value={f.date_debut} onChange={(e) => setF({ ...f, date_debut: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Fin"><input type="date" value={f.date_fin} onChange={(e) => setF({ ...f, date_fin: e.target.value })} className={CHAMP} /></Champ>
-      {contrat ? (
-        <Champ libelle="Statut">
-          <select value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value as Contrat['statut'] })} className={CHAMP}>
-            {Object.entries(STATUTS).map(([k, s]) => <option key={k} value={k}>{s.libelle}</option>)}
+      <SectionFormulaire titre="Identification">
+        <Champ libelle="Référence *"><input value={f.reference} onChange={(e) => setF({ ...f, reference: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Contrepartie *"><input value={f.contrepartie} onChange={(e) => setF({ ...f, contrepartie: e.target.value })} placeholder="CBG, Neemba..." className={CHAMP} /></Champ>
+        <Champ libelle="Intitulé *" large><input value={f.intitule} onChange={(e) => setF({ ...f, intitule: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Nature *"><Choix valeur={f.nature} options={NATURES} onChange={(nature) => setF({ ...f, nature: nature as Contrat['nature'] })} /></Champ>
+        <Champ libelle="Devise (code ISO) *">
+          <input value={f.devise} onChange={(e) => setF({ ...f, devise: e.target.value.toUpperCase().slice(0, 3) })} placeholder="GNF, USD..." className={CHAMP} />
+        </Champ>
+      </SectionFormulaire>
+      <SectionFormulaire titre="Durée et paiement">
+        <Champ libelle="Début *"><input type="date" value={f.date_debut} onChange={(e) => setF({ ...f, date_debut: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Fin"><input type="date" value={f.date_fin} onChange={(e) => setF({ ...f, date_fin: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Délai de paiement (jours)"><input inputMode="numeric" value={f.delai} onChange={(e) => setF({ ...f, delai: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Préavis de dénonciation (jours)"><input inputMode="numeric" value={f.preavis} onChange={(e) => setF({ ...f, preavis: e.target.value })} placeholder="Selon le contrat" className={CHAMP} /></Champ>
+        <Champ libelle="Renouvellement">
+          <select value={f.renouvellement} onChange={(e) => setF({ ...f, renouvellement: e.target.value as typeof f.renouvellement })} className={CHAMP}>
+            <option value="">Non renseigné</option>
+            {Object.entries(RENOUVELLEMENTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select>
         </Champ>
-      ) : (
-        <Champ libelle="Statut"><p className="py-2 text-stone-600">Brouillon : saisir le contrat initial et sa grille, puis l'activer.</p></Champ>
-      )}
-      <Champ libelle="Délai de paiement (jours)"><input inputMode="numeric" value={f.delai} onChange={(e) => setF({ ...f, delai: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Préavis de dénonciation (jours)"><input inputMode="numeric" value={f.preavis} onChange={(e) => setF({ ...f, preavis: e.target.value })} placeholder="Selon le contrat" className={CHAMP} /></Champ>
-      <Champ libelle="Renouvellement">
-        <select value={f.renouvellement} onChange={(e) => setF({ ...f, renouvellement: e.target.value as typeof f.renouvellement })} className={CHAMP}>
-          <option value="">Non renseigné</option>
-          {Object.entries(RENOUVELLEMENTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-        </select>
-      </Champ>
-      <Champ libelle="Durée d'un renouvellement (mois)"><input inputMode="numeric" value={f.duree} onChange={(e) => setF({ ...f, duree: e.target.value })} className={CHAMP} /></Champ>
-      <Champ libelle="Description" large><textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} rows={2} className={CHAMP} /></Champ>
-    </Fenetre>
+        <Champ libelle="Durée d'un renouvellement (mois)"><input inputMode="numeric" value={f.duree} onChange={(e) => setF({ ...f, duree: e.target.value })} className={CHAMP} /></Champ>
+        <Champ libelle="Description" large><textarea value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} rows={2} className={CHAMP} /></Champ>
+      </SectionFormulaire>
+    </PageFormulaire>
   );
 };
 
-export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer, onFait }: {
-  contratId: string; version?: Version; numeroSuivant: number; onFermer: () => void; onFait: () => void;
-}) => {
-  const [f, setF] = useState({
-    numero: (version?.numero ?? numeroSuivant).toString(),
-    intitule: version?.intitule ?? '',
-    date_effet: version?.date_effet ?? '',
-    date_signature: version?.date_signature ?? '',
-    resume: version?.resume ?? '',
-    document_ref: version?.document_ref ?? '',
+export const FormulaireVersion = ({ contrat, version, numeroSuivant }: { contrat: Contrat; version?: Version; numeroSuivant: number }) => {
+  const { f, setF, modifie } = useSaisieLocale({
+    numero: (version?.numero ?? numeroSuivant).toString(), intitule: version?.intitule ?? '', date_effet: version?.date_effet ?? '',
+    date_signature: version?.date_signature ?? '', resume: version?.resume ?? '', document_ref: version?.document_ref ?? '',
   });
-  const { erreur, enCours, enregistrer } = useEnregistrement('contrat_versions', version?.id, onFait);
-  const [erreurCopie, setErreurCopie] = useState('');
-  const [copieEnCours, setCopieEnCours] = useState(false);
   const numero = nombre(f.numero);
   const ligne = {
-    contrat_id: contratId, numero, intitule: f.intitule.trim(), date_effet: f.date_effet,
+    contrat_id: contrat.id, numero, intitule: f.intitule.trim(), date_effet: f.date_effet,
     date_signature: f.date_signature || null, resume: texte(f.resume), document_ref: texte(f.document_ref),
   };
-  // Nouvel avenant : la grille de la version precedente (tarifs, engagements,
-  // clauses actives) est reprise par la fonction serveur creer_avenant, tout
-  // ou rien (D-079) : une version en vigueur ne recoit pas de tarif ajoute
-  // apres coup par l'API.
-  const creerAvecReprise = async () => {
-    setCopieEnCours(true);
-    setErreurCopie('');
+  // Contrat initial : saisie directe ; avenant : toujours par creer_avenant
+  // (numero suivant, reprise de la grille, tout ou rien, D-079).
+  const avecReprise = !version && numeroSuivant > 0;
+  const erreurs = [
+    ...(numero === null || Number.isNaN(numero) || numero < 0 ? ['Numéro de version : 0 pour le contrat initial, puis 1, 2...'] : []),
+    ...(!f.intitule.trim() ? ['Intitulé obligatoire.'] : []),
+    ...(!f.date_effet ? ['Date d\'effet obligatoire.'] : []),
+  ];
+  const enregistrer = async () => {
+    if (!avecReprise) return ecrire('contrat_versions', version?.id, ligne);
     const { error } = await supabase.rpc('creer_avenant', {
-      p_contrat: contratId, p_numero: numero, p_intitule: ligne.intitule, p_date_effet: ligne.date_effet,
+      p_contrat: contrat.id, p_numero: numero, p_intitule: ligne.intitule, p_date_effet: ligne.date_effet,
       p_date_signature: ligne.date_signature, p_resume: ligne.resume, p_document_ref: ligne.document_ref,
     });
-    setCopieEnCours(false);
-    if (error) {
-      setErreurCopie(error.code === '23505' ? 'Ce numéro de version existe déjà.' : `Avenant refusé : ${error.message}`);
-      return;
-    }
-    onFait();
+    return error ? (error.code === '23505' ? 'Ce numéro de version existe déjà.' : `Avenant refusé : ${error.message}`) : null;
   };
-  // Contrat initial : saisie directe (contrat brouillon) ; avenant : toujours
-  // par creer_avenant (numero suivant, reprise de la grille, D-079).
-  const avecReprise = !version && numeroSuivant > 0;
   return (
-    <Fenetre
+    <SaisieElement
+      contrat={contrat}
       titre={version ? 'Modifier la version' : numeroSuivant === 0 ? 'Contrat initial' : `Nouvel avenant (n° ${numeroSuivant})`}
-      onFermer={onFermer}
-      enCours={enCours || copieEnCours}
-      valide={Boolean(numero !== null && numero >= 0 && f.intitule.trim() && f.date_effet)}
-      erreur={erreur || erreurCopie}
-      onValider={() => (avecReprise ? creerAvecReprise() : enregistrer(ligne))}
+      description={avecReprise ? 'L\'avenant reprend les tarifs, engagements et clauses de la dernière version. Sa date d\'effet suit celle de toute version et de toute période déjà facturée ; il se complète ensuite tant que sa date d\'effet n\'est pas atteinte.' : undefined}
+      modifie={modifie}
+      erreurs={erreurs}
+      enregistrer={enregistrer}
+      succes={version ? 'Version mise à jour.' : avecReprise ? 'Avenant créé : la grille de la version précédente est reprise.' : 'Contrat initial enregistré.'}
     >
       <Champ libelle="Numéro (0 = contrat initial) *"><input inputMode="numeric" value={f.numero} onChange={(e) => setF({ ...f, numero: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Date d'effet *"><input type="date" value={f.date_effet} onChange={(e) => setF({ ...f, date_effet: e.target.value })} className={CHAMP} /></Champ>
@@ -195,82 +190,63 @@ export const FormulaireVersion = ({ contratId, version, numeroSuivant, onFermer,
       <Champ libelle="Date de signature"><input type="date" value={f.date_signature} onChange={(e) => setF({ ...f, date_signature: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Référence du document"><input value={f.document_ref} onChange={(e) => setF({ ...f, document_ref: e.target.value })} placeholder="Classement, lien..." className={CHAMP} /></Champ>
       <Champ libelle="Résumé des changements" large><textarea value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} rows={3} className={CHAMP} /></Champ>
-      {avecReprise && (
-        <p className="rounded-lg bg-stone-50 p-3 text-stone-700 sm:col-span-2">
-          L'avenant reprend les tarifs, engagements et clauses de la dernière version. Sa date d'effet suit celle de toute version
-          et de toute période déjà facturée ; il se complète ensuite tant que sa date d'effet n'est pas atteinte.
-        </p>
-      )}
-    </Fenetre>
+    </SaisieElement>
   );
 };
 
 /**
  * Tarif en vigueur d'un contrat qui n'est plus brouillon (D-033, D-079) : il
- * ne se modifie pas sur place. Le formulaire cree un avenant (fonction
- * serveur) qui reprend toute la grille, le tarif portant le nouveau prix.
+ * ne se modifie pas sur place. La page cree un avenant (fonction serveur)
+ * qui reprend toute la grille, le tarif portant le nouveau prix.
  */
-const FormulaireTarifParAvenant = ({ tarif, dateEffetVersion, onFermer, onFait }: {
-  tarif: Tarif; dateEffetVersion: string; onFermer: () => void; onFait: () => void;
-}) => {
-  const [f, setF] = useState({
-    prix: tarif.prix?.toString() ?? '', libelle: tarif.libelle, conditions: tarif.conditions ?? '',
-    intitule: '', date_effet: '', resume: '',
+const FormulaireTarifParAvenant = ({ contrat, tarif, dateEffetVersion }: { contrat: Contrat; tarif: Tarif; dateEffetVersion: string }) => {
+  const { f, setF, modifie } = useSaisieLocale({
+    prix: tarif.prix?.toString() ?? '', libelle: tarif.libelle, conditions: tarif.conditions ?? '', intitule: '', date_effet: '', resume: '',
   });
-  const [erreur, setErreur] = useState('');
-  const [enCours, setEnCours] = useState(false);
   const prix = nombre(f.prix);
-  const valider = async () => {
-    setEnCours(true);
-    setErreur('');
-    const { error } = await supabase.rpc('modifier_tarif_par_avenant', {
-      p_tarif: tarif.id, p_prix: prix, p_intitule: f.intitule.trim(), p_date_effet: f.date_effet,
-      p_libelle: f.libelle.trim(), p_conditions: f.conditions.trim(), p_resume: texte(f.resume),
-    });
-    setEnCours(false);
-    if (error) setErreur(`Avenant refusé : ${error.message}`);
-    else onFait();
-  };
+  const erreurs = [
+    ...(prix === null || Number.isNaN(prix) || prix < 0 ? ['Nouveau prix unitaire (0 ou plus).'] : []),
+    ...(!f.libelle.trim() ? ['Libellé obligatoire.'] : []),
+    ...(!f.intitule.trim() ? ['Intitulé de l\'avenant obligatoire.'] : []),
+    ...(!f.date_effet || f.date_effet <= dateEffetVersion ? [`Date d'effet de l'avenant après le ${dateEffetVersion}.`] : []),
+  ];
   return (
-    <Fenetre
+    <SaisieElement
+      contrat={contrat}
       titre="Modifier un tarif en vigueur par avenant"
-      onFermer={onFermer}
-      enCours={enCours}
-      valide={Boolean(prix !== null && !Number.isNaN(prix) && prix >= 0 && f.libelle.trim() && f.intitule.trim() && f.date_effet && f.date_effet > dateEffetVersion)}
-      erreur={erreur}
-      onValider={valider}
+      description="Ce tarif est en vigueur sur un contrat actif : il ne se modifie pas sur place. L'enregistrement crée un avenant (nouvelle version) qui reprend toute la grille, avec le nouveau prix pour ce tarif. La version actuelle reste intacte."
+      modifie={modifie}
+      erreurs={erreurs}
+      succes="Avenant créé avec le nouveau tarif."
+      enregistrer={async () => {
+        const { error } = await supabase.rpc('modifier_tarif_par_avenant', {
+          p_tarif: tarif.id, p_prix: prix, p_intitule: f.intitule.trim(), p_date_effet: f.date_effet,
+          p_libelle: f.libelle.trim(), p_conditions: f.conditions.trim(), p_resume: texte(f.resume),
+        });
+        return error ? `Avenant refusé : ${error.message}` : null;
+      }}
     >
-      <p className="rounded-lg bg-amber-50 p-3 text-amber-900 sm:col-span-2">
-        Ce tarif est en vigueur sur un contrat actif : il ne se modifie pas sur place. L'enregistrement crée un avenant
-        (nouvelle version) qui reprend toute la grille, avec le nouveau prix pour ce tarif. La version actuelle reste intacte.
-      </p>
       <Champ libelle="Nouveau prix unitaire *"><input inputMode="decimal" value={f.prix} onChange={(e) => setF({ ...f, prix: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Libellé *"><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Conditions" large><input value={f.conditions} onChange={(e) => setF({ ...f, conditions: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Intitulé de l'avenant *" large><input value={f.intitule} onChange={(e) => setF({ ...f, intitule: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle={`Date d'effet de l'avenant * (après le ${dateEffetVersion})`}><input type="date" value={f.date_effet} onChange={(e) => setF({ ...f, date_effet: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Résumé des changements"><input value={f.resume} onChange={(e) => setF({ ...f, resume: e.target.value })} className={CHAMP} /></Champ>
-    </Fenetre>
+    </SaisieElement>
   );
 };
 
-export const FormulaireTarif = ({ versionId, tarif, parAvenant, onFermer, onFait }: {
-  versionId: string; tarif?: Tarif; parAvenant?: { dateEffetVersion: string }; onFermer: () => void; onFait: () => void;
+export const FormulaireTarif = ({ contrat, versionId, tarif, parAvenant }: {
+  contrat: Contrat; versionId: string; tarif?: Tarif; parAvenant?: { dateEffetVersion: string };
 }) => {
-  if (tarif && parAvenant) {
-    return <FormulaireTarifParAvenant tarif={tarif} dateEffetVersion={parAvenant.dateEffetVersion} onFermer={onFermer} onFait={onFait} />;
-  }
-  return <FormulaireTarifDirect versionId={versionId} tarif={tarif} onFermer={onFermer} onFait={onFait} />;
+  if (tarif && parAvenant) return <FormulaireTarifParAvenant contrat={contrat} tarif={tarif} dateEffetVersion={parAvenant.dateEffetVersion} />;
+  return <FormulaireTarifDirect contrat={contrat} versionId={versionId} tarif={tarif} />;
 };
 
-const FormulaireTarifDirect = ({ versionId, tarif, onFermer, onFait }: { versionId: string; tarif?: Tarif; onFermer: () => void; onFait: () => void }) => {
-  const [f, setF] = useState({
-    libelle: tarif?.libelle ?? '',
-    unite: tarif?.unite ?? '',
-    prix: tarif?.prix?.toString() ?? '',
-    categorie: tarif?.categorie_materiel ?? '',
-    engin: tarif?.engin ?? '',
-    conditions: tarif?.conditions ?? '',
+const FormulaireTarifDirect = ({ contrat, versionId, tarif }: { contrat: Contrat; versionId: string; tarif?: Tarif }) => {
+  const { f, setF, modifie } = useSaisieLocale({
+    libelle: tarif?.libelle ?? '', unite: tarif?.unite ?? '', prix: tarif?.prix?.toString() ?? '', categorie: tarif?.categorie_materiel ?? '',
+    engin: tarif?.engin ?? '', conditions: tarif?.conditions ?? '',
     retourVide: tarif?.km_retour_vide_facturable == null ? '' : String(tarif.km_retour_vide_facturable),
   });
   const [engins, setEngins] = useState<{ id: string; registration: string }[]>([]);
@@ -278,16 +254,20 @@ const FormulaireTarifDirect = ({ versionId, tarif, onFermer, onFait }: { version
     supabase.from('vehicles').select('id, registration').order('registration')
       .then(({ data }) => setEngins((data as { id: string; registration: string }[] | null) ?? []));
   }, []);
-  const { erreur, enCours, enregistrer } = useEnregistrement('contrat_tarifs', tarif?.id, onFait);
   const prix = nombre(f.prix);
+  const erreurs = [
+    ...(!f.libelle.trim() ? ['Libellé obligatoire.'] : []),
+    ...(!f.unite ? ['Unité obligatoire.'] : []),
+    ...(prix === null || Number.isNaN(prix) || prix < 0 ? ['Prix unitaire (0 ou plus).'] : []),
+  ];
   return (
-    <Fenetre
+    <SaisieElement
+      contrat={contrat}
       titre={tarif ? 'Modifier le tarif' : 'Nouveau tarif'}
-      onFermer={onFermer}
-      enCours={enCours}
-      valide={Boolean(f.libelle.trim() && f.unite && prix !== null && prix >= 0)}
-      erreur={erreur}
-      onValider={() => enregistrer({
+      modifie={modifie}
+      erreurs={erreurs}
+      succes={tarif ? 'Tarif mis à jour.' : 'Tarif ajouté.'}
+      enregistrer={() => ecrire('contrat_tarifs', tarif?.id, {
         version_id: versionId, libelle: f.libelle.trim(), unite: f.unite, prix,
         categorie_materiel: texte(f.categorie), engin: f.engin || null, conditions: texte(f.conditions),
         km_retour_vide_facturable: f.unite === 'km' && f.retourVide !== '' ? f.retourVide === 'true' : null,
@@ -311,32 +291,32 @@ const FormulaireTarifDirect = ({ versionId, tarif, onFermer, onFait }: { version
           <option value="false">Non : trajet chargé seulement</option>
         </select>
       </Champ>}
-    </Fenetre>
+    </SaisieElement>
   );
 };
 
-export const FormulaireEngagement = ({ versionId, engagement, onFermer, onFait }: {
-  versionId: string; engagement?: Engagement; onFermer: () => void; onFait: () => void;
-}) => {
-  const [f, setF] = useState({
-    indicateur: engagement?.indicateur ?? '',
-    libelle: engagement?.libelle ?? '',
-    seuil: engagement?.seuil?.toString() ?? '',
-    unite: engagement?.unite ?? '',
-    sens: engagement?.sens ?? '',
-    periodicite: engagement?.periodicite ?? '',
-    consequence: engagement?.consequence ?? '',
+export const FormulaireEngagement = ({ contrat, versionId, engagement }: { contrat: Contrat; versionId: string; engagement?: Engagement }) => {
+  const { f, setF, modifie } = useSaisieLocale({
+    indicateur: engagement?.indicateur ?? '', libelle: engagement?.libelle ?? '', seuil: engagement?.seuil?.toString() ?? '', unite: engagement?.unite ?? '',
+    sens: engagement?.sens ?? '', periodicite: engagement?.periodicite ?? '', consequence: engagement?.consequence ?? '',
   });
-  const { erreur, enCours, enregistrer } = useEnregistrement('contrat_engagements', engagement?.id, onFait);
   const seuil = nombre(f.seuil);
+  const erreurs = [
+    ...(!f.indicateur ? ['Indicateur obligatoire.'] : []),
+    ...(!f.libelle.trim() ? ['Libellé contractuel obligatoire.'] : []),
+    ...(seuil === null || Number.isNaN(seuil) ? ['Seuil obligatoire.'] : []),
+    ...(!f.unite.trim() ? ['Unité obligatoire.'] : []),
+    ...(!f.sens ? ['Sens (minimum ou maximum) obligatoire.'] : []),
+    ...(!f.periodicite ? ['Périodicité obligatoire.'] : []),
+  ];
   return (
-    <Fenetre
+    <SaisieElement
+      contrat={contrat}
       titre={engagement ? 'Modifier l\'engagement' : 'Nouvel engagement'}
-      onFermer={onFermer}
-      enCours={enCours}
-      valide={Boolean(f.indicateur && f.libelle.trim() && seuil !== null && f.unite.trim() && f.sens && f.periodicite)}
-      erreur={erreur}
-      onValider={() => enregistrer({
+      modifie={modifie}
+      erreurs={erreurs}
+      succes={engagement ? 'Engagement mis à jour.' : 'Engagement ajouté.'}
+      enregistrer={() => ecrire('contrat_engagements', engagement?.id, {
         version_id: versionId, indicateur: f.indicateur, libelle: f.libelle.trim(), seuil, unite: f.unite.trim(),
         sens: f.sens, periodicite: f.periodicite, consequence: texte(f.consequence),
       })}
@@ -350,44 +330,47 @@ export const FormulaireEngagement = ({ versionId, engagement, onFermer, onFait }
       <Champ libelle="Sens *"><Choix valeur={f.sens} options={{ minimum: 'Au moins (minimum)', maximum: 'Au plus (maximum)' }} onChange={(sens) => setF({ ...f, sens: sens as Engagement['sens'] })} /></Champ>
       <Champ libelle="Périodicité *"><Choix valeur={f.periodicite} options={PERIODICITES} onChange={(periodicite) => setF({ ...f, periodicite })} /></Champ>
       <Champ libelle="Conséquence (pénalité, bonus, clause)" large><textarea value={f.consequence} onChange={(e) => setF({ ...f, consequence: e.target.value })} rows={2} className={CHAMP} /></Champ>
-    </Fenetre>
+    </SaisieElement>
   );
 };
 
 /** Clause chiffree (D-065) : ecrite par la fonction serveur definir_clause. */
-export const FormulaireClause = ({ versionId, engagements, devise, clause, onFermer, onFait }: {
-  versionId: string; engagements: Engagement[]; devise: string; clause?: Clause; onFermer: () => void; onFait: () => void;
+export const FormulaireClause = ({ contrat, versionId, engagements, clause }: {
+  contrat: Contrat; versionId: string; engagements: Engagement[]; clause?: Clause;
 }) => {
-  const [f, setF] = useState({
-    type: clause?.type_clause ?? '',
-    libelle: clause?.libelle ?? '',
-    engagement: clause?.engagement_id ?? '',
-    declenchement: clause?.declenchement ?? '',
-    base: clause?.base ?? '',
-    valeur: clause?.valeur?.toString() ?? '',
-    plafond: clause?.plafond_ht?.toString() ?? '',
-    article: clause?.article ?? '',
+  const { f, setF, modifie } = useSaisieLocale({
+    type: clause?.type_clause ?? '', libelle: clause?.libelle ?? '', engagement: clause?.engagement_id ?? '', declenchement: clause?.declenchement ?? '',
+    base: clause?.base ?? '', valeur: clause?.valeur?.toString() ?? '', plafond: clause?.plafond_ht?.toString() ?? '', article: clause?.article ?? '',
   });
-  const [erreur, setErreur] = useState('');
-  const [enCours, setEnCours] = useState(false);
+  const devise = contrat.devise;
   const mesurables = engagements.filter((e) => e.indicateur !== 'autre');
   const valeur = nombre(f.valeur);
   const plafond = nombre(f.plafond);
-  const valide = Boolean(f.type && f.libelle.trim() && f.engagement && f.declenchement && f.base && valeur !== null && valeur > 0
-    && (f.base !== 'taux' || valeur <= 100) && (plafond === null || plafond > 0));
-  const enregistrer = async () => {
-    setEnCours(true);
-    setErreur('');
-    const { error } = await supabase.rpc('definir_clause', {
-      p_version: versionId, p_type: f.type, p_libelle: f.libelle.trim(), p_engagement: f.engagement, p_declenchement: f.declenchement,
-      p_base: f.base, p_valeur: valeur, p_plafond: plafond, p_article: texte(f.article), p_ordre: clause?.ordre ?? 0, p_id: clause?.id ?? null,
-    });
-    setEnCours(false);
-    if (error) setErreur(error.message);
-    else onFait();
-  };
+  const erreurs = [
+    ...(!f.type ? ['Type de clause obligatoire.'] : []),
+    ...(!f.libelle.trim() ? ['Libellé obligatoire.'] : []),
+    ...(!f.engagement ? ['Engagement mesuré (condition) obligatoire.'] : []),
+    ...(!f.declenchement ? ['Déclenchement obligatoire.'] : []),
+    ...(!f.base ? ['Base (montant ou taux) obligatoire.'] : []),
+    ...(valeur === null || Number.isNaN(valeur) || valeur <= 0 || (f.base === 'taux' && valeur > 100) ? ['Valeur supérieure à zéro (taux au plus 100 %).'] : []),
+    ...(plafond !== null && (Number.isNaN(plafond) || plafond <= 0) ? ['Plafond supérieur à zéro, ou vide.'] : []),
+  ];
   return (
-    <Fenetre titre={clause ? 'Modifier la clause' : 'Nouvelle clause chiffrée'} onFermer={onFermer} enCours={enCours} valide={valide} erreur={erreur} onValider={enregistrer}>
+    <SaisieElement
+      contrat={contrat}
+      titre={clause ? 'Modifier la clause' : 'Nouvelle clause chiffrée'}
+      description={mesurables.length === 0 ? 'Aucun engagement mesuré dans cette version : saisissez d\'abord l\'engagement qui conditionne la clause.' : undefined}
+      modifie={modifie}
+      erreurs={erreurs}
+      succes={clause ? 'Clause mise à jour.' : 'Clause ajoutée.'}
+      enregistrer={async () => {
+        const { error } = await supabase.rpc('definir_clause', {
+          p_version: versionId, p_type: f.type, p_libelle: f.libelle.trim(), p_engagement: f.engagement, p_declenchement: f.declenchement,
+          p_base: f.base, p_valeur: valeur, p_plafond: plafond, p_article: texte(f.article), p_ordre: clause?.ordre ?? 0, p_id: clause?.id ?? null,
+        });
+        return error ? error.message : null;
+      }}
+    >
       <Champ libelle="Type *"><Choix valeur={f.type} options={TYPES_CLAUSE} onChange={(type) => setF({ ...f, type })} /></Champ>
       <Champ libelle="Libellé *"><input value={f.libelle} onChange={(e) => setF({ ...f, libelle: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle="Engagement mesuré (condition) *">
@@ -401,7 +384,6 @@ export const FormulaireClause = ({ versionId, engagements, devise, clause, onFer
       <Champ libelle={f.base === 'taux' ? 'Taux (%) *' : `Montant HT (${devise}) *`}><input inputMode="decimal" value={f.valeur} onChange={(e) => setF({ ...f, valeur: e.target.value })} className={CHAMP} /></Champ>
       <Champ libelle={`Plafond HT par période (${devise})`}><input inputMode="decimal" value={f.plafond} onChange={(e) => setF({ ...f, plafond: e.target.value })} placeholder="Aucun" className={CHAMP} /></Champ>
       <Champ libelle="Article du contrat"><input value={f.article} onChange={(e) => setF({ ...f, article: e.target.value })} className={CHAMP} /></Champ>
-      {mesurables.length === 0 && <p className="text-xs text-stone-500 sm:col-span-2">Aucun engagement mesuré dans cette version : saisissez d'abord l'engagement qui conditionne la clause.</p>}
-    </Fenetre>
+    </SaisieElement>
   );
 };
