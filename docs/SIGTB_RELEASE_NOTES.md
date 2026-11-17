@@ -5,6 +5,46 @@
 
 Versions déployées sur https://sigtb.infranetgn.com. Le détail des étapes de chaque mise à jour est dans [SIGTB_2.0_HEBERGEMENT_VPS.md](SIGTB_2.0_HEBERGEMENT_VPS.md), section 11.
 
+## 3ff151d (2026-11-17) : pesée CBG à deux sources (D-081, PR #104)
+
+- Le relevé officiel CBG et la fiche terrain de l'agent KOGON sont conservés séparément, puis rapprochés automatiquement ; la fiche KOGON ne remplace jamais le ticket CBG.
+- Menu « Pesée CBG » en quatre onglets : relevés officiels CBG, fiches terrain KOGON, rapprochement côte à côte, anomalies et validations.
+- Import du relevé CBG contrôlé (colonnes, doublons, fichier déjà importé), annulation motivée réservée à la facturation.
+- Une ligne de facture ne prend jamais en silence le poids KOGON : relevé CBG absent ou ambigu, la ligne est bloquée jusqu'à décision motivée.
+
+## 33ab8ef (2026-11-16) : fenêtres de saisie (PR #102)
+
+- Toutes les fenêtres de saisie et de détail : boutons du bas toujours visibles, contenu qui défile, fermeture par Échap, utilisables sur téléphone.
+- La fiche voyage s'ouvre au centre de l'écran ; les erreurs s'affichent en haut de la fenêtre.
+
+## 58ad8db (2026-11-16) : référentiels, comptes et contrats (D-079, PR #101)
+
+- Modifier un site ne lui fait plus perdre son organisation ; coordonnées GPS facultatives.
+- Un compte se crée avec un site (accès à tous les sites seulement avec motif) ; désactivation et réactivation motivées et tracées ; le dernier administrateur est protégé.
+- Contrats : plus de suppression d'un tarif en vigueur ; un tarif change par avenant, jamais sur une période déjà facturée ; un contrat ne devient actif qu'avec au moins un tarif.
+
+## 8dec42c (2026-11-16) : défauts bloquants de la chaîne J1 (D-078, PR #100)
+
+- Écran des shifts (création, modification motivée, journal).
+- Ticket CBG rattachable aux trajets entre sites ; une pesée sans ticket est refusée.
+- Réconciliation : un poids supérieur à la capacité du camion n'est jamais facturable ; une décision « facturable » est annulée si une anomalie apparaît ; deux réconciliations ne couvrent plus les mêmes sites sur la même période.
+- Montants en francs guinéens sans décimales ; menus Budgets et Évaluation Neemba visibles pour les bons rôles.
+
+## 2ad3c29 (2026-11-16) : centre des décisions et prévention HSE (D-068, PR #99)
+
+- Centre des décisions : alertes et validations selon votre site, comparaison de périodes, export.
+- Prévention HSE : plans de prévention (signés par une autre personne que leurs rédacteurs), inspections, équipements de protection.
+
+## 64e0961 (2026-11-16) : menu carburant (PR #98)
+
+- « Pleins et cuves » devient « Distribution aux engins », « Stocks et cuves » devient « Réceptions, cuves et inventaires ».
+- Bandeau du parcours d'un litre en six étapes en tête de chaque écran carburant.
+
+## a909074 (2026-11-16) : organisation et délégations (D-064, PR #97)
+
+- Affectations de sites, délégations temporaires de droits, journal des connexions.
+- Séparation des tâches étendue aux délégations : on ne valide pas ce qu'a saisi la personne à qui l'on a délégué.
+
 ## Purge de la démonstration (2026-11-16, D-076)
 
 - Les données de démonstration ont été supprimées et le bandeau retiré : la plateforme est vide et prête pour la première saisie réelle. Les comptes existants sont conservés.
