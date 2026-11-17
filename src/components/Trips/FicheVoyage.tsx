@@ -8,6 +8,7 @@ import { AVEC_MOTIF, AVEC_PESEE, ETATS, PHASES, actionsPossibles, estEtat, phase
 import type { Voyage } from './types';
 import { IncidentVoyage } from './IncidentVoyage';
 import { VoyageSuivant } from './VoyageSuivant';
+import { BoutonPieces, ListePieces } from '../ui/PiecesJointes';
 
 // Fiche d'un voyage : chronologie des evenements (CDC 12, CDC 31) et
 // transitions possibles. L'heure saisie est l'heure reelle de l'evenement,
@@ -60,7 +61,7 @@ export const FicheVoyage = ({
   const [erreur, setErreur] = useState('');
   const [enCours, setEnCours] = useState(false);
   // Ticket CBG du voyage (D-037) : undefined = lecture en cours ou impossible.
-  const [ticketCbg, setTicketCbg] = useState<{ ticket: string; net: number } | null | undefined>(undefined);
+  const [ticketCbg, setTicketCbg] = useState<{ id: string; ticket: string; net: number } | null | undefined>(undefined);
   const [rattachement, setRattachement] = useState(false);
 
   const charger = useCallback(async () => {
@@ -70,10 +71,10 @@ export const FicheVoyage = ({
         .select('id, etat_avant, etat_apres, survenu_le, enregistre_le, origine, note, donnees')
         .eq('trip_id', voyage.id)
         .order('survenu_le', { ascending: true }),
-      supabase.from('v_tickets_pesee_cbg_effectifs').select('ticket, net').eq('trip_id', voyage.id).maybeSingle(),
+      supabase.from('v_tickets_pesee_cbg_effectifs').select('id, ticket, net').eq('trip_id', voyage.id).maybeSingle(),
     ]);
     setEvenements(error ? [] : (data as Evenement[]));
-    setTicketCbg(rT.error ? undefined : rT.data ? { ticket: rT.data.ticket as string, net: Number(rT.data.net) } : null);
+    setTicketCbg(rT.error ? undefined : rT.data ? { id: rT.data.id as string, ticket: rT.data.ticket as string, net: Number(rT.data.net) } : null);
   }, [voyage.id]);
 
   useEffect(() => {
@@ -289,9 +290,10 @@ export const FicheVoyage = ({
         )}
 
         {ticketCbg && (
-          <p className="border-b border-stone-200 px-6 py-3 text-sm text-stone-700">
-            Ticket CBG <b>{ticketCbg.ticket}</b> · net {formatNombre(ticketCbg.net, 2)} t
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-6 py-3 text-sm text-stone-700">
+            <p>Ticket CBG <b>{ticketCbg.ticket}</b> · net {formatNombre(ticketCbg.net, 2)} t</p>
+            <BoutonPieces objetType="ticket_pesee_cbg" objetId={ticketCbg.id} titre={`ticket CBG ${ticketCbg.ticket}`} peutDeposer={peutEcrire} />
+          </div>
         )}
         {ticketCbg === null && LIVRES_SANS_TICKET.includes(etat) && (
           <section className="border-b border-stone-200 px-6 py-4" aria-label="Ticket CBG absent">
@@ -327,6 +329,11 @@ export const FicheVoyage = ({
 
         {peutEcrire && <VoyageSuivant voyage={voyage} onModifie={onModifie} />}
         <IncidentVoyage voyage={voyage} peutEcrire={peutEcrire} libelles={libelles} />
+
+        <section className="border-b border-stone-200 px-6 py-4" aria-label="Pièces justificatives du voyage">
+          <h3 className="mb-3 text-sm font-semibold text-stone-700">Pièces justificatives du voyage</h3>
+          <ListePieces objetType="voyage" objetId={voyage.id} peutDeposer={peutEcrire} />
+        </section>
 
         <section className="px-6 py-4">
           <h3 className="mb-3 text-sm font-semibold text-stone-700">Chronologie</h3>

@@ -19,10 +19,28 @@ sigtb.infranetgn.com {
 		reverse_proxy 127.0.0.1:8200
 	}
 
+	# Pieces justificatives (D-083) : API objets du service storage, jeton
+	# de l'utilisateur verifie par le service, droits par les politiques de
+	# storage.objects. Le protocole S3 (/storage/v1/s3) et le televersement
+	# reprenable (/storage/v1/upload/resumable) ne sont pas exposes ; corps
+	# borne a 11 Mo (fichier de 10 Mio et en-tetes multipart).
+	@stockage_refuse path /storage/v1/s3 /storage/v1/s3/* /storage/v1/upload/*
+	handle @stockage_refuse {
+		respond 404
+	}
+	@stockage path /storage/v1/object/*
+	handle @stockage {
+		request_body {
+			max_size 11MB
+		}
+		reverse_proxy 127.0.0.1:8200
+	}
+
 	# Fonctions publiees : ingestion des boitiers (cle par boitier) et
 	# gestion des comptes (jeton d'un administrateur actif, verifie par la
 	# fonction). geofence-monitor et les autres routes de la passerelle
-	# (/pg, /graphql, /storage, /realtime, studio) ne sont pas exposees.
+	# (/pg, /graphql, le reste de /storage, /realtime, studio) ne sont pas
+	# exposees.
 	@fonctions path /functions/v1/iot-ingestion /functions/v1/iot-ingestion/* /functions/v1/admin-utilisateurs
 	handle @fonctions {
 		request_body {

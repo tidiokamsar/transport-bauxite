@@ -45,6 +45,13 @@ for chemin in $(ls "$DEPOT"/supabase/migrations/*.sql | sort); do
 done
 echo "Migrations appliquees : $APPLIQUEES"
 
+# Bucket prive et politiques des pieces jointes (D-083) : poses par la
+# migration 20261121200000 si les tables storage existent deja, sinon ici,
+# des que le service storage les a creees. Idempotent.
+if [ "$(psql_admin -tA -c "select to_regprocedure('public.configurer_stockage_pieces()') is not null")" = "t" ]; then
+  echo "Stockage des pieces : $(psql_admin -tA -c "select public.configurer_stockage_pieces()" 2>/dev/null | tail -1)"
+fi
+
 # PostgREST relit le schema.
 psql_admin -c "NOTIFY pgrst, 'reload schema'" >/dev/null
 

@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { exportToCSV } from '../../lib/exports';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
+import { BoutonPieces } from '../ui/PiecesJointes';
 import { ETATS_LIVRES, MOMENTS, mesurer, motifRequis, type MomentReleve, type Releve } from './kilometrage';
 
 // Kilometrage des voyages (D-043) : releves d'odometre saisis depuis les
@@ -147,7 +148,8 @@ export const KilometrageView = () => {
           {MOMENTS.map((mo) => { const r = relevesDe(v.id).find((x) => x.moment === mo.id); return <li key={mo.id} className="flex flex-wrap items-end gap-3 py-2 text-sm">
             <span className="w-36 font-semibold">{mo.libelle}</span>
             {r ? <><span>{km(r.valeur_km)} · {new Date(r.releve_le).toLocaleString('fr-FR')}</span>
-              {peutSaisir && <button onClick={() => corriger(r)} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><PenLine className="h-3 w-3" /> Corriger</button>}</>
+              {peutSaisir && <button onClick={() => corriger(r)} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><PenLine className="h-3 w-3" /> Corriger</button>}
+              <BoutonPieces objetType="releve_compteur" objetId={r.id} titre={`relevé ${mo.libelle} ${v.reference}`} peutDeposer={peutSaisir} /></>
               : peutSaisir ? <>
                 <label className="text-xs">Compteur (km)<input aria-label={`${mo.libelle} compteur`} inputMode="decimal" value={champs[mo.id] ?? ''} onChange={(e) => setChamps({ ...champs, [mo.id]: e.target.value })} className={`${CHAMP} w-32`} /></label>
                 <label className="text-xs">Heure<input aria-label={`${mo.libelle} heure`} type="datetime-local" value={champs[`${mo.id}_quand`] ?? champs.quand} onChange={(e) => setChamps({ ...champs, [`${mo.id}_quand`]: e.target.value })} className={CHAMP} /></label>
