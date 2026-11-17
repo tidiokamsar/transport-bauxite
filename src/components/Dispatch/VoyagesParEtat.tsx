@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { ETATS, PHASES, estEtat, phaseDe } from '../Trips/cycle';
-import { FicheVoyage } from '../Trips/FicheVoyage';
-import { routeDetail } from '../ui/routeur';
+import { naviguer, routeDetail } from '../ui/routeur';
 import type { Voyage } from '../Trips/types';
 import { VUES_VOYAGES, dansVue, type VueVoyages } from './controle';
 import { FenetreSuspension } from './FenetreSuspension';
 
 // Voyages du shift par etat (D-087) : vues sur le cycle trips.etat existant
 // (trips_garde_cycle inchangee), plus suspendus (suspensions_voyage) et a
-// reaffecter (ressource indisponible). La fiche du voyage (transitions,
-// ticket CBG, incident, enchainement apres dechargement) est celle de
-// l'ecran Voyages, reutilisee telle quelle.
+// reaffecter (ressource indisponible). Un clic ouvre la fiche operationnelle
+// du voyage (#/trips/<id>, D-088) : transitions, ticket CBG, incident,
+// enchainement apres dechargement.
 
 export const VoyagesParEtat = ({
   voyages, vue, setVue, suspendus, aReaffecter, peutEcrire, libelle, onModifie,
@@ -25,7 +24,6 @@ export const VoyagesParEtat = ({
   libelle: (v: Voyage) => { camion: string; chauffeur: string; chargeuse: string; origine: string; destination: string; shift: string };
   onModifie: () => void;
 }) => {
-  const [fiche, setFiche] = useState<Voyage | null>(null);
   const [suspension, setSuspension] = useState<{ mode: 'suspendre' | 'reprendre'; voyage: Voyage } | null>(null);
   const liste = voyages.filter((v) => dansVue(vue, v, suspendus, aReaffecter));
   const compte = (c: VueVoyages) => voyages.filter((v) => dansVue(c, v, suspendus, aReaffecter)).length;
@@ -60,7 +58,7 @@ export const VoyagesParEtat = ({
                 const l = libelle(v);
                 const suspendu = suspendus.has(v.id);
                 return (
-                  <tr key={v.id} className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-stone-50" onClick={() => setFiche(v)}>
+                  <tr key={v.id} className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-stone-50" onClick={() => naviguer(routeDetail('trips', v.id))}>
                     <td className="py-2 pr-3 font-semibold text-stone-900"><a href={routeDetail('trips', v.id)} className="hover:underline">{v.reference}</a></td>
                     <td className="py-2 pr-3">
                       <Puce teinte={PHASES[phaseDe(v.etat)].teinte}>{estEtat(v.etat) ? ETATS[v.etat].libelle : v.etat ?? '—'}</Puce>
@@ -85,10 +83,6 @@ export const VoyagesParEtat = ({
             </tbody>
           </table>
         </div>
-      )}
-      {fiche && (
-        <FicheVoyage voyage={fiche} libelles={libelle(fiche)} peutEcrire={peutEcrire && !suspendus.has(fiche.id)}
-          onFermer={() => setFiche(null)} onModifie={() => { setFiche(null); onModifie(); }} />
       )}
       {suspension && (
         <FenetreSuspension mode={suspension.mode} voyageId={suspension.voyage.id} reference={suspension.voyage.reference}
