@@ -1,5 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { alerteArticle, lireLots, lotsPourMouvement, texteCmp, texteValeur, totalLots } from './stock';
+import {
+  alerteArticle, entierSaisi, erreursMouvement, estSaisieStock, idRouteStock, lireIdRouteStock, lireLots, lotsPourMouvement, texteCmp, texteValeur, totalLots,
+} from './stock';
+
+describe('routes du registre des stocks (D-090)', () => {
+  it('identifiant prefixe par l\'objet, lu sans perte', () => {
+    const id = '0b5c1d2e-3f40-4a51-9b62-7c83d94ea5f6';
+    expect(lireIdRouteStock(idRouteStock('article', id))).toEqual({ objet: 'article', id });
+    expect(lireIdRouteStock(idRouteStock('reservation', 'r1'))).toEqual({ objet: 'reservation', id: 'r1' });
+    expect(lireIdRouteStock('inconnu-abc')).toBeNull();
+    expect(lireIdRouteStock('article-')).toBeNull();
+    expect(lireIdRouteStock('abc')).toBeNull();
+  });
+  it('saisies connues seulement', () => {
+    expect(estSaisieStock('exit')).toBe(true);
+    expect(estSaisieStock('suppression')).toBe(false);
+    expect(estSaisieStock(undefined)).toBe(false);
+  });
+  it('erreurs de saisie memes exigences que le serveur', () => {
+    const vide = { article: 'a1', source: '', destination: '', depot: '', quantite: '2', lots: '', quand: '2026-11-17T08:00', compte: '', code: '', ordre: '', engin: '', affectation: '' };
+    expect(erreursMouvement('exit', vide, 'aucun')).toEqual(['Dépôt de départ requis.']);
+    expect(erreursMouvement('exit', { ...vide, source: 'd1' }, 'aucun')).toEqual([]);
+    expect(erreursMouvement('exit', { ...vide, source: 'd1' }, 'lot')).toHaveLength(1);
+    expect(erreursMouvement('exit', { ...vide, source: 'd1', lots: 'l1 2' }, 'lot')).toEqual([]);
+    expect(erreursMouvement('transfer', { ...vide, source: 'd1' }, 'aucun')).toEqual(['Dépôt d\'arrivée requis.']);
+    expect(erreursMouvement('reservation', { ...vide, depot: 'd1' }, 'aucun')).toEqual(['Ordre de travail, engin ou affectation requis.']);
+    expect(erreursMouvement('inventaire', { ...vide, depot: 'd1', compte: '0' }, 'aucun')).toEqual([]);
+    expect(erreursMouvement('inventaire', { ...vide, depot: 'd1', compte: '1' }, 'serie')).toEqual(['Numéro de série requis.']);
+    expect(entierSaisi('1 200')).toBe(1200);
+    expect(entierSaisi('-3')).toBeNull();
+  });
+});
 
 describe('alerteArticle (D-044)', () => {
   it('rupture, seuil atteint, niveau normal', () => {

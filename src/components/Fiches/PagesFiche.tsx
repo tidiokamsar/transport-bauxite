@@ -11,8 +11,9 @@ import { useSaisie } from '../ui/pages';
 import { lire, trouver } from '../ui/lecture';
 import { poserAnnonce, routeAction, routeDetail } from '../ui/routeur';
 import type { EvenementHistorique } from '../ui/evenements';
+import { BoutonBrouillon, SaisieCarburantPage, SaisiePointagePage } from './SaisiesFiche';
 import {
-  ETATS_FICHE, LIBELLES_ACTIONS, VUE_FICHES, actionPermise, actionsFiche, erreursLigneRotation, estActionFiche,
+  ETATS_FICHE, LIBELLES_ACTIONS, VUE_FICHES, actionPermise, actionsFiche, depuisBrouillon, erreursLigneRotation, estActionFiche,
   ligneVersServeur, motifImpressionRequis, type ActionFiche, type LigneRotationSaisie,
 } from './cycleFiche';
 
@@ -25,8 +26,9 @@ interface Fiche {
   id: string; numero: string; type: string; date_fiche: string; site_id: string; shift_id: string | null; vehicle_id: string | null;
   driver_id: string | null; agent: string | null; etat: string; version: number; nb_impressions: number | null; trip_id: string | null;
   prepare_le: string | null; remise_le: string | null; retournee_le: string | null; controle_le: string | null; nb_ecarts: number | null;
+  stockage_id: string | null; brouillon: Record<string, unknown> | null;
 }
-const COLONNES_FICHE = 'id, numero, type, date_fiche, site_id, shift_id, vehicle_id, driver_id, agent, etat, version, nb_impressions, trip_id, prepare_le, remise_le, retournee_le, controle_le, nb_ecarts';
+const COLONNES_FICHE = 'id, numero, type, date_fiche, site_id, shift_id, vehicle_id, driver_id, agent, etat, version, nb_impressions, trip_id, prepare_le, remise_le, retournee_le, controle_le, nb_ecarts, stockage_id, brouillon';
 
 interface LigneFR { id: string; rang: number; trip_id: string | null; depart_le: string | null; arrivee_le: string | null; km_depart: number | null; km_arrivee: number | null; ticket_cbg: string | null }
 interface Ecart { id: string; code: string; gravite: string; libelle: string; attendu: string | null; constate: string | null }
@@ -76,7 +78,7 @@ export const DetailFiche = ({ id }: { id: string }) => {
   const etat = fiche?.etat ?? '';
   const actions = fiche ? actionsFiche(etat, fiche.type).map((a) => ({
     id: a, libelle: LIBELLES_ACTIONS[a], visible: peutEcrire, vers: routeAction(VUE_FICHES, id, a),
-    ton: (a === 'annuler' || a === 'renvoyer' ? 'danger' : a === 'valider' || a === 'saisir-ligne' ? 'principal' : 'secondaire') as 'danger' | 'principal' | 'secondaire',
+    ton: (a === 'annuler' || a === 'renvoyer' ? 'danger' : a === 'valider' || a.startsWith('saisir') ? 'principal' : 'secondaire') as 'danger' | 'principal' | 'secondaire',
   })) : [];
 
   return (
@@ -116,7 +118,7 @@ export const DetailFiche = ({ id }: { id: string }) => {
 const VIDE: LigneRotationSaisie = { rang: '1', trip_id: '', depart_le: '', arrivee_le: '', km_depart: '', km_arrivee: '', ticket_cbg: '', observations: '', incidents: '', motif: '' };
 
 const SaisieLigne = ({ fiche }: { fiche: Fiche }) => {
-  const { valeurs, poser, modifie } = useSaisie(VIDE);
+  const { valeurs, poser, modifie } = useSaisie(depuisBrouillon(fiche, 'rotation', VIDE));
   const [voyages, setVoyages] = useState<{ id: string; reference: string; vehicle_id: string | null }[]>([]);
   const [existants, setExistants] = useState<number[]>([]);
   useEffect(() => {
@@ -160,6 +162,7 @@ const SaisieLigne = ({ fiche }: { fiche: Fiche }) => {
         {champ('observations', 'Observations')}
         {champ('incidents', 'Incidents')}
         {correction && champ('motif', 'Motif de correction *')}
+        <BoutonBrouillon fiche={fiche} cle="rotation" valeurs={valeurs} />
       </SectionFormulaire>
     </PageFormulaire>
   );
@@ -173,7 +176,11 @@ export const ActionFichePage = ({ id, action }: { id: string; action: string }) 
   const [etatRetour, setEtatRetour] = useState('complete');
   if (!estActionFiche(action)) return <SansDonnees message="Action inconnue" detail={`« ${action} » n'est pas une action du cycle des fiches.`} />;
   const a: ActionFiche = action;
-  if (a === 'saisir-ligne' && fiche && peutEcrire && actionPermise(a, fiche.etat, fiche.type)) return <SaisieLigne fiche={fiche} />;
+  if (fiche && peutEcrire && actionPermise(a, fiche.etat, fiche.type)) {
+    if (a === 'saisir-ligne') return <SaisieLigne fiche={fiche} />;
+    if (a === 'saisir-pointage') return <SaisiePointagePage fiche={fiche} />;
+    if (a === 'saisir-carburant') return <SaisieCarburantPage fiche={fiche} />;
+  }
   const interdit = !peutEcrire ? 'Droit d\'écriture requis.'
     : fiche && !actionPermise(a, fiche.etat, fiche.type) ? `Action impossible à l'état « ${ETATS_FICHE[fiche.etat]?.libelle ?? fiche.etat} ».` : null;
   const motif = a === 'annuler' || a === 'renvoyer' || (a === 'imprimer' && motifImpressionRequis(fiche?.nb_impressions)) ? 'obligatoire'
@@ -185,6 +192,8 @@ export const ActionFichePage = ({ id, action }: { id: string; action: string }) 
       remettre: () => supabase.rpc('remettre_fiches', { p_ids: [id], p_agent: agent.trim() }),
       retour: () => supabase.rpc('enregistrer_retour_fiches', { p_agent: agent.trim(), p_details: [{ fiche_id: id, etat_retour: etatRetour }] }),
       'saisir-ligne': async () => ({ error: { message: 'Saisie non permise' } }),
+      'saisir-pointage': async () => ({ error: { message: 'Saisie non permise' } }),
+      'saisir-carburant': async () => ({ error: { message: 'Saisie non permise' } }),
       'terminer-saisie': () => supabase.rpc('changer_etat_fiche', { p_id: id, p_vers: 'saisie_terminee', p_motif: null, p_version: fiche.version }),
       soumettre: () => supabase.rpc('soumettre_fiche_controle', { p_id: id, p_version: fiche.version }),
       controler: () => supabase.rpc('controler_fiche', { p_id: id }),

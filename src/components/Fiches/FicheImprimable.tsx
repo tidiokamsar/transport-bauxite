@@ -24,10 +24,12 @@ const Entete = ({ children }: { children: string }) => (
   <th className="border border-black bg-stone-100 px-1 py-1 text-left text-[10px] font-bold">{children}</th>
 );
 
-export const FicheImprimable = ({ fiches, contextes, onFermer }: {
+export const FicheImprimable = ({ fiches, contextes, onFermer, pleinePage = false }: {
   fiches: Fiche[];
   contextes: Record<string, ContexteImpression>;
   onFermer: () => void;
+  /** Apercu dans la page (D-090) plutot qu'en superposition. */
+  pleinePage?: boolean;
 }) => {
   // Echap ferme l'apercu.
   useEffect(() => {
@@ -36,7 +38,7 @@ export const FicheImprimable = ({ fiches, contextes, onFermer }: {
     return () => document.removeEventListener('keydown', clavier);
   }, [onFermer]);
   return (
-  <div className="fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6">
+  <div className={pleinePage ? 'rounded-2xl bg-stone-200/90 p-6' : 'fixed inset-0 z-[950] overflow-y-auto bg-stone-200/90 p-6'}>
     <div className="pas-imprime sticky top-0 z-10 mx-auto mb-4 flex max-w-[297mm] flex-wrap gap-2 rounded-xl bg-stone-200/95 py-2 justify-between">
       <p className="text-sm font-semibold text-stone-700">{fiches.length} fiche(s) prête(s) à imprimer</p>
       <div className="flex gap-2">

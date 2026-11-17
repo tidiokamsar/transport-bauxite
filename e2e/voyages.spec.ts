@@ -87,18 +87,19 @@ test.describe('Voyages & Rotations', () => {
     await page.screenshot({ path: 'test-results/voyages-liste.png', fullPage: true });
 
     await page.getByText('VYG-261110-001').click();
-    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
-    const fiche = page.getByRole('dialog');
+    const fiche = page.getByRole('article', { name: 'Fiche VYG-261110-001' });
     await expect(fiche).toContainText('Mine Nimba → Dépôt');
     await expect(fiche).toContainText('CAT-980L-01');
-    await expect(fiche).toContainText('Non pesé');
-    await expect(fiche.getByText('Chronologie')).toBeVisible();
-
-    await fiche.getByRole('button', { name: 'Pesée au départ' }).click();
-    await fiche.getByLabel('Poids brut (t)').fill('56,4');
-    await fiche.getByLabel('Tare (t)').fill('15,7');
+    await fiche.getByRole('tab', { name: /^Chronologie/ }).click();
+    await expect(fiche.getByRole('region', { name: 'Événements' })).toBeVisible();
+    await fiche.getByRole('tab', { name: /^Synthèse/ }).click();
+    await fiche.getByRole('region', { name: 'Étape suivante' }).getByRole('link', { name: 'Pesée au départ' }).click();
+    const form = page.getByRole('form', { name: /Pesée au départ/ });
+    await expect(form).toContainText('non pesé');
+    await form.getByLabel('Poids brut (t)').fill('56,4');
+    await form.getByLabel('Tare (t)').fill('15,7');
     await page.screenshot({ path: 'test-results/voyages-fiche.png' });
-    await fiche.getByRole('button', { name: /Enregistrer : Pesé au départ/ }).click();
+    await form.getByRole('button', { name: /Enregistrer : Pesé au départ/ }).click();
 
     await expect.poll(() => corps).not.toBeNull();
     expect(corps).toMatchObject({ p_trip_id: 't1', p_etat: 'WEIGHED_OUT', p_donnees: { brut: 56.4, tare: 15.7 }, p_note: null });
@@ -111,11 +112,12 @@ test.describe('Voyages & Rotations', () => {
     );
     await ouvrirVoyages(page);
     await page.getByText('VYG-261110-001').click();
-    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
-    const fiche = page.getByRole('dialog');
-    await fiche.getByRole('button', { name: 'Contester' }).click();
-    await fiche.getByRole('button', { name: /Enregistrer : En litige/ }).click();
-    await expect(fiche.getByText('Motif obligatoire pour ce changement d\'état.')).toBeVisible();
+    await page.getByRole('link', { name: 'Contester' }).click();
+    const form = page.getByRole('form', { name: /Contester/ });
+    await expect(form.getByRole('button', { name: /Enregistrer : En litige/ })).toBeDisabled();
+    await form.getByLabel('Motif *').fill('Tonnage contesté par CBG');
+    await form.getByRole('button', { name: /Enregistrer : En litige/ }).click();
+    await expect(form.getByText(/Motif obligatoire pour ce changement/)).toBeVisible();
   });
 
   test('creation d\'un voyage par creer_voyage', async ({ page }) => {

@@ -39,3 +39,13 @@ visuelle n'est jamais déclarée opérationnelle.
 - **E2E contre une vraie base** : les E2E restent sur l'API simulée ; le
   parcours serveur est couvert par pgTAP 66 dans le conteneur jetable.
 - Revue indépendante non faite (D-085).
+
+## Suite (branche `lot-transport/operations-transport-2`, 2026-11-17)
+
+| Point | Livré | État |
+|---|---|---|
+| Fiches terrain | liste PageListe et tableau de bord du cycle, préparation en page (FR par `generer_fiches_rotation`, FP et FC par `creer_fiche`), lots en page (impression avec aperçu et `enregistrer_impression_fiches`, remise, retour par fiche), saisies FP (`saisir_pointage_fiche`) et FC (`saisir_ligne_carburant`), brouillon (`enregistrer_brouillon_fiche`) ; ancien écran, `SaisieFiche` et `window.prompt` retirés | Développé, E2E `fiches` (6) vert avant la consigne « oublie les tests » |
+| Étapes et pesée du voyage | pages `#/trips/<id>/etape?vers=` et `/ticket` ; fenêtre `FicheVoyage` retirée ; voyage suivant et pièces du ticket dans la fiche | Développé, E2E `voyages` et `dispatch-voyages` verts |
+| Dispatch | décisions `#/dispatch/<id>/<mode>`, suspension et reprise, actions du shift `#/dispatch/shift/<action>` en pleine page (mode page de `ui/Fenetre`, `FenetreEnPage`), onglet dans `?onglet=` ; contenu D-087 inchangé | Développé, E2E Dispatch (15) verts |
+| Contexte | Dispatch lit date, site et shift ; Fiches lit date et site | Partiel |
+| Non fait | Shifts et Pesée CBG non convertis aux pages ; contexte camion et chauffeur non appliqué ; justification d'absence de fiche (aucune table créée) ; E2E complète, rejeu pgTAP et lint non relancés (consigne du propriétaire) | |

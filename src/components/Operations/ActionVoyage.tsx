@@ -8,6 +8,7 @@ import { lire, trouver } from '../ui/lecture';
 import { useRoute } from '../ui/routeur';
 import { COLONNES_JOURNAL, SOURCES, STATUTS, estSuspendu, estVerifiable, type LigneJournal } from './journal';
 import { VUE_VOYAGES } from './DetailVoyage';
+import { EtapeVoyage, RattacherTicket } from './EtapeVoyage';
 
 // Actions metier de la fiche operationnelle du voyage (D-088), en pleine
 // page : suspension et reprise (fonctions D-087 suspendre_voyage et
@@ -19,6 +20,13 @@ import { VUE_VOYAGES } from './DetailVoyage';
 const ACTIONS = ['suspendre', 'reprendre', 'verifier'];
 
 export const ActionVoyage = ({ id, action }: { id: string; action: string }) => {
+  const route = useRoute();
+  if (action === 'etape') return <EtapeVoyage id={id} vers={route.requete.vers ?? ''} />;
+  if (action === 'ticket') return <RattacherTicket id={id} />;
+  return <ActionJournal id={id} action={action} />;
+};
+
+const ActionJournal = ({ id, action }: { id: string; action: string }) => {
   const { hasPermission } = useAuth();
   const route = useRoute();
   const evenementId = route.requete.evenement ?? '';

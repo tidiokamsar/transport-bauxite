@@ -80,7 +80,7 @@ test.describe('Dispatch Control Center (D-087)', () => {
 
     // Reprise motivee.
     await page.getByRole('button', { name: 'Reprendre VYG-002' }).click();
-    const fenetre = page.getByRole('dialog');
+    const fenetre = page.getByRole('article');
     await expect(fenetre.getByRole('button', { name: 'Reprendre' })).toBeDisabled();
     await fenetre.getByLabel('Motif (obligatoire)').fill('Piste rouverte');
     await fenetre.getByRole('button', { name: 'Reprendre' }).click();
@@ -91,7 +91,7 @@ test.describe('Dispatch Control Center (D-087)', () => {
     await page.getByRole('tab', { name: 'Shift et préparation' }).click();
     await expect(page.getByText('Non planifié')).toBeVisible();
     await page.getByRole('button', { name: 'Planifier le shift' }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Planifier le shift' }).click();
+    await page.getByRole('article').getByRole('button', { name: 'Planifier le shift' }).click();
     await expect.poll(() => planifications.length).toBe(1);
     expect(planifications[0]).toMatchObject({ p_date: aujourdhui(), p_shift_id: SHIFT, p_site_id: SITE_MINE });
   });
@@ -104,7 +104,7 @@ test.describe('Dispatch Control Center (D-087)', () => {
     await page.getByRole('tab', { name: 'Shift et préparation' }).click();
     await expect(page.getByText('En cours', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clôturer le shift' }).click();
-    const fenetre = page.getByRole('dialog');
+    const fenetre = page.getByRole('article');
     await expect(fenetre.getByText('2 voyage(s) non terminé(s)', { exact: false })).toBeVisible();
     await fenetre.getByLabel('Consignes de passation (obligatoires)').fill('RAS');
     await expect(fenetre.getByRole('button', { name: 'Clôturer' })).toBeDisabled();

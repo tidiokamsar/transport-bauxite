@@ -70,6 +70,9 @@ const INTERRUPTIBLES: Etat[] = ['LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT'
 
 /** Etats exceptionnels : un motif est exige par le serveur. */
 export const AVEC_MOTIF: Etat[] = ['CANCELLED', 'INTERRUPTED', 'DISPUTED', 'REJECTED'];
+/** Etats ou un ticket CBG absent se rattache avec motif (D-078). */
+export const LIVRES_SANS_TICKET: Etat[] = ['WEIGHED_IN', 'DELIVERED', 'ACCEPTED', 'DISPUTED', 'CLOSED'];
+
 /** Etats de pesee : brut et tare exiges par le serveur. */
 export const AVEC_PESEE: Etat[] = ['WEIGHED_OUT', 'WEIGHED_IN'];
 

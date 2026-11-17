@@ -116,29 +116,37 @@ test.describe('Coûts directs', () => {
     for (const fonction of ['enregistrer_cout', 'annuler_cout']) {
       await page.route(`**/rest/v1/rpc/${fonction}`, (route) => { appels.push({ fonction, corps: route.request().postDataJSON() }); return repondre(route, null); });
     }
-    page.on('dialog', (d) => d.accept('Doublon de la facture FAC-12'));
     await page.setViewportSize({ width: 1600, height: 1200 });
     await page.goto('/');
     await page.getByRole('button', { name: 'Contrats & Finance', exact: true }).click();
     await page.getByRole('button', { name: 'Coûts', exact: true }).click();
     await expect(page.getByText('1 dépense(s)', { exact: false })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Nouvelle dépense' }).click();
+    await page.getByRole('link', { name: 'Nouvelle dépense' }).click();
     const f = page.getByRole('form', { name: 'Nouvelle dépense' });
     await f.getByLabel('Date *').fill('2026-11-05');
     await f.getByLabel('Description *').fill('Réparation pompe');
     await f.getByLabel('Montant TTC *').fill('250000');
     await f.getByLabel('Site').selectOption(SITE_MINE);
-    await expect(page.getByRole('button', { name: 'Enregistrer', exact: true })).toBeDisabled();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await expect(f.getByRole('alert')).toContainText('Devise requise.');
+    expect(appels).toHaveLength(0);
     await f.getByLabel('Devise *').selectOption('GNF');
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'enregistrer_cout', corps: {
       p_date: '2026-11-05', p_description: 'Réparation pompe', p_montant: 250000, p_devise: 'GNF', p_site: SITE_MINE, p_categorie: null, p_vehicule: null,
       p_piece_source: null, p_piece_id: null } });
 
-    await page.getByRole('button', { name: 'Annuler CST-2026-00001' }).click();
+    // Annulation motivee en pleine page depuis la fiche (plus de window.prompt).
+    await page.getByRole('button', { name: 'Fiche CST-2026-00001' }).click();
+    await page.getByRole('link', { name: 'Annuler la dépense' }).click();
+    const a = page.getByRole('form', { name: 'Annuler la dépense CST-2026-00001' });
+    await expect(a.getByRole('button', { name: 'Annuler la dépense' })).toBeDisabled();
+    await a.getByLabel('Motif *').fill('Doublon de la facture FAC-12');
+    await a.getByRole('button', { name: 'Annuler la dépense' }).click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[1]).toMatchObject({ fonction: 'annuler_cout', corps: { p_id: 'c1', p_motif: 'Doublon de la facture FAC-12' } });
+    await expect(page.getByRole('status').filter({ hasText: 'Dépense annulée.' })).toBeVisible();
   });
 });

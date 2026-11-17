@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { ETATS_POSTE, actionsPoste, type EtatPoste } from './controle';
 import { FenetreClotureShift, FenetreEtatShift, FenetrePreparationShift, type InstanceShift } from './FenetresShift';
+import { FenetreEnPage } from '../ui/Fenetre';
+import { naviguer, routeAction, routeListe, useRoute } from '../ui/routeur';
 
 // Instance du shift (D-087) : etat, transitions, plan versionne, journal.
 // Le filtre date / site / shift de l'ecran n'est jamais un shift actif : seul
@@ -12,6 +14,9 @@ interface Plan { id: string; version: number; voyages_crees: number; besoin_voya
 interface Transition { id: string; etat_avant: string | null; etat_apres: string; motif: string | null; cree_le: string }
 
 const heure = (d: string) => new Date(d).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+const ACTIONS_SHIFT = ['planifier', 'ouvrir', 'demarrer', 'annuler', 'cloturer', 'preparer'] as const;
+type ActionShift = (typeof ACTIONS_SHIFT)[number];
 
 export const PanneauShift = ({
   date, site, shift, libelle, destinations, peutEcrire, nonTermines, actualisation, onModifie, onInstance,
@@ -31,7 +36,11 @@ export const PanneauShift = ({
   const [plans, setPlans] = useState<Plan[]>([]);
   const [journal, setJournal] = useState<Transition[]>([]);
   const [erreur, setErreur] = useState('');
-  const [fenetre, setFenetre] = useState<'planifier' | 'ouvrir' | 'demarrer' | 'annuler' | 'cloturer' | 'preparer' | null>(null);
+  // Action du shift en pleine page (D-090) : #/dispatch/shift/<action>.
+  const route = useRoute();
+  const fenetre = route.vue === 'dispatch' && route.mode === 'action' && route.id === 'shift'
+    ? (ACTIONS_SHIFT.find((a) => a === route.action) ?? null) : null;
+  const setFenetre = (a: ActionShift | null) => naviguer(a ? routeAction('dispatch', 'shift', a) : `${routeListe('dispatch').split('?')[0]}?onglet=shift`);
 
   useEffect(() => {
     let actif = true;
@@ -64,6 +73,27 @@ export const PanneauShift = ({
     planifier: 'Planifier le shift', ouvrir: 'Ouvrir le shift', demarrer: 'Démarrer le shift',
     preparer: 'Préparer le shift', cloturer: 'Clôturer le shift', annuler: 'Annuler le shift',
   };
+
+  if (fenetre) {
+    return (
+      <FenetreEnPage>
+        {fenetre === 'cloturer' && !instance
+          ? <p role="status" className="py-8 text-center text-sm text-stone-500">{instance === undefined ? 'Chargement…' : 'Aucune instance de shift à clôturer.'}</p>
+          : <>
+      {fenetre && ['planifier', 'ouvrir', 'demarrer', 'annuler'].includes(fenetre) && (
+              <FenetreEtatShift mode={fenetre as 'planifier'} date={date} site={site} shift={shift} instance={instance ?? null} libelle={libelle} onFermer={() => setFenetre(null)} onFait={fait} />
+            )}
+            {fenetre === 'cloturer' && instance && (
+              <FenetreClotureShift instance={instance} libelle={libelle} nonTermines={nonTermines} onFermer={() => setFenetre(null)} onFait={fait} />
+            )}
+            {fenetre === 'preparer' && (
+              <FenetrePreparationShift date={date} site={site} shift={shift} libelle={libelle} destinations={destinations}
+                versionPlan={plans[0]?.version ?? 0} onFermer={() => setFenetre(null)} onFait={fait} />
+            )}
+          </>}
+      </FenetreEnPage>
+    );
+  }
 
   return (
     <Panneau
@@ -125,16 +155,6 @@ export const PanneauShift = ({
         </div>
       </div>
 
-      {fenetre && ['planifier', 'ouvrir', 'demarrer', 'annuler'].includes(fenetre) && (
-        <FenetreEtatShift mode={fenetre as 'planifier'} date={date} site={site} shift={shift} instance={instance ?? null} libelle={libelle} onFermer={() => setFenetre(null)} onFait={fait} />
-      )}
-      {fenetre === 'cloturer' && instance && (
-        <FenetreClotureShift instance={instance} libelle={libelle} nonTermines={nonTermines} onFermer={() => setFenetre(null)} onFait={fait} />
-      )}
-      {fenetre === 'preparer' && (
-        <FenetrePreparationShift date={date} site={site} shift={shift} libelle={libelle} destinations={destinations}
-          versionPlan={plans[0]?.version ?? 0} onFermer={() => setFenetre(null)} onFait={fait} />
-      )}
     </Panneau>
   );
 };
