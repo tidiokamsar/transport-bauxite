@@ -80,7 +80,7 @@ test.describe('Contrats et finance (D-065)', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Clause ajoutée.' })).toBeVisible();
   });
 
-  test('budget depasse signale, nouveau budget, export comptable en CSV', async ({ page }) => {
+  test('budget depasse signale, nouveau budget, revision et annulation motivees, export comptable en CSV', async ({ page }) => {
     await simulerApi(page, {
       profiles: PROFIL,
       natures_depense: [{ id: 'n1', code: 'PIECES', libelle: 'Pièces de rechange', actif: true }],
@@ -90,16 +90,22 @@ test.describe('Contrats et finance (D-065)', () => {
         nature_code: 'PIECES', devise: 'GNF', montant_ttc: 1000000, note: null, engage_bons: 200000, engage_a_payer: 0, engage: 200000, realise_couts: 900000,
         realise_paiements: 0, realise: 900000, disponible: -100000, consommation_pct: 110, depassement: true, sources_non_visibles: null,
       }],
+      budgets: [{
+        id: 'b1', numero: 'BUD-2026-00001', periode_debut: '2026-01-01', periode_fin: '2026-12-31', site_id: 's1', nature_id: 'n1', devise: 'GNF', montant_ttc: 1000000,
+        note: null, remplace_id: null, motif_revision: null, statut: 'actif', annule_par: null, annule_le: null, motif_annulation: null, cree_par: null, cree_le: '2026-01-02T08:00:00Z',
+      }],
       v_depenses_budgetaires: [], v_dettes_fournisseurs: [], plan_comptable: [], cost_categories: [], contrats: [], suppliers: [], comptes_tiers: [],
     });
-    const appels = await capturer(page, ['definir_budget', 'ecritures_gestion'], {
+    // definir_budget renvoie l'identifiant du budget : la fiche du budget s'ouvre.
+    const appels = await capturer(page, ['definir_budget', 'annuler_budget', 'ecritures_gestion'], {
+      definir_budget: 'b1',
       ecritures_gestion: [{ type_ecriture: 'facture_emise', date_ecriture: '2026-11-30', piece: 'FAC-2026-0007', piece_liee: null, tiers: 'CBG', compte_tiers: null,
         libelle: 'Transport novembre', montant_ht: 1000, montant_taxe: 0, montant: 1000, devise: 'USD', sens: 'a_recevoir' }],
     });
     await ouvrir(page, 'Budgets et comptabilité');
     await expect(page.getByText('Dépassé (110 %)')).toBeVisible();
-    await page.getByRole('button', { name: 'Nouveau budget' }).click();
-    const f = page.getByRole('form', { name: 'Budget' });
+    await page.getByRole('link', { name: 'Nouveau budget' }).click();
+    const f = page.getByRole('form', { name: 'Nouveau budget' });
     await f.getByLabel('Début *').fill('2027-01-01');
     await f.getByLabel('Fin *').fill('2027-12-31');
     await f.getByLabel('Nature de dépense *').selectOption('n1');
@@ -109,6 +115,28 @@ test.describe('Contrats et finance (D-065)', () => {
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0].corps).toMatchObject({ p_debut: '2027-01-01', p_fin: '2027-12-31', p_nature: 'n1', p_devise: 'GNF', p_montant: 1500000, p_site: null, p_remplace: null });
 
+    // Fiche du budget courant : revision avec motif exige.
+    const fiche = page.getByRole('article', { name: 'Fiche BUD-2026-00001' });
+    await expect(fiche.getByRole('status').filter({ hasText: 'Budget enregistré.' })).toBeVisible();
+    await fiche.getByRole('link', { name: 'Réviser' }).click();
+    const r = page.getByRole('form', { name: 'Réviser le budget BUD-2026-00001' });
+    await expect(r.getByLabel('Montant TTC *')).toHaveValue('1000000');
+    await r.getByLabel('Montant TTC *').fill('1200000');
+    await r.getByRole('button', { name: 'Enregistrer le budget' }).click();
+    await expect(r.getByRole('alert')).toContainText('Motif de la révision requis.');
+    await r.getByLabel('Motif de la révision *').fill('Hausse du prix des pièces');
+    await r.getByRole('button', { name: 'Enregistrer le budget' }).click();
+    await expect.poll(() => appels.length).toBe(2);
+    expect(appels[1].corps).toMatchObject({ p_montant: 1200000, p_remplace: 'b1', p_motif: 'Hausse du prix des pièces', p_site: 's1' });
+
+    await fiche.getByRole('link', { name: 'Annuler le budget' }).click();
+    const a = page.getByRole('form', { name: 'Annuler le budget BUD-2026-00001' });
+    await a.getByLabel('Motif *').fill('Centre fermé');
+    await a.getByRole('button', { name: 'Annuler le budget' }).click();
+    await expect.poll(() => appels.length).toBe(3);
+    expect(appels[2]).toMatchObject({ fonction: 'annuler_budget', corps: { p_id: 'b1', p_motif: 'Centre fermé' } });
+
+    await page.getByRole('button', { name: 'Retour à la liste' }).click();
     await page.getByRole('button', { name: 'Export comptable' }).click();
     await page.getByRole('button', { name: 'Afficher' }).click();
     await expect(page.getByText('non paramétré')).toBeVisible();
