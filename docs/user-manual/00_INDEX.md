@@ -1,5 +1,7 @@
 # Documentation utilisateur SIGTB : index général
 
+> **Mise à jour du 2026-11-17 (après rédaction de la phase 1, rédigée sur la release 31f7267).** Depuis, sont déployés en 16598f1 : la partie serveur des Pneus (D-091, écran complet à venir), les pages J2, les pages des fiches terrain (préparation, lots d'impression, remise et retour, saisies FP et FC, brouillon), les étapes du voyage et les actions du Dispatch en pages (D-088). Les passages du manuel qui disent ces écrans absents seront corrigés en phase 3, avec les captures.
+
 Version SIGTB documentée : `origin/main` 1896cde (2026-11-17). Production constatée : release 31f7267. Date de rédaction : 2026-11-17 (`date -u`). Mission D-092, phase 1 : textes sans captures ; chaque figure attendue porte un renvoi « Figure N.M (capture à venir) ».
 
 SIGTB est la plateforme de gestion du transport de bauxite de Kogon Mining SARL (client facturé : CBG ; loueur des engins : Neemba). Adresse publique : https://sigtb.infranetgn.com.
