@@ -53,10 +53,16 @@ docker run -d --name "$NOM" -e POSTGRES_PASSWORD=postgres "$IMAGE" >/dev/null ||
 for _ in $(seq 1 90); do
   if docker exec "$NOM" psql -U postgres -h localhost -d postgres -tAc \
        "select 1 from pg_roles where rolname = 'authenticated'" 2>/dev/null | grep -q 1; then
+    PRET=1
     break
   fi
   sleep 2
 done
+# Jamais de faux vert : un conteneur absent ou jamais pret est un echec.
+if [ "${PRET:-0}" -ne 1 ]; then
+  echo "::error::Conteneur $NOM absent ou jamais pret : rejeu impossible" >&2
+  exit 1
+fi
 sleep 3
 
 docker exec "$NOM" mkdir -p /rejeu
@@ -69,8 +75,14 @@ OK=0
 ECHECS=()
 for chemin in $(ls supabase/migrations/*.sql | sort); do
   f=$(basename "$chemin")
-  erreur=$(psql_admin -q -1 -v ON_ERROR_STOP=1 -f "/rejeu/migrations/$f" 2>&1 >/dev/null \
-    | grep -m1 "ERROR" | sed 's/^psql:[^ ]* //')
+  sortie_migration=$(psql_admin -q -1 -v ON_ERROR_STOP=1 -f "/rejeu/migrations/$f" 2>&1 >/dev/null)
+  code_migration=$?
+  erreur=$(grep -m1 "ERROR" <<< "$sortie_migration" | sed 's/^psql:[^ ]* //')
+  # Code de sortie non nul sans ligne ERROR (conteneur disparu, psql absent) :
+  # echec aussi, jamais compte comme passe.
+  if [ -z "$erreur" ] && [ "$code_migration" -ne 0 ]; then
+    erreur="code $code_migration : $(head -c 200 <<< "$sortie_migration")"
+  fi
   if [ -n "$erreur" ]; then
     ECHECS+=("$f")
     echo "ECHEC $f | $erreur" >> "$RAPPORT"
@@ -102,8 +114,11 @@ if [ "$TESTS" -eq 1 ]; then
   for t in supabase/tests/database/*.test.sql; do
     sortie=$(docker exec "$NOM" psql -U postgres -h localhost -d postgres -X -q -t \
       -f "/rejeu/tests/database/$(basename "$t")" 2>&1)
+    code_test=$?
     nb_ok=$(grep -cE '^\s*ok [0-9]+' <<< "$sortie" || true)
-    if grep -qE '^\s*not ok|ERROR|# Looks like' <<< "$sortie"; then
+    # Un fichier sans aucune assertion executee (conteneur disparu, plan non
+    # lance) est un echec : jamais « 0 assertions OK ».
+    if [ "$code_test" -ne 0 ] || [ "$nb_ok" -eq 0 ] || grep -qE '^\s*not ok|ERROR|# Looks like' <<< "$sortie"; then
       echo "::error::$(basename "$t") : echec"
       grep -E '^\s*not ok|^\s*#|ERROR' <<< "$sortie" | sed 's/^/    /'
       STATUT=1
