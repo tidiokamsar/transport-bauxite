@@ -177,10 +177,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Delegation en vigueur (D-064) : ecriture, et lecture du module si le
-    // delegant la detient (meme regle que has_module_view). L'approbation ne
-    // se delegue pas.
+    // delegant la detient (meme regle que has_module_view) ; approbation
+    // deleguee depuis D-082 (has_module_approve), sans l'ecriture.
     const delegations = sansDelegation ? [] : delegationsRecues.filter(d => d.module === module);
     if (action === 'view' && delegations.some(d => d.donne_lecture)) return true;
+    if (action === 'approve' && delegations.some(d => d.niveau === 'approbation')) return true;
     if (action !== 'view' && action !== 'approve' && delegations.some(d => d.niveau === 'ecriture')) return true;
 
     const permission = permissions.find(p => p.module === module);

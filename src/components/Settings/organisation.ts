@@ -90,10 +90,11 @@ export const LIBELLES_STATUT_DELEGATION: Record<StatutDelegation, string> = {
   sans_effet: 'Sans effet',
 };
 
-/** Seule l'ecriture se delegue (D-064, revue C1 : l'approbation deleguee
- * contournait la separation des taches) ; la lecture l'accompagne. */
+/** Niveaux delegables : l'ecriture (la lecture l'accompagne, D-064) et
+ * l'approbation (D-082), sous la separation des taches dans les deux sens. */
 export const LIBELLES_NIVEAU_DELEGATION: Record<string, string> = {
   ecriture: 'Écriture',
+  approbation: 'Approbation',
 };
 
 /** Une delegation se revoque tant qu'elle n'est ni expiree ni revoquee. */
@@ -108,8 +109,7 @@ export const erreurDelegation = (
   if (!f.delegue) return 'Choisissez le compte délégué.';
   if (!f.module) return 'Choisissez le module.';
   if (MODULES_NON_DELEGABLES.includes(f.module)) return 'L\'administration ne se délègue pas.';
-  if (f.niveau === 'approbation') return 'L\'approbation ne se délègue pas.';
-  if (f.niveau !== 'ecriture') return 'Niveau : écriture seulement.';
+  if (f.niveau !== 'ecriture' && f.niveau !== 'approbation') return 'Niveau : écriture ou approbation.';
   if (!f.motif.trim()) return 'Le motif est obligatoire.';
   const fin = new Date(f.fin);
   if (!f.fin || Number.isNaN(fin.getTime())) return 'Date de fin obligatoire.';

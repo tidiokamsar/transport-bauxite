@@ -7,8 +7,8 @@ import {
   delegationRevocable, erreurDelegation, libelleModule, type StatutDelegation,
 } from './organisation';
 
-// Delegations temporaires (D-064) : un utilisateur delegue son droit
-// d'ecriture sur un module (l'approbation ne se delegue pas), pour une periode
+// Delegations temporaires (D-064, D-082) : un utilisateur delegue son droit
+// d'ecriture ou d'approbation sur un module, pour une periode
 // datee et avec motif. Le serveur (deleguer_droit, revoquer_delegation) refait
 // chaque controle : droit propre detenu, pas a soi-meme, pas
 // l'administration ; le delegue reste l'auteur de ses actes et borne par son
@@ -44,11 +44,14 @@ export const Delegations = ({ administration = false }: { administration?: boole
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
-  // Modules ou le compte detient en propre le droit d'ecriture : un droit
-  // recu par delegation ne se redelegue pas (indicatif : le serveur verifie).
+  // Modules ou le compte detient en propre le droit delegue (ecriture ou
+  // approbation) : un droit recu par delegation ne se redelegue pas
+  // (indicatif : le serveur verifie).
   const modules = useMemo(() => Object.keys(LIBELLES_MODULES).filter((m) => !MODULES_NON_DELEGABLES.includes(m)
-    && (hasPermission(m, 'edit', true) || hasPermission(m, 'create', true))),
-  [hasPermission]);
+    && (f.niveau === 'approbation'
+      ? hasPermission(m, 'approve', true)
+      : (hasPermission(m, 'edit', true) || hasPermission(m, 'create', true)))),
+  [hasPermission, f.niveau]);
 
   const deleguer = async () => {
     setErreur(''); setMessage('');
@@ -87,8 +90,9 @@ export const Delegations = ({ administration = false }: { administration?: boole
     <div className="space-y-6">
       <Panneau titre="Déléguer un droit">
         <p className="mb-4 text-sm text-stone-500">
-          Vous déléguez le droit d'écriture que vous détenez en propre sur un module, pour une période datée qui commence au plus tôt maintenant. L'approbation ne se délègue pas. Le délégué agit en son nom,
-          reste soumis à la séparation des tâches et à son propre périmètre de sites, qui doit être compris dans le vôtre. La lecture du module n'est déléguée que si vous la détenez. L'administration ne se délègue pas.
+          Vous déléguez le droit d'écriture ou d'approbation que vous détenez en propre sur un module, pour une période datée qui commence au plus tôt maintenant. Le délégué agit en son nom,
+          reste soumis à la séparation des tâches et à son propre périmètre de sites, qui doit être compris dans le vôtre : il n'approuve ni ses actes ni les vôtres, et vous n'approuvez pas ce qu'il a fait pendant la délégation.
+          L'approbation déléguée ne donne pas l'écriture ; la signature des factures reste au Directeur Général. La lecture du module n'est déléguée que si vous la détenez. L'administration ne se délègue pas.
         </p>
         {erreurDelegations && <p role="alert" className="mb-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">Les délégations reçues n'ont pas pu être chargées ({erreurDelegations}) : les menus peuvent ne pas refléter vos droits. Le serveur reste seul juge.</p>}
         {erreur && <p role="alert" className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
@@ -101,8 +105,9 @@ export const Delegations = ({ administration = false }: { administration?: boole
             </select>
           </label>
           <label className="text-sm">Niveau
-            <select aria-label="Niveau délégué" value={f.niveau} disabled className={`mt-1 w-full ${CHAMP}`}>
+            <select aria-label="Niveau délégué" value={f.niveau} onChange={(e) => setF({ ...f, niveau: e.target.value, module: '' })} className={`mt-1 w-full ${CHAMP}`}>
               <option value="ecriture">Écriture (et lecture)</option>
+              <option value="approbation">Approbation</option>
             </select>
           </label>
           <label className="text-sm">Module
