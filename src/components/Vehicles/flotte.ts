@@ -4,6 +4,26 @@ import type { TeintePuce } from '../ui/Panneau';
 // fiche vehicule et les alertes de documents. Le statut operationnel est
 // calcule par le serveur (v_vehicules) ; l'ecran ne fait que l'afficher.
 
+/** Identifiant de l'ecran dans le menu et dans l'adresse (#/vehicles/..., D-090). */
+export const VUE_VEHICULES = 'vehicles';
+
+/** Colonnes du registre (vue v_vehicules). */
+export const COLONNES_VEHICULE = 'id, registration, brand_model, year, vehicle_type, capacity_tonnes, chassis_number, site_id, status, insurance_expiry, technical_inspection_expiry, propriete, proprietaire, exploitant, transporteur, contrat_id, contrat_reference, statut_admin, statut_admin_depuis, statut_admin_motif, voyage_en_cours, statut_operationnel';
+
+/** Actions de statut en pleine page : route, fonction serveur, libelles. */
+export const ACTIONS_STATUT_VEHICULE = {
+  suspendre: { fonction: 'suspendre_vehicule', titre: 'Suspendre', confirmer: 'Suspendre l\'engin', succes: 'Engin suspendu.' },
+  'remettre-en-service': { fonction: 'remettre_en_service_vehicule', titre: 'Remettre en service', confirmer: 'Remettre en service', succes: 'Engin remis en service.' },
+  reformer: { fonction: 'reformer_vehicule', titre: 'Réformer', confirmer: 'Réformer définitivement', succes: 'Engin réformé.' },
+} as const;
+export type ActionStatutVehicule = keyof typeof ACTIONS_STATUT_VEHICULE;
+
+/** Action de statut permise par le statut operationnel courant. */
+export const actionStatutPermise = (action: ActionStatutVehicule, s: StatutOperationnel) => {
+  const a = actionsStatut(s);
+  return action === 'suspendre' ? a.suspendre : action === 'reformer' ? a.reformer : a.remettre;
+};
+
 export type StatutOperationnel = 'disponible' | 'en_mission' | 'en_maintenance' | 'immobilise' | 'suspendu' | 'reforme';
 export type Propriete = 'kogon' | 'loue' | 'sous_traitant';
 

@@ -49,18 +49,25 @@ test.describe('Flotte', () => {
     await expect(registre.getByText('Suspendu')).toBeVisible();
     await expect(registre.getByText('Neemba · LOC-2026 · Neemba')).toBeVisible();
 
+    // Fiche en pleine page (D-090) : adresse partageable.
     await page.getByRole('button', { name: 'Fiche CAM-01' }).click();
-    const fiche = page.getByRole('dialog', { name: 'Fiche CAM-01' });
+    await expect(page).toHaveURL(/#\/vehicles\/v1$/);
+    const fiche = page.getByRole('article', { name: 'Fiche CAM-01' });
     await expect(fiche.getByText('Sans prix connu (600 L non valorisés)')).toBeVisible();
     await expect(fiche.getByText('6', { exact: true })).toBeVisible();
 
-    page.once('dialog', (d) => d.accept('Contrôle technique à refaire'));
-    await fiche.getByRole('button', { name: 'Suspendre' }).click();
+    // Suspension : page d'action, motif obligatoire.
+    await fiche.getByRole('link', { name: 'Suspendre' }).click();
+    const suspension = page.getByRole('form', { name: 'Suspendre CAM-01' });
+    await expect(suspension.getByRole('button', { name: 'Suspendre l\'engin' })).toBeDisabled();
+    await suspension.getByLabel('Motif *').fill('Contrôle technique à refaire');
+    await suspension.getByRole('button', { name: 'Suspendre l\'engin' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'suspendre_vehicule', corps: { p_vehicle: 'v1', p_motif: 'Contrôle technique à refaire' } });
+    await expect(page.getByRole('status').filter({ hasText: 'Engin suspendu.' })).toBeVisible();
 
-    await fiche.getByRole('button', { name: 'Renseigner' }).click();
-    const f = fiche.getByRole('form', { name: 'Propriété de l\'engin' });
+    await page.getByRole('link', { name: 'Renseigner la propriété' }).click();
+    const f = page.getByRole('form', { name: 'Renseigner la propriété CAM-01' });
     await f.getByLabel('Propriété *').selectOption('loue');
     await f.getByLabel('Propriétaire / loueur').fill('Neemba');
     await f.getByLabel('Contrat de location').selectOption('c1');

@@ -5,7 +5,8 @@ import { PROFIL, simulerApi, SITE_DEPOT, SITE_MINE } from './api-simulee';
 // ecran portable (1366x768) et sur telephone (375x667), le bouton principal
 // du pied reste dans l'ecran, la fenetre ne depasse pas la hauteur visible et
 // seul son contenu defile. Defaut d'origine : « Definir un objectif » dont
-// les boutons Enregistrer et Annuler sortaient de l'ecran.
+// les boutons Enregistrer et Annuler sortaient de l'ecran. Chauffeur, engin
+// et site ne s'ouvrent plus en fenetre mais en page (D-090, e2e/pages-standard).
 
 const JEU = {
   profiles: PROFIL,
@@ -91,28 +92,10 @@ for (const { largeur, hauteur, nom } of ECRANS) {
       await verifierFenetre(page, 'Enregistrer', hauteur);
     });
 
-    test('chauffeur', async ({ page }) => {
-      await aller(page, 'Flotte', 'Chauffeurs', largeur, hauteur);
-      await page.getByRole('button', { name: 'Ajouter un chauffeur' }).click();
-      await verifierFenetre(page, 'Enregistrer', hauteur, true);
-    });
-
-    test('véhicule', async ({ page }) => {
-      await aller(page, 'Flotte', 'Véhicules et engins', largeur, hauteur);
-      await page.getByRole('button', { name: 'Nouvel engin' }).click();
-      await verifierFenetre(page, 'Enregistrer', hauteur);
-    });
-
     test('utilisateur', async ({ page }) => {
       await aller(page, null, 'Paramètres', largeur, hauteur);
       await page.getByRole('button', { name: 'Ajouter utilisateur' }).click();
       await verifierFenetre(page, 'Créer', hauteur, true);
-    });
-
-    test('site', async ({ page }) => {
-      await aller(page, 'Exploitation', 'Sites', largeur, hauteur);
-      await page.getByRole('button', { name: 'Nouveau site' }).click();
-      await verifierFenetre(page, 'Créer le site', hauteur, true);
     });
   });
 }

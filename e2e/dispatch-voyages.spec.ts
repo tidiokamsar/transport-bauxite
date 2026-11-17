@@ -228,6 +228,7 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     const decisions = await capturer(page, 'decider_sanction', 's1');
     await ouvrir(page, 'Chauffeurs', 'Chauffeurs');
     await page.getByText('Alpha Test').first().click();
+    await page.getByRole('tab', { name: /Infractions/ }).click();
     const registre = page.getByRole('region', { name: 'Infractions du chauffeur' });
     await expect(registre).toContainText('INF-2026-00001');
     await expect(registre).toContainText('voyage VYG-001');
