@@ -3,7 +3,7 @@ import { Calculator, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Provenance, SansDonnees } from '../ui/Panneau';
 import type { Realisation } from './CarteObjectif';
-import { CHAMP } from './FenetresObjectif';
+import { CHAMP_FENETRE as CHAMP } from '../ui/Fenetre';
 import { grouperSimulation, instantConakry, scenarios, texteValeur, type LigneSimulation, type Scenario } from './planAvance';
 
 // Simulation de capacite et scenarios de rattrapage (D-063) : le serveur
