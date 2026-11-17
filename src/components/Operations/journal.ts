@@ -53,6 +53,7 @@ export const SOURCES: Record<string, string> = {
 export const RESULTATS: Record<string, { libelle: string; teinte: TeintePuce }> = {
   conforme: { libelle: 'Conforme', teinte: 'vert' },
   alerte: { libelle: 'Alerte', teinte: 'rouge' },
+  justifie: { libelle: 'Justifié', teinte: 'bleu' },
   sans_donnees: { libelle: 'Sans données', teinte: 'orange' },
   non_applicable: { libelle: 'Non applicable', teinte: 'gris' },
 };

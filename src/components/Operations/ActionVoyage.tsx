@@ -9,6 +9,7 @@ import { useRoute } from '../ui/routeur';
 import { COLONNES_JOURNAL, SOURCES, STATUTS, estSuspendu, estVerifiable, type LigneJournal } from './journal';
 import { VUE_VOYAGES } from './DetailVoyage';
 import { EtapeVoyage, RattacherTicket } from './EtapeVoyage';
+import { ActionJustification } from './JustificationFiche';
 
 // Actions metier de la fiche operationnelle du voyage (D-088), en pleine
 // page : suspension et reprise (fonctions D-087 suspendre_voyage et
@@ -23,6 +24,7 @@ export const ActionVoyage = ({ id, action }: { id: string; action: string }) => 
   const route = useRoute();
   if (action === 'etape') return <EtapeVoyage id={id} vers={route.requete.vers ?? ''} />;
   if (action === 'ticket') return <RattacherTicket id={id} />;
+  if (action === 'justifier-absence' || action === 'retirer-justification') return <ActionJustification id={id} retrait={action === 'retirer-justification'} />;
   return <ActionJournal id={id} action={action} />;
 };
 

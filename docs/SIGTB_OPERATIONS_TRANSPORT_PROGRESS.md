@@ -49,3 +49,14 @@ visuelle n'est jamais déclarée opérationnelle.
 | Dispatch | décisions `#/dispatch/<id>/<mode>`, suspension et reprise, actions du shift `#/dispatch/shift/<action>` en pleine page (mode page de `ui/Fenetre`, `FenetreEnPage`), onglet dans `?onglet=` ; contenu D-087 inchangé | Développé, E2E Dispatch (15) verts |
 | Contexte | Dispatch lit date, site et shift ; Fiches lit date et site | Partiel |
 | Non fait | Shifts et Pesée CBG non convertis aux pages ; contexte camion et chauffeur non appliqué ; justification d'absence de fiche (aucune table créée) ; E2E complète, rejeu pgTAP et lint non relancés (consigne du propriétaire) | |
+
+## Fin du lot (branche `lot-transport/operations-transport-3`, 2026-11-17)
+
+| Point | Livré | État |
+|---|---|---|
+| Shifts | liste PageListe, fiche avec historique (`journal_shifts`), création et modification en page (`definir_shift`, motif pour modifier), désactivation en page d'action (`desactiver_shift`, motif obligatoire) | Développé |
+| Pesée CBG | espaces `#/tickets-cbg/releves`, `/fiches`, `/rapprochement?releve=`, `/anomalies` ; pièces du relevé en page `#/tickets-cbg/pieces?releve=` (plus de fenêtre) | Développé |
+| Contexte | camion et chauffeur filtrent le registre, les voyages par état du Dispatch et les fiches de rotations, avec bandeau et retrait | Développé |
+| Justification d'absence de fiche | migration 20261121240000, page d'action depuis l'onglet Contrôles du voyage, historique des justifications | Développé, migration non rejouée (D-093) |
+
+Contrôles : typecheck, `ci-qualite.sh`, build. Les E2E `defauts-bloquants`, `base-vide` et `tickets-cbg` qui visent Shifts et Pesée CBG n'ont pas été adaptés ni lancés (D-093).
