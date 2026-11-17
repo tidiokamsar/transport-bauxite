@@ -36,27 +36,33 @@ agents en parallèle, sur l'état de `main` à cette date.
 
 ## Défauts bloquants relevés par le catalogue et lots de correction
 
-| Défaut | Module | Lot |
-|---|---|---|
-| Création d'un site impossible (colonnes inexistantes) | 03 | Corrigé et déployé (8df078d) |
-| Fiches terrain : identifiant vide envoyé sans site | 07 | Corrigé et déployé (c9f8555) |
-| Aucun shift ne peut être créé (0 en production, aucun écran) | 05 | `lot-j1/defauts-bloquants` (D-078) |
-| Ticket CBG impossible à rattacher sur un trajet inter-sites | 07, 14 | `lot-j1/defauts-bloquants` |
-| Brut et tare libellés en kg, serveur en tonnes | 14 | `lot-j1/defauts-bloquants` |
-| Voyage pesé sans ticket, jamais facturable | 14 | `lot-j1/defauts-bloquants` |
-| Dispatch : identifiant vide, chargement sans fin | 06 | `lot-j1/defauts-bloquants` |
-| Planification : objectif d'un autre site modifiable | 04 | `lot-j1/defauts-bloquants` |
-| Chauffeur : dates vides refusées, pas de site | 09 | `lot-j1/defauts-bloquants` |
-| Menus Budgets et Évaluation Neemba invisibles hors administrateur | 19, 20 | `lot-j1/defauts-bloquants` |
-| Facture Neemba orpheline (deux appels sans transaction) | 10, 20 | `lot-j1/defauts-bloquants` |
-| Modification d'un site efface l'organisation | 03 | `lot-ref/saisie-referentiels` (D-079) |
-| Compte créé toujours global | 02 | `lot-ref/saisie-referentiels` |
-| Désactivation de compte sans motif, possible sur soi-même | 02 | `lot-ref/saisie-referentiels` |
-| Suppression physique d'un tarif ou d'un engagement de contrat actif | 19 | `lot-ref/saisie-referentiels` |
-| Écran Alertes sur des colonnes inexistantes | 01 | Remplacé par le centre des décisions (D-068) |
-| Aucun stockage de fichiers (pièces justificatives) | 23 | Lot « pièces jointes » de J1 |
+État au 2026-11-17 (`date -u`), `main` 33ab8ef. Dernière release consignée au
+journal (`docs/SIGTB_2.0_HEBERGEMENT_VPS.md`, section 11) : 8df078d. Les lots
+fusionnés depuis (PR #97 à #102) sont testés mais leur déploiement n'est pas
+consigné : ils ne sont pas déclarés déployés.
+
+| Défaut | Module | Lot | État | Preuve |
+|---|---|---|---|---|
+| Création d'un site impossible (colonnes inexistantes) | 03 | PR #95 | Déployé | Release 8df078d |
+| Fiches terrain : identifiant vide envoyé sans site | 07 | PR #94 | Déployé | Release c9f8555 |
+| Aucun shift ne peut être créé (0 en production, aucun écran) | 05 | D-078, PR #100 (8dec42c) | Testé, non déployé | `definir_shift`, `desactiver_shift`, `journal_shifts`, `ShiftsView.tsx` ; pgTAP 61, E2E `defauts-bloquants` |
+| Ticket CBG impossible à rattacher sur un trajet inter-sites | 07, 14 | D-078, PR #100 | Testé, non déployé | `saisir_rotation` (fiche du site de départ ou du dépôt d'arrivée) ; pgTAP 61 |
+| Brut et tare libellés en kg, serveur en tonnes | 14 | D-078, PR #100 | Testé, non déployé | Libellés en tonnes (`SaisieFiche.tsx`, `ReconciliationView.tsx`), anomalie `net_superieur_capacite` ; pgTAP 61 |
+| Voyage pesé sans ticket, jamais facturable | 14 | D-078, PR #100 | Testé, non déployé | `garde_reception_cbg`, `rattacher_ticket_cbg` ; pgTAP 61 |
+| Dispatch : identifiant vide, chargement sans fin | 06 | D-078, PR #100 | Testé, non déployé | `DispatchView.tsx` ; E2E `defauts-bloquants`, `base-vide` |
+| Planification : objectif d'un autre site modifiable | 04 | D-078, PR #100 | Testé, non déployé | `definir_objectif`, `annuler_objectif` bornés par `site_permis` ; pgTAP 61 |
+| Chauffeur : dates vides refusées, pas de site | 09 | D-078, PR #100 | Testé, non déployé | `Drivers/chauffeur.ts`, `DriverModal.tsx` ; E2E `defauts-bloquants` |
+| Menus Budgets et Évaluation Neemba invisibles hors administrateur | 19, 20 | D-078, PR #100 | Corrigé, sans test de visibilité par rôle | `AuthContext.tsx` (correspondance des menus) ; aucun E2E avec profil non administrateur |
+| Facture Neemba orpheline (deux appels sans transaction) | 10, 20 | D-078, PR #100 | Testé, non déployé | `saisir_facture_fournisseur` en une transaction ; pgTAP 61 |
+| Modification d'un site efface l'organisation | 03 | D-079, PR #101 (58ad8db) | Testé, non déployé | `SiteModal.tsx`, `saisieSite.ts` ; pgTAP 60, E2E `saisie-referentiels` |
+| Compte créé toujours global | 02 | D-079, PR #101 | Testé, non déployé | Site obligatoire, `definir_site_compte`, fonction Edge `admin-utilisateurs` (à redéployer avec la migration) ; pgTAP 60 |
+| Désactivation de compte sans motif, possible sur soi-même | 02 | D-079, PR #101 | Testé, non déployé | `desactiver_compte`, `reactiver_compte` (motif, journal) ; pgTAP 60 |
+| Suppression physique d'un tarif ou d'un engagement de contrat actif | 19 | D-079, PR #101 | Testé, non déployé | `supprimer_element_contrat` (brouillon seulement), `garde_tarif_en_vigueur` (avenant) ; pgTAP 60, E2E `saisie-referentiels` |
+| Écran Alertes sur des colonnes inexistantes | 01 | D-068, PR #99 (2ad3c29) | Testé, non déployé | `AlertsView.tsx` supprimé ; centre des décisions, `actualiser_alertes`, `resoudre_alerte` ; pgTAP 51, E2E `decisions-hse` |
+| Aucun stockage de fichiers (pièces justificatives) | 23 | Lot « pièces jointes » de J1 | Ouvert | Aucun `supabase.storage` dans `src/` ; service Storage retiré de la pile (`deploy/vps/docker-compose.yml`) |
 
 Les autres écarts (standard des 12 blocs) sont listés, avec leur taille et
 leurs dépendances, en fin de chaque fiche. La matrice de couverture
-(`docs/SIGTB_MODULE_COVERAGE_MATRIX.md`) sera refaite sur les 12 blocs à
-partir de ces fiches.
+(`docs/SIGTB_MODULE_COVERAGE_MATRIX.md`) est refaite sur les 12 blocs à
+partir de ces fiches (2026-11-17, `main` 33ab8ef), avec les corrections
+constatées depuis leur rédaction.
