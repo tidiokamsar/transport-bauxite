@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { ETATS, PHASES, estEtat, phaseDe } from '../Trips/cycle';
-import { naviguer, routeDetail } from '../ui/routeur';
+import { naviguer, routeAction, routeDetail } from '../ui/routeur';
 import type { Voyage } from '../Trips/types';
 import { VUES_VOYAGES, dansVue, type VueVoyages } from './controle';
-import { FenetreSuspension } from './FenetreSuspension';
 
 // Voyages du shift par etat (D-087) : vues sur le cycle trips.etat existant
 // (trips_garde_cycle inchangee), plus suspendus (suspensions_voyage) et a
@@ -13,7 +11,7 @@ import { FenetreSuspension } from './FenetreSuspension';
 // enchainement apres dechargement.
 
 export const VoyagesParEtat = ({
-  voyages, vue, setVue, suspendus, aReaffecter, peutEcrire, libelle, onModifie,
+  voyages, vue, setVue, suspendus, aReaffecter, peutEcrire, libelle,
 }: {
   voyages: Voyage[];
   vue: VueVoyages | 'tous';
@@ -24,7 +22,6 @@ export const VoyagesParEtat = ({
   libelle: (v: Voyage) => { camion: string; chauffeur: string; chargeuse: string; origine: string; destination: string; shift: string };
   onModifie: () => void;
 }) => {
-  const [suspension, setSuspension] = useState<{ mode: 'suspendre' | 'reprendre'; voyage: Voyage } | null>(null);
   const liste = voyages.filter((v) => dansVue(vue, v, suspendus, aReaffecter));
   const compte = (c: VueVoyages) => voyages.filter((v) => dansVue(c, v, suspendus, aReaffecter)).length;
   const terminal = (e: string | null) => ['DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED', 'CANCELLED', 'REJECTED'].includes(e ?? '');
@@ -70,7 +67,7 @@ export const VoyagesParEtat = ({
                     {peutEcrire && (
                       <td className="py-2" onClick={(e) => e.stopPropagation()}>
                         {!terminal(v.etat) && (
-                          <button type="button" onClick={() => setSuspension({ mode: suspendu ? 'reprendre' : 'suspendre', voyage: v })}
+                          <button type="button" onClick={() => naviguer(routeAction('dispatch', v.id, suspendu ? 'reprendre' : 'suspendre'))}
                             className="rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-800 hover:bg-orange-100" aria-label={`${suspendu ? 'Reprendre' : 'Suspendre'} ${v.reference}`}>
                             {suspendu ? 'Reprendre' : 'Suspendre'}
                           </button>
@@ -83,10 +80,6 @@ export const VoyagesParEtat = ({
             </tbody>
           </table>
         </div>
-      )}
-      {suspension && (
-        <FenetreSuspension mode={suspension.mode} voyageId={suspension.voyage.id} reference={suspension.voyage.reference}
-          onFermer={() => setSuspension(null)} onFait={() => { setSuspension(null); onModifie(); }} />
       )}
     </Panneau>
   );
