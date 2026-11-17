@@ -158,3 +158,32 @@ export const versionEnVigueur = (versions: Version[], date: string): Version | n
 
 export const libelleVersion = (v: Pick<Version, 'numero' | 'intitule'>) =>
   v.numero === 0 ? `Contrat initial · ${v.intitule}` : `Avenant n° ${v.numero} · ${v.intitule}`;
+
+// Pages standard (D-090) : adresse du module et regles de saisie.
+
+export const VUE_CONTRATS = 'contrats';
+export const MODULE_CONTRATS = 'Dossier contractuel';
+
+export const COLONNES_CONTRAT = 'id, reference, intitule, nature, contrepartie, devise, date_debut, date_fin, statut, delai_paiement_jours, description, preavis_jours, renouvellement, renouvellement_duree_mois';
+
+const entierOuVide = (v: string, min: number) => v.trim() === '' || (/^\d+$/.test(v.trim()) && Number(v) >= min);
+
+/** Erreurs de la saisie d'un contrat (champs obligatoires, devise ISO, entiers). */
+export const erreursContrat = (f: {
+  reference: string; intitule: string; nature: string; contrepartie: string; devise: string; date_debut: string;
+  delai: string; preavis: string; duree: string;
+}) => [
+  ...(!f.reference.trim() ? ['Référence obligatoire.'] : []),
+  ...(!f.contrepartie.trim() ? ['Contrepartie obligatoire.'] : []),
+  ...(!f.intitule.trim() ? ['Intitulé obligatoire.'] : []),
+  ...(!f.nature ? ['Nature du contrat obligatoire.'] : []),
+  ...(!/^[A-Z]{3}$/.test(f.devise) ? ['Devise : code ISO de trois lettres (GNF, USD...).'] : []),
+  ...(!f.date_debut ? ['Date de début obligatoire.'] : []),
+  ...(!entierOuVide(f.delai, 0) ? ['Délai de paiement : nombre entier de jours.'] : []),
+  ...(!entierOuVide(f.preavis, 0) ? ['Préavis : nombre entier de jours.'] : []),
+  ...(!entierOuVide(f.duree, 1) ? ['Durée d\'un renouvellement : nombre entier de mois (1 au moins).'] : []),
+];
+
+/** Grille d'une version verrouillee : contrat sorti du brouillon et version en vigueur ou passee (D-033, D-079). */
+export const grilleVerrouillee = (statut: Contrat['statut'], v: Pick<Version, 'date_effet'>, aujourdhui: string) =>
+  statut !== 'brouillon' && v.date_effet <= aujourdhui;
