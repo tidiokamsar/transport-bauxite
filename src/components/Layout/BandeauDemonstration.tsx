@@ -27,7 +27,7 @@ export const BandeauDemonstration = () => {
   return (
     <div
       role="status"
-      className="flex flex-shrink-0 items-center justify-center gap-2 bg-[repeating-linear-gradient(135deg,#7c2d12_0,#7c2d12_14px,#9a3412_14px,#9a3412_28px)] px-4 py-1.5 text-center text-sm font-semibold text-white"
+      className="flex flex-shrink-0 flex-wrap items-center justify-center gap-2 break-words bg-[repeating-linear-gradient(135deg,#7c2d12_0,#7c2d12_14px,#9a3412_14px,#9a3412_28px)] px-4 py-1.5 text-center text-sm font-semibold text-white"
     >
       <FlaskConical className="h-4 w-4 flex-shrink-0" />
       <span>

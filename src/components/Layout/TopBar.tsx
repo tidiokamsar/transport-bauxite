@@ -129,10 +129,10 @@ export const TopBar = ({
   const date = maintenant.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
   return (
-    <header className="relative z-30 flex flex-shrink-0 items-center justify-between gap-4 border-b border-stone-200/70 bg-white/80 px-8 py-4 backdrop-blur">
+    <header className="relative z-30 flex flex-shrink-0 items-center justify-between gap-2 sm:gap-4 border-b border-stone-200/70 bg-white/80 px-4 sm:px-8 py-3 sm:py-4 backdrop-blur">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold text-stone-900">Bonjour, {prenom}</h1>
-        <p className="truncate text-stone-500">{sousTitre}</p>
+        <h1 className="truncate text-lg sm:text-2xl font-bold text-stone-900">Bonjour, {prenom}</h1>
+        <p className="hidden truncate text-stone-500 sm:block">{sousTitre}</p>
       </div>
 
       <div ref={zoneMenu} className="relative flex items-center gap-3">

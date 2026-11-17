@@ -113,7 +113,7 @@ export const PeseeRelevesCbg = ({ ctx, onRapproche }: { ctx: ContextePesee; onRa
           </div>
           {r.statut === 'annule' && <p className="text-xs text-stone-500">Motif d'annulation : {r.motif_annulation}</p>}
           {annulation?.id === r.id && <div className="mt-2 flex flex-wrap items-end gap-2">
-            <label className="min-w-[280px] flex-1 text-sm">Motif d'annulation *<input value={annulation.motif} onChange={(e) => setAnnulation({ id: r.id, motif: e.target.value })} className={CHAMP} /></label>
+            <label className="w-full min-w-0 flex-1 text-sm sm:w-auto sm:min-w-[280px]">Motif d'annulation *<input value={annulation.motif} onChange={(e) => setAnnulation({ id: r.id, motif: e.target.value })} className={CHAMP} /></label>
             <button disabled={busy || !annulation.motif.trim()} onClick={annuler} className="rounded bg-red-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Confirmer l'annulation</button>
             <button onClick={() => setAnnulation(null)} className="rounded border border-stone-300 px-3 py-2 text-sm">Abandonner</button>
           </div>}

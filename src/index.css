@@ -143,3 +143,32 @@
   .zone-impression .page-paysage { page: paysage; }
   .pas-imprime { display: none !important; }
 }
+
+/* Telephone (sous 640 px) : champs a 16 px (pas de zoom automatique iOS),
+   cibles tactiles d'au moins 40 px, et tout tableau hors conteneur
+   defilant defile dans sa propre largeur au lieu d'elargir la page. */
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  main button,
+  main select,
+  main summary,
+  main input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+    min-height: 40px;
+  }
+  main table:not(.overflow-x-auto table):not(.overflow-auto table) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  main pre,
+  main img {
+    max-width: 100%;
+  }
+  main pre {
+    overflow-x: auto;
+  }
+}

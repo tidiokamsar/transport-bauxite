@@ -29,7 +29,7 @@ export const ChampPage = ({ libelle, aide, erreur, className = '', children }: {
 );
 
 export const SectionFormulaire = ({ titre, children }: { titre: string; children: ReactNode }) => (
-  <fieldset className="rounded-2xl border border-stone-200/70 bg-white p-5 shadow-carte">
+  <fieldset className="min-w-0 rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte sm:p-5">
     <legend className="px-1 font-bold text-stone-900">{titre}</legend>
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
   </fieldset>

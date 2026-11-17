@@ -393,7 +393,7 @@ export const RouteHistoryView = () => {
                     Itinéraire: {selectedTrip.reference}
                   </h3>
                 </div>
-                <div className="h-[500px]">
+                <div className="h-[50vh] min-h-[300px] sm:h-[500px]">
                   <MapContainer
                     center={selectedTrip.waypoints.length > 0
                       ? [selectedTrip.waypoints[0].latitude, selectedTrip.waypoints[0].longitude]
