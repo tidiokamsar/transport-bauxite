@@ -1,6 +1,11 @@
 // Postes de travail (D-048) : libelles et lecture du bilan fige a la cloture.
 
-export const LIBELLE_STATUT_POSTE = { ouvert: 'Ouvert', cloture: 'Clos, à valider', valide: 'Clôture validée' } as const;
+export const LIBELLE_STATUT_POSTE = {
+  planifie: 'Planifié', ouvert: 'Ouvert', en_cours: 'En cours', cloture: 'Clos, à valider', valide: 'Clôture validée', annule: 'Annulé',
+} as const;
+
+/** Un poste en cours s'exploite comme un poste ouvert (D-087). */
+export const posteExploitable = (statut: string) => statut === 'ouvert' || statut === 'en_cours';
 
 export const CATEGORIES_EVENEMENT = {
   incident: 'Incident',

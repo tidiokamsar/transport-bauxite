@@ -8,6 +8,24 @@ Rappels de lecture :
 - La production a été purgée de la démonstration (D-076) : aucun camion, chauffeur, shift ni voyage réel n'y est saisi. Aucun élément n'est donc UTILISABLE, aucun n'est VALIDÉ (aucun PV).
 - Un élément TESTÉ et DÉPLOYÉ est noté DÉPLOYÉ, avec ses tests en preuve.
 
+## Mise à jour D-087 (2026-11-17, état constaté sur la branche `lot-06/dispatch-control-center`)
+
+État : **Développé et testé** (pgTAP 65, vitest, E2E sur API simulée) ; non fusionné, non déployé.
+
+| Fonction | État |
+|---|---|
+| Tableau de bord serveur (`indicateurs_dispatch`), tuiles cliquables vers la liste filtrée | Développé, testé |
+| Préparation en quatre étapes, besoin expliqué (`besoin_shift`), plan versionné (`confirmer_plan_shift`, `plans_shift`) | Développé, testé |
+| Recommandation : immobilisations, habilitations, chauffeurs engagés, capacité, durée, contraintes, confiance | Développé, testé (vitest) |
+| Affectation avec contrôle de version et cohérence avec la recommandation (`affecter_voyage`) | Développé, testé |
+| Garde de disponibilité (immobilisation, camion ou chauffeur engagé) | Développé, testé |
+| Suspension et reprise tracées (`suspensions_voyage`) | Développé, testé |
+| Vues des voyages par état, fiche voyage réutilisée | Développé, testé (E2E) |
+| Supervision : ancienneté et source, carte seulement si position récente, perte de liaison | Développé, testé (E2E) ; aucune position GPS réelle disponible |
+| Distance, capacités de dépôt, files d'attente | Non fait : aucune donnée |
+
+Détail : `docs/SIGTB_DISPATCH_AUDIT.md`, `SIGTB_DISPATCH_WORKFLOW.md`, `SIGTB_DISPATCH_ACTIONS_MATRIX.md`, `SIGTB_DISPATCH_QA.md`.
+
 ## 1. Objectifs et périmètre
 
 Le dispatch transforme l'objectif de production d'un shift en voyages affectés : un camion semi-remorque benne, un chauffeur habilité et, au besoin, l'engin de chargement (2 chargeuses Caterpillar et 1 pelle louées à Neemba, D-011, D-022, D-027). Le système recommande selon des règles fixes et expliquées ; le dispatcher accepte, modifie ou refuse ; chaque décision est historisée (CDC 11.5, règle 4 de `CLAUDE.md`).

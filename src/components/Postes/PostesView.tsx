@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Panneau, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
-import { CATEGORIES_EVENEMENT, LIBELLE_STATUT_POSTE, resumeBilan, type Bilan } from './postes';
+import { CATEGORIES_EVENEMENT, LIBELLE_STATUT_POSTE, posteExploitable, resumeBilan, type Bilan } from './postes';
 import { LienVue } from '../ui/LienVue';
 
 // Postes de travail (D-048) : instance d'un shift pour une date et un site.
@@ -127,7 +127,7 @@ export const PostesView = () => {
     <Panneau titre={`Postes du ${new Date(date).toLocaleDateString('fr-FR')}`}>
       {postes === null ? <p>Chargement…</p> : postes.length === 0 ? <SansDonnees message="Aucun poste ouvert à cette date" /> :
         <ul className="divide-y divide-stone-100">{postes.map((p) => <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-          <span><b>{nomShift.get(p.shift_id) ?? 'Shift'}</b> · {nomSite.get(p.site_id) ?? '?'} · <Puce teinte={p.statut === 'ouvert' ? 'bleu' : p.statut === 'cloture' ? 'orange' : 'vert'}>{LIBELLE_STATUT_POSTE[p.statut]}</Puce></span>
+          <span><b>{nomShift.get(p.shift_id) ?? 'Shift'}</b> · {nomSite.get(p.site_id) ?? '?'} · <Puce teinte={posteExploitable(p.statut) ? 'bleu' : p.statut === 'annule' ? 'rouge' : p.statut === 'cloture' ? 'orange' : 'vert'}>{LIBELLE_STATUT_POSTE[p.statut]}</Puce></span>
           <button onClick={() => setChoisi(p.id)} aria-label={`Ouvrir la fiche du poste ${nomShift.get(p.shift_id) ?? ''} ${nomSite.get(p.site_id) ?? ''}`} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><ClipboardList className="h-3 w-3" /> Fiche du poste</button>
         </li>)}</ul>}
     </Panneau>
@@ -136,7 +136,7 @@ export const PostesView = () => {
       <Panneau titre={`${nomShift.get(poste.shift_id) ?? 'Poste'} · ${nomSite.get(poste.site_id) ?? ''} · ${new Date(poste.date_poste).toLocaleDateString('fr-FR')}`}>
         <div className="grid gap-4 md:grid-cols-2 text-sm">
           <div><h4 className="font-semibold text-stone-700">Consignes reçues (passation)</h4><p className="whitespace-pre-line text-stone-600">{poste.consignes_recues ?? '—'}</p></div>
-          <div><h4 className="font-semibold text-stone-700">Consignes transmises</h4><p className="whitespace-pre-line text-stone-600">{poste.consignes_sortie ?? (poste.statut === 'ouvert' ? 'À rédiger à la clôture' : '—')}</p></div>
+          <div><h4 className="font-semibold text-stone-700">Consignes transmises</h4><p className="whitespace-pre-line text-stone-600">{poste.consignes_sortie ?? (posteExploitable(poste.statut) ? 'À rédiger à la clôture' : '—')}</p></div>
         </div>
         {poste.bilan && <p className="mt-3 rounded bg-stone-50 p-2 text-sm">{resumeBilan(poste.bilan)}</p>}
         {poste.rapport && <p className="mt-2 whitespace-pre-line text-sm text-stone-700">{poste.rapport}</p>}
@@ -146,11 +146,11 @@ export const PostesView = () => {
       <Panneau titre={`Équipe (${membres.length})`}>
         {membres.length === 0 ? <SansDonnees message="Aucun membre affecté" /> : <ul className="divide-y divide-stone-100 text-sm">{membres.map((m) => <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
           <span>{nomChauffeur.get(m.driver_id ?? '') ?? 'Engin'} · {m.present === null ? <Puce teinte="gris">Non pointé</Puce> : m.present ? <Puce teinte="vert">Présent{m.retard_minutes ? ` (retard ${m.retard_minutes} min)` : ''}</Puce> : <Puce teinte="rouge">Absent : {m.motif_absence}</Puce>}</span>
-          {peutExploiter && poste.statut === 'ouvert' && <span className="flex gap-1">
+          {peutExploiter && posteExploitable(poste.statut) && <span className="flex gap-1">
             <button onClick={() => pointer(m, true)} aria-label={`Présent ${nomChauffeur.get(m.driver_id ?? '') ?? ''}`} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><UserCheck className="h-3 w-3" /> Présent</button>
             <button onClick={() => pointer(m, false)} aria-label={`Absent ${nomChauffeur.get(m.driver_id ?? '') ?? ''}`} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><UserX className="h-3 w-3" /> Absent</button></span>}
         </li>)}</ul>}
-        {peutExploiter && poste.statut === 'ouvert' && <div className="mt-3 flex items-end gap-2">
+        {peutExploiter && posteExploitable(poste.statut) && <div className="mt-3 flex items-end gap-2">
           <label className="text-sm">Chauffeur<select value={c('chauffeur')} onChange={(e) => poser('chauffeur', e.target.value)} className={CHAMP}><option value="">Choisir</option>{chauffeurs.filter((x) => !membres.some((m) => m.driver_id === x.id)).map((x) => <option key={x.id} value={x.id}>{x.libelle}</option>)}</select></label>
           <button disabled={busy || !c('chauffeur')} onClick={affecter} className="rounded-lg bg-stone-800 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ajouter</button>
         </div>}
@@ -159,14 +159,14 @@ export const PostesView = () => {
       <Panneau titre={`Événements (${journal.length})`}>
         {journal.length === 0 ? <SansDonnees message="Aucun événement consigné" /> : <ul className="divide-y divide-stone-100 text-sm">{journal.map((e) => <li key={e.id} className="py-2">
           <span className="font-mono text-xs text-stone-500">{new Date(e.survenu_le).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span> · <b>{CATEGORIES_EVENEMENT[e.categorie]}</b> · {e.description}</li>)}</ul>}
-        {peutExploiter && poste.statut === 'ouvert' && <div className="mt-3 grid gap-2 sm:grid-cols-[12rem_1fr_auto] sm:items-end">
+        {peutExploiter && posteExploitable(poste.statut) && <div className="mt-3 grid gap-2 sm:grid-cols-[12rem_1fr_auto] sm:items-end">
           <label className="text-sm">Catégorie<select value={c('categorie') || 'information'} onChange={(e) => poser('categorie', e.target.value)} className={CHAMP}>{Object.entries(CATEGORIES_EVENEMENT).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
           <label className="text-sm">Description<input value={c('evenement')} onChange={(e) => poser('evenement', e.target.value)} className={CHAMP} /></label>
           <button disabled={busy || !c('evenement').trim()} onClick={consigner} className="rounded-lg bg-stone-800 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Consigner</button>
         </div>}
       </Panneau>
 
-      {peutExploiter && poste.statut === 'ouvert' && <Panneau titre="Clôture du poste">
+      {peutExploiter && posteExploitable(poste.statut) && <Panneau titre="Clôture du poste">
         <label className="block text-sm">Consignes pour le poste suivant * (même « rien à signaler »)<textarea value={c('sortie')} onChange={(e) => poser('sortie', e.target.value)} rows={3} className={CHAMP} /></label>
         <label className="mt-2 block text-sm">Rapport de poste<textarea value={c('rapport')} onChange={(e) => poser('rapport', e.target.value)} rows={3} className={CHAMP} /></label>
         <button disabled={busy || !c('sortie').trim()} onClick={cloturer} className="mt-3 flex items-center gap-2 rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><DoorClosed className="h-4 w-4" /> Clore le poste</button>
