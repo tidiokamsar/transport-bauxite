@@ -6,8 +6,10 @@ import { Informations, OngletPieces, PageDetail, Relation, type ActionPage } fro
 import { Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { lire, trouver } from '../ui/lecture';
 import { routeAction, routeDetail, useRoute } from '../ui/routeur';
-import { ETATS, PHASES, estEtat, phaseDe } from '../Trips/cycle';
-import { FicheVoyage } from '../Trips/FicheVoyage';
+import { ETATS, LIVRES_SANS_TICKET, PHASES, actionsPossibles, estEtat, phaseDe } from '../Trips/cycle';
+import { VoyageSuivant } from '../Trips/VoyageSuivant';
+import { ListePieces } from '../ui/PiecesJointes';
+import { formatNombre } from '../Dashboard/indicateurs';
 import { IncidentVoyage } from '../Trips/IncidentVoyage';
 import { COLONNES_VOYAGE, type Voyage } from '../Trips/types';
 import {
@@ -68,7 +70,7 @@ export const DetailVoyage = ({ id }: { id: string }) => {
   const [controles, setControles] = useState<Controle[] | null>(null);
   const [erreurControles, setErreurControles] = useState('');
   const [noms, setNoms] = useState<{ vehicule: Nom[]; chauffeur: Nom[]; site: Nom[]; shift: Nom[] }>({ vehicule: [], chauffeur: [], site: [], shift: [] });
-  const [saisie, setSaisie] = useState(false);
+  const [ticket, setTicket] = useState<{ id: string; ticket: string; net: number } | null | undefined>(undefined);
   const [heure, setHeure] = useState<Date | null>(null);
 
   const charger = useCallback(async () => {
@@ -80,6 +82,8 @@ export const DetailVoyage = ({ id }: { id: string }) => {
     const j = await lire<LigneJournal>(supabase.from('v_journal_voyage').select(COLONNES_JOURNAL).eq('trip_id', id), 'journal du voyage');
     setJournal(j.lignes ? trierChronologie(j.lignes.filter((l) => l.trip_id === id)) : null);
     setErreurJournal(j.erreur);
+    const tk = await supabase.from('v_tickets_pesee_cbg_effectifs').select('id, ticket, net').eq('trip_id', id).maybeSingle();
+    setTicket(tk.error ? undefined : tk.data ? { id: tk.data.id as string, ticket: tk.data.ticket as string, net: Number(tk.data.net) } : null);
     const c = await supabase.rpc('controles_voyage', { p_trip_id: id });
     setControles(c.error ? null : ((c.data ?? []) as Controle[]));
     setErreurControles(c.error ? `Contrôles indisponibles : ${c.error.message}` : '');
@@ -123,6 +127,8 @@ export const DetailVoyage = ({ id }: { id: string }) => {
     { id: 'dispatch', libelle: 'Voir dans Dispatch', visible: hasPermission('trips', 'view'), vers: avecContexte('#/dispatch', ctx) },
     { id: 'fiches', libelle: 'Fiches terrain', visible: hasPermission('trips', 'view'), vers: avecContexte('#/fiches', ctx) },
   ];
+  const possibles = estEtat(etat) ? actionsPossibles(etat) : { normales: [], exceptions: [] };
+  const etapes = [...possibles.normales.map((e) => ({ e, exception: false })), ...possibles.exceptions.map((e) => ({ e, exception: true }))];
   const synth = syntheseControles(controles ?? []);
   const ph = etat ? PHASES[phaseDe(etat)] : null;
   const affectations = deFamille(lignes, FAMILLES.affectations);
@@ -145,13 +151,33 @@ export const DetailVoyage = ({ id }: { id: string }) => {
           {
             id: 'synthese', libelle: 'Synthèse', contenu: voyage && libelles && (
               <div className="space-y-4">
-                {peutEcrire && (
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => setSaisie(true)} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">
-                      Étapes, pesée et ticket
-                    </button>
-                  </div>
+                {peutEcrire && !suspendu && etapes.length > 0 && (
+                  <section aria-label="Étape suivante" className="rounded-2xl border border-stone-200/70 bg-white p-4 shadow-carte">
+                    <h2 className="mb-2 text-sm font-semibold text-stone-700">Étape suivante</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {etapes.map(({ e, exception }) => (
+                        <a key={e} href={`${routeAction(VUE_VOYAGES, id, 'etape')}?vers=${e}`}
+                          className={`rounded-lg px-3 py-2 text-sm font-semibold ${exception ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-orange-50 text-orange-800 hover:bg-orange-100'}`}>
+                          {ETATS[e].action}
+                        </a>
+                      ))}
+                    </div>
+                  </section>
                 )}
+                {suspendu && <p role="status" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">Voyage suspendu : il n'avance plus tant qu'il n'est pas repris.</p>}
+                {ticket && (
+                  <section aria-label="Ticket CBG" className="rounded-2xl border border-stone-200/70 bg-white p-4 text-sm shadow-carte">
+                    <p>Ticket CBG <b>{ticket.ticket}</b> · net {formatNombre(ticket.net, 2)} t</p>
+                    <div className="mt-2"><ListePieces objetType="ticket_pesee_cbg" objetId={ticket.id} peutDeposer={peutEcrire} /></div>
+                  </section>
+                )}
+                {ticket === null && estEtat(etat) && LIVRES_SANS_TICKET.includes(etat) && (
+                  <section aria-label="Ticket CBG absent" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                    <p role="status">Aucun ticket CBG rattaché : ce voyage n'est pas facturable tant que le ticket n'est pas saisi.</p>
+                    {peutEcrire && <a href={routeAction(VUE_VOYAGES, id, 'ticket')} className="mt-2 inline-block rounded-lg bg-white px-3 py-2 font-semibold text-orange-800">Rattacher le ticket CBG</a>}
+                  </section>
+                )}
+                {peutEcrire && <VoyageSuivant voyage={voyage} onModifie={charger} />}
                 <Informations groupes={[
                   { titre: 'Voyage', champs: [['Référence', voyage.reference], ['Date prévue', voyage.planned_date], ['Shift', nom(noms.shift, voyage.shift_id)],
                     ['Rotation du shift', voyage.shift_sequence ?? null], ['Origine', libelles.origine], ['Destination', libelles.destination]] },
@@ -246,9 +272,6 @@ export const DetailVoyage = ({ id }: { id: string }) => {
           { id: 'historique', libelle: 'Historique', contenu: <Historique evenements={journal ? historiqueDepuisJournal([...lignes].reverse()) : null} erreur={erreurJournal} source="v_journal_voyage (trip_events, decisions_dispatch, suspensions_voyage, fiches, tickets, relevés, rapprochements, anomalies, pièces, vérifications)" /> },
         ]}
       />
-      {saisie && voyage && libelles && (
-        <FicheVoyage voyage={voyage} peutEcrire={peutEcrire} libelles={libelles} onFermer={() => setSaisie(false)} onModifie={charger} />
-      )}
     </>
   );
 };

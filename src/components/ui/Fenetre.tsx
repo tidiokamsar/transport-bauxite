@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { createContext, useContext, useEffect, useId, useRef, type FormEvent, type ReactNode } from 'react';
+import { ArrowLeft, X } from 'lucide-react';
 
 // Fenetre modale commune (D-077 : bibliotheque CreateModal, EditModal,
 // ActionDialog). Hauteur bornee a l'ecran : l'en-tete et le pied restent
@@ -12,6 +12,14 @@ import { X } from 'lucide-react';
 // que la derniere ; le defilement de la page reste bloque tant qu'il en reste une.
 const pile: symbol[] = [];
 let debordementInitial = '';
+
+// Mode page (D-090, D-088 suite) : sous <FenetreEnPage>, la meme fenetre
+// s'affiche en pleine page (article, titre h1, bouton Retour), sans
+// superposition, sans piege du focus ni blocage du defilement. Les ecrans
+// a fenetres metier (Dispatch) passent ainsi en pages sans dupliquer leurs
+// formulaires.
+const EnPage = createContext(false);
+export const FenetreEnPage = ({ children }: { children: ReactNode }) => <EnPage.Provider value>{children}</EnPage.Provider>;
 
 const FOCUSABLES = 'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
@@ -56,6 +64,7 @@ export const Fenetre = ({
   children,
 }: FenetreProps) => {
   const idTitre = useId();
+  const enPage = useContext(EnPage);
   const dialogue = useRef<HTMLDivElement>(null);
   const corps = useRef<HTMLDivElement>(null);
   const fermer = useRef(onFermer);
@@ -65,6 +74,7 @@ export const Fenetre = ({
   const appuiSurFond = useRef(false);
 
   useEffect(() => {
+    if (enPage) return undefined;
     const cle = Symbol('fenetre');
     const origine = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (pile.length === 0) {
@@ -115,7 +125,7 @@ export const Fenetre = ({
       if (pile.length === 0) document.body.style.overflow = debordementInitial;
       if (origine && document.contains(origine)) origine.focus({ preventScroll: true });
     };
-  }, []);
+  }, [enPage]);
 
   const contenu = (
     <>
@@ -129,6 +139,27 @@ export const Fenetre = ({
       )}
     </>
   );
+
+  if (enPage) {
+    return (
+      <article aria-labelledby={ariaLabel ? undefined : idTitre} aria-label={ariaLabel} aria-busy={enCours || undefined}
+        className="flex max-w-3xl flex-col rounded-2xl border border-stone-200/70 bg-white shadow-carte">
+        <header className="flex items-start justify-between gap-3 border-b border-stone-200 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            {icone && <span className="shrink-0">{icone}</span>}
+            <div className="min-w-0">
+              <h1 id={idTitre} className="text-xl font-black text-stone-900 sm:text-2xl">{titre}</h1>
+              {sousTitre && <div className="mt-0.5 text-sm text-stone-500">{sousTitre}</div>}
+            </div>
+          </div>
+          <button type="button" onClick={onFermer} disabled={enCours} className="inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-40">
+            <ArrowLeft className="h-4 w-4" /> Retour
+          </button>
+        </header>
+        {onSubmit ? <form id={formulaireId} onSubmit={onSubmit} className="flex flex-col">{contenu}</form> : contenu}
+      </article>
+    );
+  }
 
   return (
     <div

@@ -6,8 +6,11 @@ import { useSite } from '../../contexts/SiteContext';
 import { Panneau, Provenance, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SHIFT, SANS_SITE } from '../ui/referentiels';
 import { LienVue } from '../ui/LienVue';
-import { routeDetail } from '../ui/routeur';
-import { avecContexte, dateDuContexte } from '../Operations/journal';
+import { lireRoute, naviguer, poserAnnonce, routeAction, routeDetail, routeListe, useRoute } from '../ui/routeur';
+import { FenetreEnPage } from '../ui/Fenetre';
+import { FilAriane } from '../ui/PageDetail';
+import { arianeModule } from '../ui/pages';
+import { avecContexte, contexteDepuisRequete, dateDuContexte } from '../Operations/journal';
 import {
   A_AFFECTER, TYPES_ENGIN, camionDisponible, chauffeurDisponible, instantane, raisonReaffectation, recommander,
   type Chauffeur, type Engin, type Recommandation,
@@ -15,6 +18,7 @@ import {
 import { COLONNES_VOYAGE, type Voyage } from '../Trips/types';
 import { messageErreur, shiftHoraire, type VueVoyages } from './controle';
 import { FenetreDecision, type ModeDecision } from './FenetreDecision';
+import { FenetreSuspension } from './FenetreSuspension';
 import { SimulationScenarios } from './SimulationScenarios';
 import { TableauDeBordDispatch } from './TableauDeBordDispatch';
 import { PanneauShift } from './PanneauShift';
@@ -70,7 +74,7 @@ const ONGLETS: { cle: Onglet; libelle: string }[] = [
 const ENGAGES = ['AT_LOADING', 'LOADING', 'LOADED', 'WEIGHED_OUT', 'IN_TRANSIT', 'AT_DESTINATION', 'UNLOADING', 'WEIGHED_IN', 'INTERRUPTED'];
 const TERMINES = ['DELIVERED', 'ACCEPTED', 'CLOSED', 'DISPUTED', 'CANCELLED', 'REJECTED'];
 
-type Ouverte = { mode: ModeDecision; recommandation: Recommandation; reference: string; raison?: string } | null;
+const MODES_DECISION: ModeDecision[] = ['modifiee', 'refusee', 'reaffectation'];
 interface LigneRapport { trip_id: string | null; reference: string | null; resultat: 'affecte' | 'refuse'; raison: string | null }
 
 export const DispatchView = () => {
@@ -78,10 +82,10 @@ export const DispatchView = () => {
   const { siteId, sites, aucunSite } = useSite();
   const peutEcrire = hasPermission('trips', 'create') || hasPermission('trips', 'edit');
   const [date, setDate] = useState(() => dateDuContexte(aujourdhui));
-  const [site, setSite] = useState('');
+  const [site, setSite] = useState(() => contexteDepuisRequete(lireRoute(window.location.hash).requete).site ?? '');
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [aucunShift, setAucunShift] = useState(false);
-  const [shift, setShift] = useState('');
+  const [shift, setShift] = useState(() => contexteDepuisRequete(lireRoute(window.location.hash).requete).shift ?? '');
   const [engins, setEngins] = useState<Engin[]>([]);
   const [chauffeurs, setChauffeurs] = useState<Chauffeur[]>([]);
   const [voyages, setVoyages] = useState<Voyage[] | null>(null);
@@ -95,9 +99,11 @@ export const DispatchView = () => {
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
   const [actualisation, setActualisation] = useState(0);
-  const [onglet, setOnglet] = useState<Onglet>('affectations');
+  // Pages D-090 (D-088 suite) : decision #/dispatch/<voyage>/<mode>, action de
+  // shift #/dispatch/shift/<action>, onglet dans ?onglet=.
+  const route = useRoute();
+  const [onglet, setOnglet] = useState<Onglet>(() => (ONGLETS.find((o) => o.cle === route.requete.onglet)?.cle ?? 'affectations'));
   const [vue, setVue] = useState<VueVoyages | 'tous'>('tous');
-  const [ouverte, setOuverte] = useState<Ouverte>(null);
   const [enCours, setEnCours] = useState(false);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [rapport, setRapport] = useState<LigneRapport[] | null>(null);
@@ -341,6 +347,61 @@ export const DispatchView = () => {
   );
 
   const pret = Boolean(site && shift);
+  const retourListe = () => naviguer(`${routeListe('dispatch').split('?')[0]}?onglet=${onglet}`);
+
+  if (route.vue === 'dispatch' && route.mode === 'action' && route.id === 'shift') {
+    return (
+      <div className="space-y-4">
+        <FilAriane elements={arianeModule('dispatch', 'Dispatch', { libelle: 'Shift' })} />
+        {pret ? <PanneauShift date={date} site={site} shift={shift} libelle={libelleShift}
+          destinations={sites.filter((s) => s.id !== site).map((s) => ({ id: s.id, name: s.name }))}
+          peutEcrire={peutEcrire} nonTermines={nonTermines} actualisation={actualisation} onModifie={charger} />
+          : <p role="status" className="py-8 text-center text-sm text-stone-500">Chargement…</p>}
+      </div>
+    );
+  }
+  if (route.vue === 'dispatch' && route.mode === 'action' && route.id && (route.action === 'suspendre' || route.action === 'reprendre')) {
+    const v = (voyages ?? []).find((x) => x.id === route.id) ?? null;
+    const action = route.action;
+    return (
+      <div className="space-y-4">
+        <FilAriane elements={arianeModule('dispatch', 'Dispatch', { libelle: v?.reference ?? 'Voyage' })} />
+        {voyages === null ? <p role="status" className="py-8 text-center text-sm text-stone-500">Chargement…</p>
+          : !v ? <SansDonnees message="Voyage introuvable" detail="Ce voyage n'est pas dans le shift choisi (date, site, shift)." />
+            : !peutEcrire ? <SansDonnees message="Action impossible" detail="Droit d'écriture sur les voyages requis." />
+              : (action === 'reprendre') !== suspendus.has(v.id) ? <SansDonnees message="Action impossible" detail={action === 'reprendre' ? 'Voyage non suspendu : rien à reprendre.' : 'Voyage déjà suspendu.'} />
+                : (
+                  <FenetreEnPage>
+                    <FenetreSuspension mode={action} voyageId={v.id} reference={v.reference} onFermer={retourListe}
+                      onFait={() => { poserAnnonce(action === 'reprendre' ? 'Voyage repris.' : 'Voyage suspendu.'); charger(); retourListe(); }} />
+                  </FenetreEnPage>
+                )}
+      </div>
+    );
+  }
+  if (route.vue === 'dispatch' && route.mode === 'action' && route.id) {
+    const mode = MODES_DECISION.find((m) => m === route.action) ?? null;
+    const v = (voyages ?? []).find((x) => x.id === route.id) ?? null;
+    const r = recommandations.get(route.id);
+    const raison = aReaffecter.find((x) => x.voyage.id === route.id)?.raison;
+    return (
+      <div className="space-y-4">
+        <FilAriane elements={arianeModule('dispatch', 'Dispatch', { libelle: v?.reference ?? 'Voyage' })} />
+        {!mode ? <SansDonnees message="Action inconnue" detail={`« ${route.action} » n'est pas une décision du Dispatch.`} />
+          : voyages === null ? <p role="status" className="py-8 text-center text-sm text-stone-500">Chargement…</p>
+            : !v || !r ? <SansDonnees message="Voyage non proposé" detail="Ce voyage n'est pas dans les recommandations du shift choisi (date, site, shift). Revenir au Dispatch." />
+              : !peutEcrire ? <SansDonnees message="Action impossible" detail="Droit d'écriture sur les voyages requis." />
+                : (
+                  <FenetreEnPage>
+                    <FenetreDecision mode={mode} reference={v.reference} recommandation={r} raison={raison}
+                      camions={camionsSite} chauffeurs={chauffeursDispo} engins={enginsSite}
+                      version={versions.get(r.voyageId) ?? 0} onFermer={retourListe}
+                      onDecide={() => { poserAnnonce('Décision enregistrée.'); charger(); retourListe(); }} />
+                  </FenetreEnPage>
+                )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -438,10 +499,10 @@ export const DispatchView = () => {
                                   <Check className="inline h-3.5 w-3.5" /> Accepter
                                 </button>
                               )}
-                              <button onClick={() => setOuverte({ mode: 'modifiee', recommandation: r, reference: v.reference })} className="mr-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-100" aria-label={`Modifier ${v.reference}`}>
+                              <button onClick={() => naviguer(routeAction('dispatch', v.id, 'modifiee'))} className="mr-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-100" aria-label={`Modifier ${v.reference}`}>
                                 <PenLine className="inline h-3.5 w-3.5" /> Modifier
                               </button>
-                              <button onClick={() => setOuverte({ mode: 'refusee', recommandation: r, reference: v.reference })} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100" aria-label={`Refuser ${v.reference}`}>
+                              <button onClick={() => naviguer(routeAction('dispatch', v.id, 'refusee'))} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100" aria-label={`Refuser ${v.reference}`}>
                                 <X className="inline h-3.5 w-3.5" /> Refuser
                               </button>
                             </td>
@@ -485,7 +546,7 @@ export const DispatchView = () => {
                         <div className="mt-1">{ligneRecommandation(r)}</div>
                       </div>
                       {peutEcrire && r && (
-                        <button onClick={() => setOuverte({ mode: 'reaffectation', recommandation: r, reference: v.reference, raison })} className="rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-100">
+                        <button onClick={() => naviguer(routeAction('dispatch', v.id, 'reaffectation'))} className="rounded-lg bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-800 hover:bg-orange-100">
                           Réaffecter
                         </button>
                       )}
@@ -554,20 +615,6 @@ export const DispatchView = () => {
         </Panneau>
       )}
 
-      {ouverte && (
-        <FenetreDecision
-          mode={ouverte.mode}
-          reference={ouverte.reference}
-          recommandation={ouverte.recommandation}
-          raison={ouverte.raison}
-          camions={camionsSite}
-          chauffeurs={chauffeursDispo}
-          engins={enginsSite}
-          version={versions.get(ouverte.recommandation.voyageId) ?? 0}
-          onFermer={() => setOuverte(null)}
-          onDecide={() => { setOuverte(null); charger(); }}
-        />
-      )}
     </div>
   );
 };

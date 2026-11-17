@@ -85,7 +85,7 @@ test.describe('Dispatch', () => {
     await ouvrir(page);
     await expect(page.getByText('Camion RC-1009 indisponible (immobilisé)')).toBeVisible();
     await page.getByRole('button', { name: 'Réaffecter' }).click();
-    const fenetre = page.getByRole('dialog');
+    const fenetre = page.getByRole('article');
     await expect(fenetre.getByLabel('Motif (obligatoire)')).toHaveValue('Camion RC-1009 indisponible (immobilisé)');
     await expect(fenetre.getByLabel('Chauffeur').locator('option')).toHaveText(['Choisir', 'Alpha Test', 'Bah Test']);
     await fenetre.getByRole('button', { name: 'Enregistrer la décision' }).click();
@@ -98,7 +98,7 @@ test.describe('Dispatch', () => {
     const decisions = await capturer(page, 'affecter_voyage');
     await ouvrir(page);
     await page.getByRole('button', { name: 'Refuser VYG-001' }).click();
-    const fenetre = page.getByRole('dialog');
+    const fenetre = page.getByRole('article');
     await expect(fenetre.getByRole('button', { name: 'Refuser' })).toBeDisabled();
     await fenetre.getByLabel('Motif (obligatoire)').fill('Camion réservé à la piste sud');
     await fenetre.getByRole('button', { name: 'Refuser' }).click();
@@ -120,7 +120,7 @@ test.describe('Dispatch', () => {
     await ouvrir(page);
     await page.getByRole('tab', { name: 'Shift et préparation' }).click();
     await page.getByRole('button', { name: 'Préparer le shift' }).click();
-    const fenetre = page.getByRole('dialog');
+    const fenetre = page.getByRole('article');
     await expect(fenetre.getByText('200 t')).toBeVisible();
     await fenetre.getByRole('button', { name: 'Suivant' }).click();
     await expect(fenetre.getByText('Hypothèse de charge à saisir', { exact: false })).toBeVisible();
