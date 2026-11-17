@@ -1,77 +1,97 @@
 {
-  "_note": "Plan de la video de presentation SIGTB. 'texte' = voix off et sous-titres. Chaque plan est une carte animee (cartes.html) ou un ecran reel de l'application sur l'API simulee (donnees fictives). 'surligner' = texte de l'element encadre a l'ecran.",
+  "_note": "Plan de la video SIGTB. Une phrase = un WAV, un sous-titre et, si 'plan' est present, un nouveau plan (sinon le plan precedent se prolonge). Plan = carte animee (cartes.html) ou ecran reel sur l'API simulee (donnees fictives) ; 'surligner' = texte de l'element encadre et vise par le zoom ; 'choisir' = texte de l'option a choisir dans la liste qui la propose.",
   "sequences": [
     {
-      "id": "01-accroche",
-      "titre": "Le défi",
-      "texte": "Chaque jour, des camions chargés de bauxite font la navette entre la mine et le dépôt. Et chaque tonne facturée à CBG doit pouvoir être justifiée : par un voyage, par une pesée, par une pièce.",
-      "plans": [{ "carte": "ouverture" }]
+      "id": "01-accroche", "titre": "Le défi",
+      "phrases": [
+        { "texte": "Chaque jour, des camions chargés de bauxite font la navette entre la mine et le dépôt.", "plan": { "carte": "ouverture" } },
+        { "texte": "Et chaque tonne facturée à CBG doit pouvoir être justifiée : par un voyage, par une pesée, par une pièce." }
+      ]
     },
     {
-      "id": "02-presentation",
-      "titre": "SIGTB",
-      "texte": "SIGTB est la plateforme de Kogon Mining pour gérer ce transport de bout en bout. Une seule chaîne relie la planification, le terrain, la pesée, les contrats et la facturation. Chaque indicateur affiche sa source, sa période et son heure.",
-      "plans": [{ "carte": "circuit" }, { "adresse": "#/dashboard" }]
+      "id": "02-presentation", "titre": "SIGTB",
+      "phrases": [
+        { "texte": "SIGTB est la plateforme de Kogon Mining pour gérer ce transport de bout en bout.", "plan": { "carte": "circuit" } },
+        { "texte": "Une seule chaîne relie la planification, le terrain, la pesée, les contrats et la facturation." },
+        { "texte": "Chaque indicateur affiche sa source, sa période et son heure.", "plan": { "adresse": "#/dashboard", "surligner": "Tonnes livrées" } }
+      ]
     },
     {
-      "id": "03-planification",
-      "titre": "Planification et shifts",
-      "texte": "La journée commence par l'objectif de production, fixé par site et par shift. Le chef de poste ouvre son poste, pointe son équipe et reçoit les consignes.",
-      "plans": [{ "adresse": "#/planification", "surligner": "Objectif" }, { "adresse": "#/postes/p1", "surligner": "Consignes" }]
+      "id": "03-planification", "titre": "Planification et shifts",
+      "phrases": [
+        { "texte": "La journée commence par l'objectif de production, fixé par site et par shift.", "plan": { "adresse": "#/planification", "surligner": "Réalisation du plan" } },
+        { "texte": "Le chef de poste ouvre son poste, pointe son équipe et reçoit les consignes.", "plan": { "adresse": "#/postes/p1", "surligner": "Consignes reçues" } }
+      ]
     },
     {
-      "id": "04-dispatch",
-      "titre": "Dispatch",
-      "texte": "Au dispatch, SIGTB propose une affectation : un camion disponible, un chauffeur habilité, une chargeuse. Le système recommande, le dispatcher décide. Chaque décision est contrôlée par le serveur et conservée dans l'historique.",
-      "plans": [{ "adresse": "#/dispatch?onglet=affectations", "surligner": "Recommand" }, { "adresse": "#/dispatch?onglet=journal" }]
+      "id": "04-dispatch", "titre": "Dispatch",
+      "phrases": [
+        { "texte": "Au dispatch, SIGTB propose une affectation : un camion disponible, un chauffeur habilité, une chargeuse.", "plan": { "adresse": "#/dispatch?onglet=affectations", "surligner": "Camions disponibles" } },
+        { "texte": "Le système recommande, le dispatcher décide.", "plan": { "adresse": "#/dispatch?onglet=affectations", "surligner": "Recommandations (", "defiler": true } },
+        { "texte": "Chaque décision est contrôlée par le serveur et conservée dans l'historique.", "plan": { "adresse": "#/dispatch?onglet=journal", "surligner": "Journal des décisions", "defiler": true } }
+      ]
     },
     {
-      "id": "05-voyages",
-      "titre": "Voyages et rotations",
-      "texte": "Chaque voyage suit un cycle strict, du chargement à la livraison. Les étapes s'enchaînent dans l'ordre, et chaque changement d'état est inscrit dans un journal qui ne se réécrit pas.",
-      "plans": [{ "adresse": "#/trips" }, { "adresse": "#/trips/t1?onglet=chronologie", "surligner": "Chronologie" }]
+      "id": "05-voyages", "titre": "Voyages et rotations",
+      "phrases": [
+        { "texte": "Chaque voyage suit un cycle strict, du chargement à la livraison.", "plan": { "adresse": "#/trips", "surligner": "Voyages du jour" } },
+        { "texte": "Les étapes s'enchaînent dans l'ordre, et chaque changement d'état est inscrit dans un journal qui ne se réécrit pas.", "plan": { "adresse": "#/trips/t1?onglet=chronologie", "surligner": "LOADED" } }
+      ]
     },
     {
-      "id": "06-fiches",
-      "titre": "Fiches terrain",
-      "texte": "Sur le terrain, l'agent note les rotations sur une fiche numérotée. À son retour, il la saisit ligne par ligne. Les écarts sont détectés, puis la fiche est validée par une autre personne.",
-      "plans": [{ "adresse": "#/fiches", "surligner": "FR-EX-001" }, { "adresse": "#/fiches/f1", "jeu": "fiche_a_controler", "surligner": "cart" }]
+      "id": "06-fiches", "titre": "Fiches terrain",
+      "phrases": [
+        { "texte": "Sur le terrain, l'agent note les rotations sur une fiche numérotée.", "plan": { "adresse": "#/fiches", "surligner": "FR-EX-001" } },
+        { "texte": "À son retour, il la saisit ligne par ligne.", "plan": { "adresse": "#/fiches/f1/saisir-ligne", "surligner": "Rotation" } },
+        { "texte": "Les écarts sont détectés, puis la fiche est validée par une autre personne.", "plan": { "adresse": "#/fiches/f1", "jeu": "fiche_a_controler", "surligner": "Valider" } }
+      ]
     },
     {
-      "id": "07-pesee",
-      "titre": "Pesée CBG et rapprochement",
-      "texte": "La pesée officielle de CBG fait foi. Son relevé est importé avec une empreinte, puis rapproché, ticket par ticket, de la fiche KOGON. Tout écart devient une anomalie, examinée puis conclue.",
-      "plans": [{ "adresse": "#/tickets-cbg/rapprochement", "surligner": "T-EX-1" }, { "adresse": "#/tickets-cbg/anomalies" }]
+      "id": "07-pesee", "titre": "Pesée CBG et rapprochement",
+      "phrases": [
+        { "texte": "La pesée officielle de CBG fait foi.", "plan": { "adresse": "#/tickets-cbg/releves", "surligner": "CBG-REL-EX" } },
+        { "texte": "Son relevé est importé avec une empreinte, puis rapproché, ticket par ticket, de la fiche KOGON.", "plan": { "adresse": "#/tickets-cbg/rapprochement", "choisir": "CBG-REL-EX", "surligner": "T-EX-1" } },
+        { "texte": "Tout écart devient une anomalie, examinée puis conclue.", "plan": { "adresse": "#/tickets-cbg/anomalies", "surligner": "Écart de 0,7" } }
+      ]
     },
     {
-      "id": "08-couts",
-      "titre": "Carburant, pneus, maintenance",
-      "texte": "Les coûts suivent la même règle. Le carburant est reçu, distribué et inventorié, cuve par cuve. Les pneus sont suivis montage par montage. Les immobilisations des engins loués à Neemba sont déclarées et tracées.",
-      "plans": [{ "adresse": "#/fuel-stocks", "surligner": "CUVE-EX" }, { "adresse": "#/tires?espace=tableau" }, { "adresse": "#/immobilisations" }]
+      "id": "08-couts", "titre": "Carburant, pneus, maintenance",
+      "phrases": [
+        { "texte": "Les coûts suivent la même règle.", "plan": { "adresse": "#/fuel-stocks", "surligner": "Parcours d'un litre" } },
+        { "texte": "Le carburant est reçu, distribué et inventorié, cuve par cuve.", "plan": { "adresse": "#/fuel-stocks", "surligner": "CUVE-EX" } },
+        { "texte": "Les pneus sont suivis montage par montage.", "plan": { "adresse": "#/tires?espace=registre", "surligner": "PN-000002" } },
+        { "texte": "Les immobilisations des engins loués à Neemba sont déclarées et tracées.", "plan": { "adresse": "#/vehicles", "surligner": "EX-1002" } }
+      ]
     },
     {
-      "id": "09-facturation",
-      "titre": "Contrats et facturation CBG",
-      "texte": "En fin de période, la réconciliation rassemble les voyages et les tonnages acceptés. La facture est préparée selon le contrat, signée par le directeur, jamais par celui qui l'a préparée, et numérotée à l'émission. Chaque ligne remonte à ses voyages et à ses tickets.",
-      "plans": [{ "adresse": "#/contrats/k1" }, { "adresse": "#/reconciliation/r1" }, { "adresse": "#/invoices/fa1", "surligner": "signer" }]
+      "id": "09-facturation", "titre": "Contrats et facturation CBG",
+      "phrases": [
+        { "texte": "En fin de période, la réconciliation rassemble les voyages et les tonnages acceptés.", "plan": { "adresse": "#/reconciliation/r1", "surligner": "Tonnage accepté" } },
+        { "texte": "La facture est préparée selon le contrat, signée par le directeur, jamais par celui qui l'a préparée, et numérotée à l'émission.", "plan": { "adresse": "#/invoices/fa1", "surligner": "signer (DG)" } },
+        { "texte": "Chaque ligne remonte à ses voyages et à ses tickets.", "plan": { "adresse": "#/contrats/k1", "surligner": "CLI-EX-01" } }
+      ]
     },
     {
-      "id": "10-pilotage",
-      "titre": "Pilotage",
-      "texte": "Pour piloter, le centre de pilotage et la boîte des validations rassemblent ce qui attend une décision. Les rapports de poste, journaliers et mensuels sont produits à partir des mêmes données.",
-      "plans": [{ "adresse": "#/centre-pilotage" }, { "adresse": "#/mes-validations" }, { "adresse": "#/reports" }]
+      "id": "10-pilotage", "titre": "Pilotage",
+      "phrases": [
+        { "texte": "Pour piloter, le centre de pilotage et la boîte des validations rassemblent ce qui attend une décision.", "plan": { "adresse": "#/centre-pilotage", "surligner": "Tonnes livrées" } },
+        { "texte": "Les validations en attente sont regroupées par domaine.", "plan": { "adresse": "#/mes-validations", "surligner": "FR-EX-001" } },
+        { "texte": "Les alertes et les rapports sont produits à partir des mêmes données.", "plan": { "adresse": "#/dashboard", "surligner": "Carburant distribué" } }
+      ]
     },
     {
-      "id": "11-securite",
-      "titre": "Sécurité",
-      "texte": "La sécurité est assurée par le serveur : des droits par rôle, par module et par site, un journal de chaque opération, des sauvegardes vérifiées. Une correction est un nouvel événement, jamais une réécriture silencieuse.",
-      "plans": [{ "carte": "securite" }, { "adresse": "#/settings" }]
+      "id": "11-securite", "titre": "Sécurité",
+      "phrases": [
+        { "texte": "La sécurité est assurée par le serveur : des droits par rôle, par module et par site, un journal de chaque opération, des sauvegardes vérifiées.", "plan": { "carte": "securite" } },
+        { "texte": "Une correction est un nouvel événement, jamais une réécriture silencieuse.", "plan": { "adresse": "#/settings", "surligner": "Journal de connexion" } }
+      ]
     },
     {
-      "id": "12-cloture",
-      "titre": "SIGTB",
-      "texte": "SIGTB : chaque tonne tracée, chaque facture justifiée. Prochaine étape : charger vos référentiels et lancer la recette sur le site pilote.",
-      "plans": [{ "carte": "cloture" }]
+      "id": "12-cloture", "titre": "SIGTB",
+      "phrases": [
+        { "texte": "SIGTB : chaque tonne tracée, chaque facture justifiée.", "plan": { "carte": "cloture" } },
+        { "texte": "Prochaine étape : charger vos référentiels et lancer la recette sur le site pilote." }
+      ]
     }
   ]
 }

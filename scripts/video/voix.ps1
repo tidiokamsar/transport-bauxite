@@ -1,4 +1,5 @@
-# Voix off de la video SIGTB : un WAV par sequence (voix Windows
+# Voix off de la video SIGTB : un WAV par phrase (les pauses entre phrases
+# sont posees a l'assemblage) (voix Windows
 # « Microsoft Hortense Desktop », System.Speech). Usage :
 #   pwsh scripts/video/voix.ps1 -Travail <dossier de travail> [-Debit -1]
 param(
@@ -15,14 +16,17 @@ New-Item -ItemType Directory -Force $dossier | Out-Null
 $prononcer = @{ 'SIGTB' = 'S.I.G.T.B.'; 'CBG' = 'C.B.G.'; 'KOGON' = 'Kogon' }
 
 foreach ($s in $plan.sequences) {
-  $texte = $s.texte
-  foreach ($k in $prononcer.Keys) { $texte = $texte -replace "\b$k\b", $prononcer[$k] }
-  $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
-  $synth.SelectVoice('Microsoft Hortense Desktop')
-  $synth.Rate = $Debit
-  $sortie = Join-Path $dossier "$($s.id).wav"
-  $synth.SetOutputToWaveFile($sortie)
-  $synth.Speak($texte)
-  $synth.Dispose()
-  Write-Output "voix $($s.id)"
+  $k = 0
+  foreach ($ph in $s.phrases) {
+    $k += 1
+    $texte = $ph.texte
+    foreach ($c in $prononcer.Keys) { $texte = $texte -replace "$c", $prononcer[$c] }
+    $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+    $synth.SelectVoice('Microsoft Hortense Desktop')
+    $synth.Rate = $Debit
+    $synth.SetOutputToWaveFile((Join-Path $dossier "$($s.id)-$k.wav"))
+    $synth.Speak($texte)
+    $synth.Dispose()
+  }
+  Write-Output "voix $($s.id) ($k phrases)"
 }
