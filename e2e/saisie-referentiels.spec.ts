@@ -42,10 +42,12 @@ test.describe('Saisie des sites (D-079)', () => {
     await ouvrirSites(page);
     // Recherche : ville vide, aucune erreur.
     await page.getByPlaceholder('Rechercher un site...').fill('zone');
-    await expect(page.getByRole('heading', { name: 'Mine Nimba' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fiche Mine Nimba' })).toBeVisible();
     await expect(page.getByText('12 000 t').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Modifier le site Mine Nimba' }).click();
-    const f = page.getByRole('dialog', { name: 'Modifier le site' });
+    // Fiche puis modification en pleine page (D-090).
+    await page.getByRole('button', { name: 'Fiche Mine Nimba' }).click();
+    await page.getByRole('link', { name: 'Modifier' }).click();
+    const f = page.getByRole('form', { name: 'Modifier le site' });
     await expect(f.getByLabel('Organisation (D-038)')).toHaveValue('o1');
     await expect(f.getByLabel('Responsable du site (compte actif)')).toHaveValue('u2');
     await f.getByLabel('Ville *').fill('Lola');
@@ -70,8 +72,8 @@ test.describe('Saisie des sites (D-079)', () => {
       return route.fallback();
     });
     await ouvrirSites(page);
-    await page.getByRole('button', { name: 'Nouveau site' }).click();
-    const f = page.getByRole('dialog', { name: 'Nouveau site' });
+    await page.getByRole('link', { name: 'Nouveau site' }).click();
+    const f = page.getByRole('form', { name: 'Nouveau site' });
     await f.getByLabel('Nom du site *').fill('Port de Kamsar');
     await f.getByLabel('Type de site *').selectOption('port');
     await f.getByLabel('Adresse complète *').fill('Quai 2');

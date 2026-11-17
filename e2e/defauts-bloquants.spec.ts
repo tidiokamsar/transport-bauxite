@@ -70,8 +70,8 @@ test.describe('Défauts bloquants J1 (D-078)', () => {
       return route.fallback();
     });
     await aller(page, 'Flotte', 'Chauffeurs');
-    await page.getByRole('button', { name: 'Ajouter un chauffeur' }).click();
-    const champ = (libelle: string) => page.locator('label', { hasText: libelle }).locator('xpath=following-sibling::*[1]');
+    await page.getByRole('link', { name: 'Ajouter un chauffeur' }).click();
+    const champ = (libelle: string) => page.getByLabel(libelle);
     await champ('Nom complet *').fill('Ibrahima Sow');
     await champ('ID Employé *').fill('MAT-101');
     await champ('Numéro de permis *').fill('GN-PC-101');
