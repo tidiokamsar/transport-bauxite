@@ -1,196 +1,154 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { ClipboardList, Plus, Settings2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
-import { CHAMP, TYPES_DOCUMENT, TYPES_FOURNISSEUR, type Categorie, type Fournisseur } from './fournisseurs';
-import { FicheFournisseur } from './FicheFournisseur';
-import { ConsultationsFournisseurs } from './ConsultationsFournisseurs';
-import { ReferentielsFournisseurs } from './ReferentielsFournisseurs';
+import { PageListe } from '../ui/PageListe';
+import { Panneau, Provenance, Puce } from '../ui/Panneau';
+import { routeNouveau, useRoute } from '../ui/routeur';
+import type { ColonneListe, FiltreListe } from '../ui/liste';
+import { TYPES_DOCUMENT, TYPES_FOURNISSEUR, type Categorie, type Fournisseur } from './fournisseurs';
+import { COLONNES_FOURNISSEUR, LIENS_RUBRIQUES, type Contact, type Evaluation } from './donnees';
+import { VUE_FOURNISSEURS, pageDepuisRoute, routeConsultations, routeReferentiels } from './routes';
+import { DetailFournisseur } from './DetailFournisseur';
+import { FormulaireFournisseur, ModifierFournisseur } from './FormulaireFournisseur';
+import { ActionFournisseurVue } from './ActionFournisseur';
+import { ListeConsultations } from './ListeConsultations';
+import { DetailConsultation } from './DetailConsultation';
+import { FormulaireConsultation } from './FormulaireConsultation';
+import { ActionConsultationVue } from './ActionConsultation';
+import { ActionReferentiel, ReferentielsFournisseurs } from './ReferentielsFournisseurs';
 
-// Fournisseurs (D-059) : repertoire, fiche detaillee, consultations et
-// referentiels. Toute ecriture passe par les fonctions serveur.
-
-interface Contact { id: string; supplier_id: string; nom: string; telephone: string | null; email: string | null; principal: boolean; actif: boolean }
-interface Evaluation { id: string; supplier_id: string; periode_debut: string; periode_fin: string; note_globale: number }
-interface AlerteDocument { id: string; supplier_id: string; company_name: string; type_document: string; libelle: string | null; date_expiration: string; jours_restants: number; etat: 'expire' | 'a_renouveler' }
-
-const COLONNES = 'id, supplier_number, supplier_type, company_name, phone, email, address, ville, pays, identifiant_fiscal, registre_commerce, payment_terms, notes, active, suspendu_le, motif_suspension';
-const FICHE_VIDE: Record<string, string> = { type: 'parts' };
-
-type Onglet = 'repertoire' | 'consultations' | 'referentiels';
+// Fournisseurs (D-059) au standard des pages (D-090) : repertoire, fiche,
+// saisie en pleine page, actions motivees ; consultations de prix et
+// referentiels dans la meme vue (routes.ts). Toute ecriture passe par les
+// fonctions serveur.
 
 export const SuppliersView = () => {
+  const route = useRoute();
+  const p = pageDepuisRoute(route);
+  switch (p.page) {
+    case 'nouveau-fournisseur': return <FormulaireFournisseur />;
+    case 'fournisseur': return <DetailFournisseur id={p.id} />;
+    case 'modifier-fournisseur': return <ModifierFournisseur id={p.id} />;
+    case 'action-fournisseur': return <ActionFournisseurVue id={p.id} action={p.action} requete={route.requete} />;
+    case 'consultations': return <ListeConsultations />;
+    case 'nouvelle-consultation': return <FormulaireConsultation />;
+    case 'consultation': return <DetailConsultation id={p.id} />;
+    case 'action-consultation': return <ActionConsultationVue id={p.id} action={p.action} requete={route.requete} />;
+    case 'referentiels': return <ReferentielsFournisseurs />;
+    case 'action-referentiel': return <ActionReferentiel action={p.action} requete={route.requete} />;
+    default: return <ListeFournisseurs />;
+  }
+};
+
+interface AlerteDocument { id: string; supplier_id: string; company_name: string; type_document: string; libelle: string | null; date_expiration: string; jours_restants: number; etat: 'expire' | 'a_renouveler' }
+interface Ligne extends Fournisseur { categories: string[]; categorieIds: string[]; contact: Contact | null; evaluation: Evaluation | null; alertes: AlerteDocument[] }
+
+const ListeFournisseurs = () => {
   const { hasPermission } = useAuth();
   const peutEcrire = hasPermission('purchases', 'create') || hasPermission('purchases', 'edit');
-  const [onglet, setOnglet] = useState<Onglet>('repertoire');
-  const [fournisseurs, setFournisseurs] = useState<Fournisseur[] | null>(null);
+  const [lignes, setLignes] = useState<Ligne[] | null>(null);
   const [categories, setCategories] = useState<Categorie[]>([]);
-  const [classement, setClassement] = useState<{ supplier_id: string; categorie_id: string }[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [alertes, setAlertes] = useState<AlerteDocument[]>([]);
-  const [heure, setHeure] = useState<Date | null>(null);
-  const [recherche, setRecherche] = useState('');
-  const [filtreType, setFiltreType] = useState('');
-  const [filtreCategorie, setFiltreCategorie] = useState('');
-  const [filtreStatut, setFiltreStatut] = useState('actifs');
-  const [selection, setSelection] = useState<string | null>(null);
-  const [edition, setEdition] = useState<{ id: string | null } | null>(null);
-  const [fiche, setFiche] = useState<Record<string, string>>(FICHE_VIDE);
   const [erreur, setErreur] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [heure, setHeure] = useState<Date | null>(null);
 
   const charger = useCallback(async () => {
     const [f, c, fc, ct, ev, al] = await Promise.all([
-      supabase.from('suppliers').select(COLONNES).order('company_name'),
+      supabase.from('suppliers').select(COLONNES_FOURNISSEUR).order('company_name'),
       supabase.from('categories_fournisseurs').select('id, libelle, actif').order('libelle'),
       supabase.from('fournisseurs_categories').select('supplier_id, categorie_id'),
-      supabase.from('contacts_fournisseurs').select('id, supplier_id, nom, telephone, email, principal, actif').eq('actif', true),
+      supabase.from('contacts_fournisseurs').select('id, supplier_id, nom, fonction, telephone, email, principal, actif, motif_retrait').eq('actif', true),
       supabase.from('v_evaluations_fournisseurs_courantes').select('id, supplier_id, periode_debut, periode_fin, note_globale').order('periode_fin', { ascending: false }),
       supabase.from('v_documents_fournisseurs_echeance').select('id, supplier_id, company_name, type_document, libelle, date_expiration, jours_restants, etat').order('date_expiration'),
     ]);
-    setErreur(f.error?.message ?? '');
-    setFournisseurs((f.data ?? []) as Fournisseur[]);
-    setCategories((c.data ?? []) as Categorie[]);
-    setClassement((fc.data ?? []) as { supplier_id: string; categorie_id: string }[]);
-    setContacts(((ct.data ?? []) as Contact[]).filter((x) => x.actif));
-    setEvaluations((ev.data ?? []) as Evaluation[]);
-    setAlertes((al.data ?? []) as AlerteDocument[]);
     setHeure(new Date());
+    if (f.error) { setErreur(`Fournisseurs indisponibles : ${f.error.message}`); setLignes(null); return; }
+    setErreur('');
+    const cats = (c.data ?? []) as Categorie[];
+    const libelle = new Map(cats.map((x) => [x.id, x.libelle]));
+    const classement = (fc.data ?? []) as { supplier_id: string; categorie_id: string }[];
+    const contacts = ((ct.data ?? []) as Contact[]).filter((x) => x.actif);
+    const evaluations = (ev.data ?? []) as Evaluation[];
+    const als = (al.data ?? []) as AlerteDocument[];
+    setCategories(cats);
+    setAlertes(als);
+    setLignes(((f.data ?? []) as Fournisseur[]).map((x) => {
+      const ids = classement.filter((k) => k.supplier_id === x.id).map((k) => k.categorie_id);
+      return {
+        ...x,
+        categorieIds: ids,
+        categories: ids.map((id) => libelle.get(id) ?? '?'),
+        contact: contacts.find((k) => k.supplier_id === x.id && k.principal) ?? contacts.find((k) => k.supplier_id === x.id) ?? null,
+        evaluation: evaluations.filter((e) => e.supplier_id === x.id).sort((a, b) => b.periode_fin.localeCompare(a.periode_fin))[0] ?? null,
+        alertes: als.filter((a) => a.supplier_id === x.id),
+      };
+    }));
   }, []);
   useEffect(() => { charger(); }, [charger]);
 
-  const libelleCategorie = useMemo(() => new Map(categories.map((c) => [c.id, c.libelle])), [categories]);
-  const categoriesDe = (id: string) => classement.filter((x) => x.supplier_id === id).map((x) => libelleCategorie.get(x.categorie_id) ?? '?');
-  const principal = (id: string) => contacts.find((c) => c.supplier_id === id && c.principal) ?? contacts.find((c) => c.supplier_id === id);
-  const derniereEvaluation = (id: string) => evaluations.filter((e) => e.supplier_id === id).sort((a, b) => b.periode_fin.localeCompare(a.periode_fin))[0];
-  const alertesDe = (id: string) => alertes.filter((a) => a.supplier_id === id);
+  const colonnes = useMemo<ColonneListe<Ligne>[]>(() => [
+    { id: 'numero', libelle: 'Numéro', valeur: (f) => f.supplier_number },
+    { id: 'nom', libelle: 'Raison sociale', valeur: (f) => f.company_name,
+      rendu: (f) => <>{f.company_name}{f.ville && <span className="block text-xs text-stone-500">{f.ville}</span>}</> },
+    { id: 'type', libelle: 'Type', valeur: (f) => TYPES_FOURNISSEUR[f.supplier_type] ?? f.supplier_type },
+    { id: 'categories', libelle: 'Catégories', valeur: (f) => f.categories.join(', '), rendu: (f) => f.categories.join(', ') || <span className="text-stone-400">Aucune</span> },
+    { id: 'contact', libelle: 'Contact principal', valeur: (f) => f.contact?.nom,
+      rendu: (f) => (f.contact ? <>{f.contact.nom}<span className="block text-xs text-stone-500">{f.contact.telephone ?? f.contact.email}</span></> : <span className="text-stone-400">Aucun</span>) },
+    { id: 'evaluation', libelle: 'Dernière évaluation', valeur: (f) => f.evaluation?.note_globale, alignement: 'droite',
+      rendu: (f) => (f.evaluation ? <>{f.evaluation.note_globale} / 5<span className="block text-xs text-stone-500">{f.evaluation.periode_debut} au {f.evaluation.periode_fin}</span></> : <span className="text-stone-400">Non évalué</span>) },
+    { id: 'documents', libelle: 'Documents', valeur: (f) => f.alertes.length,
+      rendu: (f) => (f.alertes.length === 0 ? <span className="text-stone-400">Aucune alerte</span>
+        : <Puce teinte={f.alertes.some((x) => x.etat === 'expire') ? 'rouge' : 'orange'}>{f.alertes.length} à renouveler</Puce>) },
+    { id: 'nif', libelle: 'Identifiant fiscal', valeur: (f) => f.identifiant_fiscal, masquee: true },
+    { id: 'telephone', libelle: 'Téléphone', valeur: (f) => f.phone, masquee: true },
+    { id: 'statut', libelle: 'Statut', valeur: (f) => (f.active === false ? 'Suspendu' : 'Actif'),
+      rendu: (f) => <Puce teinte={f.active === false ? 'rouge' : 'vert'}>{f.active === false ? 'Suspendu' : 'Actif'}</Puce> },
+  ], []);
+  const filtres = useMemo<FiltreListe<Ligne>[]>(() => [
+    { id: 'statut', libelle: 'Statut', options: [{ valeur: 'actifs', libelle: 'Actifs' }, { valeur: 'suspendus', libelle: 'Suspendus' }],
+      correspond: (f, v) => (v === 'actifs' ? f.active !== false : f.active === false) },
+    { id: 'type', libelle: 'Type', options: Object.entries(TYPES_FOURNISSEUR).map(([valeur, libelle]) => ({ valeur, libelle })), correspond: (f, v) => f.supplier_type === v },
+    { id: 'categorie', libelle: 'Catégorie', options: categories.map((c) => ({ valeur: c.id, libelle: c.libelle })), correspond: (f, v) => f.categorieIds.includes(v) },
+  ], [categories]);
 
-  const terme = recherche.trim().toLowerCase();
-  const liste = (fournisseurs ?? []).filter((f) =>
-    (!terme || [f.company_name, f.supplier_number, f.identifiant_fiscal ?? '', f.ville ?? ''].some((v) => v.toLowerCase().includes(terme)))
-    && (!filtreType || f.supplier_type === filtreType)
-    && (!filtreCategorie || classement.some((x) => x.supplier_id === f.id && x.categorie_id === filtreCategorie))
-    && (filtreStatut === 'tous' || (filtreStatut === 'actifs' ? f.active !== false : f.active === false)));
-
-  const executer = async (fonction: string, args: Record<string, unknown>, succes: string) => {
-    setBusy(true); setErreur(''); setMessage('');
-    const { data, error } = await supabase.rpc(fonction, args);
-    setBusy(false);
-    if (error) { setErreur(error.message); return null; }
-    setMessage(succes);
-    await charger();
-    return { data: data as unknown };
-  };
-
-  const nouveau = () => { setEdition({ id: null }); setSelection(null); setFiche(FICHE_VIDE); };
-  const modifier = (f: Fournisseur) => {
-    setEdition({ id: f.id });
-    setFiche({ nom: f.company_name, type: f.supplier_type, telephone: f.phone ?? '', email: f.email ?? '', adresse: f.address ?? '',
-      ville: f.ville ?? '', pays: f.pays ?? '', nif: f.identifiant_fiscal ?? '', rccm: f.registre_commerce ?? '',
-      conditions: f.payment_terms ?? '', note: f.notes ?? '' });
-  };
-  const val = (k: string) => fiche[k]?.trim() || null;
-  const enregistrer = async () => {
-    if (!edition) return;
-    const r = await executer('enregistrer_fournisseur', {
-      p_id: edition.id, p_raison_sociale: val('nom'), p_type: fiche.type, p_telephone: val('telephone'), p_email: val('email'),
-      p_adresse: val('adresse'), p_ville: val('ville'), p_pays: val('pays'), p_identifiant_fiscal: val('nif'),
-      p_registre_commerce: val('rccm'), p_conditions_paiement: val('conditions'), p_note: val('note'),
-    }, edition.id ? 'Fiche fournisseur mise à jour.' : 'Fournisseur créé : numéro attribué par le serveur.');
-    if (r) { if (typeof r.data === 'string') setSelection(r.data); setEdition(null); }
-  };
-  const champ = (k: string, libelle: string, props: Record<string, string> = {}) => (
-    <label className="text-sm">{libelle}<input value={fiche[k] ?? ''} onChange={(e) => setFiche({ ...fiche, [k]: e.target.value })} className={CHAMP} {...props} /></label>
+  return (
+    <PageListe
+      vue={VUE_FOURNISSEURS}
+      titre="Fournisseurs"
+      sousTitre="Répertoire, fiches, documents, évaluations, suspension et consultations de prix"
+      lignes={lignes}
+      erreur={erreur}
+      colonnes={colonnes}
+      filtres={filtres}
+      placeholderRecherche="Nom, numéro, NIF, ville"
+      recherche={(f, t) => { const q = t.trim().toLowerCase(); return [f.company_name, f.supplier_number, f.identifiant_fiscal ?? '', f.ville ?? ''].some((v) => v.toLowerCase().includes(q)); }}
+      cle={(f) => f.id}
+      libelleOuverture={(f) => `Fiche ${f.company_name}`}
+      actions={<>
+        <a href={routeConsultations()} className={LIENS_RUBRIQUES}><ClipboardList className="h-4 w-4" /> Consultations</a>
+        <a href={routeReferentiels()} className={LIENS_RUBRIQUES}><Settings2 className="h-4 w-4" /> Référentiels</a>
+        {peutEcrire && (
+          <a href={routeNouveau(VUE_FOURNISSEURS)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
+            <Plus className="h-4 w-4" /> Nouveau fournisseur
+          </a>
+        )}
+      </>}
+      synthese={alertes.length > 0 && (
+        <Panneau titre="Documents à renouveler">
+          <ul className="divide-y divide-stone-100 text-sm">{alertes.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <span><b>{a.company_name}</b> · {a.type_document === 'autre' ? a.libelle : TYPES_DOCUMENT[a.type_document] ?? a.type_document} · expire le {a.date_expiration}</span>
+              <Puce teinte={a.etat === 'expire' ? 'rouge' : 'orange'}>{a.etat === 'expire' ? `Expiré depuis ${-a.jours_restants} j` : `Dans ${a.jours_restants} j`}</Puce>
+            </li>
+          ))}</ul>
+          <Provenance source="v_documents_fournisseurs_echeance (dates saisies)" heure={heure} />
+        </Panneau>
+      )}
+      nomExport="fournisseurs"
+      vide={{ message: 'Aucun fournisseur', detail: 'Créez les fiches fournisseurs : le numéro est attribué par le serveur.' }}
+      onActualiser={charger}
+      provenance={<Provenance source="suppliers, contacts, évaluations courantes" heure={heure} />}
+    />
   );
-
-  const courant = selection ? (fournisseurs ?? []).find((f) => f.id === selection) ?? null : null;
-
-  return <div className="space-y-5">
-    <header className="flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-2xl font-black text-stone-900">Fournisseurs</h2>
-        <p className="text-sm text-stone-500">Répertoire, fiches, documents, évaluations, suspension et consultations de prix.</p></div>
-      <div className="flex gap-2">
-        {peutEcrire && onglet === 'repertoire' && <button onClick={nouveau} className="flex items-center gap-2 rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Nouveau fournisseur</button>}
-        <button onClick={charger} className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm"><RefreshCw className="h-4 w-4" /> Actualiser</button>
-      </div>
-    </header>
-    <nav role="tablist" aria-label="Rubriques fournisseurs" className="flex gap-2">
-      {([['repertoire', 'Répertoire'], ['consultations', 'Consultations'], ['referentiels', 'Référentiels']] as [Onglet, string][]).map(([id, texte]) =>
-        <button key={id} role="tab" aria-selected={onglet === id} onClick={() => setOnglet(id)}
-          className={`rounded-lg px-3 py-2 text-sm font-semibold ${onglet === id ? 'bg-stone-900 text-white' : 'border border-stone-200 bg-white text-stone-700'}`}>{texte}</button>)}
-    </nav>
-    {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-    {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
-
-    {onglet === 'consultations' && <ConsultationsFournisseurs fournisseurs={fournisseurs ?? []} />}
-    {onglet === 'referentiels' && <ReferentielsFournisseurs categories={categories} onChange={charger} />}
-
-    {onglet === 'repertoire' && <>
-      {alertes.length > 0 && <Panneau titre="Documents à renouveler">
-        <ul className="divide-y divide-stone-100 text-sm">{alertes.map((a) => <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-          <span><b>{a.company_name}</b> · {a.type_document === 'autre' ? a.libelle : TYPES_DOCUMENT[a.type_document] ?? a.type_document} · expire le {a.date_expiration}</span>
-          <Puce teinte={a.etat === 'expire' ? 'rouge' : 'orange'}>{a.etat === 'expire' ? `Expiré depuis ${-a.jours_restants} j` : `Dans ${a.jours_restants} j`}</Puce>
-        </li>)}</ul>
-        <Provenance source="v_documents_fournisseurs_echeance (dates saisies)" heure={heure} />
-      </Panneau>}
-
-      {edition && <Panneau titre={edition.id ? `Modifier ${courant?.company_name ?? 'la fiche'}` : 'Nouveau fournisseur'}>
-        <p className="mb-3 text-sm text-stone-600">Numéro attribué par le serveur. Raison sociale et identifiant fiscal uniques.</p>
-        <div role="form" aria-label="Saisie fournisseur" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {champ('nom', 'Raison sociale *')}
-          <label className="text-sm">Type *<select value={fiche.type ?? 'parts'} onChange={(e) => setFiche({ ...fiche, type: e.target.value })} className={CHAMP}>
-            {Object.entries(TYPES_FOURNISSEUR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-          {champ('telephone', 'Téléphone', { type: 'tel' })}
-          {champ('email', 'Courriel', { type: 'email' })}
-          {champ('adresse', 'Adresse')}
-          {champ('ville', 'Ville')}
-          {champ('pays', 'Pays')}
-          {champ('nif', 'Identifiant fiscal (NIF)')}
-          {champ('rccm', 'Registre du commerce')}
-          {champ('conditions', 'Conditions de paiement')}
-          <label className="text-sm sm:col-span-2">Note<input value={fiche.note ?? ''} onChange={(e) => setFiche({ ...fiche, note: e.target.value })} className={CHAMP} /></label>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button disabled={busy || !fiche.nom?.trim()} onClick={enregistrer} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Enregistrer la fiche</button>
-          <button onClick={() => setEdition(null)} className="rounded-lg border border-stone-300 px-4 py-2 text-sm">Fermer</button>
-        </div>
-      </Panneau>}
-
-      {courant && !edition && <FicheFournisseur fournisseur={courant} categories={categories} onModifier={() => modifier(courant)}
-        onChange={charger} onFermer={() => setSelection(null)} />}
-
-      <Panneau titre="Répertoire">
-        <div className="mb-3 flex flex-wrap gap-2">
-          <input aria-label="Rechercher un fournisseur" placeholder="Nom, numéro, NIF, ville" value={recherche} onChange={(e) => setRecherche(e.target.value)} className="rounded border border-stone-300 px-3 py-2 text-sm" />
-          <select aria-label="Filtrer par type" value={filtreType} onChange={(e) => setFiltreType(e.target.value)} className="rounded border border-stone-300 px-3 py-2 text-sm">
-            <option value="">Tous les types</option>{Object.entries(TYPES_FOURNISSEUR).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
-          <select aria-label="Filtrer par catégorie" value={filtreCategorie} onChange={(e) => setFiltreCategorie(e.target.value)} className="rounded border border-stone-300 px-3 py-2 text-sm">
-            <option value="">Toutes les catégories</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.libelle}</option>)}</select>
-          <select aria-label="Filtrer par statut" value={filtreStatut} onChange={(e) => setFiltreStatut(e.target.value)} className="rounded border border-stone-300 px-3 py-2 text-sm">
-            <option value="actifs">Actifs</option><option value="suspendus">Suspendus</option><option value="tous">Tous</option></select>
-        </div>
-        {fournisseurs === null ? <p>Chargement…</p> : liste.length === 0 ? <SansDonnees message="Aucun fournisseur" /> :
-          <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500">
-            <th className="py-2 pr-3">Numéro</th><th className="py-2 pr-3">Raison sociale</th><th className="py-2 pr-3">Type</th><th className="py-2 pr-3">Catégories</th>
-            <th className="py-2 pr-3">Contact principal</th><th className="py-2 pr-3">Dernière évaluation</th><th className="py-2 pr-3">Documents</th><th className="py-2 pr-3">Statut</th><th /></tr></thead>
-            <tbody>{liste.map((f) => { const c = principal(f.id); const e = derniereEvaluation(f.id); const a = alertesDe(f.id);
-              return <tr key={f.id} className={`border-b border-stone-100 ${selection === f.id ? 'bg-orange-50' : ''}`}>
-                <td className="py-2 pr-3 font-bold">{f.supplier_number}</td>
-                <td className="py-2 pr-3">{f.company_name}{f.ville && <span className="block text-xs text-stone-500">{f.ville}</span>}</td>
-                <td className="py-2 pr-3">{TYPES_FOURNISSEUR[f.supplier_type] ?? f.supplier_type}</td>
-                <td className="py-2 pr-3">{categoriesDe(f.id).join(', ') || <span className="text-stone-400">Aucune</span>}</td>
-                <td className="py-2 pr-3">{c ? <>{c.nom}<span className="block text-xs text-stone-500">{c.telephone ?? c.email}</span></> : <span className="text-stone-400">Aucun</span>}</td>
-                <td className="py-2 pr-3">{e ? <>{e.note_globale} / 5<span className="block text-xs text-stone-500">{e.periode_debut} au {e.periode_fin}</span></> : <span className="text-stone-400">Non évalué</span>}</td>
-                <td className="py-2 pr-3">{a.length === 0 ? <span className="text-stone-400">Aucune alerte</span> :
-                  <Puce teinte={a.some((x) => x.etat === 'expire') ? 'rouge' : 'orange'}>{a.length} à renouveler</Puce>}</td>
-                <td className="py-2 pr-3"><Puce teinte={f.active === false ? 'rouge' : 'vert'}>{f.active === false ? 'Suspendu' : 'Actif'}</Puce></td>
-                <td className="py-2"><button onClick={() => { setSelection(f.id); setEdition(null); }} aria-label={`Ouvrir ${f.company_name}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Ouvrir</button></td>
-              </tr>; })}</tbody></table></div>}
-        <Provenance source="suppliers, contacts, évaluations courantes" heure={heure} />
-      </Panneau>
-    </>}
-  </div>;
 };

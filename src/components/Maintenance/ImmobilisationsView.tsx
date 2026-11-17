@@ -1,22 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, Download, PenLine, Plus, Wrench } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { PageListe } from '../ui/PageListe';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { routeNouveau, useRoute } from '../ui/routeur';
+import type { ColonneListe, FiltreListe } from '../ui/liste';
 import { formatNombre } from '../Dashboard/indicateurs';
-import { buildCSV } from '../../lib/exports';
 import {
-  CAUSES, IMPUTATIONS, bornesMois, disponibilite, formatDuree, heuresDansPeriode, totalParImputation,
-  type Immobilisation, type Imputation,
+  CAUSES, IMPUTATIONS, STATUTS_IMMOBILISATION, VUE_IMMOBILISATIONS, bornesMois, disponibilite, formatDuree, heuresDansPeriode, totalParImputation,
+  type Cause, type Immobilisation, type Imputation,
 } from './immobilisations';
-import {
-  AnnulerImmobilisation, CloturerImmobilisation, CorrigerImmobilisation, DeclarerImmobilisation, type EnginResume,
-} from './FenetresImmobilisation';
+import { FormulaireImmobilisation } from './FormulaireImmobilisation';
+import { DetailImmobilisation } from './DetailImmobilisation';
+import { ActionImmobilisationVue } from './ActionImmobilisation';
 
-// Immobilisations des engins loues (D-022, D-025) : qui est arrete, depuis
-// quand, pourquoi, a la charge de qui. Base du rapprochement des heures
-// avec le loueur et de la disponibilite vue par la planification et le
-// dispatch.
+// Immobilisations des engins loues (D-022, D-025) aux pages standard
+// (D-090) : liste du mois (arrets, duree, imputation), synthese, fiche avec
+// journal et interventions du loueur, declaration en pleine page,
+// remise en service, correction et annulation en pages d'action.
+
+export const ImmobilisationsView = () => {
+  const route = useRoute();
+  if (route.vue !== VUE_IMMOBILISATIONS || route.mode === 'liste') return <ListeImmobilisations />;
+  if (route.mode === 'nouveau') return <FormulaireImmobilisation />;
+  if (route.mode === 'action' && route.action) return <ActionImmobilisationVue id={route.id ?? ''} action={route.action} />;
+  // Pas de modification libre : la correction (motif obligatoire) est une action.
+  if (route.mode === 'modifier') return <ActionImmobilisationVue id={route.id ?? ''} action="corriger" />;
+  return <DetailImmobilisation id={route.id ?? ''} />;
+};
+
+interface Engin { id: string; registration: string; status: string }
 
 const moisCourant = () => {
   const d = new Date();
@@ -25,25 +39,19 @@ const moisCourant = () => {
 const horodatage = (iso: string) =>
   new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-type Fenetre =
-  | { type: 'declarer' }
-  | { type: 'cloturer' | 'corriger' | 'annuler'; immobilisation: Immobilisation };
-
-export const ImmobilisationsView = () => {
+const ListeImmobilisations = () => {
   const { hasPermission } = useAuth();
   const peutEcrire = hasPermission('maintenance', 'create') || hasPermission('maintenance', 'edit');
   const [mois, setMois] = useState(moisCourant);
-  const [engins, setEngins] = useState<EnginResume[]>([]);
+  const [engins, setEngins] = useState<Engin[]>([]);
   const [liste, setListe] = useState<Immobilisation[] | null>(null);
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
-  const [fenetre, setFenetre] = useState<Fenetre | null>(null);
-
   const { du, au } = useMemo(() => bornesMois(mois), [mois]);
 
   const charger = useCallback(async () => {
     const [rE, rI] = await Promise.all([
-      supabase.from('vehicles').select('id, registration, vehicle_type, status').order('registration'),
+      supabase.from('vehicles').select('id, registration, status').order('registration'),
       supabase.from('immobilisations')
         .select('id, vehicle_id, debut, fin, cause, imputation, description, reference_loueur, statut')
         .neq('statut', 'annulee')
@@ -51,14 +59,9 @@ export const ImmobilisationsView = () => {
         .or(`fin.is.null,fin.gt.${du.toISOString()}`)
         .order('debut', { ascending: false }),
     ]);
-    setEngins((rE.data ?? []) as EnginResume[]);
-    if (rI.error) {
-      setErreur('Immobilisations indisponibles : ' + rI.error.message);
-      setListe([]);
-    } else {
-      setErreur('');
-      setListe((rI.data ?? []) as Immobilisation[]);
-    }
+    setEngins((rE.data ?? []) as Engin[]);
+    setErreur(rI.error ? `Immobilisations indisponibles : ${rI.error.message}` : '');
+    setListe(rI.error ? null : ((rI.data ?? []) as Immobilisation[]).filter((i) => i.statut !== 'annulee'));
     setHeure(new Date());
   }, [du, au]);
 
@@ -73,64 +76,44 @@ export const ImmobilisationsView = () => {
   const flotte = engins.filter((e) => e.status !== 'sold');
   const ouvertes = (liste ?? []).filter((i) => i.statut === 'ouverte');
   const totaux = totalParImputation(liste ?? [], du, au, maintenant);
-  const totalHeures = totaux.loueur + totaux.exploitant + totaux.a_determiner;
-  const dispo = disponibilite(totalHeures, flotte.length, du, au, maintenant);
-  const sansOuverte = flotte.filter((e) => !ouvertes.some((i) => i.vehicle_id === e.id));
+  const dispo = disponibilite(totaux.loueur + totaux.exploitant + totaux.a_determiner, flotte.length, du, au, maintenant);
 
   const parEngin = useMemo(() => {
-    const lignes = new Map<string, Record<Imputation, number> & { episodes: number }>();
+    const lignes = new Map<string, Record<Imputation, number>>();
     for (const i of liste ?? []) {
-      const l = lignes.get(i.vehicle_id) ?? { loueur: 0, exploitant: 0, a_determiner: 0, episodes: 0 };
+      const l = lignes.get(i.vehicle_id) ?? { loueur: 0, exploitant: 0, a_determiner: 0 };
       l[i.imputation] += heuresDansPeriode(i, du, au, maintenant);
-      l.episodes += 1;
       lignes.set(i.vehicle_id, l);
     }
     return [...lignes.entries()].sort((a, b) => (immat.get(a[0]) ?? '').localeCompare(immat.get(b[0]) ?? ''));
   }, [liste, du, au, maintenant, immat]);
 
-  const libelle = (i: Immobilisation) => `${immat.get(i.vehicle_id) ?? 'Engin'} · ${CAUSES[i.cause]} depuis le ${horodatage(i.debut)}`;
+  const colonnes = useMemo<ColonneListe<Immobilisation>[]>(() => [
+    { id: 'engin', libelle: 'Engin', valeur: (i) => immat.get(i.vehicle_id) ?? 'Engin' },
+    { id: 'debut', libelle: 'Début', valeur: (i) => i.debut, rendu: (i) => horodatage(i.debut) },
+    { id: 'fin', libelle: 'Fin', valeur: (i) => i.fin, rendu: (i) => (i.fin ? horodatage(i.fin) : <span className="font-medium text-red-700">en cours</span>) },
+    { id: 'duree', libelle: 'Durée (mois)', alignement: 'droite', valeur: (i) => Number(heuresDansPeriode(i, du, au, maintenant).toFixed(2)),
+      rendu: (i) => formatDuree(heuresDansPeriode(i, du, au, maintenant)) },
+    { id: 'cause', libelle: 'Cause', valeur: (i) => CAUSES[i.cause] ?? i.cause },
+    { id: 'imputation', libelle: 'Imputation', valeur: (i) => IMPUTATIONS[i.imputation]?.libelle ?? i.imputation,
+      rendu: (i) => <Puce teinte={IMPUTATIONS[i.imputation]?.teinte ?? 'gris'}>{IMPUTATIONS[i.imputation]?.libelle ?? i.imputation}</Puce> },
+    { id: 'statut', libelle: 'Statut', valeur: (i) => STATUTS_IMMOBILISATION[i.statut]?.libelle ?? i.statut,
+      rendu: (i) => <Puce teinte={STATUTS_IMMOBILISATION[i.statut]?.teinte ?? 'gris'}>{STATUTS_IMMOBILISATION[i.statut]?.libelle ?? i.statut}</Puce> },
+    { id: 'description', libelle: 'Description', valeur: (i) => `${i.description}${i.reference_loueur ? ` · réf. ${i.reference_loueur}` : ''}` },
+  ], [immat, du, au, maintenant]);
 
-  const exporter = () => {
-    const lignes = (liste ?? []).map((i) => ({
-      Engin: immat.get(i.vehicle_id) ?? i.vehicle_id,
-      Debut: new Date(i.debut).toLocaleString('fr-FR'),
-      Fin: i.fin ? new Date(i.fin).toLocaleString('fr-FR') : 'en cours',
-      Heures_dans_le_mois: heuresDansPeriode(i, du, au, maintenant).toFixed(2),
-      Cause: CAUSES[i.cause],
-      Imputation: IMPUTATIONS[i.imputation].libelle,
-      Reference_loueur: i.reference_loueur ?? '',
-      Description: i.description,
-    }));
-    const lien = document.createElement('a');
-    lien.href = URL.createObjectURL(new Blob(['﻿' + buildCSV(lignes)], { type: 'text/csv;charset=utf-8' }));
-    lien.download = `immobilisations-${mois}.csv`;
-    lien.click();
-    URL.revokeObjectURL(lien.href);
-  };
+  const filtres = useMemo<FiltreListe<Immobilisation>[]>(() => [
+    { id: 'statut', libelle: 'Statut', options: [{ valeur: 'ouverte', libelle: 'En cours' }, { valeur: 'cloturee', libelle: 'Clôturée' }], correspond: (i, v) => i.statut === v },
+    { id: 'imputation', libelle: 'Imputation', options: (Object.keys(IMPUTATIONS) as Imputation[]).map((k) => ({ valeur: k, libelle: IMPUTATIONS[k].libelle })), correspond: (i, v) => i.imputation === v },
+    { id: 'cause', libelle: 'Cause', options: (Object.keys(CAUSES) as Cause[]).map((k) => ({ valeur: k, libelle: CAUSES[k] })), correspond: (i, v) => i.cause === v },
+  ], []);
 
-  const fermer = () => setFenetre(null);
-  const fait = () => { setFenetre(null); charger(); };
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-stone-900">Immobilisations</h2>
-          <p className="text-stone-500">Engins loués à Nimba Mining : arrêts, durée et imputation (loueur ou exploitant)</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input type="month" value={mois} onChange={(e) => setMois(e.target.value)} aria-label="Mois" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
-          <button onClick={exporter} disabled={!liste || liste.length === 0} className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-stone-50 disabled:opacity-50">
-            <Download className="h-4 w-4" /> Exporter
-          </button>
-          {peutEcrire && (
-            <button onClick={() => setFenetre({ type: 'declarer' })} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
-              <Plus className="h-4 w-4" /> Déclarer une immobilisation
-            </button>
-          )}
-        </div>
-      </div>
-
+  const synthese = (
+    <div className="space-y-4">
+      <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+        Mois
+        <input type="month" value={mois} onChange={(e) => e.target.value && setMois(e.target.value)} aria-label="Mois" className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-medium shadow-sm" />
+      </label>
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Synthèse du mois">
         {[
           ['Engins arrêtés maintenant', liste ? `${ouvertes.length} / ${flotte.length}` : '—'],
@@ -150,119 +133,55 @@ export const ImmobilisationsView = () => {
           {formatNombre(totaux.a_determiner, 1)} h restent à imputer : à trancher avant le rapprochement des heures avec le loueur.
         </p>
       )}
-      {erreur && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-
-      <Panneau titre={`Arrêts en cours (${ouvertes.length})`}>
-        {liste === null ? (
-          <div className="flex h-24 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-200 border-t-orange-600" /></div>
-        ) : ouvertes.length === 0 ? (
-          <SansDonnees message="Aucun engin arrêté" detail="Tous les engins sont en service." />
-        ) : (
-          <ul className="divide-y divide-stone-100">
-            {ouvertes.map((i) => (
-              <li key={i.id} className="flex flex-wrap items-start justify-between gap-3 py-3 text-sm">
-                <div>
-                  <p className="font-semibold text-stone-900">
-                    {immat.get(i.vehicle_id) ?? 'Engin'} <span className="ml-2 font-normal text-stone-500">{CAUSES[i.cause]}</span>
-                    <span className="ml-2"><Puce teinte={IMPUTATIONS[i.imputation].teinte}>{IMPUTATIONS[i.imputation].libelle}</Puce></span>
-                  </p>
-                  <p className="text-stone-600">{i.description}{i.reference_loueur ? ` · réf. ${i.reference_loueur}` : ''}</p>
-                  <p className="text-xs text-stone-500">Depuis le {horodatage(i.debut)} · <b className="text-red-700">{formatDuree(heuresDansPeriode(i, new Date(0), new Date(8.64e15), maintenant))}</b></p>
-                </div>
-                {peutEcrire && (
-                  <div className="flex gap-1">
-                    <button onClick={() => setFenetre({ type: 'cloturer', immobilisation: i })} className="rounded-lg bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100">
-                      <Wrench className="inline h-3.5 w-3.5" /> Remettre en service
-                    </button>
-                    <button onClick={() => setFenetre({ type: 'corriger', immobilisation: i })} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label={`Corriger ${immat.get(i.vehicle_id)}`}>
-                      <PenLine className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setFenetre({ type: 'annuler', immobilisation: i })} className="rounded-lg p-2 text-red-500 hover:bg-red-50" aria-label={`Annuler ${immat.get(i.vehicle_id)}`}>
-                      <Ban className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+      <Panneau titre="Heures par engin">
+        {parEngin.length === 0 ? <SansDonnees message="Sans données" /> : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-stone-200 text-left text-stone-500">
+                <th className="py-2 pr-2 font-medium">Engin</th>
+                <th className="py-2 pr-2 text-right font-medium">Loueur</th>
+                <th className="py-2 pr-2 text-right font-medium">Exploitant</th>
+                <th className="py-2 text-right font-medium">À imputer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parEngin.map(([id, l]) => (
+                <tr key={id} className="border-b border-stone-100 last:border-0">
+                  <td className="py-2 pr-2 font-semibold text-stone-900">{immat.get(id) ?? '—'}</td>
+                  <td className="py-2 pr-2 text-right">{formatNombre(l.loueur, 1)} h</td>
+                  <td className="py-2 pr-2 text-right">{formatNombre(l.exploitant, 1)} h</td>
+                  <td className="py-2 text-right">{formatNombre(l.a_determiner, 1)} h</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </Panneau>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <Panneau titre="Arrêts du mois" className="xl:col-span-8">
-          {!liste || liste.length === 0 ? (
-            <SansDonnees message="Aucun arrêt ce mois-ci" />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-stone-200 text-left text-stone-500">
-                    <th className="py-2 pr-3 font-medium">Engin</th>
-                    <th className="py-2 pr-3 font-medium">Début</th>
-                    <th className="py-2 pr-3 font-medium">Fin</th>
-                    <th className="py-2 pr-3 text-right font-medium">Durée (mois)</th>
-                    <th className="py-2 pr-3 font-medium">Cause</th>
-                    <th className="py-2 pr-3 font-medium">Imputation</th>
-                    {peutEcrire && <th className="py-2" />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {liste.map((i) => (
-                    <tr key={i.id} className="border-b border-stone-100 last:border-0" title={i.description}>
-                      <td className="py-2 pr-3 font-semibold text-stone-900">{immat.get(i.vehicle_id) ?? '—'}</td>
-                      <td className="py-2 pr-3 text-stone-700">{horodatage(i.debut)}</td>
-                      <td className="py-2 pr-3 text-stone-700">{i.fin ? horodatage(i.fin) : <span className="font-medium text-red-700">en cours</span>}</td>
-                      <td className="py-2 pr-3 text-right font-semibold text-stone-900">{formatDuree(heuresDansPeriode(i, du, au, maintenant))}</td>
-                      <td className="py-2 pr-3 text-stone-700">{CAUSES[i.cause]}</td>
-                      <td className="py-2 pr-3"><Puce teinte={IMPUTATIONS[i.imputation].teinte}>{IMPUTATIONS[i.imputation].libelle}</Puce></td>
-                      {peutEcrire && (
-                        <td className="py-2 text-right">
-                          <button onClick={() => setFenetre({ type: 'corriger', immobilisation: i })} className="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100" aria-label={`Corriger l'arrêt de ${immat.get(i.vehicle_id)} du ${horodatage(i.debut)}`}>
-                            <PenLine className="h-4 w-4" />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Panneau>
-
-        <Panneau titre="Heures par engin" className="xl:col-span-4">
-          {parEngin.length === 0 ? (
-            <SansDonnees message="Sans données" />
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-200 text-left text-stone-500">
-                  <th className="py-2 pr-2 font-medium">Engin</th>
-                  <th className="py-2 pr-2 text-right font-medium">Loueur</th>
-                  <th className="py-2 pr-2 text-right font-medium">Exploitant</th>
-                  <th className="py-2 text-right font-medium">À imputer</th>
-                </tr>
-              </thead>
-              <tbody>
-                {parEngin.map(([id, l]) => (
-                  <tr key={id} className="border-b border-stone-100 last:border-0">
-                    <td className="py-2 pr-2 font-semibold text-stone-900">{immat.get(id) ?? '—'}</td>
-                    <td className="py-2 pr-2 text-right">{formatNombre(l.loueur, 1)} h</td>
-                    <td className="py-2 pr-2 text-right">{formatNombre(l.exploitant, 1)} h</td>
-                    <td className="py-2 text-right">{formatNombre(l.a_determiner, 1)} h</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Panneau>
-      </div>
-      <Provenance source="immobilisations déclarées (heures réelles de début et de fin), bornées au mois ; disponibilité = 1 - heures d'arrêt / (engins x heures écoulées)" heure={heure} />
-
-      {fenetre?.type === 'declarer' && <DeclarerImmobilisation engins={sansOuverte} onFermer={fermer} onFait={fait} />}
-      {fenetre?.type === 'cloturer' && <CloturerImmobilisation immobilisation={fenetre.immobilisation} libelle={libelle(fenetre.immobilisation)} onFermer={fermer} onFait={fait} />}
-      {fenetre?.type === 'corriger' && <CorrigerImmobilisation immobilisation={fenetre.immobilisation} libelle={libelle(fenetre.immobilisation)} onFermer={fermer} onFait={fait} />}
-      {fenetre?.type === 'annuler' && <AnnulerImmobilisation immobilisation={fenetre.immobilisation} libelle={libelle(fenetre.immobilisation)} onFermer={fermer} onFait={fait} />}
     </div>
+  );
+
+  return (
+    <PageListe
+      vue={VUE_IMMOBILISATIONS}
+      titre="Immobilisations"
+      sousTitre="Engins loués à Nimba Mining : arrêts, durée et imputation (loueur ou exploitant)"
+      lignes={liste}
+      erreur={erreur}
+      colonnes={colonnes}
+      filtres={filtres}
+      placeholderRecherche="Rechercher un engin, une description, une référence..."
+      cle={(i) => i.id}
+      libelleOuverture={(i) => `Fiche ${immat.get(i.vehicle_id) ?? 'engin'} du ${horodatage(i.debut)}`}
+      synthese={synthese}
+      actions={peutEcrire && (
+        <a href={routeNouveau(VUE_IMMOBILISATIONS)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
+          <Plus className="h-4 w-4" /> Déclarer une immobilisation
+        </a>
+      )}
+      nomExport={`immobilisations-${mois}`}
+      vide={{ message: 'Aucun arrêt ce mois-ci', detail: 'Tous les engins sont en service sur la période.' }}
+      onActualiser={charger}
+      provenance={<Provenance source="immobilisations déclarées (heures réelles de début et de fin), bornées au mois ; disponibilité = 1 - heures d'arrêt / (engins x heures écoulées)" heure={heure} />}
+    />
   );
 };

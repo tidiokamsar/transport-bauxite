@@ -57,8 +57,9 @@ test.describe('Écrans remis à niveau', () => {
     const envois: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/saisir_plein', (route) => { envois.push(route.request().postDataJSON()); return repondre(route, 'p1'); });
     await aller(page, 'Carburant', 'Distribution aux engins');
-    await page.getByRole('button', { name: 'Saisir' }).click();
-    const f = page.getByRole('dialog');
+    // Saisie en pleine page (D-090).
+    await page.getByRole('link', { name: 'Saisir un plein' }).click();
+    const f = page.getByRole('form', { name: 'Saisir un plein' });
     await f.getByLabel('Engin *').selectOption({ label: 'RC-1001' });
     await f.getByLabel('Litres *').fill('250');
     await f.getByRole('button', { name: 'Enregistrer' }).click();

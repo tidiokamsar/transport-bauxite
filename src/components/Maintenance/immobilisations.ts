@@ -76,3 +76,63 @@ export const bornesMois = (mois: string): { du: Date; au: Date } => {
   const [a, m] = mois.split('-').map(Number);
   return { du: new Date(a, m - 1, 1), au: new Date(a, m, 1) };
 };
+
+// Pages standard (D-090) : route, droits et etats des actions.
+
+export const VUE_IMMOBILISATIONS = 'immobilisations';
+export const MODULE_IMMOBILISATIONS = 'Immobilisations';
+export const AIDE_IMPUTATION = 'Contrat Nimba Mining (D-022) : maintenance à la charge du loueur, pneus et carburant à la charge de l\'exploitant.';
+
+export const COLONNES_IMMOBILISATION = 'id, vehicle_id, debut, fin, cause, imputation, description, reference_loueur, statut, declare_par, declare_le, cloture_par, cloture_le';
+export interface ImmobilisationFiche extends Immobilisation { declare_par: string | null; declare_le: string; cloture_par: string | null; cloture_le: string | null }
+
+export const STATUTS_IMMOBILISATION: Record<Immobilisation['statut'], { libelle: string; teinte: 'rouge' | 'vert' | 'gris' }> = {
+  ouverte: { libelle: 'En cours', teinte: 'rouge' },
+  cloturee: { libelle: 'Clôturée', teinte: 'vert' },
+  annulee: { libelle: 'Annulée', teinte: 'gris' },
+};
+
+/** Date locale pour un champ datetime-local (AAAA-MM-JJTHH:MM). */
+export const versLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+/** Valeur d'un champ datetime-local en ISO ; null si vide ou illisible. */
+export const versIso = (local: string): string | null => {
+  if (!local) return null;
+  const d = new Date(local);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+export const ACTIONS_IMMOBILISATION = ['cloturer', 'corriger', 'annuler'] as const;
+export type ActionImmobilisation = typeof ACTIONS_IMMOBILISATION[number];
+
+/**
+ * Raison pour laquelle l'action est impossible (droit, etat), comme le
+ * serveur (D-025, D-049) ; null = possible. Une immobilisation suivie par
+ * une intervention du loueur en cours se cloture par la validation de la
+ * remise en service, pas directement.
+ */
+export const actionImmobilisationInterdite = (
+  action: ActionImmobilisation, statut: Immobilisation['statut'], peutEcrire: boolean, interventionEnCours: boolean,
+): string | null => {
+  if (!peutEcrire) return 'Droit d\'écriture sur la maintenance requis.';
+  if (statut === 'annulee') return 'Immobilisation annulée : plus aucune action possible.';
+  if (action === 'cloturer') {
+    if (statut !== 'ouverte') return 'Immobilisation déjà clôturée.';
+    if (interventionEnCours) return 'Intervention du loueur en cours : l\'immobilisation se clôture par la validation de la remise en service (Interventions Neemba).';
+  }
+  return null;
+};
+
+export interface SaisieDeclaration { engin: string; debut: string; cause: string; imputation: string; description: string; reference: string }
+
+/** Erreurs de la declaration (periode et chevauchement restent controles par le serveur). */
+export const erreursDeclaration = (f: SaisieDeclaration, maintenant: Date = new Date()): string[] => {
+  const e: string[] = [];
+  if (!f.engin) e.push('Engin requis.');
+  const debut = versIso(f.debut);
+  if (!debut) e.push('Heure de début requise.');
+  else if (new Date(debut).getTime() > maintenant.getTime()) e.push('Heure de début dans le futur : on déclare une immobilisation constatée.');
+  if (!f.cause) e.push('Cause requise.');
+  if (!f.imputation) e.push('Imputation requise (aucune valeur par défaut).');
+  if (!f.description.trim()) e.push('Description requise.');
+  return e;
+};

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { coutPieces, type PieceOrdre } from './ordres';
-import { dernierReleveParEngin, echeancePlanning } from './preventif';
+import { actionOrdreInterdite, coutPieces, erreursOrdre, modificationOrdreInterdite, saisieDepuisOrdre, valeursOrdre, type PieceOrdre } from './ordres';
+import { actionPlanningInterdite, dernierReleveParEngin, echeancePlanning, erreursPlanning, saisieDepuisPlanning } from './preventif';
 
 const piece = (p: Partial<PieceOrdre>): PieceOrdre => ({
   mouvement_id: 'm', numero: 'MVT', date_mouvement: '2026-11-18T08:00:00Z', type_mouvement: 'exit', article_id: 'a1',
@@ -54,5 +54,35 @@ describe('echeancePlanning (D-061)', () => {
       { vehicle_id: 'v', valeur_km: 20, releve_le: '2026-11-02T00:00:00Z' },
     ]);
     expect(m.get('v')?.valeur_km).toBe(30);
+  });
+});
+
+describe('regles des pages (D-090)', () => {
+  const droits = { maintenance: true, stock: true };
+  it('actions selon l\'etat et le droit', () => {
+    expect(actionOrdreInterdite('demarrer', 'open', droits)).toBeNull();
+    expect(actionOrdreInterdite('demarrer', 'in_progress', droits)).not.toBeNull();
+    expect(actionOrdreInterdite('terminer', 'in_progress', droits)).toBeNull();
+    expect(actionOrdreInterdite('annuler', 'completed', droits)).not.toBeNull();
+    expect(actionOrdreInterdite('annuler', 'open', { maintenance: false, stock: true })).toMatch(/Droit/);
+    expect(actionOrdreInterdite('sortir', 'cancelled', droits)).not.toBeNull();
+    expect(actionOrdreInterdite('sortir', 'open', { maintenance: true, stock: false })).toMatch(/stocks/);
+    expect(modificationOrdreInterdite('cancelled', true)).not.toBeNull();
+    expect(modificationOrdreInterdite('completed', true)).toBeNull();
+  });
+  it('saisie d\'un ordre : champs obligatoires et nombres', () => {
+    const f = { ...saisieDepuisOrdre(), engin: 'v1', titre: 'Vérin', type: 'corrective' };
+    expect(erreursOrdre(f)).toEqual([]);
+    expect(erreursOrdre({ ...f, km: 'abc' })).toHaveLength(1);
+    expect(erreursOrdre(saisieDepuisOrdre())).toHaveLength(3);
+    expect(valeursOrdre({ ...f, mo: '15 000' })).toMatchObject({ labor_cost: 15000, description: 'Vérin', priority: 'medium', workshop: 'internal' });
+  });
+  it('saisie d\'un planning : un intervalle au moins, jours entiers', () => {
+    const f = { ...saisieDepuisPlanning(), engin: 'v1', titre: 'Vidange', type: 'Vidange moteur' };
+    expect(erreursPlanning(f)).toHaveLength(1);
+    expect(erreursPlanning({ ...f, km: '10000' })).toEqual([]);
+    expect(erreursPlanning({ ...f, jours: '1,5' })).toHaveLength(1);
+    expect(actionPlanningInterdite('desactiver', true, true)).toBeNull();
+    expect(actionPlanningInterdite('reactiver', true, true)).not.toBeNull();
   });
 });

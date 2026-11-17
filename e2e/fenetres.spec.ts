@@ -6,7 +6,8 @@ import { PROFIL, simulerApi, SITE_DEPOT, SITE_MINE } from './api-simulee';
 // du pied reste dans l'ecran, la fenetre ne depasse pas la hauteur visible et
 // seul son contenu defile. Defaut d'origine : « Definir un objectif » dont
 // les boutons Enregistrer et Annuler sortaient de l'ecran. Chauffeur, engin
-// et site ne s'ouvrent plus en fenetre mais en page (D-090, e2e/pages-standard).
+// et site ne s'ouvrent plus en fenetre mais en page (D-090, e2e/pages-standard) ;
+// la saisie d'un plein non plus (D-090, complement J2, e2e/analyses).
 
 const JEU = {
   profiles: PROFIL,
@@ -76,12 +77,6 @@ for (const { largeur, hauteur, nom } of ECRANS) {
       await aller(page, null, 'Voyages & Rotations', largeur, hauteur);
       await page.getByRole('button', { name: 'Nouveau voyage' }).click();
       await verifierFenetre(page, 'Créer le voyage', hauteur);
-    });
-
-    test('saisir un plein', async ({ page }) => {
-      await aller(page, 'Carburant', 'Distribution aux engins', largeur, hauteur);
-      await page.getByRole('button', { name: 'Saisir' }).click();
-      await verifierFenetre(page, 'Enregistrer', hauteur);
     });
 
     test('utilisateur', async ({ page }) => {

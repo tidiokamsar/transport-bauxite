@@ -3,8 +3,15 @@ import { Download, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { exportToCSV } from '../../lib/exports';
+import { PageListe } from '../ui/PageListe';
 import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { routeNouveau, useRoute } from '../ui/routeur';
+import type { ColonneListe, FiltreListe } from '../ui/liste';
 import { TYPES_ECRITURE, bornesMois, lignesExportComptable, totauxDettes, type Dette, type Ecriture } from './finance';
+import { VUE_BUDGETS, type SuiviBudget } from './budgets';
+import { DetailBudget } from './DetailBudget';
+import { FormulaireBudget } from './FormulaireBudget';
+import { ActionBudget } from './ActionBudget';
 
 // Budgets, engagements budgetaires, dettes et export comptable (D-065).
 // Budget TTC. Engage = bons approuves ou recus en partie (commande HT + taxes)
@@ -12,16 +19,12 @@ import { TYPES_ECRITURE, bornesMois, lignesExportComptable, totauxDettes, type D
 // executes et couts enregistres (montant saisi). Un depassement est
 // signale, jamais bloque. Referentiels (natures, plan de comptes, comptes de
 // tiers) saisis par l'administrateur : aucun numero de compte suppose.
+// Pages standard (D-090) : liste des budgets, fiche #/budgets/<id>,
+// creation #/budgets/nouveau, revision #/budgets/<id>/modifier, annulation
+// #/budgets/<id>/annuler. Les autres onglets restent dans la page.
 
-interface Suivi {
-  id: string; numero: string; periode_debut: string; periode_fin: string; site_id: string | null; site: string | null; nature_id: string;
-  nature: string; nature_code: string; devise: string; montant_ttc: number; note: string | null; engage_bons: number; engage_a_payer: number;
-  engage: number; realise_couts: number; realise_paiements: number; realise: number; disponible: number; consommation_pct: number;
-  depassement: boolean; sources_non_visibles: string | null;
-}
 interface Depense { categorie: string; origine: 'bon_commande' | 'a_payer' | 'paiement' | 'cout'; piece_id: string; piece: string | null; date_operation: string; nature_id: string | null; devise: string | null; montant: number; base_montant: string; tiers: string | null;
   source_imputation: 'bon_commande' | 'facture_loueur' | 'cout'; piece_imputee: string }
-interface Ref { id: string; libelle: string; actif?: boolean }
 interface Nature { id: string; code: string; libelle: string; actif: boolean }
 interface Compte { id: string; numero: string; libelle: string; actif: boolean }
 interface CompteTiers { id: string; contrat_id: string | null; supplier_id: string | null; compte_id: string }
@@ -37,7 +40,19 @@ const moisCourant = () => new Date().toISOString().slice(0, 7);
 const ORIGINES: Record<string, string> = { bon_commande: 'Bon de commande', a_payer: 'Pièce à payer', paiement: 'Paiement', cout: 'Coût' };
 const SOURCES: Record<string, string> = { bon_commande: 'bon de commande', facture_loueur: 'facture du loueur', cout: 'coût' };
 
+// Onglet ouvert pendant la session : le retour d'une fiche budget le conserve.
+let ongletMemorise: Onglet = 'budgets';
+
 export const FinanceView = () => {
+  const route = useRoute();
+  if (route.vue !== VUE_BUDGETS || route.mode === 'liste') return <Finance />;
+  if (route.mode === 'nouveau') return <FormulaireBudget />;
+  if (route.mode === 'modifier') return <FormulaireBudget id={route.id ?? ''} />;
+  if (route.mode === 'action' && route.action) return <ActionBudget id={route.id ?? ''} action={route.action} />;
+  return <DetailBudget id={route.id ?? ''} />;
+};
+
+const Finance = () => {
   const { hasPermission, profile } = useAuth();
   const estAdmin = profile?.role === 'admin';
   const peutBudget = hasPermission('costs', 'create') || hasPermission('costs', 'edit');
@@ -46,11 +61,12 @@ export const FinanceView = () => {
   // comptable, natures, comptes de tiers) aussi pour contracts.
   const lectureFinance = estAdmin || ['costs', 'invoices', 'reports'].some((m) => hasPermission(m, 'view'));
   const ongletsVisibles: Onglet[] = lectureFinance ? (Object.keys(ONGLETS) as Onglet[]) : ['referentiels'];
-  const [ongletChoisi, setOnglet] = useState<Onglet>('budgets');
+  const [ongletChoisi, setOngletEtat] = useState<Onglet>(ongletMemorise);
+  const setOnglet = (o: Onglet) => { ongletMemorise = o; setOngletEtat(o); };
   const onglet: Onglet = ongletsVisibles.includes(ongletChoisi) ? ongletChoisi : ongletsVisibles[0];
-  const [suivi, setSuivi] = useState<Suivi[] | null>(null);
+  const [suivi, setSuivi] = useState<SuiviBudget[] | null>(null);
+  const [erreurSuivi, setErreurSuivi] = useState('');
   const [natures, setNatures] = useState<Nature[]>([]);
-  const [sites, setSites] = useState<Ref[]>([]);
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [dettes, setDettes] = useState<Dette[] | null>(null);
   const [comptes, setComptes] = useState<Compte[]>([]);
@@ -58,17 +74,15 @@ export const FinanceView = () => {
   const [contrats, setContrats] = useState<{ id: string; reference: string; contrepartie: string }[]>([]);
   const [fournisseurs, setFournisseurs] = useState<{ id: string; company_name: string }[]>([]);
   const [comptesTiers, setComptesTiers] = useState<CompteTiers[]>([]);
-  const [budget, setBudget] = useState<{ remplace?: Suivi; debut: string; fin: string; nature: string; site: string; devise: string; montant: string; motif: string; note: string } | null>(null);
   const [mois, setMois] = useState({ du: moisCourant(), au: moisCourant() });
   const [ecritures, setEcritures] = useState<Ecriture[] | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [heure, setHeure] = useState<Date | null>(null);
 
   const charger = useCallback(async () => {
-    const [s, n, si, d, de, pc, cc, co, fo, ct] = await Promise.all([
+    const [s, n, d, de, pc, cc, co, fo, ct] = await Promise.all([
       supabase.from('v_suivi_budgets').select('*').order('periode_debut', { ascending: false }),
       supabase.from('natures_depense').select('id, code, libelle, actif').order('code'),
-      supabase.from('sites').select('id, name').order('name'),
       supabase.from('v_depenses_budgetaires').select('*').order('date_operation', { ascending: false }),
       supabase.from('v_dettes_fournisseurs').select('*').order('date_piece'),
       supabase.from('plan_comptable').select('id, numero, libelle, actif').order('numero'),
@@ -78,11 +92,11 @@ export const FinanceView = () => {
       supabase.from('comptes_tiers').select('id, contrat_id, supplier_id, compte_id'),
     ]);
     // Lecture impossible : etat d'erreur explicite, jamais « aucun budget » ou « aucune dette ».
-    const echecs = [s, n, si, d, de, pc, cc, co, fo, ct].map((r) => r.error?.message).filter(Boolean);
+    const echecs = [s, n, d, de, pc, cc, co, fo, ct].map((r) => r.error?.message).filter(Boolean);
     setMessage(echecs.length ? { ok: false, texte: `Lecture impossible : ${echecs.join(' ; ')}` } : null);
-    setSuivi(s.error ? null : (s.data ?? []) as Suivi[]);
+    setSuivi(s.error ? null : (s.data ?? []) as SuiviBudget[]);
+    setErreurSuivi(s.error ? `Budgets indisponibles : ${s.error.message}` : '');
     setNatures((n.data ?? []) as Nature[]);
-    setSites(((si.data ?? []) as { id: string; name: string }[]).map((x) => ({ id: x.id, libelle: x.name })));
     setDepenses((d.data ?? []) as Depense[]);
     setDettes(de.error ? null : (de.data ?? []) as Dette[]);
     setComptes((pc.data ?? []) as Compte[]);
@@ -102,21 +116,25 @@ export const FinanceView = () => {
     return !error;
   };
 
-  const montantBudget = budget ? Number(budget.montant.replace(/\s/g, '').replace(',', '.')) : NaN;
-  const budgetValide = !!budget && !!budget.debut && !!budget.fin && budget.fin >= budget.debut && !!budget.nature
-    && /^[A-Z]{3}$/.test(budget.devise) && montantBudget > 0 && (!budget.remplace || !!budget.motif.trim());
-  const enregistrerBudget = () => {
-    if (!budget) return;
-    executer('definir_budget', {
-      p_debut: budget.debut, p_fin: budget.fin, p_nature: budget.nature, p_devise: budget.devise, p_montant: montantBudget,
-      p_site: budget.site || null, p_note: budget.note.trim() || null, p_remplace: budget.remplace?.id ?? null,
-      p_motif: budget.remplace ? budget.motif.trim() : null,
-    }, budget.remplace ? 'Budget révisé.' : 'Budget enregistré.').then((ok) => { if (ok) setBudget(null); });
-  };
-  const annulerBudget = (b: Suivi) => {
-    const m = window.prompt(`Motif de l'annulation du budget ${b.numero}`);
-    if (m?.trim()) executer('annuler_budget', { p_id: b.id, p_motif: m.trim() }, 'Budget annulé.');
-  };
+  const colonnesBudget = useMemo<ColonneListe<SuiviBudget>[]>(() => [
+    { id: 'numero', libelle: 'Budget', valeur: (b) => b.numero },
+    { id: 'nature', libelle: 'Nature', valeur: (b) => b.nature },
+    { id: 'periode', libelle: 'Période', valeur: (b) => b.periode_debut, rendu: (b) => `${jour(b.periode_debut)} – ${jour(b.periode_fin)}` },
+    { id: 'site', libelle: 'Centre', valeur: (b) => b.site ?? 'Sans site' },
+    { id: 'montant', libelle: 'Budget TTC', valeur: (b) => b.montant_ttc, rendu: (b) => `${nombre.format(b.montant_ttc)} ${b.devise}`, alignement: 'droite' },
+    { id: 'devise', libelle: 'Devise', valeur: (b) => b.devise, masquee: true },
+    { id: 'engage', libelle: 'Engagé', valeur: (b) => b.engage, rendu: (b) => nombre.format(b.engage), alignement: 'droite' },
+    { id: 'realise', libelle: 'Réalisé', valeur: (b) => b.realise, rendu: (b) => nombre.format(b.realise), alignement: 'droite' },
+    { id: 'disponible', libelle: 'Disponible', valeur: (b) => b.disponible, alignement: 'droite',
+      rendu: (b) => <span className={`font-semibold ${b.disponible < 0 ? 'text-red-700' : ''}`}>{nombre.format(b.disponible)}</span> },
+    { id: 'etat', libelle: 'État', valeur: (b) => b.consommation_pct,
+      rendu: (b) => (b.depassement ? <Puce teinte="rouge">Dépassé ({b.consommation_pct} %)</Puce> : <Puce teinte="vert">{b.consommation_pct} % consommé</Puce>) },
+    { id: 'non_visibles', libelle: 'Sources non visibles', valeur: (b) => b.sources_non_visibles, masquee: true },
+  ], []);
+  const filtresBudget = useMemo<FiltreListe<SuiviBudget>[]>(() => [
+    { id: 'etat', libelle: 'État', options: [{ valeur: 'depasse', libelle: 'Dépassé' }, { valeur: 'dans', libelle: 'Dans le budget' }],
+      correspond: (b, v) => (v === 'depasse' ? b.depassement : !b.depassement) },
+  ], []);
 
   // Une piece a imputer une seule fois, meme si plusieurs paiements la reglent.
   const nonImputees = useMemo(() => {
@@ -163,69 +181,27 @@ export const FinanceView = () => {
       {message && <p role={message.ok ? 'status' : 'alert'} className={`rounded-lg p-3 text-sm ${message.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}>{message.texte}</p>}
 
       {onglet === 'budgets' && (
-        <Panneau titre="Suivi budgétaire" action={peutBudget && (
-          <button onClick={() => setBudget({ debut: '', fin: '', nature: '', site: '', devise: '', montant: '', motif: '', note: '' })}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-3 py-1.5 text-sm font-bold text-white"><Plus className="h-4 w-4" /> Nouveau budget</button>
-        )}>
-          {budget && (
-            <form onSubmit={(e) => { e.preventDefault(); if (budgetValide) enregistrerBudget(); }} aria-label="Budget" className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-orange-200 bg-orange-50/40 p-4 text-sm sm:grid-cols-4">
-              {budget.remplace && <p className="sm:col-span-4">Révision du budget <b>{budget.remplace.numero}</b> (le précédent reste conservé)</p>}
-              <label>Début *<input type="date" value={budget.debut} onChange={(e) => setBudget({ ...budget, debut: e.target.value })} className={CHAMP} /></label>
-              <label>Fin *<input type="date" value={budget.fin} onChange={(e) => setBudget({ ...budget, fin: e.target.value })} className={CHAMP} /></label>
-              <label>Nature de dépense *
-                <select value={budget.nature} onChange={(e) => setBudget({ ...budget, nature: e.target.value })} className={CHAMP}>
-                  <option value="">Choisir</option>
-                  {natures.filter((n) => n.actif).map((n) => <option key={n.id} value={n.id}>{n.code} · {n.libelle}</option>)}
-                </select>
-              </label>
-              <label>Centre (site)
-                <select value={budget.site} onChange={(e) => setBudget({ ...budget, site: e.target.value })} className={CHAMP}>
-                  <option value="">Sans site</option>
-                  {sites.map((s) => <option key={s.id} value={s.id}>{s.libelle}</option>)}
-                </select>
-              </label>
-              <label>Devise *<input value={budget.devise} onChange={(e) => setBudget({ ...budget, devise: e.target.value.toUpperCase().slice(0, 3) })} placeholder="GNF, USD..." className={CHAMP} /></label>
-              <label>Montant TTC *<input inputMode="decimal" value={budget.montant} onChange={(e) => setBudget({ ...budget, montant: e.target.value })} className={CHAMP} /></label>
-              {budget.remplace && <label className="sm:col-span-2">Motif de la révision *<input value={budget.motif} onChange={(e) => setBudget({ ...budget, motif: e.target.value })} className={CHAMP} /></label>}
-              <label className={budget.remplace ? 'sm:col-span-4' : 'sm:col-span-2'}>Note<input value={budget.note} onChange={(e) => setBudget({ ...budget, note: e.target.value })} className={CHAMP} /></label>
-              {natures.length === 0 && <p className="text-xs text-stone-500 sm:col-span-4">Aucune nature de dépense : l'administrateur saisit le référentiel (onglet Référentiels).</p>}
-              <div className="flex justify-end gap-2 sm:col-span-4">
-                <button type="button" onClick={() => setBudget(null)} className="rounded-lg px-4 py-2 text-stone-600 hover:bg-stone-100">Annuler</button>
-                <button type="submit" disabled={!budgetValide} className="rounded-lg bg-gradient-to-r from-orange-500 to-orange-700 px-5 py-2 font-bold text-white disabled:opacity-50">Enregistrer le budget</button>
-              </div>
-            </form>
+        <PageListe
+          vue={VUE_BUDGETS}
+          titre="Suivi budgétaire"
+          sousTitre="Un budget par période, centre et nature de dépense ; un dépassement est signalé, jamais bloqué"
+          lignes={suivi}
+          erreur={erreurSuivi}
+          colonnes={colonnesBudget}
+          filtres={filtresBudget}
+          placeholderRecherche="Rechercher un budget, une nature, un centre..."
+          cle={(b) => b.id}
+          libelleOuverture={(b) => `Fiche ${b.numero}`}
+          actions={peutBudget && (
+            <a href={routeNouveau(VUE_BUDGETS)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white shadow">
+              <Plus className="h-4 w-4" /> Nouveau budget
+            </a>
           )}
-          {suivi === null ? (message && !message.ok ? <p className="text-sm text-stone-500">Budgets non lus (voir le message ci-dessus).</p> : <div className="h-16" />) : suivi.length === 0 ? (
-            <SansDonnees message="Aucun budget" detail="Saisissez un budget par période, centre et nature de dépense." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-stone-300 text-left text-stone-500">
-                  <th className="py-2 pr-3 font-medium">Budget</th><th className="py-2 pr-3 text-right font-medium">Budget TTC</th>
-                  <th className="py-2 pr-3 text-right font-medium">Engagé</th><th className="py-2 pr-3 text-right font-medium">Réalisé</th>
-                  <th className="py-2 pr-3 text-right font-medium">Disponible</th><th className="py-2 font-medium">État</th>
-                </tr></thead>
-                <tbody>{suivi.map((b) => (
-                  <tr key={b.id} className="border-b border-stone-100 align-top last:border-0">
-                    <td className="py-2 pr-3"><p className="font-semibold">{b.numero} · {b.nature}</p>
-                      <p className="text-xs text-stone-500">{jour(b.periode_debut)} – {jour(b.periode_fin)} · {b.site ?? 'sans site'}{b.sources_non_visibles ? ` · non visibles avec vos droits : ${b.sources_non_visibles}` : ''}</p></td>
-                    <td className="py-2 pr-3 text-right">{nombre.format(b.montant_ttc)} {b.devise}</td>
-                    <td className="py-2 pr-3 text-right" title={`Bons en commande ${nombre.format(b.engage_bons)} · pièces à payer ${nombre.format(b.engage_a_payer)}`}>{nombre.format(b.engage)}</td>
-                    <td className="py-2 pr-3 text-right" title={`Coûts ${nombre.format(b.realise_couts)} · paiements ${nombre.format(b.realise_paiements)}`}>{nombre.format(b.realise)}</td>
-                    <td className={`py-2 pr-3 text-right font-semibold ${b.disponible < 0 ? 'text-red-700' : ''}`}>{nombre.format(b.disponible)}</td>
-                    <td className="py-2"><span className="flex flex-wrap items-center gap-1">
-                      {b.depassement ? <Puce teinte="rouge">Dépassé ({b.consommation_pct} %)</Puce> : <Puce teinte="vert">{b.consommation_pct} % consommé</Puce>}
-                      {peutBudget && <button onClick={() => setBudget({ remplace: b, debut: b.periode_debut, fin: b.periode_fin, nature: b.nature_id, site: b.site_id ?? '', devise: b.devise, montant: String(b.montant_ttc), motif: '', note: b.note ?? '' })}
-                        className="rounded border border-stone-200 px-2 py-0.5 text-xs" aria-label={`Réviser ${b.numero}`}>Réviser</button>}
-                      {peutBudget && <button onClick={() => annulerBudget(b)} className="rounded border border-stone-200 px-2 py-0.5 text-xs" aria-label={`Annuler ${b.numero}`}>Annuler</button>}
-                    </span></td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-          <Provenance source="budgets saisis (TTC) ; engagé : bons approuvés ou reçus en partie (commande HT + taxes, GNF), pièces payables non payées (reste à payer TTC D-055) ; réalisé : paiements exécutés, coûts enregistrés (montant saisi)" heure={heure} />
-        </Panneau>
+          nomExport="suivi_budgetaire"
+          vide={{ message: 'Aucun budget', detail: 'Saisissez un budget par période, centre et nature de dépense.' }}
+          onActualiser={charger}
+          provenance={<Provenance source="budgets saisis (TTC) ; engagé : bons approuvés ou reçus en partie (commande HT + taxes, GNF), pièces payables non payées (reste à payer TTC D-055) ; réalisé : paiements exécutés, coûts enregistrés (montant saisi)" heure={heure} />}
+        />
       )}
 
       {onglet === 'imputer' && (

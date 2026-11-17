@@ -40,6 +40,32 @@ test.describe('Suivi et recouvrement', () => {
     expect(generation[0]).toMatchObject({ p_contrat_id: 'c1' });
   });
 
+  test('rapport de performance : apercu en pleine page, remise saisie dans une page', async ({ page }) => {
+    const rapport = {
+      id: 'r1', contrat_id: 'c1', periode_debut: '2026-10-01', periode_fin: '2026-10-31', statut: 'brouillon', genere_le: '2026-11-02T08:00:00Z', genere_par: null,
+      remis_le: null, remis_a: null, remis_par: null,
+      contenu: { engagements: [{ engagement_id: 'e1', indicateur: 'autre', libelle: 'Clause libre', seuil: 1, unite: 'u', sens: 'minimum', periodicite: 'mois', consequence: null, realise: null, echantillon: null, conforme: null }],
+        reconciliations: [], factures: [] },
+    };
+    await simulerApi(page, { profiles: PROFIL, contrats: [CONTRAT], rapports_performance: [rapport], societe: [{ raison_sociale: 'Kogon Mining SARL' }] });
+    await capturer(page, 'comparer_engagements', []);
+    const remises = await capturer(page, 'marquer_rapport_remis', null);
+    await aller(page, 'Engagements et rapport');
+    await page.getByRole('link', { name: 'Aperçu du rapport 2026-10-01' }).click();
+    await expect(page).toHaveURL(/#\/engagements\/r1\/apercu$/);
+    await expect(page.getByRole('article', { name: 'Rapport de performance' })).toContainText('BROUILLON');
+    await page.getByRole('link', { name: 'Retour à la fiche' }).click();
+    const fiche = page.getByRole('article', { name: /^Fiche Rapport/ });
+    await fiche.getByRole('link', { name: 'Marquer remis' }).click();
+    const f = page.getByRole('form', { name: 'Marquer le rapport remis' });
+    await expect(f.getByRole('button', { name: 'Marquer remis' })).toBeDisabled();
+    await f.getByLabel('Remis à (destinataire) *').fill('Direction CBG');
+    await f.getByRole('button', { name: 'Marquer remis' }).click();
+    await expect.poll(() => remises.length).toBe(1);
+    expect(remises[0]).toMatchObject({ p_id: 'r1', p_destinataire: 'Direction CBG' });
+    await expect(page.getByRole('status').filter({ hasText: 'Rapport marqué remis.' })).toBeVisible();
+  });
+
   test('relance d\'une creance echue et lettre imprimable', async ({ page }) => {
     await simulerApi(page, {
       profiles: PROFIL, v_creances: [CREANCE], contrats: [CONTRAT], encaissements: [],

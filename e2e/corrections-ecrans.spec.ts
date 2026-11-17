@@ -48,30 +48,39 @@ test.describe('Corrections des ecrans herites (D-061)', () => {
     });
     const ecritures: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/rest/v1/maintenance_orders') && r.method() !== 'GET') ecritures.push(r.method()); });
-    page.on('dialog', (d) => d.accept('Ordre saisi en double'));
     await aller(page, 'Maintenance', 'Ordres de travail');
     await expect(page.getByText('OT-2026-00001')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Annuler OT-2026-00001' }).click();
+    // Fiche, puis annulation en pleine page (D-090) : motif exige par le serveur.
+    await page.getByRole('button', { name: 'Fiche OT-2026-00001' }).click();
+    const fiche = page.getByRole('article', { name: 'Fiche OT-2026-00001' });
+    await fiche.getByRole('link', { name: 'Annuler l\'ordre' }).click();
+    const annulation = page.getByRole('form', { name: 'Annuler l\'ordre de travail' });
+    await expect(annulation.getByRole('button', { name: 'Annuler l\'ordre' })).toBeDisabled();
+    await annulation.getByLabel('Motif *').fill('Ordre saisi en double');
+    await annulation.getByRole('button', { name: 'Annuler l\'ordre' }).click();
     await expect.poll(() => appels.filter((a) => a.fonction === 'annuler_ordre_travail').length).toBe(1);
     expect(appels.find((a) => a.fonction === 'annuler_ordre_travail')?.corps).toMatchObject({ p_id: 'o1', p_motif: 'Ordre saisi en double' });
+    await expect(page.getByText('Ordre annulé.')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Pièces de OT-2026-00001' }).click();
+    await fiche.getByRole('tab', { name: /Pièces et liens/ }).click();
     await expect(page.getByText('MVT-2026-000001')).toBeVisible();
     await expect(page.getByText(/30\s000 GNF/)).toBeVisible();
-    await page.getByRole('button', { name: 'Sortir du stock' }).click();
-    const f = page.getByRole('form', { name: 'Mouvement de pièce' });
+    await fiche.getByRole('link', { name: 'Sortir du stock' }).click();
+    const f = page.getByRole('form', { name: 'Sortir une pièce du stock' });
     await f.getByLabel('Article *').selectOption('a1');
     await f.getByLabel('Depuis le dépôt *').selectOption('d1');
     await f.getByLabel('Quantité *').fill('1');
-    await f.getByRole('button', { name: 'Enregistrer' }).click();
+    await f.getByRole('button', { name: 'Enregistrer le mouvement' }).click();
     await expect.poll(() => appels.filter((a) => a.fonction === 'mouvement_stock').length).toBe(1);
     expect(appels.find((a) => a.fonction === 'mouvement_stock')?.corps).toMatchObject({
       p_article: 'a1', p_type: 'exit', p_quantite: 1, p_depot_source: 'd1', p_ordre_maintenance: 'o1', p_vehicle_id: 'v1', p_prix_unitaire: 15000,
     });
 
-    await page.getByRole('button', { name: 'Nouvel ordre de travail' }).click();
-    await expect(page.getByText('Numéro : attribué à l\'enregistrement.')).toBeVisible();
+    await page.goto('/#/maintenance');
+    await page.getByRole('link', { name: 'Nouvel ordre de travail' }).click();
+    await expect(page.getByRole('form', { name: 'Nouvel ordre de travail' })).toBeVisible();
+    await expect(page.getByText('Numéro : attribué à l\'enregistrement.', { exact: false })).toBeVisible();
     expect(ecritures).not.toContain('DELETE');
   });
 
@@ -87,6 +96,17 @@ test.describe('Corrections des ecrans herites (D-061)', () => {
     await expect(page.getByText('Au contrat de location LOC-NEEMBA-01')).toBeVisible();
     await expect(page.getByText('Inconnue', { exact: true })).toBeVisible();
     await expect(page.getByText('Non saisie')).toBeVisible();
+
+    // Fiche et desactivation en pleine page (D-090) : le planning n'est jamais supprime.
+    const ecritures: { methode: string; corps: unknown }[] = [];
+    page.on('request', (r) => { if (r.url().includes('/rest/v1/maintenance_schedules') && r.method() !== 'GET') ecritures.push({ methode: r.method(), corps: r.postDataJSON() }); });
+    await page.getByRole('button', { name: 'Fiche Vidange 500 h' }).click();
+    const fiche = page.getByRole('article', { name: 'Fiche Vidange 500 h' });
+    await expect(fiche.getByRole('link', { name: 'Réactiver' })).toHaveCount(0);
+    await fiche.getByRole('link', { name: 'Désactiver' }).click();
+    await page.getByRole('form', { name: 'Désactiver le planning' }).getByRole('button', { name: 'Désactiver' }).click();
+    await expect.poll(() => ecritures.length).toBe(1);
+    expect(ecritures[0]).toMatchObject({ methode: 'PATCH', corps: { is_active: false } });
   });
 
   test('presences : correction par nouvelle saisie et annulation motivee', async ({ page }) => {

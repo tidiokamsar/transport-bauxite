@@ -2,15 +2,16 @@ import { expect, test, type Page } from '@playwright/test';
 import { PROFIL, repondre, simulerApi } from './api-simulee';
 
 // Controle des factures du loueur (D-032, type de facturation et tarif par
-// engin D-033) avec l'API simulee : ecarts par ligne dans l'unite de chaque
-// engin (heures pointees ou kilometres releves), notification formelle
-// imprimable, saisie d'une facture recue.
+// engin D-033) avec l'API simulee, aux pages standard (D-090) : ecarts par
+// ligne dans l'unite de chaque engin (heures pointees ou kilometres
+// releves), notification en page d'action, lettre imprimable en pleine
+// page, saisie d'une facture recue en pleine page.
 
 const CONTRAT = { id: 'c1', reference: 'NEEMBA-2026-01', contrepartie: 'Neemba', devise: 'USD', nature: 'location' };
 const FACTURE = {
   id: 'ff1', contrat_id: 'c1', numero_fournisseur: 'NB-2026-10', date_facture: '2026-11-02', periode_debut: '2026-10-01', periode_fin: '2026-10-31',
   devise: 'USD', montant_ht_facture: 2113000, statut: 'controlee', montant_attendu: 2010000, ecart_total: 101000, montant_reclame: 101000,
-  notifiee_le: null, reference_notification: null, controle_le: '2026-11-03T08:00:00Z',
+  notifiee_le: null, reference_notification: null, controle_le: '2026-11-03T08:00:00Z', saisie_le: '2026-11-02T10:00:00Z',
 };
 const LIGNES = [
   { id: 'l1', facture_id: 'ff1', vehicle_id: 'v1', libelle: 'RC-1001', categorie_materiel: 'Semi-remorque', quantite_facturee: 110, unite_facturee: 'heure',
@@ -24,6 +25,10 @@ const LIGNES = [
     heures_attendues: null, taux_attendu: 5000, montant_attendu: 2000000, heures_arret_loueur: null, ecart: 100000, constat: null },
 ];
 const ENGINS = [{ id: 'v1', registration: 'RC-1001' }, { id: 'v2', registration: 'RC-1002' }, { id: 'v3', registration: 'RC-1003' }];
+const jeu = (facture: Record<string, unknown> = FACTURE) => ({
+  profiles: PROFIL, contrats: [CONTRAT], vehicles: ENGINS, contrat_tarifs: [{ categorie_materiel: 'Semi-remorque' }],
+  factures_fournisseur: [facture], factures_fournisseur_lignes: LIGNES, regularisations_fournisseur: [], societe: [{ raison_sociale: 'Kogon Mining SARL' }],
+});
 
 const ouvrir = async (page: Page) => {
   await page.setViewportSize({ width: 1600, height: 1200 });
@@ -33,31 +38,56 @@ const ouvrir = async (page: Page) => {
 };
 
 test.describe('Contrôle des factures Neemba', () => {
-  test('ecarts par ligne, unites par engin, notification et lettre', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, contrats: [CONTRAT], vehicles: ENGINS, contrat_tarifs: [{ categorie_materiel: 'Semi-remorque' }],
-      factures_fournisseur: [FACTURE], factures_fournisseur_lignes: LIGNES, regularisations_fournisseur: [], societe: [{ raison_sociale: 'Kogon Mining SARL' }] });
+  test('ecarts par ligne, unites par engin, notification en page d\'action', async ({ page }) => {
+    await simulerApi(page, jeu());
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/notifier_ecart_fournisseur', (route) => { appels.push(route.request().postDataJSON()); return repondre(route, 'notifiee'); });
-    page.on('dialog', (d) => d.accept('KM/DC/2026-014'));
     await ouvrir(page);
-    await expect(page.getByText('Aucun pointage sur la periode : heures non verifiables', { exact: false })).toBeVisible();
-    await expect(page.getByText('100 h').first()).toBeVisible();
-    await expect(page.getByText('400 km').first()).toBeVisible();
-    await expect(page.getByText('101 000,00 USD').first()).toBeVisible();
-    await page.getByRole('button', { name: 'Notifier l\'écart' }).click();
+    await page.getByRole('button', { name: 'Fiche facture NB-2026-10' }).click();
+    await expect(page).toHaveURL(/#\/factures-neemba\/ff1$/);
+    const fiche = page.getByRole('article', { name: 'Fiche Facture NB-2026-10' });
+    await expect(fiche.getByRole('region', { name: 'Montants' })).toContainText('101 000,00 USD');
+    await fiche.getByRole('tab', { name: /Lignes et régularisations/ }).click();
+    await expect(fiche.getByText('Aucun pointage sur la periode : heures non verifiables', { exact: false })).toBeVisible();
+    await expect(fiche.getByText('100 h').first()).toBeVisible();
+    await expect(fiche.getByText('400 km').first()).toBeVisible();
+
+    await fiche.getByRole('link', { name: 'Notifier l\'écart' }).click();
+    const form = page.getByRole('form', { name: 'Notifier l\'écart au loueur' });
+    await form.getByLabel('Référence du courrier de notification (facultatif)').fill('KM/DC/2026-014');
+    await form.getByRole('button', { name: 'Notifier l\'écart' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ p_id: 'ff1', p_reference: 'KM/DC/2026-014' });
+    await expect(page).toHaveURL(/#\/factures-neemba\/ff1$/);
+  });
+
+  test('lettre de notification en pleine page ; refusee sans ecart notifie', async ({ page }) => {
+    await simulerApi(page, jeu({ ...FACTURE, statut: 'notifiee', notifiee_le: '2026-11-05', reference_notification: 'KM/DC/2026-014' }));
+    await ouvrir(page);
+    await page.getByRole('button', { name: 'Fiche facture NB-2026-10' }).click();
+    await page.getByRole('link', { name: 'Notification', exact: true }).click();
+    await expect(page).toHaveURL(/#\/factures-neemba\/ff1\/notification$/);
     const lettre = page.getByRole('article', { name: 'Notification d\'écart' });
     await expect(lettre).toContainText('notification d\'écart · facture n° NB-2026-10');
     await expect(lettre).toContainText('RC-1001');
     await expect(lettre).toContainText('420 km');
     await expect(lettre).not.toContainText('RC-1003');
     await page.screenshot({ path: 'test-results/notification-neemba.png', fullPage: true });
+
+    await page.goto('/#/factures-neemba/ff1/regulariser');
+    await expect(page.getByRole('form', { name: 'Enregistrer une régularisation' })).toBeVisible();
   });
 
-  test('saisie d\'une facture recue : en-tete et lignes avec quantite et unite', async ({ page }) => {
-    await simulerApi(page, { profiles: PROFIL, contrats: [CONTRAT], vehicles: ENGINS, contrat_tarifs: [{ categorie_materiel: 'Semi-remorque' }],
-      factures_fournisseur: [], factures_fournisseur_lignes: [], regularisations_fournisseur: [] });
+  test('lettre indisponible pour une facture sans ecart notifie', async ({ page }) => {
+    await simulerApi(page, jeu());
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/factures-neemba/ff1/notification');
+    await expect(page.getByText('Lettre indisponible')).toBeVisible();
+    await expect(page.getByRole('article', { name: 'Notification d\'écart' })).toHaveCount(0);
+  });
+
+  test('saisie d\'une facture recue en pleine page : en-tete et lignes avec quantite et unite', async ({ page }) => {
+    await simulerApi(page, { ...jeu(), factures_fournisseur: [], factures_fournisseur_lignes: [] });
     // D-078 : en-tete et lignes en une seule fonction serveur (transaction).
     const envois: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/saisir_facture_fournisseur', (route) => {
@@ -65,20 +95,21 @@ test.describe('Contrôle des factures Neemba', () => {
       return repondre(route, 'f-nouvelle');
     });
     await ouvrir(page);
-    await page.getByRole('button', { name: 'Saisir une facture reçue' }).click();
-    const f = page.getByRole('dialog');
+    await page.getByRole('link', { name: 'Saisir une facture reçue' }).click();
+    const f = page.getByRole('form', { name: 'Saisir une facture reçue' });
     await f.getByLabel('N° de facture *').fill('NB-2026-10');
-    await f.getByLabel('Date *').fill('2026-11-02');
+    await f.getByLabel('Date *', { exact: true }).fill('2026-11-02');
     await f.getByLabel('Période du *').fill('2026-10-01');
-    await f.getByLabel('au *').fill('2026-10-31');
+    await f.getByLabel('au *', { exact: true }).fill('2026-10-31');
     await f.getByLabel('Montant HT facturé *').fill('11000');
     await f.getByLabel('Ligne 1 engin').selectOption({ label: 'RC-1001' });
     await f.getByLabel('Ligne 1 quantité').fill('110');
     await f.getByLabel('Ligne 1 unité').selectOption('heure');
     await f.getByLabel('Ligne 1 montant').fill('11000');
-    await f.getByRole('button', { name: 'Enregistrer la facture' }).click();
+    await page.getByRole('button', { name: 'Enregistrer la facture' }).click();
     await expect.poll(() => envois.length).toBe(1);
     expect(envois[0]).toMatchObject({ p_numero: 'NB-2026-10', p_contrat_id: 'c1', p_montant_ht: 11000 });
     expect((envois[0].p_lignes as Record<string, unknown>[])[0]).toMatchObject({ vehicle_id: 'v1', quantite_facturee: 110, unite_facturee: 'heure', montant_facture: 11000 });
+    await expect(page).toHaveURL(/#\/factures-neemba\/f-nouvelle$/);
   });
 });
