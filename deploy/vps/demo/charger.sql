@@ -299,6 +299,25 @@ SELECT public.valider_distance_voyage(pg_temp.v('v2'), 43, NULL);
 SELECT public.valider_distance_voyage(pg_temp.v('v3'), 42, NULL, NULL, 'Compteur de DEMO-T03 illisible : distance de reference retenue');
 SELECT public.valider_distance_voyage(pg_temp.v('v4'), 42, NULL, NULL, 'Releves oublies sur la deuxieme rotation : distance de reference retenue');
 
+-- 3.7 bis Pesee a deux sources (D-081). Source B : les tickets saisis avec
+--     les rotations sont recopies dans releves_terrain_kogon (declencheur).
+--     Source A : releve officiel CBG du depot, importe tel que recu
+--     (empreinte SHA-256 du fichier d'exemple), puis rapproche : les 4
+--     pesees CBG concordent avec les releves KOGON (tolerance du depot
+--     d'exemple : 0,2 t ou 0,5 %, definie par l'administratrice).
+SELECT pg_temp.agir(pg_temp.demo_id(5, 1));
+SELECT public.definir_tolerance_pesee(pg_temp.demo_id(1, 2), 0.2, 0.5,
+  'Tolerance du depot d''exemple : precision du pont-bascule CBG');
+SELECT pg_temp.agir(pg_temp.demo_id(5, 3));
+SELECT pg_temp.garder('releve_cbg', (public.importer_releve_cbg_v2('DEMO-RCBG-0001', current_date - 2, current_date - 2, pg_temp.demo_id(1, 2),
+  'releve-cbg-exemple.csv', encode(sha256(convert_to('DEMO-RCBG-0001 ' || current_date::text, 'UTF8')), 'hex'),
+  (SELECT jsonb_agg(jsonb_build_object('ticket', tk.ticket, 'date', (current_date - 2)::text, 'immatriculation', ve.registration,
+                                       'brut', tk.brut::text, 'tare', tk.tare::text) ORDER BY tk.ticket)
+     FROM public.tickets_pesee_cbg tk JOIN public.trips t ON t.id = tk.trip_id JOIN public.vehicles ve ON ve.id = t.vehicle_id
+    WHERE tk.trip_id IN (pg_temp.v('v1'), pg_temp.v('v2'), pg_temp.v('v3'), pg_temp.v('v4'))),
+  '[]'::jsonb) ->> 'releve_id')::uuid);
+SELECT public.rapprocher_pesees(pg_temp.v('releve_cbg'));
+
 -- 3.8 Reconciliation CBG J-8 a J-2, base : tonnage recu (ticket CBG),
 --     tolerance 2 %. V2 hors tolerance : decision motivee ; les autres
 --     lignes sont facturables sans anomalie bloquante.
