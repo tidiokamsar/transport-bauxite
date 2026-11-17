@@ -21,6 +21,16 @@
      seront detachees (cle ON DELETE SET NULL) sont listees.
   4. Suppression par passes jusqu'a epuisement ; controle final : plus aucune
      valeur `dec0de00-` dans une colonne uuid de `public`.
+     D-084 : pendant ces seules suppressions, les declencheurs utilisateur
+     declenches par DELETE des tables qui portent des lignes marquees sont
+     suspendus (preuves immuables comme les tickets CBG, journaux
+     append-only, recalculs) puis retablis ; les cles etrangeres (declencheurs
+     internes) restent actives. Toutes les lignes supprimees sont marquees,
+     donc etiquetees `dec0de00-` ou rattachees dans une table operationnelle
+     (les blocages ont arrete la purge avant).
+  5. Comptes d'authentification de demonstration (D-084) : `auth.users`
+     dont l'`id` commence par `dec0de00-` (acteurs des donnees d'exemple,
+     sans mot de passe, bannis), supprimes apres les lignes de `public`.
 
   Variables psql :
     mode    = apercu | purger   (apercu : tout est calcule puis annule)
@@ -177,6 +187,16 @@ DO $$
 DECLARE r record; l record; v_reste bigint; v_avant bigint; v_tour int := 0; n bigint;
 BEGIN
   INSERT INTO purge_compte SELECT t::text, count(*) FILTER (WHERE etiquetee), count(*) FILTER (WHERE NOT etiquetee) FROM purge_marque GROUP BY t;
+  -- D-084 : declencheurs utilisateur sur DELETE suspendus le temps des
+  -- suppressions (bit 8 de tgtype = DELETE), sur les seules tables marquees.
+  CREATE TEMP TABLE purge_declencheurs ON COMMIT DROP AS
+    SELECT tg.tgrelid::regclass AS t, tg.tgname
+      FROM pg_trigger tg
+     WHERE NOT tg.tgisinternal AND tg.tgenabled <> 'D' AND (tg.tgtype::int & 8) = 8
+       AND tg.tgrelid IN (SELECT DISTINCT m.t FROM purge_marque m);
+  FOR r IN SELECT * FROM purge_declencheurs LOOP
+    EXECUTE format('ALTER TABLE %s DISABLE TRIGGER %I', r.t, r.tgname);
+  END LOOP;
   LOOP
     v_tour := v_tour + 1;
     SELECT count(*) INTO v_avant FROM purge_marque;
@@ -201,6 +221,13 @@ BEGIN
         (SELECT t::text || ' ' || id FROM purge_marque LIMIT 1);
     END IF;
   END LOOP;
+  FOR r IN SELECT * FROM purge_declencheurs LOOP
+    EXECUTE format('ALTER TABLE %s ENABLE TRIGGER %I', r.t, r.tgname);
+  END LOOP;
+  -- 5. Comptes d'authentification des acteurs de demonstration (D-084).
+  DELETE FROM auth.users WHERE id::text LIKE 'dec0de00-%';
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n > 0 THEN INSERT INTO purge_compte VALUES ('auth.users', n, 0); END IF;
   -- Controle : plus aucune valeur dec0de00 dans une colonne uuid de public
   FOR r IN SELECT c.oid::regclass AS t, a.attname FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid
             WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'r' AND a.atttypid = 'uuid'::regtype AND a.attnum > 0 AND NOT a.attisdropped LOOP

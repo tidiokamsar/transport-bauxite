@@ -242,14 +242,15 @@ n'est pas compatible avec le schéma courant, le seul retour arrière de la
 base est la restauration de la sauvegarde prise avant la mise à jour
 (section 5), avec perte des saisies postérieures.
 
-## 7. Données de démonstration (D-020)
+## 7. Données d'exemple et de démonstration (D-020, D-084)
 
 En root, depuis `/opt/sigtb/depot/courant` (sauvegarde automatique avant
 chaque opération) :
 
 | Commande | Effet |
 |---|---|
-| `bash deploy/vps/demo/demo.sh charger` | Charge le jeu (refusé s'il est déjà présent) et active le bandeau |
+| `bash deploy/vps/demo/demo.sh charger` | Charge le jeu d'exemple (refusé s'il est déjà présent), active le bandeau, affiche le nombre de lignes par table |
+| `bash deploy/vps/demo/demo.sh coherence` | Contrôles de cohérence, une requête par chaîne (voyage → ticket CBG → ligne de réconciliation → facture → encaissement ; relevés → distances ; facture Neemba → kilomètres et heures ; carburant ; achats → stock), colonne `ok` ; lecture seule |
 | `bash deploy/vps/demo/demo.sh apercu` | Liste, table par table, ce qu'une purge supprimerait (lignes `dec0de00-` et lignes rattachées non étiquetées), sans rien modifier |
 | `CONFIRMER_PURGE=oui bash deploy/vps/demo/demo.sh recharger` | Purge puis recharge, dates du jour ; refusé s'il existe des lignes rattachées non étiquetées |
 | `CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<n> bash deploy/vps/demo/demo.sh purger` | Supprime le jeu et les <n> lignes rattachées listées par l'aperçu (<n> = total affiché), retire le bandeau (sauvegarde avant) ; refusée en cas de blocage |
@@ -285,6 +286,58 @@ chaque opération) :
 
 La purge est obligatoire avant la première saisie réelle : une donnée
 réelle rattachée à un élément de démonstration bloque la purge.
+
+### 7.1 Jeu d'exemple (D-084)
+
+Contenu : 5 lignes au plus par table métier, fictives et cohérentes, isolées
+du réel (site « Exemple - Mine plateau Nord », dépôt « Exemple - Depot CBG »,
+organisation, shifts, 4 camions `DEMO-T01` à `DEMO-T04` et la chargeuse
+`DEMO-CHG1` loués à Neemba, 3 chauffeurs « Exemple », contrats
+`DEMO-CBG-2026` et `DEMO-NEEMBA-2026`). Les chaînes J1 et J2 sont écrites par
+les fonctions serveur, au nom de 5 acteurs fictifs : 4 rotations à J-2,
+réconciliation de J-8 à J-2, facture `DEMO-FAC-...` émise à J-1 et encaissée,
+facture Neemba contrôlée (écart de 675 000 GNF HT) et payée au montant
+contrôlé, carburant, achats, pneus, HSE, alertes. Les numéros générés portent
+le préfixe `DEMO-` ; la numérotation réelle ne saute aucun numéro.
+
+Acteurs : 5 comptes `dec0de00-` sans mot de passe, adresse `.invalid`,
+bannis : personne ne peut se connecter avec. Pour voir les exemples, se
+connecter avec un compte réel (un compte global voit le site d'exemple ; un
+compte borné à un site réel ne le voit pas).
+
+Chargement en production (la production porte des données réelles depuis
+D-078 : décision du propriétaire, « toujours demander ») :
+
+1. `bash deploy/vps/demo/demo.sh charger` : sauvegarde, puis chargement en
+   une transaction. Il s'annule entièrement si une ligne réelle serait
+   modifiée, si une table recevrait plus de 5 lignes, ou si une ligne
+   serait créée dans une table que la purge ne sait pas retirer ;
+2. `bash deploy/vps/demo/demo.sh coherence` : toutes les lignes `ok = t` ;
+3. le bandeau « DONNÉES DE DÉMONSTRATION » apparaît sur tous les écrans.
+
+Règle d'usage tant que les exemples sont chargés : **ne rien saisir sur un
+élément d'exemple** (site, engin, chauffeur, contrat, voyage `DEMO-...`).
+Une telle saisie est listée par l'aperçu ; dans une table non opérationnelle
+(ticket, relevé, pointage, contrat, argent, HSE) elle bloque la purge.
+
+Purge (retire tout le jeu, comptes d'authentification `dec0de00-` compris) :
+
+1. `bash deploy/vps/demo/demo.sh apercu` : attendu « blocages : 0 » ;
+2. lancer la commande affichée
+   (`CONFIRMER_PURGE=oui CONFIRMER_RATTACHEES=<total> bash deploy/vps/demo/demo.sh purger`) ;
+3. `bash deploy/vps/demo/demo.sh etat` : `auth.users 0`, aucune autre table,
+   `bandeau_actif = f`.
+
+Pendant les seules suppressions, la purge suspend les déclencheurs sur
+DELETE des tables qui portent des lignes marquées (tickets CBG et rapports
+figés sont des preuves immuables), puis les rétablit ; les clés étrangères
+restent actives et les règles de blocage de D-074 s'appliquent avant.
+
+Testé le 2026-11-16 dans le conteneur jetable du rejeu (comptes, site, shift,
+engin et réglage « réels » simulés) : chargement de 190 lignes dans 68 tables
+sans ligne réelle touchée, cohérence verte, aperçu sans blocage, purge
+validée, plus aucune valeur `dec0de00-`, lignes réelles identiques avant et
+après ; double chargement refusé ; rechargement.
 
 ## Limites connues
 
