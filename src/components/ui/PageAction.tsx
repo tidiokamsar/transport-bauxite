@@ -12,7 +12,7 @@ import { naviguer, poserAnnonce, routeDetail } from './routeur';
 
 export const PageAction = ({
   vue, module, reference, id, titre, description, motif: exigence, motifMinimum = 3, libelleConfirmer, danger = false,
-  interdit, onExecuter, messageSucces, children, pret = true, chargement, erreurChargement,
+  interdit, onExecuter, messageSucces, children, pret = true, chargement, erreurChargement, versApres,
 }: {
   vue: string;
   module: string;
@@ -34,6 +34,8 @@ export const PageAction = ({
   pret?: boolean;
   chargement?: boolean;
   erreurChargement?: string;
+  /** Page ouverte apres succes ; par defaut la fiche (ex. liste apres une suppression). */
+  versApres?: string;
 }) => {
   const [motif, setMotif] = useState('');
   const [erreur, setErreur] = useState('');
@@ -51,7 +53,7 @@ export const PageAction = ({
       const echec = await onExecuter(motif.trim());
       if (echec) { setErreur(echec); return; }
       poserAnnonce(messageSucces);
-      naviguer(routeDetail(vue, id), { remplacer: true });
+      naviguer(versApres ?? routeDetail(vue, id), { remplacer: true });
     } finally {
       verrou.current = false;
       setEnCours(false);
