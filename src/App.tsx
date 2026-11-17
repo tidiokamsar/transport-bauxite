@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { LoginPage } from './components/Auth/LoginPage';
@@ -15,6 +15,7 @@ import OfflineIndicator from './components/Offline/OfflineIndicator';
 import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { Embleme } from './components/Brand/Marque';
 import { EVENEMENT_ALLER_A } from './components/ui/navigation';
+import { naviguer, routeListe, useRoute } from './components/ui/routeur';
 
 const VehiclesView = lazy(() => import('./components/Vehicles/VehiclesView').then(m => ({ default: m.VehiclesView })));
 const DriversView = lazy(() => import('./components/Drivers/DriversView').then(m => ({ default: m.DriversView })));
@@ -95,7 +96,15 @@ const LoadingFallback = () => (
 
 const MainApp = () => {
   const { user, loading, signOut } = useAuth();
-  const [currentView, setCurrentView] = useState('dashboard');
+  // Ecran courant porte par l'adresse (#/<vue>/..., D-090) : bouton retour
+  // du navigateur, lien partageable ; le menu ouvre la liste telle qu'elle a
+  // ete laissee (filtres conserves pendant la session).
+  const route = useRoute();
+  const currentView = route.vue || 'dashboard';
+  const setCurrentView = useCallback((vue: string) => naviguer(routeListe(vue)), []);
+  const principal = useRef<HTMLElement>(null);
+  const cleRoute = `${route.vue}/${route.mode}/${route.id ?? ''}/${route.action ?? ''}`;
+  useEffect(() => { principal.current?.scrollTo?.({ top: 0 }); }, [cleRoute]);
   // Double authentification (D-045) : un compte avec facteur verifie passe
   // par le code TOTP avant d'entrer ; null = niveau pas encore lu.
   const [niveau, setNiveau] = useState<NiveauAssurance | null>(null);
@@ -109,7 +118,7 @@ const MainApp = () => {
     const aller = (e: Event) => { const vue = (e as CustomEvent<string>).detail; if (vue) setCurrentView(vue); };
     window.addEventListener(EVENEMENT_ALLER_A, aller);
     return () => window.removeEventListener(EVENEMENT_ALLER_A, aller);
-  }, []);
+  }, [setCurrentView]);
 
   if (loading) {
     return (
@@ -276,7 +285,7 @@ const MainApp = () => {
           sousTitre={currentView === 'dashboard' ? 'Vue globale des opérations de transport de bauxite' : currentView === 'securite-compte' ? 'Sécurité du compte' : libelleVue(currentView)}
           onAllerA={setCurrentView}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main ref={principal} className="flex-1 overflow-y-auto">
           <div className="p-6 xl:p-8">
             <Suspense fallback={<LoadingFallback />}>
               <div className="animate-fade-in">
