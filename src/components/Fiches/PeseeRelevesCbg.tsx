@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Ban, FileUp, Scale } from 'lucide-react';
+import { Ban, FileUp, Paperclip, Scale } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
-import { BoutonPieces } from '../ui/PiecesJointes';
 import { analyserReleve, empreinteSha256, type AnalyseImport } from './pesee';
 import { CHAMP, type ContextePesee, type Resultat } from './peseeContexte';
 
@@ -109,7 +108,7 @@ export const PeseeRelevesCbg = ({ ctx, onRapproche }: { ctx: ContextePesee; onRa
               {ctx.peutEcrire && r.statut !== 'annule' && <button disabled={busy} onClick={() => rapprocher(r)} aria-label={`Rapprocher ${r.reference}`} className="flex items-center gap-1 rounded bg-stone-800 px-2 py-1 text-xs font-bold text-white"><Scale className="h-3 w-3" /> {r.rapproche_pesees_le ? 'Relancer le rapprochement' : 'Rapprocher'}</button>}
               {r.rapproche_pesees_le && <button onClick={() => onRapproche(r.id)} aria-label={`Résultat ${r.reference}`} className="rounded border border-stone-300 px-2 py-1 text-xs">Résultat</button>}
               {ctx.peutValider && r.statut !== 'annule' && r.importe_par !== ctx.utilisateur && <button onClick={() => setAnnulation({ id: r.id, motif: '' })} aria-label={`Annuler ${r.reference}`} className="flex items-center gap-1 rounded border border-red-300 px-2 py-1 text-xs text-red-700"><Ban className="h-3 w-3" /> Annuler</button>}
-              <BoutonPieces objetType="releve_cbg" objetId={r.id} titre={`relevé CBG ${r.reference}`} peutDeposer={ctx.peutEcrire} />
+              <a href={`#/tickets-cbg/pieces?releve=${encodeURIComponent(r.id)}&ref=${encodeURIComponent(r.reference)}`} aria-label={`Pièces du relevé ${r.reference}`} className="flex items-center gap-1 rounded border border-stone-300 px-2 py-1 text-xs"><Paperclip className="h-3 w-3" /> Pièces</a>
             </span>
           </div>
           {r.statut === 'annule' && <p className="text-xs text-stone-500">Motif d'annulation : {r.motif_annulation}</p>}

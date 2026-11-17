@@ -7,6 +7,7 @@ import { Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { lire, trouver } from '../ui/lecture';
 import { routeAction, routeDetail, useRoute } from '../ui/routeur';
 import { ETATS, LIVRES_SANS_TICKET, PHASES, actionsPossibles, estEtat, phaseDe } from '../Trips/cycle';
+import { JustificationsFiche } from './JustificationFiche';
 import { VoyageSuivant } from '../Trips/VoyageSuivant';
 import { ListePieces } from '../ui/PiecesJointes';
 import { formatNombre } from '../Dashboard/indicateurs';
@@ -119,7 +120,7 @@ export const DetailVoyage = ({ id }: { id: string }) => {
     destination: nom(noms.site, voyage.arrival_site_id) ?? '—',
     shift: nom(noms.shift, voyage.shift_id) ?? '—',
   } : null;
-  const ctx = { ...contexte, date: contexte.date ?? voyage?.planned_date, voyage: id, camion: contexte.camion ?? voyage?.vehicle_id ?? undefined };
+  const ctx = { ...contexte, date: contexte.date ?? voyage?.planned_date, voyage: id, camion: contexte.camion ?? voyage?.vehicle_id ?? undefined, chauffeur: contexte.chauffeur ?? voyage?.driver_id ?? undefined };
 
   const actions: ActionPage[] = [
     { id: 'suspendre', libelle: 'Suspendre', visible: peutEcrire && !!voyage && !suspendu && !termine, vers: routeAction(VUE_VOYAGES, id, 'suspendre'), ton: 'danger' },
@@ -265,6 +266,7 @@ export const DetailVoyage = ({ id }: { id: string }) => {
                         ))}
                       </ul>
                     )}
+                <JustificationsFiche tripId={id} peutEcrire={peutEcrire} alerte={(controles ?? []).some((c) => c.code === 'fiche_presente' && c.resultat === 'alerte')} />
                 <Provenance source="controles_voyage (constats calculés par le serveur ; le système signale, l'humain décide)" heure={heure} />
               </section>
             ),

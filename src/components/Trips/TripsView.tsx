@@ -14,7 +14,8 @@ import { RapportsVoyages } from './RapportsVoyages';
 import { naviguer, routeDetail, useRoute } from '../ui/routeur';
 import { DetailVoyage } from '../Operations/DetailVoyage';
 import { ActionVoyage } from '../Operations/ActionVoyage';
-import { avecContexte, contexteDepuisRequete } from '../Operations/journal';
+import { avecContexte, contexteDepuisRequete, correspondRessources } from '../Operations/journal';
+import { BandeauContexte } from '../Operations/BandeauContexte';
 
 // Voyages & Rotations (etape 2 de la reprise, CDC 12). Les voyages du jour
 // choisi, par phase du cycle ; chaque changement d'etat passe par la fiche
@@ -111,11 +112,12 @@ const RegistreVoyages = () => {
     const filtre = recherche.trim().toLowerCase();
     return (voyages ?? []).filter((v) => {
       if (phase !== 'toutes' && phaseDe(v.etat) !== phase) return false;
+      if (!correspondRessources({ camion: contexte.camion, chauffeur: contexte.chauffeur })(v)) return false;
       if (!filtre) return true;
       return [v.reference, nom(noms.vehicule, v.vehicle_id), nom(noms.chauffeur, v.driver_id)]
         .some((t) => t.toLowerCase().includes(filtre));
     });
-  }, [voyages, phase, recherche, noms]);
+  }, [voyages, phase, recherche, noms, contexte.camion, contexte.chauffeur]);
 
   const exporter = () => {
     const lignes = visibles.map((v) => {
@@ -175,6 +177,8 @@ const RegistreVoyages = () => {
       {aucunSite && <ReferentielVide>{SANS_SITE} Un voyage relie un site de chargement à un site de déchargement.</ReferentielVide>}
 
       {rapports && <RapportsVoyages />}
+
+      <BandeauContexte nomCamion={(id) => nom(noms.vehicule, id)} nomChauffeur={(id) => nom(noms.chauffeur, id)} />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
         <button

@@ -1,189 +1,196 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Moon, PenLine, Plus, Power, Sun } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Moon, Plus, Sun } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { CHAMP_FENETRE } from '../ui/Fenetre';
+import { Historique } from '../ui/Historique';
+import { PageAction } from '../ui/PageAction';
+import { Informations, OngletPieces, PageDetail } from '../ui/PageDetail';
+import { ChampPage, PageFormulaire, SectionFormulaire } from '../ui/PageFormulaire';
+import { PageListe } from '../ui/PageListe';
+import { Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { useSaisie } from '../ui/pages';
+import { lire, trouver } from '../ui/lecture';
+import { poserAnnonce, routeAction, routeDetail, routeModifier, routeNouveau, useRoute } from '../ui/routeur';
+import type { EvenementHistorique } from '../ui/evenements';
 import { dureeMinutes, erreurSaisieShift, estDeNuit, type SaisieShift, type Shift } from './shifts';
 
-// Gestion des shifts (D-078) : liste, creation, modification motivee et
-// desactivation motivee. Ecriture par definir_shift et desactiver_shift
-// (droit settings ou administrateur, profil sans site) ; un shift n'est
-// jamais supprime.
+// Shifts (D-078) en pages standard (D-090, D-088 suite) : liste, fiche avec
+// historique (journal_shifts), creation et modification en pleine page
+// (definir_shift, motif obligatoire pour modifier), desactivation motivee
+// en page d'action (desactiver_shift). Droit settings ou administrateur sur
+// un profil sans site ; un shift n'est jamais supprime.
 
-interface Ligne { id: string; shift_id: string; action: string; motif: string | null; le: string }
-
-const CHAMP = 'mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm';
-const vide = (ordre: number): SaisieShift => ({ nom: '', libelle: '', debut: '', fin: '', ordre: String(ordre), actif: true });
+const VUE = 'shifts';
+const MODULE = 'Shifts';
+const COLONNES = 'id, name, display_name, start_time, end_time, shift_order, is_active';
 const hm = (t: string) => t.slice(0, 5);
 const ACTIONS: Record<string, string> = { creation: 'Création', modification: 'Modification', desactivation: 'Désactivation', reactivation: 'Réactivation' };
 
-export const ShiftsView = () => {
+const usePeutEcrire = () => {
   const { hasPermission, profile } = useAuth();
-  const peutEcrire = (hasPermission('settings', 'edit') || hasPermission('settings', 'create') || profile?.role === 'admin') && !profile?.site_id;
-  const [shifts, setShifts] = useState<Shift[] | null>(null);
-  const [journal, setJournal] = useState<Ligne[]>([]);
-  const [erreur, setErreur] = useState('');
-  const [erreurJournal, setErreurJournal] = useState('');
-  const [message, setMessage] = useState('');
-  const [edition, setEdition] = useState<{ id: string | null; saisie: SaisieShift; motif: string } | null>(null);
-  const [enCours, setEnCours] = useState(false);
-  const [heure, setHeure] = useState<Date | null>(null);
+  return (hasPermission('settings', 'edit') || hasPermission('settings', 'create') || profile?.role === 'admin') && !profile?.site_id;
+};
 
+const useShifts = () => {
+  const [shifts, setShifts] = useState<Shift[] | null>(null);
+  const [erreur, setErreur] = useState('');
+  const [heure, setHeure] = useState<Date | null>(null);
   const charger = useCallback(async () => {
-    const [rS, rJ] = await Promise.all([
-      supabase.from('work_shifts').select('id, name, display_name, start_time, end_time, shift_order, is_active').order('shift_order'),
-      supabase.from('journal_shifts').select('id, shift_id, action, motif, le').order('le', { ascending: false }).limit(50),
-    ]);
-    if (rS.error) { setErreur(`Shifts indisponibles : ${rS.error.message}`); setShifts([]); }
-    else setShifts((rS.data ?? []) as Shift[]);
-    if (rJ.error) { setErreurJournal(`Journal des shifts indisponible : ${rJ.error.message}`); setJournal([]); }
-    else { setErreurJournal(''); setJournal((rJ.data ?? []) as Ligne[]); }
-    setHeure(new Date());
+    const r = await lire<Shift>(supabase.from('work_shifts').select(COLONNES).order('shift_order'), 'shifts');
+    setShifts(r.lignes); setErreur(r.erreur); setHeure(new Date());
   }, []);
   useEffect(() => { charger(); }, [charger]);
+  return { shifts, erreur, heure, charger };
+};
 
-  const libelle = useMemo(() => new Map((shifts ?? []).map((s) => [s.id, s.display_name])), [shifts]);
-  const prochainOrdre = Math.max(0, ...(shifts ?? []).map((s) => s.shift_order)) + 1;
+const Horaires = ({ s }: { s: Shift }) => (
+  <span className="inline-flex items-center gap-1">
+    {estDeNuit(s.start_time, s.end_time) ? <Moon className="h-4 w-4 text-stone-400" /> : <Sun className="h-4 w-4 text-orange-400" />}
+    {hm(s.start_time)} – {hm(s.end_time)}
+  </span>
+);
 
-  const ouvrir = (s: Shift | null) => {
-    setMessage(''); setErreur('');
-    setEdition(s
-      ? { id: s.id, saisie: { nom: s.name, libelle: s.display_name, debut: hm(s.start_time), fin: hm(s.end_time), ordre: String(s.shift_order), actif: Boolean(s.is_active) }, motif: '' }
-      : { id: null, saisie: vide(prochainOrdre), motif: '' });
-  };
-
-  const enregistrer = async () => {
-    if (!edition) return;
-    const autres = (shifts ?? []).filter((s) => s.id !== edition.id);
-    const e = erreurSaisieShift(edition.saisie, autres);
-    if (e) { setErreur(e); return; }
-    if (edition.id && !edition.motif.trim()) { setErreur('Motif obligatoire pour modifier un shift'); return; }
-    setEnCours(true); setErreur('');
-    const { error } = await supabase.rpc('definir_shift', {
-      p_id: edition.id, p_nom: edition.saisie.nom.trim(), p_libelle: edition.saisie.libelle.trim(),
-      p_debut: edition.saisie.debut, p_fin: edition.saisie.fin, p_ordre: Number(edition.saisie.ordre),
-      p_actif: edition.saisie.actif, p_motif: edition.motif.trim() || null,
-    });
-    setEnCours(false);
-    if (error) { setErreur(error.message); return; }
-    setMessage(edition.id ? 'Shift modifié.' : 'Shift créé : il est proposé dans la planification, le dispatch, les postes et les fiches.');
-    setEdition(null);
-    charger();
-  };
-
-  const desactiver = async (s: Shift) => {
-    const motif = window.prompt(`Motif de la désactivation du shift ${s.display_name}`);
-    if (motif === null) return;
-    if (!motif.trim()) { setErreur('Motif obligatoire pour désactiver un shift'); return; }
-    const { error } = await supabase.rpc('desactiver_shift', { p_id: s.id, p_motif: motif.trim() });
-    if (error) setErreur(error.message); else { setMessage(`Shift ${s.display_name} désactivé.`); setErreur(''); }
-    charger();
-  };
-
-  const maj = (champ: keyof SaisieShift, valeur: string | boolean) =>
-    edition && setEdition({ ...edition, saisie: { ...edition.saisie, [champ]: valeur } });
-
+const ListeShifts = () => {
+  const peutEcrire = usePeutEcrire();
+  const { shifts, erreur, heure, charger } = useShifts();
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black text-stone-900">Shifts</h2>
-          <p className="text-stone-500">Horaires de travail communs à tous les sites ; un shift utilisé se désactive, il ne se supprime pas</p>
-        </div>
-        {peutEcrire && (
-          <button onClick={() => ouvrir(null)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white">
-            <Plus className="h-4 w-4" /> Nouveau shift
-          </button>
-        )}
-      </div>
-      {!peutEcrire && (
+    <PageListe<Shift>
+      vue={VUE} titre="Shifts" sousTitre="Horaires de travail communs à tous les sites ; un shift utilisé se désactive, il ne se supprime pas"
+      lignes={shifts} erreur={erreur} cle={(s) => s.id} libelleOuverture={(s) => `Shift ${s.display_name}`}
+      actions={peutEcrire ? (
+        <a href={routeNouveau(VUE)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-700 px-4 py-2 text-sm font-bold text-white">
+          <Plus className="h-4 w-4" /> Nouveau shift
+        </a>
+      ) : undefined}
+      synthese={!peutEcrire ? (
         <p role="note" className="rounded-lg bg-stone-50 p-3 text-sm text-stone-600">
           Lecture seule : la création et la modification des shifts demandent le droit Paramètres sur un profil sans site.
         </p>
-      )}
-      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-      {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
-
-      {edition && (
-        <Panneau titre={edition.id ? 'Modifier le shift' : 'Nouveau shift'}>
-          <div role="form" aria-label="Saisie du shift" className="grid gap-3 sm:grid-cols-3">
-            <label className="text-sm">Libellé affiché *<input value={edition.saisie.libelle} onChange={(e) => maj('libelle', e.target.value)} className={CHAMP} placeholder="Jour" /></label>
-            <label className="text-sm">Nom technique *<input value={edition.saisie.nom} onChange={(e) => maj('nom', e.target.value)} className={CHAMP} placeholder="jour" /></label>
-            <label className="text-sm">Ordre d'affichage *<input inputMode="numeric" value={edition.saisie.ordre} onChange={(e) => maj('ordre', e.target.value)} className={CHAMP} /></label>
-            <label className="text-sm">Heure de début *<input type="time" value={edition.saisie.debut} onChange={(e) => maj('debut', e.target.value)} className={CHAMP} /></label>
-            <label className="text-sm">Heure de fin *<input type="time" value={edition.saisie.fin} onChange={(e) => maj('fin', e.target.value)} className={CHAMP} /></label>
-            <label className="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" checked={edition.saisie.actif} onChange={(e) => maj('actif', e.target.checked)} /> Actif</label>
-            {edition.id && (
-              <label className="text-sm sm:col-span-3">Motif de la modification *<input value={edition.motif} onChange={(e) => setEdition({ ...edition, motif: e.target.value })} className={CHAMP} /></label>
-            )}
-          </div>
-          {edition.saisie.debut && edition.saisie.fin && estDeNuit(edition.saisie.debut, edition.saisie.fin) && (
-            <p className="mt-2 text-xs text-stone-500">Shift de nuit : il se termine le lendemain ({dureeMinutes(edition.saisie.debut, edition.saisie.fin)} min).</p>
-          )}
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setEdition(null)} className="rounded-lg border px-4 py-2 text-sm">Annuler</button>
-            <button onClick={enregistrer} disabled={enCours} className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
-              {enCours ? 'Enregistrement…' : 'Enregistrer le shift'}
-            </button>
-          </div>
-        </Panneau>
-      )}
-
-      <Panneau titre="Shifts paramétrés">
-        {shifts === null ? (
-          <p className="text-sm text-stone-400">Chargement…</p>
-        ) : shifts.length === 0 ? (
-          <SansDonnees message="Aucun shift" detail="Créez au moins un shift (par exemple Jour et Nuit) pour planifier, dispatcher, ouvrir les postes et préparer les fiches." />
-        ) : (
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-stone-200 text-left text-stone-500">
-              <th className="py-2 pr-3 font-medium">Ordre</th><th className="py-2 pr-3 font-medium">Shift</th>
-              <th className="py-2 pr-3 font-medium">Horaires</th><th className="py-2 pr-3 font-medium">Statut</th>
-              {peutEcrire && <th className="py-2 font-medium">Actions</th>}
-            </tr></thead>
-            <tbody>
-              {shifts.map((s) => (
-                <tr key={s.id} className="border-b border-stone-100 last:border-0">
-                  <td className="py-2 pr-3 text-stone-500">{s.shift_order}</td>
-                  <td className="py-2 pr-3"><span className="font-semibold text-stone-900">{s.display_name}</span> <span className="text-xs text-stone-400">{s.name}</span></td>
-                  <td className="py-2 pr-3">
-                    <span className="inline-flex items-center gap-1">
-                      {estDeNuit(s.start_time, s.end_time) ? <Moon className="h-4 w-4 text-stone-400" /> : <Sun className="h-4 w-4 text-orange-400" />}
-                      {hm(s.start_time)} – {hm(s.end_time)}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3"><Puce teinte={s.is_active ? 'vert' : 'gris'}>{s.is_active ? 'Actif' : 'Inactif'}</Puce></td>
-                  {peutEcrire && (
-                    <td className="whitespace-nowrap py-2">
-                      <button onClick={() => ouvrir(s)} aria-label={`Modifier le shift ${s.display_name}`} className="mr-1 rounded-lg bg-orange-50 px-2.5 py-1.5 text-xs font-semibold text-orange-800"><PenLine className="inline h-3.5 w-3.5" /> Modifier</button>
-                      {s.is_active && <button onClick={() => desactiver(s)} aria-label={`Désactiver le shift ${s.display_name}`} className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700"><Power className="inline h-3.5 w-3.5" /> Désactiver</button>}
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </Panneau>
-
-      {erreurJournal && (
-        <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erreurJournal}</p>
-      )}
-      {journal.length > 0 && (
-        <Panneau titre="Historique">
-          <ul className="divide-y divide-stone-100 text-sm">
-            {journal.map((j) => (
-              <li key={j.id} className="flex flex-wrap gap-x-3 py-2">
-                <span className="text-stone-500">{new Date(j.le).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
-                <span className="font-semibold text-stone-900">{libelle.get(j.shift_id) ?? '—'}</span>
-                <span>{ACTIONS[j.action] ?? j.action}</span>
-                {j.motif && <span className="text-stone-500">« {j.motif} »</span>}
-              </li>
-            ))}
-          </ul>
-        </Panneau>
-      )}
-      <Provenance source="work_shifts, journal_shifts (D-078)" heure={heure} />
-    </div>
+      ) : undefined}
+      colonnes={[
+        { id: 'ordre', libelle: 'Ordre', valeur: (s) => s.shift_order },
+        { id: 'shift', libelle: 'Shift', valeur: (s) => s.display_name, rendu: (s) => <><b>{s.display_name}</b> <span className="text-xs text-stone-400">{s.name}</span></> },
+        { id: 'horaires', libelle: 'Horaires', valeur: (s) => `${hm(s.start_time)}-${hm(s.end_time)}`, rendu: (s) => <Horaires s={s} /> },
+        { id: 'statut', libelle: 'Statut', valeur: (s) => (s.is_active ? 'Actif' : 'Inactif'), rendu: (s) => <Puce teinte={s.is_active ? 'vert' : 'gris'}>{s.is_active ? 'Actif' : 'Inactif'}</Puce> },
+      ]}
+      filtres={[{ id: 'statut', libelle: 'Statut', options: [{ valeur: 'actif', libelle: 'Actifs' }, { valeur: 'inactif', libelle: 'Inactifs' }], correspond: (s, v) => (v === 'actif') === Boolean(s.is_active) }]}
+      nomExport="shifts"
+      vide={{ message: 'Aucun shift', detail: 'Créez au moins un shift (par exemple Jour et Nuit) pour planifier, dispatcher, ouvrir les postes et préparer les fiches.' }}
+      provenance={<Provenance source="work_shifts (D-078)" heure={heure} />}
+      onActualiser={charger}
+    />
   );
+};
+
+interface Ligne { id: string; action: string; motif: string | null; auteur: string | null; le: string }
+
+const DetailShift = ({ id }: { id: string }) => {
+  const peutEcrire = usePeutEcrire();
+  const { shifts, erreur } = useShifts();
+  const [journal, setJournal] = useState<EvenementHistorique[] | null>(null);
+  const [erreurJournal, setErreurJournal] = useState('');
+  useEffect(() => {
+    lire<Ligne>(supabase.from('journal_shifts').select('id, action, motif, auteur, le').eq('shift_id', id).order('le', { ascending: false }), 'journal des shifts')
+      .then((r) => {
+        setJournal(r.lignes ? r.lignes.map((j) => ({ id: j.id, le: j.le, libelle: ACTIONS[j.action] ?? j.action, motif: j.motif, auteur: j.auteur, source: 'journal_shifts' })) : null);
+        setErreurJournal(r.erreur);
+      });
+  }, [id]);
+  const s = trouver(shifts, id);
+  return (
+    <PageDetail
+      vue={VUE} module={MODULE} reference={s?.display_name ?? 'Shift'} titre={s ? `Shift ${s.display_name}` : undefined}
+      statut={s ? { libelle: s.is_active ? 'Actif' : 'Inactif', teinte: s.is_active ? 'vert' : 'gris' } : null}
+      chargement={shifts === null && !erreur} erreur={erreur} introuvable={shifts !== null && !s}
+      actions={[
+        { id: 'modifier', libelle: 'Modifier', visible: peutEcrire, vers: routeModifier(VUE, id), ton: 'principal' },
+        { id: 'desactiver', libelle: 'Désactiver', visible: peutEcrire && Boolean(s?.is_active), vers: routeAction(VUE, id, 'desactiver'), ton: 'danger' },
+      ]}
+      onglets={[
+        { id: 'informations', libelle: 'Informations', contenu: s && (
+          <Informations groupes={[{ titre: 'Shift', champs: [['Libellé affiché', s.display_name], ['Nom technique', s.name], ['Ordre', s.shift_order],
+            ['Horaires', <Horaires key="h" s={s} />], ['Durée (min)', dureeMinutes(s.start_time, s.end_time)], ['Statut', s.is_active ? 'Actif' : 'Inactif']] }]} />
+        ) },
+        { id: 'historique', libelle: 'Historique', contenu: <Historique evenements={journal} erreur={erreurJournal} source="journal_shifts (append-only, D-078)" /> },
+        { id: 'pieces', libelle: 'Pièces jointes', contenu: <OngletPieces objetType={null} objetId={id} peutDeposer={false} libelleObjet="les shifts" /> },
+      ]}
+    />
+  );
+};
+
+const vide = (ordre: number): SaisieShift => ({ nom: '', libelle: '', debut: '', fin: '', ordre: String(ordre), actif: true });
+
+const FormulaireShift = ({ id }: { id?: string }) => {
+  const peutEcrire = usePeutEcrire();
+  const { shifts, erreur } = useShifts();
+  const existant = id ? trouver(shifts, id) : null;
+  const { valeurs, poser, modifie, initialiser } = useSaisie<SaisieShift & { motif: string } & Record<string, unknown>>({ ...vide(1), motif: '' });
+  useEffect(() => {
+    if (!shifts) return;
+    if (existant) initialiser({ nom: existant.name, libelle: existant.display_name, debut: hm(existant.start_time), fin: hm(existant.end_time), ordre: String(existant.shift_order), actif: Boolean(existant.is_active), motif: '' });
+    else if (!id) initialiser({ ...vide(Math.max(0, ...shifts.map((s) => s.shift_order)) + 1), motif: '' });
+  }, [shifts, existant, id, initialiser]);
+  if (!peutEcrire) return <SansDonnees message="Action impossible" detail="La création et la modification des shifts demandent le droit Paramètres sur un profil sans site." />;
+  const autres = (shifts ?? []).filter((s) => s.id !== id);
+  const erreurs = [erreurSaisieShift(valeurs, autres), id && valeurs.motif.trim().length < 3 ? 'Motif obligatoire pour modifier un shift' : null].filter((x): x is string => Boolean(x));
+  const champ = (cle: keyof SaisieShift, libelle: string, type = 'text') => (
+    <ChampPage libelle={libelle}><input type={type} value={String(valeurs[cle])} onChange={(e) => poser(cle, e.target.value)} className={CHAMP_FENETRE} /></ChampPage>
+  );
+  return (
+    <PageFormulaire vue={VUE} module={MODULE} titre={id ? `Modifier le shift ${existant?.display_name ?? ''}`.trim() : 'Nouveau shift'}
+      reference={existant?.display_name} id={id} modifie={modifie} erreurs={erreurs} chargement={shifts === null && !erreur} erreurChargement={erreur || (id && shifts && !existant ? 'Shift introuvable.' : '')}
+      libelleSoumettre="Enregistrer le shift"
+      description={valeurs.debut && valeurs.fin && estDeNuit(valeurs.debut, valeurs.fin) ? `Shift de nuit : il se termine le lendemain (${dureeMinutes(valeurs.debut, valeurs.fin)} min).` : 'Un shift utilisé (postes, objectifs, voyages, fiches) ne change plus d\'heures : le désactiver et en créer un nouveau.'}
+      onSoumettre={async () => {
+        const { data, error } = await supabase.rpc('definir_shift', {
+          p_id: id ?? null, p_nom: valeurs.nom.trim(), p_libelle: valeurs.libelle.trim(), p_debut: valeurs.debut, p_fin: valeurs.fin,
+          p_ordre: Number(valeurs.ordre), p_actif: valeurs.actif, p_motif: valeurs.motif.trim() || null,
+        });
+        if (error) return { erreur: error.message };
+        poserAnnonce(id ? 'Shift modifié.' : 'Shift créé : il est proposé dans la planification, le dispatch, les postes et les fiches.');
+        const nouvelId = id ?? (typeof data === 'string' ? data : null);
+        return { vers: nouvelId ? routeDetail(VUE, nouvelId) : '#/shifts' };
+      }}>
+      <SectionFormulaire titre="Shift">
+        {champ('libelle', 'Libellé affiché *')}
+        {champ('nom', 'Nom technique *')}
+        {champ('ordre', 'Ordre d\'affichage *')}
+        {champ('debut', 'Heure de début *', 'time')}
+        {champ('fin', 'Heure de fin *', 'time')}
+        <ChampPage libelle="Statut">
+          <span className="flex items-center gap-2"><input type="checkbox" checked={valeurs.actif} onChange={(e) => poser('actif', e.target.checked)} /> Actif</span>
+        </ChampPage>
+        {id && <ChampPage libelle="Motif de la modification *" className="sm:col-span-2"><input value={valeurs.motif} onChange={(e) => poser('motif', e.target.value)} className={CHAMP_FENETRE} /></ChampPage>}
+      </SectionFormulaire>
+    </PageFormulaire>
+  );
+};
+
+const DesactiverShift = ({ id }: { id: string }) => {
+  const peutEcrire = usePeutEcrire();
+  const { shifts, erreur } = useShifts();
+  const s = trouver(shifts, id);
+  return (
+    <PageAction vue={VUE} module={MODULE} reference={s?.display_name ?? 'Shift'} id={id} titre={`Désactiver le shift ${s?.display_name ?? ''}`.trim()}
+      description="Le shift n'est pas supprimé : il reste dans l'historique (postes, voyages, fiches) et n'est plus proposé aux nouvelles saisies."
+      motif="obligatoire" libelleConfirmer="Désactiver" danger chargement={shifts === null && !erreur} erreurChargement={erreur || (shifts && !s ? 'Shift introuvable.' : '')}
+      interdit={!peutEcrire ? 'Droit Paramètres sur un profil sans site requis.' : s && !s.is_active ? 'Ce shift est déjà inactif.' : null}
+      messageSucces="Shift désactivé."
+      onExecuter={async (motif) => {
+        const { error } = await supabase.rpc('desactiver_shift', { p_id: id, p_motif: motif });
+        return error ? error.message : null;
+      }}
+    />
+  );
+};
+
+export const ShiftsView = () => {
+  const route = useRoute();
+  if (route.vue !== VUE || route.mode === 'liste') return <ListeShifts />;
+  if (route.mode === 'nouveau') return <FormulaireShift />;
+  if (route.mode === 'modifier') return <FormulaireShift id={route.id} />;
+  if (route.mode === 'action' && route.action === 'desactiver') return <DesactiverShift id={route.id ?? ''} />;
+  if (route.mode === 'action') return <SansDonnees message="Action inconnue" detail={`« ${route.action} » n'est pas une action des shifts.`} />;
+  return <DetailShift id={route.id ?? ''} />;
 };

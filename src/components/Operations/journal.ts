@@ -53,6 +53,7 @@ export const SOURCES: Record<string, string> = {
 export const RESULTATS: Record<string, { libelle: string; teinte: TeintePuce }> = {
   conforme: { libelle: 'Conforme', teinte: 'vert' },
   alerte: { libelle: 'Alerte', teinte: 'rouge' },
+  justifie: { libelle: 'Justifié', teinte: 'bleu' },
   sans_donnees: { libelle: 'Sans données', teinte: 'orange' },
   non_applicable: { libelle: 'Non applicable', teinte: 'gris' },
 };
@@ -152,3 +153,7 @@ export const dateDuContexte = (defaut: () => string): string => {
   const d = lireRoute(typeof window === 'undefined' ? '' : window.location.hash).requete.date ?? '';
   return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : defaut();
 };
+
+/** Filtre camion et chauffeur du contexte : un champ absent du contexte ne filtre pas. */
+export const correspondRessources = (ctx: Contexte) => (v: { vehicle_id: string | null; driver_id?: string | null }) =>
+  (!ctx.camion || v.vehicle_id === ctx.camion) && (!ctx.chauffeur || v.driver_id === ctx.chauffeur);
