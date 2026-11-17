@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>16. Opérations transport : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>16. Opérations transport</h2>
+<h3>A. Présentation</h3>
+<p>Espace de menu qui regroupe la chaîne transport : vue générale, alias vers les modules, journal des événements, anomalies et écarts, contrôles et clôtures.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Le voyage est l&#x27;objet central ; aucun module n&#x27;en crée de copie.</li><li>Le journal lit les événements à leur source, sans recopie : dispatch, suspensions, étapes, fiches, tickets et rectifications, relevés, rapprochements, anomalies, pièces jointes, vérifications.</li><li>Les contrôles produisent des constats sans rien écrire.</li><li>Le contexte (date, site, shift, camion, chauffeur, voyage, rotation) suit dans l&#x27;adresse entre les écrans de l&#x27;espace.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Opérations transport</b> : Vue générale, Objectifs planifiés, Instances de shift, Affectation des voyages, Registre des voyages, Cycle des fiches, Tickets et relevés CBG, Supervision du jour, Anomalies et écarts, Journal des événements, Contrôles et clôtures.</p>
+<h3>D. Écrans</h3>
+<p>Figure 16.1 (capture à venir) : vue générale de l&#x27;espace. Figure 16.2 (capture à venir) : journal des événements (voyage, événement, opération, saisie, source, statut, justificatif). Figure 16.3 (capture à venir) : anomalies et écarts (catégorie, gravité, statut, ouverte le, traitement). Figure 16.4 (capture à venir) : contrôles et clôtures. Figure 16.5 (capture à venir) : registre filtré par le contexte camion, bandeau « Filtré par le contexte ».</p>
+<h3>E. Actions disponibles</h3>
+<p>Filtrer ; ouvrir la fiche du voyage ; vérifier un événement (depuis la fiche du voyage).</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>16.F.1 Retrouver l&#x27;historique complet d&#x27;un voyage</b> : Journal des événements, filtrer sur le voyage ou le camion, lire les lignes par date d&#x27;opération ; ouvrir le voyage. <b>16.F.2 Suivre les anomalies</b> : Anomalies et écarts, filtrer par gravité, ouvrir l&#x27;anomalie dans Pesée CBG espace D pour la traiter. <b>16.F.3 Contrôler la journée</b> : Contrôles et clôtures, date et site ; lire les constats par voyage (fiche absente, ticket absent, étapes incohérentes...).</p>
+<h3>G. Exemple pratique</h3>
+<p>Le responsable des opérations ouvre Contrôles et clôtures pour la veille : 2 voyages sans fiche FR rattachée ; il ouvre chacun, puis la fiche du camion dans Fiches terrain.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Le registre des voyages, le Dispatch et les Fiches terrain lisent aussi le camion et le chauffeur du contexte ; un bandeau bleu « Filtré par le contexte » l&#x27;annonce, avec <b>Retirer ce filtre</b> (jamais appliqué en silence). Shifts et Pesée CBG ne lisent du contexte que la date.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Planification, Postes, Dispatch, Voyages, Fiches, Pesée CBG.</p>
+<h3>J. Exercice</h3>
+<p>Depuis le journal, ouvrez un voyage puis revenez par le bouton retour du navigateur. Résultat attendu : le journal garde ses filtres.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Journal des événements</b> : vue unique des événements d&#x27;un voyage, toutes sources.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

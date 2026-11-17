@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>24. Achats : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>24. Achats</h2>
+<h3>A. Présentation</h3>
+<p>Circuit du bon de commande : rédaction, soumission, approbation, réception, solde.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Tout passe par des fonctions serveur, journalisées ; numéro <code>BC-AAAA-NNNNN</code> attribué.</li><li>Statuts : brouillon, soumis, approuvé, reçu en partie, reçu, soldé, rejeté, annulé.</li><li>Approbation par une autre personne que le demandeur et que toute personne ayant créé, modifié ou soumis le bon.</li><li>Réception jamais au-delà de la commande ; quantités refusées motivées ; entrée au dépôt au prix commandé.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Stocks &amp; Achats &gt; Achats</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 24.1 (capture à venir) : liste des bons, détail, circuit. Figure 24.2 (capture à venir) : réception avec numéros des pneus reçus.</p>
+<h3>E. Actions disponibles</h3>
+<p>Rédiger, modifier le brouillon, soumettre ; approuver ou rejeter (motif) ; réceptionner ; annuler une réception (motif) ; annuler le bon (motif, avant réception) ; solder (reçu en partie, motif).</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>24.F.1 Du bon à la réception</b> : rédiger (fournisseur actif, dépôt de livraison, lignes, taxes) ; soumettre ; l&#x27;approbateur (approbation <code>purchases</code>) approuve depuis Mes validations ; le magasinier (écriture <code>stock</code>) réceptionne : numéro de réception, bon de livraison, quantités reçues et refusées. <b>24.F.2 Recevoir des pneus</b> : sur une ligne de pneus, un numéro par pneu reçu ; chaque pneu entre au registre des pneus (droit flotte ou maintenance requis).</p>
+<h3>G. Exemple pratique</h3>
+<p>Bon d&#x27;exemple de 4 pneus : approuvé par le comptable ; reçu 4, numéros saisis ; les 4 pneus apparaissent en stock dans Pneus.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Pas de facture d&#x27;achat, pas de rapprochement à trois voies, pas de contrôle budgétaire à l&#x27;approbation.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Fournisseurs, Stocks, Pneus, Paiements, Budgets, Mes validations.</p>
+<h3>J. Exercice</h3>
+<p>Approuvez un bon que vous avez soumis. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Solder</b> : clore un bon reçu en partie, le reliquat ne sera pas livré.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

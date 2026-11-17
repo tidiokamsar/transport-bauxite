@@ -1,0 +1,39 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>9. Planification : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>9. Planification</h2>
+<h3>A. Présentation</h3>
+<p>Fixe l&#x27;objectif de production d&#x27;un site pour une date et un shift (ou la journée), et le compare au réalisé.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Objectif en tonnes (voyages, camions, chargeuses en option) ; date et site requis ; tonnes positives.</li><li>Une révision crée une nouvelle version motivée ; un objectif ne se modifie pas en place et ne se supprime pas (il s&#x27;annule avec un motif).</li><li>Réalisé : tonnage des voyages livrés (livré, accepté, clôturé, en litige) de la date, du site d&#x27;origine et du shift.</li><li>Un compte rattaché à un site ne crée ni n&#x27;annule l&#x27;objectif d&#x27;un autre site.</li><li>La simulation n&#x27;écrit rien ; elle n&#x27;estime pas sans échantillon (3 jours et 10 voyages livrés pour la charge observée, 10 mesures pour une durée).</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Planification</b> (page standard <code>#/planification</code>), ou <b>Opérations transport &gt; Objectifs planifiés</b>. Volets : <b>Objectifs du jour</b>, <b>Registre des objectifs</b>, <b>Simulation et rattrapage</b>, <b>Clôture et rapport</b>, <b>Comparaison des shifts</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 9.1 (capture à venir) : objectifs du jour (objectif, réalisé, prévision de fin de shift étiquetée, camions nécessaires avec hypothèses). Figure 9.2 (capture à venir) : registre des objectifs et versions. Figure 9.3 (capture à venir) : ventilation d&#x27;un objectif. Figure 9.4 (capture à venir) : simulation (hypothèses et sources, besoin, tonnage atteignable, objectif révisé proposé). Figure 9.5 (capture à venir) : clôture de journée avec causes d&#x27;écart et rapport de production. Figure 9.6 (capture à venir) : comparaison des shifts.</p>
+<h3>E. Actions disponibles</h3>
+<p>Définir, réviser, annuler un objectif ; ventiler ; simuler et retenir un scénario (révision) ; clôturer la journée ; annuler une clôture (motif) ; rapport de production ; comparer les shifts.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>9.F.1 Définir puis réviser un objectif</b></p>
+<ul><li>Préconditions : droit <code>planning</code> ; site et shift existants.</li><li>Saisie : date, site, shift (vide = journée), tonnes, voyages et engins si connus.</li><li>Résultat : version 1 active. Réviser : même écran, nouvelles valeurs, motif obligatoire ; l&#x27;ancienne version passe « remplacé ».</li></ul>
+<p><b>9.F.2 Ventiler un objectif</b> : chaque ligne porte une destination différente du site de chargement, ou un contrat client actif, ou les deux, toutes de même forme ; la somme ne dépasse pas l&#x27;objectif ; une seule ventilation par version.</p>
+<p><b>9.F.3 Simuler</b> : choisir l&#x27;heure (heure de Conakry), lire les hypothèses et leurs sources ; pour retenir le scénario, réviser l&#x27;objectif avec motif.</p>
+<p><b>9.F.4 Clôturer la journée</b> : après la fin du dernier shift actif ; une cause d&#x27;écart au moins si le réalisé est sous l&#x27;objectif, si un objectif a été annulé ou révisé sous une cible non atteinte. Le bilan est figé ; les objectifs de la journée ne bougent plus. Si <code>planification_cloture_separee</code> vaut vrai, une autre personne que les auteurs des versions clôture.</p>
+<h3>G. Exemple pratique</h3>
+<p>Objectif d&#x27;exemple 2 000 t pour le shift Jour au Site minier A ; à 14 h, la prévision de fin de shift affiche 1 700 t ; le responsable révise à 1 800 t avec le motif « panne chargeuse » ; à la clôture, il saisit la cause d&#x27;écart.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>« Données insuffisantes » en simulation : échantillon trop faible, seuils fixes.</li><li>Réalisé d&#x27;une ligne ventilée par contrat seul : « non mesurable » (un voyage ne porte pas de contrat).</li><li>Pas d&#x27;objectif par matériau.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Sites, Shifts ; réalisé lu sur les Voyages ; le besoin du Dispatch part de l&#x27;objectif.</p>
+<h3>J. Exercice</h3>
+<p>Annulez un objectif sans motif. Résultat attendu : refus, motif obligatoire.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Version</b> : état daté d&#x27;un objectif ; la plus récente active fait foi.</li><li><b>Ventilation</b> : répartition de l&#x27;objectif par destination ou contrat.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

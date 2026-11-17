@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>20. Carburant : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>20. Carburant</h2>
+<h3>A. Présentation</h3>
+<p>CBG livre le carburant ; KOGON le réceptionne en cuve, le transfère, le distribue aux engins, l&#x27;inventorie et contrôle la facture CBG.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Le prix du litre se saisit à chaque livraison, jamais deviné ; la consommation est valorisée au prix des livraisons de la période.</li><li>Le stock d&#x27;une cuve est la somme de ses mouvements validés ; il reste « sans données » tant qu&#x27;un inventaire d&#x27;ouverture n&#x27;est pas validé.</li><li>Les mouvements ne se modifient ni ne se suppriment : ils s&#x27;annulent par un contre-mouvement à valider.</li><li>Mouvements et inventaires sont validés par une autre personne (réglage <code>carburant_validation_separee</code>, exigé par défaut).</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Carburant</b> : <b>Distribution aux engins</b>, <b>Livraisons et factures CBG</b>, <b>Réceptions, cuves et inventaires</b>, <b>Analyse carburant</b>, <b>Anomalies</b>, <b>Jauges connectées</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 20.1 (capture à venir) : distribution aux engins, bouton Saisir. Figure 20.2 (capture à venir) : livraisons et factures CBG, contrôle (conforme ou à examiner), pièces jointes de la livraison. Figure 20.3 (capture à venir) : cuves et citernes (capacité, seuil, stock). Figure 20.4 (capture à venir) : réception d&#x27;une livraison (volumes mesuré et accepté, méthode, motif d&#x27;écart). Figure 20.5 (capture à venir) : transfert. Figure 20.6 (capture à venir) : inventaire et décision. Figure 20.7 (capture à venir) : mouvements à valider. Figure 20.8 (capture à venir) : analyse carburant (litres par tonne et par heure). Figure 20.9 (capture à venir) : anomalies carburant et seuil saisi. Figure 20.10 (capture à venir) : jauges connectées (sans données).</p>
+<h3>E. Actions disponibles</h3>
+<p>Plein isolé ; livraison CBG ; facture CBG et contrôle ; cuves et citernes ; réception ; transfert ; inventaire et décision ; validation, rejet, annulation de mouvement ; analyses ; joindre le bon de livraison.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>20.F.1 Saisir un plein isolé</b> : Distribution aux engins, <b>Saisir</b> : date, engin, chauffeur, site, litres, compteur, note. Ne crée pas de sortie de cuve suivie ; pour une cuve suivie, utiliser la fiche FC (14.F.6). <b>20.F.2 Enregistrer une livraison puis la facture CBG</b> : référence, date, site, litres, prix unitaire ; joindre le bon. Facture : référence, date, montant, livraisons rattachées (une livraison n&#x27;appartient qu&#x27;à une facture) ; <b>Contrôler</b> : écart nul = conforme, sinon à examiner. <b>20.F.3 Créer une cuve</b> : type (cuve fixe, citerne mobile), site, capacité, seuil d&#x27;alerte. <b>20.F.4 Réceptionner une livraison</b> : cuve du site, date, volume mesuré, volume accepté (au plus le mesuré), méthode (jauge, pige, compteur, autre), motif si écart au document CBG. Entrée à valider. <b>20.F.5 Transférer</b> : source, destination, quantité ; sortie et entrée liées, décidées ensemble. <b>20.F.6 Inventorier</b> : volume mesuré (entre 0 et la capacité) ; refusé si un inventaire ou des mouvements attendent une décision ; une autre personne décide ; refusé si le solde a changé depuis la mesure (« saisissez un nouvel inventaire »). <b>20.F.7 Valider un mouvement</b> : par une autre personne ; rejet motivé. Annuler un mouvement validé : motif, contre-mouvement à valider.</p>
+<h3>G. Exemple pratique</h3>
+<p>Livraison d&#x27;exemple 30 000 l ; réception mesurée 29 850 l, acceptée 29 850 l, motif « écart de jauge » ; validée par le responsable carburant ; l&#x27;inventaire du soir constate 120 l de moins que le théorique : validé avec ajustement de -120 l, l&#x27;alerte d&#x27;écart s&#x27;affiche si le seuil est saisi.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Pas de correction tracée d&#x27;une livraison ou d&#x27;une facture CBG déjà saisie.</li><li>Jauges connectées : aucun matériel, écran sans données.</li><li>L&#x27;ancien solde saisi à la main est en lecture seule.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Fiches FC, Engins, Sites, Coûts, Centre des décisions, Mes validations.</p>
+<h3>J. Exercice</h3>
+<p>Validez un mouvement que vous avez saisi. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Inventaire d&#x27;ouverture</b> : premier inventaire validé d&#x27;une cuve, point de départ du stock.</li><li><b>Contre-mouvement</b> : mouvement inverse qui annule un mouvement validé.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

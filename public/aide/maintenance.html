@@ -1,0 +1,35 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>21. Maintenance et immobilisations : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>21. Maintenance et immobilisations</h2>
+<h3>A. Présentation</h3>
+<p>Les engins sont loués à Neemba, qui assure leur maintenance. SIGTB trace les arrêts (immobilisations) et les interventions du loueur. Les écrans Ordres de travail et Préventif servent à la maintenance interne.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Immobilisation : début et fin horodatés, cause (panne, maintenance planifiée, pneumatique, accident, attente de pièce, autre), imputation choisie (loueur, exploitant, à déterminer, sans valeur par défaut).</li><li>Une seule immobilisation ouverte par engin ; jamais de chevauchement ; l&#x27;engin passe immobilisé (en maintenance si planifiée), puis redevient actif à la clôture.</li><li>Intervention Neemba rattachée à une immobilisation imputée au loueur ou à déterminer ; délai contractuel saisi à la demande, jamais supposé ; remise en service validée par une autre personne que celle qui a saisi la fin.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Maintenance</b> : <b>Immobilisations</b>, <b>Interventions Neemba</b>, <b>Ordres de travail</b>, <b>Préventif</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 21.1 (capture à venir) : immobilisations ouvertes et closes, déclaration. Figure 21.2 (capture à venir) : intervention Neemba (demandée, prise en charge, terminée, remise validée), délai calculé. Figure 21.3 (capture à venir) : ordres de travail et pièces sorties du stock. Figure 21.4 (capture à venir) : plan préventif interne.</p>
+<h3>E. Actions disponibles</h3>
+<p>Déclarer, clôturer, corriger (motif), annuler (motif) une immobilisation ; demander, prendre en charge, terminer une intervention, valider ou refuser la remise en service ; créer, suivre, annuler (motif) un ordre de travail et lui sortir des pièces ; tenir un plan préventif.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>21.F.1 Déclarer puis clôturer une immobilisation</b> : engin, début, cause, imputation, description ; enregistrer. Clôturer : heure de fin après le début. Si une intervention du loueur est en cours, la clôture passe par la validation de la remise en service. <b>21.F.2 Suivre une intervention Neemba</b> : depuis l&#x27;immobilisation, <b>Demander</b> (heure, canal, délai contractuel) ; <b>Prendre en charge</b> (technicien du loueur) ; <b>Terminer</b> (rapport obligatoire, pièces fournies par) ; une autre personne <b>Valide la remise en service</b> (l&#x27;immobilisation se clôt) ou refuse (motif, retour à la prise en charge). <b>21.F.3 Ordre de travail</b> : créer (numéro attribué par le serveur), sortir les pièces par mouvement de stock rattaché, terminer ; annuler avec motif en cas d&#x27;erreur. <b>21.F.4 Préventif</b> : créer une échéance interne ; un engin rattaché à un contrat de location est signalé (sa maintenance relève de Neemba).</p>
+<h3>G. Exemple pratique</h3>
+<p>Chargeuse d&#x27;exemple en panne à 10:00, imputée au loueur ; demande à 10:15 avec délai de 4 h ; prise en charge à 13:00 ; fin à 16:30 ; remise validée à 16:45 par le chef de maintenance (autre que l&#x27;auteur de la fin).</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Sans délai contractuel saisi, le retard n&#x27;est pas évalué ; pas de portail Neemba.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Fiches FP (arrêts), Dispatch (disponibilité), Stocks (pièces), Évaluation Neemba, Centre des décisions.</p>
+<h3>J. Exercice</h3>
+<p>Déclarez une deuxième immobilisation ouverte sur le même engin. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Imputation</b> : qui porte l&#x27;arrêt (loueur, exploitant, à déterminer).</li><li><b>Remise en service</b> : retour de l&#x27;engin validé après intervention.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

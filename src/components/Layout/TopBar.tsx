@@ -5,6 +5,8 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { DeconnexionDialog } from './DeconnexionDialog';
 import { libelleShiftCourant, type EtatPoste } from '../Dispatch/controle';
+import { adresseAide, aGuide, LIENS_AIDE } from '../Aide/aide';
+import { useRoute } from '../ui/routeur';
 
 // Barre superieure, maquette du proprietaire (2026-11-09). Date, shift et
 // nombre d'alertes actives (table alerts) sont lus en base ; sans donnee, la
@@ -48,6 +50,7 @@ export const TopBar = ({
   onAllerA: (vue: string) => void;
 }) => {
   const { profile, user } = useAuth();
+  const route = useRoute();
   const { language, setLanguage } = useLanguage();
   const [maintenant, setMaintenant] = useState(() => new Date());
   const [shifts, setShifts] = useState<Shift[] | null>([]);
@@ -203,6 +206,14 @@ export const TopBar = ({
         {menu === 'aide' && (
           <div className="absolute right-14 top-14 z-50 w-80 rounded-2xl border border-stone-200 bg-white p-4 text-sm text-stone-600 shadow-xl">
             <p className="font-semibold text-stone-900">Aide</p>
+            <a href={adresseAide(route.vue || 'dashboard')} target="_blank" rel="noopener" className="mt-2 block font-semibold text-orange-700 underline underline-offset-2">
+              {aGuide(route.vue || 'dashboard') ? `Guide : ${sousTitre}` : 'Centre d\'aide'}
+            </a>
+            <ul className="mt-2 space-y-1">
+              {LIENS_AIDE.map((l) => (
+                <li key={l.page}><a href={l.page} target="_blank" rel="noopener" className="text-stone-700 underline underline-offset-2 hover:text-stone-900">{l.libelle}</a></li>
+              ))}
+            </ul>
             <p className="mt-2">Recherche rapide : Ctrl K.</p>
             <p className="mt-1">Chaque indicateur affiche sa source et son heure de mise à jour. « Sans données » signifie qu'aucune saisie n'existe encore.</p>
             <p className="mt-1">Pour un accès ou un mot de passe, contactez l'administrateur de la plateforme.</p>

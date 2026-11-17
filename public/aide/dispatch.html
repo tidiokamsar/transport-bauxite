@@ -1,0 +1,42 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>11. Dispatch : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>11. Dispatch</h2>
+<h3>A. Présentation</h3>
+<p>Le Dispatch prépare les voyages d&#x27;un shift et décide leur affectation : camion, chauffeur, engin de chargement. Il décide et affecte ; l&#x27;exécution se suit dans Voyages et rotations.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Le besoin en voyages vient de l&#x27;objectif : voyages visés, sinon tonnes cibles divisées par (capacité utile moyenne des camions disponibles x hypothèse de charge saisie). Sans objectif, capacité ou hypothèse, le besoin est vide, jamais supposé.</li><li>La recommandation est calculée dans l&#x27;écran avec des règles fixes et expliquées (immobilisations, habilitations, chauffeurs engagés, capacité, durée estimée sur le cycle observé, confiance selon la qualité des données). La personne décide.</li><li>Contraintes serveur, jamais contournées : camion actif et de type benne ; chauffeur actif ; permis valide à la date ; engin de chargement actif ; un chauffeur sur un seul camion par shift ; site de départ ou d&#x27;arrivée non fermé ; habilitations exigées valides ; engin sans immobilisation ouverte ; camion et chauffeur non engagés ailleurs ; voyage pas encore engagé.</li><li>Modifier ou refuser une recommandation demande un motif ; une réaffectation est motivée ; chaque décision est historisée.</li><li>Un voyage suspendu n&#x27;avance plus (sauf annulation) jusqu&#x27;à sa reprise motivée.</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Dispatch</b>, ou <b>Opérations transport &gt; Affectation des voyages</b>. Onglets : <b>Affectations</b>, <b>Voyages par état</b>, <b>Supervision</b>, <b>Shift et préparation</b>, <b>Journal</b> (onglet dans l&#x27;adresse : <code>#/dispatch?onglet=shift</code>). Les décisions, la suspension et les actions du shift (planifier, ouvrir, démarrer, annuler, clôturer, préparer) s&#x27;ouvrent en pages (<code>#/dispatch/shift/&lt;action&gt;</code>), plus en fenêtres. Un camion ou un chauffeur passé dans l&#x27;adresse (<code>?camion=</code>, <code>?chauffeur=</code>) filtre l&#x27;écran ; un bandeau bleu l&#x27;annonce, avec <b>Retirer ce filtre</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 11.1 (capture à venir) : onglet Shift et préparation (instance, besoin calculé avec hypothèses, confirmation du plan, clôture du shift). Figure 11.2 (capture à venir) : onglet Affectations, recommandation et ses raisons. Figure 11.3 (capture à venir) : page de décision <code>#/dispatch/&lt;voyage&gt;/modifiee</code>, <code>refusee</code> ou <code>reaffectation</code> (choix et motif). Figure 11.4 (capture à venir) : rapport de l&#x27;affectation groupée (Affecté ou Refusé, raison). Figure 11.5 (capture à venir) : page de suspension <code>#/dispatch/&lt;voyage&gt;/suspendre</code> (ou <code>reprendre</code>) avec motif. Figure 11.6 (capture à venir) : voyages par état. Figure 11.7 (capture à venir) : supervision et indicateurs (sans données = vide). Figure 11.8 (capture à venir) : journal des décisions. Figure 11.9 (capture à venir) : simulation de scénarios.</p>
+<h3>E. Actions disponibles</h3>
+<p>Planifier l&#x27;instance du shift ; confirmer le plan (crée les voyages préparés) ; affecter un voyage ; accepter la sélection ou tout accepter (300 voyages au plus) ; suspendre et reprendre ; démarrer et clôturer le shift ; simuler une répartition ; consulter la supervision et le journal.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>11.F.1 Préparer le shift</b></p>
+<ul><li>Préconditions : shift actif ; objectif du jour (sinon besoin vide) ; droit <code>trips</code>.</li><li>Accès : Dispatch, onglet <b>Shift et préparation</b>, date et site.</li><li>Saisie : planifier l&#x27;instance ; lire le besoin proposé ; saisir le nombre de voyages à préparer (motif si différent de la proposition ou sans proposition).</li><li>Contrôles : la version du plan est vérifiée (si quelqu&#x27;un l&#x27;a modifié entre-temps : « en cours de modification », recharger).</li><li>Résultat : voyages préparés au statut Planifié.</li></ul>
+<p><b>11.F.2 Affecter un voyage</b></p>
+<ul><li>Accès : onglet <b>Affectations</b>, choisir le voyage.</li><li>Lecture : recommandation (camion, chauffeur, engin) et ses raisons, avertissements (sanction en vigueur, données faibles).</li><li>Décision : <b>Accepter</b>, ou <b>Modifier</b> (choix d&#x27;un autre camion ou chauffeur, motif), ou <b>Refuser</b> (motif).</li><li>Résultat : voyage Affecté, décision au journal.</li><li>Erreurs fréquentes : « Camion indisponible ou inadapte », « Chauffeur indisponible », « Permis du chauffeur expire a la date du voyage », « Chauffeur deja affecte a un autre camion sur ce shift », « Site ferme le ... », « Chauffeur non habilite le ... », « Voyage engage : l&#x27;affectation ne change plus ».</li></ul>
+<p><b>11.F.3 Affectation groupée</b> : cocher les voyages préparés, <b>Accepter la sélection</b> (ou <b>Tout accepter</b>) ; lire le rapport : un refus n&#x27;annule que le voyage concerné.</p>
+<p><b>11.F.4 Suspendre puis reprendre un voyage</b> : sur le voyage, <b>Suspendre</b>, motif ; plus tard <b>Reprendre</b>, motif.</p>
+<p><b>11.F.5 Simuler une répartition</b> : choisir le site, la fenêtre d&#x27;observation (14 jours par défaut, 7 à 60) et le minimum de rotations mesurées (3 par défaut) ; lire la répartition proposée. Rien n&#x27;est écrit.</p>
+<p><b>11.F.6 Clôturer le shift</b> : onglet Shift ; si des voyages ne sont pas terminés, motif obligatoire ; le poste peut ensuite être clôturé.</p>
+<h3>G. Exemple pratique</h3>
+<p>Objectif d&#x27;exemple 40 voyages ; le dispatcheur confirme 40 voyages, accepte la sélection : 38 affectés, 2 refusés (« Chauffeur non habilite », visite médicale expirée). Il modifie ces deux voyages avec un autre chauffeur et le motif « visite médicale échue ».</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Un voyage suspendu ne s&#x27;affecte pas ; s&#x27;il était affecté, il peut être réaffecté.</li><li>Pas de carte des positions, pas de file d&#x27;attente ni de distance utilisée (aucune donnée).</li><li>Une sanction de conduite ne bloque pas : elle s&#x27;affiche en avertissement.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Planification (besoin), Postes (instance), Flotte, Chauffeurs, Habilitations, Immobilisations, Sites (fermetures) ; produit les voyages suivis au chapitre 12.</p>
+<h3>J. Exercice</h3>
+<p>Affectez un camion qui a une immobilisation ouverte. Résultat attendu : refus du serveur.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Recommandation</b> : proposition calculée, jamais appliquée sans décision.</li><li><b>Plan de shift</b> : nombre de voyages confirmé pour une instance, versionné.</li><li><b>Suspension</b> : arrêt tracé d&#x27;un voyage, levé par une reprise motivée.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

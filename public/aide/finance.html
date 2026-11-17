@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>29. Paiements fournisseurs, budgets et coûts : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>29. Paiements fournisseurs, budgets et coûts</h2>
+<h3>A. Présentation</h3>
+<p>SIGTB n&#x27;exécute aucun paiement : il enregistre la chaîne de décision et les paiements exécutés hors système. Il tient aussi les budgets, les coûts directs et l&#x27;export comptable.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Une seule pièce par paiement : facture Neemba contrôlée ou bon de commande reçu ou soldé ; montant au plus égal au reste à payer calculé par le serveur ; numéro <code>PAY-AAAA-NNNNN</code>.</li><li>Approbation par une autre personne que le proposant ; contrôle a posteriori par une autre personne que le proposant et l&#x27;exécutant.</li><li>Budget en TTC, par période, centre (site ou sans site), nature, devise ; il ne se modifie pas : il se révise (nouveau budget motivé) ou s&#x27;annule (motif). Un dépassement est signalé, jamais bloqué.</li><li>Coût direct : numéroté, devise obligatoire, ne se modifie ni ne se supprime, s&#x27;annule avec motif.</li></ul>
+<h3>C. Navigation</h3>
+<p><b>Contrats &amp; Finance</b> : <b>Paiements fournisseurs</b>, <b>Budgets et comptabilité</b>, <b>Coûts</b>.</p>
+<h3>D. Écrans</h3>
+<p>Figure 29.1 (capture à venir) : paiements (proposé, approuvé, exécuté, contrôlé), reste à payer. Figure 29.2 (capture à venir) : budgets, engagé, réalisé, dépenses à imputer. Figure 29.3 (capture à venir) : référentiels comptables et export CSV. Figure 29.4 (capture à venir) : coûts directs et répartition.</p>
+<h3>E. Actions disponibles</h3>
+<p>Proposer, approuver ou rejeter, saisir l&#x27;exécution, annuler, contrôler un paiement ; saisir, réviser, annuler un budget ; référentiels (natures, plan comptable, comptes de tiers) ; exporter ; enregistrer et annuler un coût.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>29.F.1 Payer une facture Neemba</b></p>
+<ul><li>Proposer (écriture <code>invoices</code>) : pièce, objet, montant.</li><li>Approuver (approbation <code>invoices</code>, autre personne) depuis Mes validations ; rejet motivé.</li><li>Saisir l&#x27;exécution après le virement réel : date non future et pas avant l&#x27;approbation, mode, référence bancaire obligatoire pour un virement ou un chèque, montant au plus l&#x27;approuvé.</li><li>Contrôler a posteriori (autre personne), anomalie motivée.</li></ul>
+<p><b>29.F.2 Saisir un budget</b> : période, centre, nature, devise, montant TTC ; réviser par un nouveau budget motivé. <b>29.F.3 Exporter pour la comptabilité</b> : période ; le CSV liste factures et avoirs émis, encaissements, paiements exécutés et coûts ; le compte de tiers reste vide tant qu&#x27;il n&#x27;est pas paramétré. <b>29.F.4 Enregistrer un coût</b> : date, catégorie, site, engin, montant TTC, devise ; annuler avec motif en cas d&#x27;erreur.</p>
+<h3>G. Exemple pratique</h3>
+<p>Facture Neemba d&#x27;exemple contrôlée, notifiée pour une part contestée : le reste à payer exclut la part réclamée ; le comptable propose, le directeur approuve, le comptable saisit le virement, un autre comptable contrôle.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<p>Pas d&#x27;intégration bancaire ; pas de retenue sur paiement ; l&#x27;export n&#x27;est pas une écriture en partie double ; catégories de coût sans écran.</p>
+<h3>I. Relations avec les autres modules</h3>
+<p>Contrats (factures Neemba), Achats (bons), Mes validations, Rapports.</p>
+<h3>J. Exercice</h3>
+<p>Proposez un paiement supérieur au reste à payer. Résultat attendu : refus.</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Reste à payer</b> : montant encore dû sur une pièce, calculé par le serveur.</li><li><b>Engagé, réalisé</b> : bons et pièces à payer, puis paiements exécutés et coûts.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

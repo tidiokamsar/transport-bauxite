@@ -64,7 +64,7 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Dispatch | Carte des positions, files d'attente, optimisation par distance | Dispatch | - | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
 | Voyages | Registre des voyages (filtres, contexte d'adresse) | Voyages et Rotations (#/trips) | Figure 12.1 | MGU 12.D | E2E voyages, operations-transport | Documentée, capture à venir |
 | Voyages | Créer un voyage (référence VYG-AAMMJJ-NNN) | Voyages et Rotations, Créer le voyage | Figure 12.2 | MGU 12.F.1 | pgTAP 09 ; E2E voyages | Documentée, capture à venir |
-| Voyages | Avancer le cycle du voyage (étapes, heures, pesée) | Fiche voyage, fenêtre de saisie | Figure 12.3 | MGU 12.F.2 | pgTAP 09 ; E2E voyages | Documentée, capture à venir |
+| Voyages | Avancer le cycle du voyage (étapes, heures, pesée) | Fiche voyage, page #/trips/<id>/etape | Figure 12.3 | MGU 12.F.2 | pgTAP 09 ; E2E voyages | Documentée, capture à venir |
 | Voyages | Fiche opérationnelle du voyage (synthèse, affectations, étapes, chronologie, fiches, tickets, documents, incidents, anomalies, contrôles, historique) | #/trips/id | Figure 12.4 | MGU 12.F.3 | pgTAP 66 ; E2E operations-transport | Documentée, capture à venir |
 | Voyages | Vérifier, valider ou contester un événement déclaré | Fiche voyage, action Vérifier | Figure 12.5 | MGU 12.F.4 | pgTAP 66 | Documentée, capture à venir |
 | Voyages | Rattacher un ticket CBG remis après livraison (motif) | Fiche voyage | Figure 12.6 | MGU 12.F.5 | pgTAP 61 | Documentée, capture à venir |
@@ -84,7 +84,11 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Fiches terrain | Terminer la saisie, soumettre au contrôle | Fiche terrain | Figure 14.7 | MGU 14.F.7 | pgTAP 71 | Documentée, capture à venir |
 | Fiches terrain | Contrôler, renvoyer en correction, valider (autre personne), archiver | Fiche terrain | Figure 14.8 | MGU 14.F.8 | pgTAP 71 ; vitest cycleFiche | Documentée, capture à venir |
 | Fiches terrain | Annuler une fiche (motif) | Fiche terrain | Figure 14.9 | MGU 14.F.9 | pgTAP 14, 71 | Documentée, capture à venir |
-| Fiches terrain | Lots de fiches, attribution, brouillon serveur | Fiches terrain | - | MGU 35 | aucun test nommé | Documentée, sans capture prévue |
+| Fiches terrain | Lots d'impression, de remise et de retour ; brouillon serveur | Fiches terrain, #/fiches/lot/<action> | Figures 14.2, 14.3, 14.11 | MGU 14.C, 14.H | vitest cycleFiche | Documentée, capture à venir |
+| Fiches terrain | Création de lots numérotés, attribution à un agent | - | - | MGU 35 | aucun test nommé | Non disponible (serveur sans écran) |
+| Voyages | Justifier l'absence de fiche terrain (D-088) | Fiche voyage, onglet Contrôles, #/trips/<id>/justifier-absence | Figures 12.10, 12.11 | MGU 12.F.8 | aucun test (D-093) | Documentée, capture à venir |
+| Opérations transport | Contexte camion et chauffeur dans l'adresse, bandeau avec retrait | Voyages, Dispatch, Fiches | Figure 16.5 | MGU 16.H | aucun test nommé | Documentée, capture à venir |
+| Shifts | Liste, fiche, formulaire et désactivation motivée en pages | #/shifts | Figures 8.1 à 8.4 | MGU 8.F.1, 8.F.2 | E2E dispatch-control-center | Documentée, capture à venir |
 | Pesée CBG | A. Importer un relevé officiel CBG (CSV, empreinte, aperçu) | Pesée CBG, espace A (#/tickets-cbg) | Figure 15.1 | MGU 15.F.1 | pgTAP 33, 62 ; E2E tickets-cbg | Documentée, capture à venir |
 | Pesée CBG | Annuler un relevé CBG (motif, autre personne, droit facturation) | Espace A | Figure 15.2 | MGU 15.F.2 | pgTAP 62 | Documentée, capture à venir |
 | Pesée CBG | B. Fiche terrain KOGON (relevé observé, brouillon local, correction motivée) | Espace B | Figure 15.3 | MGU 15.F.3 | pgTAP 62 ; E2E tickets-cbg | Documentée, capture à venir |
@@ -125,7 +129,7 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Pneus | Entrée en stock, montage, démontage, permutation, inspection, réparation, rechapage, réforme, annulation | Pneus | Figure 22.1 | MGU 22.F.1 | pgTAP 35, 50 ; E2E pneus | Documentée, capture à venir |
 | Pneus | Pneus à surveiller et seuils | Pneus | Figure 22.2 | MGU 22.F.2 | pgTAP 35 | Documentée, capture à venir |
 | Pneus | Performance par marque et modèle | Pneus, Performance | Figure 22.3 | MGU 22.D | pgTAP 50 | Documentée, capture à venir |
-| Pneus | Cycle de vie complet (carcasse PN, épisodes, contrôle des positions) D-091 | Pneus | - | MGU 35 | pgTAP 72 | Non documentable (non opérationnelle) |
+| Pneus | Cycle de vie complet (carcasse PN, épisodes, positions, inspections détaillées, interventions, stock, alertes, coûts, paramétrage) D-091 | Pneus, dix espaces #/tires?espace=... | Figures 22.1 à 22.14 | MGU 22.F.1 à 22.F.5 | pgTAP 72 | Documentée, capture à venir |
 | Stocks | Mouvements (entrée, sortie, transfert, retour), annulation motivée | Stocks & Achats > Stocks | Figure 23.1 | MGU 23.F.1 | pgTAP 28 ; E2E stocks-magasin | Documentée, capture à venir |
 | Stocks | Articles et dépôts | Stocks | Figure 23.2 | MGU 23.F.2 | aucun test nommé | Documentée, capture à venir |
 | Stocks | Inventaire d'article et de lot | Stocks | Figure 23.3 | MGU 23.F.3 | pgTAP 28, 50 | Documentée, capture à venir |
@@ -218,7 +222,7 @@ Tous les autres écrans ouverts par `App.tsx` ont un chapitre du manuel généra
 - **Dispatch** : Carte des positions, files d'attente, optimisation par distance (Non disponible). Aucun matériel GPS
 - **Voyages** : Événement correctif d'un voyage (corriger une étape saisie) (Non disponible). Annulation du voyage seulement
 - **Carburant** : Jauges connectées (Visuelle seulement). Aucun matériel installé : sans données
-- **Pneus** : Cycle de vie complet (carcasse PN, épisodes, contrôle des positions) D-091 (Non disponible). Écran au lot suivant
+- **Pneus** : import en masse, référentiel des modèles, capteurs de pression (non disponibles).
 - **Achats** : Facture d'achat, rapprochement à trois voies, contrôle budgétaire (Non disponible). Catalogue module 16 écart 1
 - **Suivi GPS** : Suivi GPS, intelligence flotte, historique des trajets (Visuelle seulement). Aucun matériel GPS : écrans sans données (extension à déclencheur)
 - **Suivi GPS** : Capteurs IoT (Visuelle seulement). Aucun boîtier

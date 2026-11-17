@@ -1,0 +1,40 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>15. Pesée CBG : aide SIGTB</title><style>
+:root{--fond:#faf7f4;--texte:#2b211b;--accent:#7c2d12;--bord:#e5dcd4;--doux:#6b5b50}
+@media (prefers-color-scheme:dark){:root{--fond:#1a1411;--texte:#efe7e1;--accent:#f0a070;--bord:#3a2e27;--doux:#b8a89c}}
+*{box-sizing:border-box}body{margin:0;background:var(--fond);color:var(--texte);font:15px/1.55 system-ui,sans-serif}
+header{border-bottom:1px solid var(--bord);padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+header a{color:var(--accent);font-weight:600;text-decoration:none}main{max-width:960px;margin:0 auto;padding:16px}
+h1,h2,h3{color:var(--accent);line-height:1.25}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto;font-size:13px}
+td,th{border:1px solid var(--bord);padding:4px 6px;vertical-align:top;text-align:left}th{background:rgba(124,45,18,.08)}
+code,pre{font-family:Consolas,monospace;font-size:12.5px}pre{overflow-x:auto;border:1px solid var(--bord);padding:8px}
+blockquote{margin:0;border-left:4px solid var(--accent);padding:4px 12px;color:var(--doux)}
+input{width:100%;padding:10px;font-size:15px;border:1px solid var(--bord);border-radius:8px;background:transparent;color:inherit}
+.res a{display:block;padding:6px 0;color:var(--accent)}.res small{color:var(--doux)}
+</style></head><body><header><a href="index.html">Aide SIGTB</a><a href="faq.html">FAQ</a><a href="glossaire.html">Glossaire</a><a href="circuits.html">Circuits</a><a href="prise-en-main.html">Prise en main</a></header><main><h2>15. Pesée CBG</h2>
+<h3>A. Présentation</h3>
+<p><b>CBG pèse, KOGON observe.</b> Le relevé officiel CBG (source A) et la fiche terrain KOGON (source B) sont conservés séparément puis rapprochés. La fiche KOGON n&#x27;est jamais un second ticket officiel ; une valeur CBG n&#x27;est jamais modifiée ; un cas ambigu n&#x27;est jamais tranché par le système. Poids en tonnes.</p>
+<h3>B. Principes métier</h3>
+<ul><li>Un relevé CBG exige ticket, date et poids sur chaque ligne, sinon tout le fichier est refusé ; un même fichier ne s&#x27;importe qu&#x27;une fois (empreinte SHA-256).</li><li>La tolérance (t et %) se paramètre par site ou globalement, versionnée ; sans paramètre, tout écart non nul est signalé.</li><li>Une anomalie ouverte sur un voyage bloque sa ligne de réconciliation jusqu&#x27;à décision motivée.</li><li>La clôture d&#x27;une anomalie revient à une autre personne que celles qui ont conclu et soumis (droit <code>invoices</code>).</li></ul>
+<h3>C. Navigation</h3>
+<p>Menu <b>Pesée CBG</b> (<code>#/tickets-cbg</code>) ou <b>Opérations transport &gt; Tickets et relevés CBG</b> ; quatre espaces adressables : <b>A. Relevés officiels CBG</b> (<code>#/tickets-cbg/releves</code>), <b>B. Fiches terrain KOGON</b> (<code>#/tickets-cbg/fiches</code>), <b>C. Rapprochement</b> (<code>#/tickets-cbg/rapprochement</code>), <b>D. Anomalies et validations</b> (<code>#/tickets-cbg/anomalies</code>). Les pièces jointes d&#x27;un relevé s&#x27;ouvrent en page.</p>
+<h3>D. Écrans</h3>
+<p>Figure 15.1 (capture à venir) : espace A, import CSV, aperçu, lignes rejetées et motif, pièces jointes du relevé. Figure 15.2 (capture à venir) : annulation d&#x27;un relevé avec motif. Figure 15.3 (capture à venir) : espace B, fiche KOGON (ticket, heure, camion, chauffeur, poids, anomalie signalée), boutons Enregistrer le brouillon et Envoyer la fiche. Figure 15.4 (capture à venir) : espace C, lecture côte à côte CBG et KOGON, écart en t et %, constats ; tolérance en bas. Figure 15.5 (capture à venir) : espace D, anomalie, actions Examiner, conclusions, Soumettre, Clôturer, Renvoyer. Figure 15.6 (capture à venir) : rectification d&#x27;un ticket. Figure 15.7 (capture à venir) : voyages livrés sans ticket.</p>
+<h3>E. Actions disponibles</h3>
+<p>Importer un relevé ; annuler un relevé ; saisir, envoyer, corriger une fiche KOGON ; rapprocher (chaque passe conservée) ; paramétrer la tolérance (droit <code>settings</code>) ; examiner, demander une vérification, confirmer la concordance, accepter un écart justifié (référence de preuve obligatoire pour un écart de poids), signaler une erreur CBG ; soumettre ; clôturer ou renvoyer en examen ; rectifier un ticket.</p>
+<h3>F. Procédures pas à pas</h3>
+<p><b>15.F.1 Importer un relevé CBG</b> : préparer le CSV (Excel : enregistrer sous CSV) avec ticket, date, net (ou brut et tare), immatriculation ; espace A, choisir le fichier, lire l&#x27;aperçu, envoyer. Joindre le fichier original dans les pièces jointes du relevé.</p>
+<p><b>15.F.2 Annuler un relevé importé par erreur</b> : par une personne ayant le droit facturation et autre que l&#x27;importateur, motif, tant qu&#x27;aucun voyage n&#x27;est dans une réconciliation close.</p>
+<p><b>15.F.3 Saisir une fiche KOGON</b> : site (obligatoire), rotation si connue, ticket, heure, camion, chauffeur, brut et tare (ou net) ; cocher « L&#x27;agent signale une anomalie » et la décrire si besoin. <b>Enregistrer le brouillon</b> (sur ce poste seulement) ou <b>Envoyer la fiche</b>. Renvoyer après un échec réseau ne crée pas de doublon. Corriger après envoi : <b>Corriger</b>, motif.</p>
+<p><b>15.F.4 Rapprocher</b> : espace C, choisir le relevé, <b>Rapprocher</b> ; lire les constats : Concordant, Concordant avec réserve, Écart de poids, Ticket CBG sans fiche KOGON, Fiche KOGON sans ticket CBG, Ticket dupliqué, Camion non reconnu, Rotation non retrouvée, Données incomplètes, À examiner.</p>
+<p><b>15.F.5 Traiter une anomalie</b> : espace D, ouvrir, <b>Examiner</b>, conclure (concordance confirmée, écart justifié avec référence, erreur CBG signalée, vérification demandée), <b>Soumettre à validation</b> ; le validateur <b>Clôture</b> ou <b>Renvoie en examen</b> (motif).</p>
+<p><b>15.F.6 Rectifier un ticket</b> : droits <code>trips</code> et <code>invoices</code>, motif, autre personne que l&#x27;auteur du ticket, session aal2 si la MFA est exigée ; refusé si la réconciliation est clôturée (passer par un avoir).</p>
+<h3>G. Exemple pratique</h3>
+<p>Relevé CBG d&#x27;exemple du 17 novembre, 40 lignes : 37 concordantes, 2 concordantes avec réserve (écart 0,1 t dans la tolérance de 0,2 t), 1 écart de poids (0,8 t). Le contrôleur examine, accepte l&#x27;écart justifié avec la référence du bon CBG ; le validateur finance clôture.</p>
+<h3>H. Cas particuliers et erreurs</h3>
+<ul><li>Sans relevé CBG, la ligne de réconciliation porte « sans relevé CBG » (bloquante, forçable par décision motivée).</li><li>Un ticket rectifié rend aujourd&#x27;hui le voyage non facturable (question ouverte au propriétaire).</li><li>Pas d&#x27;import PDF ni d&#x27;OCR.</li></ul>
+<h3>I. Relations avec les autres modules</h3>
+<p>Voyages et Fiches (source B), Réconciliation (tonnage officiel), Centre des décisions (voyage livré sans ticket).</p>
+<h3>J. Exercice</h3>
+<p>Importez deux fois le même fichier. Résultat attendu : second import refusé (empreinte identique).</p>
+<h3>K. Glossaire du module</h3>
+<ul><li><b>Source A</b> : relevé officiel CBG. <b>Source B</b> : relevé observé par KOGON.</li><li><b>Tolérance</b> : écart admis en t et en %, versionné.</li></ul><hr><p><small>Version documentée : a566f34 (2026-11-17 12:26 UTC). Les figures notées « capture à venir » seront ajoutées avec les captures d'écran.</small></p></main></body></html>

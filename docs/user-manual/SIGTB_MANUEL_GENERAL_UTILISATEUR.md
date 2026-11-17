@@ -438,8 +438,12 @@ Les shifts sont les plages de travail communes à tous les sites (par exemple Jo
 **Exploitation > Shifts**.
 
 ### D. Écrans
-Figure 8.1 (capture à venir) : liste des shifts et formulaire (nom, libellé, début, fin, ordre).
-Figure 8.2 (capture à venir) : journal des shifts.
+Pages standard (D-090, D-088 complément) : liste `#/shifts`, fiche `#/shifts/<identifiant>` (onglet Historique = journal), formulaire `#/shifts/nouveau` et `#/shifts/<identifiant>/modifier`, désactivation motivée en page d'action `#/shifts/<identifiant>/desactiver` (elle remplace l'ancienne petite fenêtre du navigateur).
+
+Figure 8.1 (capture à venir) : liste des shifts.
+Figure 8.2 (capture à venir) : fiche du shift, onglet Historique (journal des shifts).
+Figure 8.3 (capture à venir) : formulaire du shift en pleine page (nom, libellé, début, fin, ordre).
+Figure 8.4 (capture à venir) : page de désactivation avec motif.
 
 ### E. Actions disponibles
 Créer, modifier avec motif, désactiver avec motif ; consulter le journal.
@@ -447,7 +451,7 @@ Créer, modifier avec motif, désactiver avec motif ; consulter le journal.
 ### F. Procédures pas à pas
 **8.F.1 Créer un shift** : nouveau shift, saisir nom, libellé, heures, ordre ; enregistrer. Erreur fréquente : chevauchement avec un shift actif.
 
-**8.F.2 Désactiver un shift** : choisir le shift, **Désactiver**, motif, confirmer. Il n'est plus proposé aux saisies.
+**8.F.2 Désactiver un shift** : ouvrir la fiche du shift, **Désactiver** ; la page d'action demande le motif ; confirmer. Il n'est plus proposé aux saisies.
 
 ### G. Exemple pratique
 Création de « Jour » 06:00-18:00 puis « Nuit » 18:00-06:00 : les deux sont acceptés ; un troisième « Relève » 17:00-19:00 est refusé (chevauchement).
@@ -588,14 +592,14 @@ Le Dispatch prépare les voyages d'un shift et décide leur affectation : camion
 - Un voyage suspendu n'avance plus (sauf annulation) jusqu'à sa reprise motivée.
 
 ### C. Navigation
-Menu **Dispatch**, ou **Opérations transport > Affectation des voyages**. Onglets : **Affectations**, **Voyages par état**, **Supervision**, **Shift et préparation**, **Journal**.
+Menu **Dispatch**, ou **Opérations transport > Affectation des voyages**. Onglets : **Affectations**, **Voyages par état**, **Supervision**, **Shift et préparation**, **Journal** (onglet dans l'adresse : `#/dispatch?onglet=shift`). Les décisions, la suspension et les actions du shift (planifier, ouvrir, démarrer, annuler, clôturer, préparer) s'ouvrent en pages (`#/dispatch/shift/<action>`), plus en fenêtres. Un camion ou un chauffeur passé dans l'adresse (`?camion=`, `?chauffeur=`) filtre l'écran ; un bandeau bleu l'annonce, avec **Retirer ce filtre**.
 
 ### D. Écrans
 Figure 11.1 (capture à venir) : onglet Shift et préparation (instance, besoin calculé avec hypothèses, confirmation du plan, clôture du shift).
 Figure 11.2 (capture à venir) : onglet Affectations, recommandation et ses raisons.
-Figure 11.3 (capture à venir) : fenêtre de décision (accepter, modifier, refuser, motif).
+Figure 11.3 (capture à venir) : page de décision `#/dispatch/<voyage>/modifiee`, `refusee` ou `reaffectation` (choix et motif).
 Figure 11.4 (capture à venir) : rapport de l'affectation groupée (Affecté ou Refusé, raison).
-Figure 11.5 (capture à venir) : fenêtre de suspension avec motif.
+Figure 11.5 (capture à venir) : page de suspension `#/dispatch/<voyage>/suspendre` (ou `reprendre`) avec motif.
 Figure 11.6 (capture à venir) : voyages par état.
 Figure 11.7 (capture à venir) : supervision et indicateurs (sans données = vide).
 Figure 11.8 (capture à venir) : journal des décisions.
@@ -663,18 +667,20 @@ Le voyage est l'objet central de la chaîne : chargement sur le site, route, ré
 - Un voyage engagé ne se supprime pas : il s'annule.
 
 ### C. Navigation
-Menu **Voyages & Rotations** (`#/trips`) ou **Opérations transport > Registre des voyages** ; fiche du voyage `#/trips/<identifiant>`.
+Menu **Voyages & Rotations** (`#/trips`) ou **Opérations transport > Registre des voyages** ; fiche du voyage `#/trips/<identifiant>` ; actions en pages `#/trips/<identifiant>/<action>` (étape, ticket, vérifier, suspendre, reprendre, justifier-absence). Le registre lit le camion et le chauffeur du contexte de l'adresse et l'annonce par un bandeau.
 
 ### D. Écrans
 Figure 12.1 (capture à venir) : registre des voyages avec filtres et contexte (date, site, shift).
 Figure 12.2 (capture à venir) : création d'un voyage.
-Figure 12.3 (capture à venir) : fenêtre de saisie des étapes et de la pesée.
+Figure 12.3 (capture à venir) : page de saisie de l'étape et de la pesée (`#/trips/<identifiant>/etape`).
 Figure 12.4 (capture à venir) : fiche opérationnelle du voyage, onglets Synthèse, Affectations, Étapes, Chronologie, Fiches, Tickets CBG (officiel CBG et saisie KOGON distincts), Documents et preuves, Incidents, Anomalies, Contrôles, Historique.
 Figure 12.5 (capture à venir) : action Vérifier un événement.
 Figure 12.6 (capture à venir) : rattacher un ticket CBG avec motif.
 Figure 12.7 (capture à venir) : bouton Enchaîner le voyage suivant.
 Figure 12.8 (capture à venir) : déclaration d'incident depuis le voyage.
 Figure 12.9 (capture à venir) : rapports par axe.
+Figure 12.10 (capture à venir) : onglet Contrôles, contrôle « fiche présente » et bouton **Justifier l'absence de fiche**.
+Figure 12.11 (capture à venir) : page de justification de l'absence de fiche (motif, document).
 
 ### E. Actions disponibles
 Créer un voyage ; avancer le cycle ; annuler, interrompre, contester, rejeter (motif) ; rattacher un ticket CBG ; enchaîner le voyage suivant ; suspendre, reprendre ; vérifier, valider ou contester un événement déclaré ; déclarer un incident ; joindre une pièce ; rapports par axe et export CSV.
@@ -683,7 +689,7 @@ Créer un voyage ; avancer le cycle ; annuler, interrompre, contester, rejeter (
 **12.F.1 Créer un voyage hors dispatch** : **Créer le voyage**, date, origine, destination, camion et chauffeur facultatifs ; référence `VYG-AAMMJJ-NNN` attribuée. État Affecté si camion et chauffeur, sinon Planifié.
 
 **12.F.2 Avancer le cycle**
-- Accès : fiche du voyage, ouvrir la saisie des étapes.
+- Accès : fiche du voyage, bouton de l'étape suivante : la saisie s'ouvre en page (`#/trips/<identifiant>/etape`).
 - Saisie : étape suivante, heure réelle ; à l'arrivée au dépôt : ticket CBG, brut, tare (tonnes).
 - Contrôles : ordre des étapes, heures, ticket unique.
 - Résultat : nouvel état, événement au journal.
@@ -696,6 +702,8 @@ Créer un voyage ; avancer le cycle ; annuler, interrompre, contester, rejeter (
 **12.F.5 Rattacher un ticket remis en retard** : voyage livré sans ticket, **Rattacher le ticket CBG**, numéro, poids, motif du retard. Sans ticket, le voyage n'est pas facturable.
 
 **12.F.6 Enchaîner le voyage suivant** : sur un voyage livré, **Enchaîner le voyage suivant** ; le même camion et le même chauffeur prennent un voyage préparé du même site ou un nouveau voyage sur le même trajet. Refusé si l'un est engagé ailleurs ou si une contrainte du dispatch n'est pas remplie.
+
+**12.F.8 Justifier l'absence de fiche terrain** (D-088 complément) : pour un voyage pesé ou livré sans fiche, onglet **Contrôles**, **Justifier l'absence de fiche** ; saisir le motif (10 caractères au moins) et, si possible, la référence du document. Le contrôle « fiche présente » affiche alors « justifié ». La justification se retire par **Retirer la justification** (motif). Chaque justification est conservée (aucune modification) ; si quelqu'un a justifié entre-temps, l'envoi est refusé et il faut recharger. Droit `trips` et site du voyage exigés.
 
 **12.F.7 Rapports par axe** : **Rapports par axe**, axe (camion, chauffeur, site de chargement, shift), période de 367 jours au plus ; export CSV.
 
@@ -780,7 +788,7 @@ Les fiches terrain sont des fiches papier numérotées par le serveur, préparé
 - Chaque arrêt saisi sur une FP devient une immobilisation de l'engin. Le prix du litre n'est jamais saisi sur une FC.
 
 ### C. Navigation
-Menu **Fiches terrain** (liste, préparation, impression groupée) ; fiche `#/fiches/<identifiant>` avec ses actions en pleine page ; **Opérations transport > Cycle des fiches**.
+Menu **Fiches terrain** (liste, préparation `#/fiches/nouveau`, lots d'impression, de remise et de retour `#/fiches/lot/<action>?ids=...`) ; fiche `#/fiches/<identifiant>` avec ses actions en pages `#/fiches/<identifiant>/<action>` (imprimer, remettre, retour, saisir-ligne, saisir-pointage, saisir-carburant, terminer-saisie, soumettre, controler, renvoyer, valider, archiver, annuler) ; **Opérations transport > Cycle des fiches**. Le camion et le chauffeur du contexte filtrent la liste (bandeau avec retrait).
 
 ### D. Écrans
 Figure 14.1 (capture à venir) : liste des fiches d'une date, d'un site et d'un shift, boutons de préparation.
@@ -823,7 +831,9 @@ Fiche FR d'exemple du camion AB-1234 : 3 rotations saisies ; le contrôle relèv
 - « Fiche ... close » : fiche déjà saisie ou annulée.
 - « Index d'horametre incoherents (fin inferieure au debut) ».
 - La saisie anticipée avant retour reste possible et est tracée.
-- Lots de fiches, attribution et brouillon serveur existent côté serveur sans écran.
+- Le brouillon de saisie est enregistré sur le serveur (`enregistrer_brouillon_fiche`) et repris à la saisie suivante.
+- Impression, remise et retour se font fiche par fiche ou par lot de fiches sélectionnées dans la liste.
+- La création de lots numérotés (LF-AAMMJJ-NNN) et l'attribution de fiches à un agent existent côté serveur (`creer_lot_fiches`, `attribuer_fiches`) sans écran.
 
 ### I. Relations avec les autres modules
 Dispatch (voyages), Voyages (étapes), Pesée (ticket), Immobilisations (arrêts FP), Carburant (sorties FC à valider au registre, écrites à la validation pour les lignes du cycle).
@@ -849,7 +859,7 @@ Validez une fiche dont vous avez saisi une ligne. Résultat attendu : refus (sé
 - La clôture d'une anomalie revient à une autre personne que celles qui ont conclu et soumis (droit `invoices`).
 
 ### C. Navigation
-Menu **Pesée CBG** (`#/tickets-cbg`) ou **Opérations transport > Tickets et relevés CBG** ; quatre espaces : **A. Relevés officiels CBG**, **B. Fiches terrain KOGON**, **C. Rapprochement**, **D. Anomalies et validations**.
+Menu **Pesée CBG** (`#/tickets-cbg`) ou **Opérations transport > Tickets et relevés CBG** ; quatre espaces adressables : **A. Relevés officiels CBG** (`#/tickets-cbg/releves`), **B. Fiches terrain KOGON** (`#/tickets-cbg/fiches`), **C. Rapprochement** (`#/tickets-cbg/rapprochement`), **D. Anomalies et validations** (`#/tickets-cbg/anomalies`). Les pièces jointes d'un relevé s'ouvrent en page.
 
 ### D. Écrans
 Figure 15.1 (capture à venir) : espace A, import CSV, aperçu, lignes rejetées et motif, pièces jointes du relevé.
@@ -915,6 +925,7 @@ Figure 16.1 (capture à venir) : vue générale de l'espace.
 Figure 16.2 (capture à venir) : journal des événements (voyage, événement, opération, saisie, source, statut, justificatif).
 Figure 16.3 (capture à venir) : anomalies et écarts (catégorie, gravité, statut, ouverte le, traitement).
 Figure 16.4 (capture à venir) : contrôles et clôtures.
+Figure 16.5 (capture à venir) : registre filtré par le contexte camion, bandeau « Filtré par le contexte ».
 
 ### E. Actions disponibles
 Filtrer ; ouvrir la fiche du voyage ; vérifier un événement (depuis la fiche du voyage).
@@ -928,7 +939,7 @@ Filtrer ; ouvrir la fiche du voyage ; vérifier un événement (depuis la fiche 
 Le responsable des opérations ouvre Contrôles et clôtures pour la veille : 2 voyages sans fiche FR rattachée ; il ouvre chacun, puis la fiche du camion dans Fiches terrain.
 
 ### H. Cas particuliers et erreurs
-Les écrans de Dispatch, Shifts et Pesée CBG ne lisent du contexte que la date.
+Le registre des voyages, le Dispatch et les Fiches terrain lisent aussi le camion et le chauffeur du contexte ; un bandeau bleu « Filtré par le contexte » l'annonce, avec **Retirer ce filtre** (jamais appliqué en silence). Shifts et Pesée CBG ne lisent du contexte que la date.
 
 ### I. Relations avec les autres modules
 Planification, Postes, Dispatch, Voyages, Fiches, Pesée CBG.
@@ -1179,43 +1190,69 @@ Déclarez une deuxième immobilisation ouverte sur le même engin. Résultat att
 ## 22. Pneus
 
 ### A. Présentation
-Suivi de chaque pneu de l'entrée en stock à la réforme, avec ses kilomètres et son coût.
+Gestion du cycle de vie de chaque pneu (D-052, D-091) : carcasse identifiée par un code SIGTB permanent, montages, inspections, interventions et rechapages, stock et mouvements, alertes, coûts. Dix espaces sous le menu **Pneus**, au standard des pages (D-090).
 
 ### B. Principes métier
-- Le registre est recalculé depuis le journal des opérations, non modifiable.
-- Opérations datées, jamais futures ni antérieures à la dernière opération du pneu ; seule la dernière opération s'annule ; l'entrée en stock ne s'annule pas (réformer avec motif).
-- Coût au kilomètre affiché seulement si toutes les mesures existent.
-- Le cycle de vie complet (carcasse codée, épisodes, contrôle des positions, D-091) est fusionné côté serveur mais non déployé et sans écran.
+- Chaque carcasse reçoit un code permanent `PN-NNNNNN` ; le numéro de série est unique s'il est fourni ; une carcasse sans numéro se crée avec un motif. Un rechapage ne crée jamais de nouvelle carcasse.
+- Le registre est recalculé depuis le journal des opérations (`pneus_operations`), non modifiable ; une correction de caractéristiques est tracée et non annulable ; aucune carcasse n'est supprimée.
+- Le prix n'est retenu qu'avec sa source (bon de commande, facture, saisie).
+- Montage et permutation contrôlés : position, dimension, état, intervention en cours, engin, périmètre site. Les positions viennent de la configuration du modèle d'engin ; sans configuration, la position est libre, sauf si le réglage `pneu_configuration_exigee` est activé.
+- Inspection : date réelle distincte de la saisie, mesures par zone, pression et température seulement si mesurées, constats, recommandation. Un constat critique ouvre une proposition d'immobilisation, jamais une immobilisation automatique.
+- Usure et projection seulement avec le nombre de mesures fixé par les seuils (`mesures_min_projection`) ; sans seuil, aucune alerte.
+- Remise en service après intervention : décidée par un approbateur maintenance autre que celui qui a enregistré le retour ou le contrôle (séparation des tâches).
+- Droits : écriture avec `vehicles` ou `maintenance` en écriture ; décision d'immobilisation avec `maintenance` en écriture ; approbation et paramétrage avec `maintenance` en approbation ; administrateur pour tout.
 
 ### C. Navigation
-Menu **Pneus**.
+Menu **Pneus** (`#/tires`). Espaces (`#/tires?espace=...`) : **Tableau de bord**, **Registre**, **Montage et positions**, **Inspections**, **Maintenance pneumatique**, **Stocks et mouvements**, **Anomalies et sécurité**, **Performance et durée de vie**, **Coûts et budget**, **Paramétrage**. Fiche du pneu `#/tires/<identifiant>` ; nouvelle carcasse `#/tires/nouveau?objet=carcasse` ; actions `#/tires/<identifiant>/<action>` ; correction `#/tires/<identifiant>/modifier`.
 
 ### D. Écrans
-Figure 22.1 (capture à venir) : registre des pneus et opérations.
-Figure 22.2 (capture à venir) : pneus à surveiller et seuils.
-Figure 22.3 (capture à venir) : performance par marque et modèle.
+Figure 22.1 (capture à venir) : tableau de bord (parc, montés, disponibles, à décider, en intervention, réformés, à surveiller, immobilisants, inspections en retard, dépenses, coût par km, heure et tonne).
+Figure 22.2 (capture à venir) : registre (code SIGTB, numéro de série, marque et modèle, dimension, état, engin et position, site, profondeur, km, alertes).
+Figure 22.3 (capture à venir) : fiche du pneu, onglets Synthèse, Identification, Caractéristiques, Position actuelle, Montages, Inspections, Interventions, Rechapages, Coûts, Documents, Alertes, Chronologie.
+Figure 22.4 (capture à venir) : création d'une carcasse.
+Figure 22.5 (capture à venir) : montage et positions (schéma selon la configuration du modèle).
+Figure 22.6 (capture à venir) : page de montage.
+Figure 22.7 (capture à venir) : page d'inspection détaillée.
+Figure 22.8 (capture à venir) : maintenance pneumatique (interventions et rechapages).
+Figure 22.9 (capture à venir) : stocks et mouvements.
+Figure 22.10 (capture à venir) : anomalies et sécurité (alertes, propositions d'immobilisation).
+Figure 22.11 (capture à venir) : performance et durée de vie (usure, épisodes).
+Figure 22.12 (capture à venir) : coûts et budget.
+Figure 22.13 (capture à venir) : paramétrage (configurations de positions, seuils, critères de rechapage, journal).
+Figure 22.14 (capture à venir) : correction tracée des caractéristiques.
 
 ### E. Actions disponibles
-Entrée en stock ; montage ; démontage (motif) ; permutation ; inspection (profondeur ou pression) ; réparation (pneu à décider) ; rechapage (pneu démonté, prestataire, plafond) ; réforme (motif, définitive) ; annulation de la dernière opération (motif) ; seuils (administrateur).
+Depuis la fiche, selon l'état et les droits : **Monter**, **Démonter**, **Permuter**, **Inspecter**, **Transférer**, **Envoyer en intervention**, **Retour d'intervention**, **Annuler l'intervention**, **Contrôler**, **Décider la remise en service**, **Proposer une immobilisation**, **Décider l'immobilisation**, **Réformer**, **Corriger**. Depuis les espaces : créer une carcasse ; paramétrer les configurations, les seuils et les critères de rechapage.
 
 ### F. Procédures pas à pas
-**22.F.1 Monter un pneu** : pneu en stock et réutilisable, engin du périmètre, position normalisée libre ; compteur ; enregistrer. Démonter : motif, état réutilisable ou à décider, compteur au moins égal à celui du montage.
-**22.F.2 Régler les seuils** : profondeur minimale (mm), délai maximal sans inspection (jours), seuil de réforme précoce (km). Sans seuil, aucune alerte.
+**22.F.1 Créer une carcasse** : **Pneus > Registre**, nouvelle carcasse ; marque, modèle, dimension, numéro de série (ou motif « sans numéro »), prix avec sa source si connu ; enregistrer. Le code `PN-NNNNNN` est attribué par le serveur.
+
+**22.F.2 Monter un pneu** : fiche d'un pneu disponible, **Monter** ; engin du périmètre, position (proposée par la configuration du modèle), compteur ; enregistrer. Refus si la position est occupée, la dimension différente, le pneu en intervention ou l'engin verrouillé. **Démonter** : motif, état de sortie, compteur au moins égal à celui du montage.
+
+**22.F.3 Inspecter** : **Inspecter** ; date réelle, mesures par zone, pression et température si mesurées, constats, recommandation ; enregistrer. Un défaut critique crée une proposition d'immobilisation à décider.
+
+**22.F.4 Intervention ou rechapage** : **Envoyer en intervention** (type, prestataire ; critères de rechapage) ; au retour, **Retour d'intervention** (coût, pièce) ; **Contrôler** (conforme ou non) ; un approbateur distinct **Décide la remise en service**.
+
+**22.F.5 Paramétrer** : **Paramétrage** ; configuration de positions par modèle d'engin, seuils (profondeur minimale, délai sans inspection, mesures minimales pour la projection...), critères de rechapage. Chaque modification est journalisée.
 
 ### G. Exemple pratique
-Pneu d'exemple monté à 100 000 km, démonté à 160 000 km, réformé : 60 000 km parcourus ; coût au km affiché si le prix d'achat est connu.
+Carcasse d'exemple PN-000002 montée en AV G sur un camion ; inspection à 4 mm sous le seuil paramétré : alerte « à surveiller » ; démontage, envoi en rechapage, retour, contrôle conforme, remise en service décidée par le chef de maintenance.
 
 ### H. Cas particuliers et erreurs
-Pas de référentiel des modèles ; un pneu annulé à la réception apparaît « Annulé (réception) ».
+- Sans configuration de positions ni seuil, le schéma et les alertes correspondantes restent vides (aucune valeur supposée).
+- Un pneu annulé à la réception apparaît « Annulé (réception) ».
+- Coût par km affiché seulement si les mesures existent ; sinon « Sans données ».
 
 ### I. Relations avec les autres modules
-Achats (réception de pneus), Engins, Immobilisations (cause pneumatique).
+Achats (réception de pneus), Engins (modèle et compteur), Immobilisations (proposition décidée), Pièces jointes (documents du pneu et des inspections).
 
 ### J. Exercice
-Rechapez un pneu monté. Résultat attendu : refus (seul un pneu démonté se rechape).
+Décidez la remise en service d'une intervention que vous avez vous-même contrôlée. Résultat attendu : refus (séparation des tâches).
 
 ### K. Glossaire du module
-- **Rechapage** : remise en état de la bande de roulement d'un pneu démonté.
+- **Carcasse** : le pneu physique, identifié par son code SIGTB permanent.
+- **Épisode** : période de service d'une carcasse entre deux rechapages.
+- **Rechapage** : remise en état de la bande de roulement, sans nouvelle carcasse.
 
 ---
 
@@ -1764,9 +1801,9 @@ Liste des fonctionnalités absentes ou incomplètes constatées dans le code. Au
 | Postes | Retrait motivé d'un membre de l'équipe | Catalogue module 05 |
 | Dispatch | Positions, distances, files d'attente, optimisation | D-087 |
 | Voyages | Événement correctif d'une étape saisie | Catalogue module 07 |
-| Fiches | Écrans des lots de fiches, de l'attribution et du brouillon serveur | D-089 |
+| Fiches | Écrans de création de lots numérotés et d'attribution des fiches à un agent | D-089 |
 | Pesée | Import PDF, OCR ; facturation d'un ticket rectifié après décision | D-081, D-078 point 7 |
-| Pneus | Écran du cycle de vie complet (serveur D-091 fusionné, non déployé) | D-091 |
+| Pneus | Import en masse ; référentiel des modèles de pneus ; lecture des capteurs de pression | D-091, catalogue module 12 |
 | Carburant | Correction tracée d'une livraison ou d'une facture CBG ; jauges réelles | Catalogue module 13 |
 | Achats | Facture d'achat, rapprochement à trois voies, contrôle budgétaire | Catalogue module 16 |
 | Contrats, Neemba | Décompte de location complet branché au contrôle ; distances validées dans le rapport d'engagements | D-013, D-043 |
