@@ -82,7 +82,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Connexion Microsoft 365 | Page de connexion, bouton Microsoft | Tous | Désactivée par configuration | LoginPage.tsx signInWithOAuth azure + aucun fournisseur azure dans deploy/vps/docker-compose.yml | Figure 2.1 | MGU 2.H | Le bouton existe, le fournisseur n'est pas configuré : message « Connexion Microsoft 365 indisponible » |
 | Mot de passe oublié par courriel | Page de connexion, lien Mot de passe oublié | Tous | Non disponible | LoginPage.tsx (message : reinitialisation par e-mail non activee) + aucun SMTP | Figure 2.2 | MGU 2.F.4 | L'administrateur attribue un nouveau mot de passe |
 | Changer son propre mot de passe | Sécurité du compte | Tous | Non disponible | Aucun appel updateUser dans src/ | Figure 2.4 | MGU 35 | L'administrateur attribue un nouveau mot de passe |
-| Double authentification TOTP (inscription, retrait, code a la connexion) | Sécurité du compte (#/securite-compte), menu profil | Tous | Opérationnelle et testée | Auth/SecuriteCompte.tsx, VerificationMfa.tsx, garde_aal2 + pgTAP 24 + E2E double-authentification | Figure 2.4 | MGU 2.F.3 | - |
+| Double authentification TOTP (inscription, retrait, code à la connexion) | Sécurité du compte (#/securite-compte), menu profil | Tous | Opérationnelle et testée | Auth/SecuriteCompte.tsx, VerificationMfa.tsx, garde_aal2 + pgTAP 24 + E2E double-authentification | Figure 2.4 | MGU 2.F.3 | - |
 | Exigence MFA pour opérations sensibles (mfa_exige) | Sécurité du compte | Administrateur | Désactivée par configuration | settings mfa_exige, garde_aal2 + pgTAP 24 | Figure 2.4 | MAD 13 | Inactive tant que le propriétaire ne l'active pas (CLAUDE.md, toujours demander) |
 | Déconnexion | Barre supérieure, menu profil, Se déconnecter | Tous | Opérationnelle et testée | Layout/TopBar.tsx signOut + E2E connexion | Figure 2.5 | MGU 2.F.2 | - |
 | Langue de l'interface français ou anglais | Menu profil, Langue | Tous | Partielle | LanguageContext.tsx + libelles majoritairement en francais | Figure 2.5 | MGU 3.D | Traduction anglaise incomplète |
@@ -100,7 +100,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Export CSV des listes standard | Pages liste converties | Selon droit de lecture | Opérationnelle et testée | ui/PageListe.tsx, liste.ts + E2E pages-standard | Figure 3.4 | MGU 3.F.3 | Pas d'export Excel natif ni PDF serveur |
 | Onglet Historique des fiches | Pages détail converties | Selon droit de lecture | Opérationnelle avec limites | ui/Historique.tsx, evenements.ts | Figure 3.5 | MGU 3.D | Un module sans journal le dit (sites, chauffeurs limités) |
 | Pièces jointes PDF, JPEG, PNG, WebP (CSV, XLSX pour relevé CBG), 10 Mio | Voyage, ticket CBG, relevé compteur, relevé CBG, livraison carburant CBG | Droit d'ecriture du module de l'objet | Opérationnelle et testée | ui/PiecesJointes.tsx, enregistrer_piece_jointe, confirmer_piece_jointe, annuler_piece_jointe + pgTAP 64 + E2E pieces-jointes | Figure 3.6 | MGU 3.F.4 | Pas de pièces sur les autres objets (onglet affiché l'ecart) |
-| Fonctionnement hors ligne | Indicateur hors ligne | Tous | Non disponible | Offline/OfflineIndicator.tsx affiche l'etat, aucune file de saisie utilisee | - | MGU 3.H | Saisie a refaire sans connexion |
+| Fonctionnement hors ligne | Indicateur hors ligne | Tous | Non disponible | Offline/OfflineIndicator.tsx affiche l'etat, aucune file de saisie utilisee | - | MGU 3.H | Saisie à refaire sans connexion |
 | Actions rapides | Route #/quick-actions sans entrée de menu | Tous | Partielle | QuickActions/QuickActionsPanel.tsx (raccourcis de navigation) | - | - | Route orpheline, sans lien dans le menu |
 
 ### Pilotage
@@ -109,9 +109,9 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 |---|---|---|---|---|---|---|---|
 | Tableau de bord (indicateurs avec source, période, fiabilité, heure) | Tableau de bord | Lecture dashboard | Opérationnelle et testée | Dashboard/DashboardView.tsx, indicateurs_pilotage + pgTAP 40 + E2E tableau-de-bord | Figure 4.1 | MGU 4.F.1 | - |
 | Centre de pilotage (filtres site, shift, véhicule, partenaire, comparaison de périodes, export CSV, impression) | Centre de pilotage | Lecture dashboard | Opérationnelle et testée | Pilotage/CentrePilotageView.tsx, indicateurs_pilotage + pgTAP 40, 51 + E2E centre-pilotage | Figure 4.2 | MGU 4.F.2 | Pas de graphique d'evolution ni widgets finance du DG |
-| Mes validations (liste calculée des décisions en attente) | Mes validations | Tous selon droits | Opérationnelle et testée | Notifications/MesValidationsView.tsx, mes_validations + pgTAP 39 + E2E mes-validations | Figure 5.1 | MGU 5.F.1 | La décision se prend dans l'ecran du module |
+| Mes validations (liste calculée des décisions en attente) | Mes validations | Tous selon droits | Opérationnelle et testée | Notifications/MesValidationsView.tsx, mes_validations + pgTAP 39 + E2E mes-validations | Figure 5.1 | MGU 5.F.1 | La décision se prend dans l'écran du module |
 | Notifications personnelles et marquage lu | Mes validations | Tous | Opérationnelle avec limites | marquer_notifications_lues + pgTAP 39 | Figure 5.2 | MGU 5.F.2 | Pas de courriel ni SMS |
-| Centre des décisions (alertes et décisions par priorité) | Exploitation > Centre des décisions | Lecture du module de la règle | Opérationnelle et testée | Decisions/CentreDecisionsView.tsx, centre_decisions, actualiser_alertes, regles_alertes + pgTAP 51 + E2E decisions-hse | Figure 6.1 | MGU 6.F.1 | Alertes a seuil inactives tant que le seuil n'est pas saisi |
+| Centre des décisions (alertes et décisions par priorité) | Exploitation > Centre des décisions | Lecture du module de la règle | Opérationnelle et testée | Decisions/CentreDecisionsView.tsx, centre_decisions, actualiser_alertes, regles_alertes + pgTAP 51 + E2E decisions-hse | Figure 6.1 | MGU 6.F.1 | Alertes à seuil inactives tant que le seuil n'est pas saisi |
 | Prendre en compte, résoudre une alerte (motif) | Centre des décisions | Écriture du module de la règle | Opérationnelle et testée | resoudre_alerte + pgTAP 51 | Figure 6.2 | MGU 6.F.2 | - |
 
 ### Sites
@@ -120,7 +120,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 |---|---|---|---|---|---|---|---|
 | Liste et fiche des sites | Exploitation > Sites (#/sites) | Lecture settings ou du module | Opérationnelle et testée | Sites/SitesView.tsx, DetailSite.tsx + E2E saisie-referentiels, organisation | Figure 7.1 | MGU 7.F.1 | - |
 | Créer, modifier un site | #/sites/nouveau, #/sites/id/modifier | Écriture settings | Opérationnelle avec limites | FormulaireSite.tsx (ecriture sous RLS) + pgTAP 60 + E2E saisie-referentiels | Figure 7.2 | MGU 7.F.2 | Pas de fonction serveur ni de journal du site |
-| Désactiver, réactiver un site | Fiche du site | Écriture settings | Opérationnelle avec limites | ActionSite.tsx (mise a jour sous RLS, sans motif) | Figure 7.3 | MGU 7.F.3 | Aucun motif conservé |
+| Désactiver, réactiver un site | Fiche du site | Écriture settings | Opérationnelle avec limites | ActionSite.tsx (mise à jour sous RLS, sans motif) | Figure 7.3 | MGU 7.F.3 | Aucun motif conservé |
 | Infrastructures du site (points de chargement, dépôts, pont-bascule, etc.) | Exploitation > Infrastructures et fermetures | Écriture settings ou administrateur | Opérationnelle et testée | Sites/InfrastructuresView.tsx + pgTAP 30 + E2E infrastructures | Figure 7.4 | MGU 7.F.4 | - |
 | Fermeture de site ou d'infrastructure, levée anticipée motivée | Infrastructures et fermetures | Écriture settings ou administrateur | Opérationnelle et testée | fermetures_site + pgTAP 30 + E2E infrastructures | Figure 7.5 | MGU 7.F.5 | Fermeture du site entier bloque le dispatch |
 
@@ -129,7 +129,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Définir un shift (création, modification motivée, nuit) | Exploitation > Shifts | Administrateur ou écriture settings, profil sans site | Opérationnelle et testée | Shifts/ShiftsView.tsx, definir_shift + pgTAP 61 + E2E defauts-bloquants | Figure 8.1 | MGU 8.F.1 | - |
-| Désactiver un shift (motif) et journal | Exploitation > Shifts | Idem | Opérationnelle et testée | desactiver_shift, journal_shifts + pgTAP 61 | Figure 8.2 | MGU 8.F.2 | Jamais de suppression |
+| Désactiver un shift (motif) et journal | Exploitation > Shifts | Administrateur ou écriture settings, profil sans site | Opérationnelle et testée | desactiver_shift, journal_shifts + pgTAP 61 | Figure 8.2 | MGU 8.F.2 | Jamais de suppression |
 
 ### Planification
 
@@ -186,7 +186,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
-| Distances de référence site a site | Kilométrage | Écriture contracts ou administrateur | Opérationnelle avec limites | Trips/KilometrageView.tsx (distances_reference sous RLS) + pgTAP 27 + E2E kilometrage | Figure 13.1 | MGU 13.F.1 | Désactivation, pas de suppression |
+| Distances de référence site à site | Kilométrage | Écriture contracts ou administrateur | Opérationnelle avec limites | Trips/KilometrageView.tsx (distances_reference sous RLS) + pgTAP 27 + E2E kilometrage | Figure 13.1 | MGU 13.F.1 | Désactivation, pas de suppression |
 | Saisir et corriger un relevé de compteur (motif) | Kilométrage | Écriture trips | Opérationnelle et testée | saisir_releve_compteur, corriger_releve_compteur + pgTAP 27 | Figure 13.2 | MGU 13.F.2 | Pièce jointe possible |
 | Valider la distance d'un voyage (autre personne) | Kilométrage | Écriture contracts | Opérationnelle et testée | valider_distance_voyage + pgTAP 27 | Figure 13.3 | MGU 13.F.3 | - |
 
@@ -195,8 +195,8 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Préparer les fiches FR, FP, FC d'un shift | Fiches terrain (#/fiches) | Écriture trips (FR), maintenance (FP), fuel (FC) | Opérationnelle et testée | Fiches/FichesView.tsx, preparer_fiche + pgTAP 14, 71 + E2E fiches | Figure 14.1 | MGU 14.F.1 | - |
-| Imprimer les fiches A4 (réimpression motivée) | Fiches terrain, fiche | Idem | Opérationnelle et testée | FicheImprimable.tsx, enregistrer_impression_fiches + pgTAP 71 | Figure 14.2 | MGU 14.F.2 | - |
-| Remettre a l'agent et enregistrer le retour | Fiche terrain #/fiches/id | Idem | Opérationnelle et testée | remettre_fiches, enregistrer_retour_fiches, PagesFiche.tsx + pgTAP 71 + E2E operations-transport | Figure 14.3 | MGU 14.F.3 | - |
+| Imprimer les fiches A4 (réimpression motivée) | Fiches terrain, fiche | Écriture trips (FR), maintenance (FP), fuel (FC) | Opérationnelle et testée | FicheImprimable.tsx, enregistrer_impression_fiches + pgTAP 71 | Figure 14.2 | MGU 14.F.2 | - |
+| Remettre à l'agent et enregistrer le retour | Fiche terrain #/fiches/id | Écriture trips (FR), maintenance (FP), fuel (FC) | Opérationnelle et testée | remettre_fiches, enregistrer_retour_fiches, PagesFiche.tsx + pgTAP 71 + E2E operations-transport | Figure 14.3 | MGU 14.F.3 | - |
 | Saisir une fiche FR (rotations, ticket CBG en tonnes) | Fiches terrain, Saisir | Écriture trips | Opérationnelle et testée | SaisieFiche.tsx, saisir_rotation, saisir_ligne_rotation + pgTAP 14, 61, 71 + E2E fiches | Figure 14.4 | MGU 14.F.4 | - |
 | Saisir une fiche FP (horamètres, arrêts) | Fiches terrain, Saisir | Écriture maintenance | Opérationnelle et testée | saisir_pointage + pgTAP 14 | Figure 14.5 | MGU 14.F.5 | Chaque arrêt créé une immobilisation |
 | Saisir une fiche FC (pleins) | Fiches terrain, Saisir | Écriture fuel | Opérationnelle et testée | saisir_carburant + pgTAP 14, 25 | Figure 14.6 | MGU 14.F.6 | - |
@@ -243,7 +243,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 |---|---|---|---|---|---|---|---|
 | Liste et fiche des chauffeurs | Flotte > Chauffeurs (#/drivers) | Lecture drivers | Opérationnelle et testée | Drivers/DriversView.tsx, DetailChauffeur.tsx + E2E defauts-bloquants, pages-standard | Figure 18.1 | MGU 18.F.1 | - |
 | Créer, modifier un chauffeur | #/drivers/nouveau | Écriture drivers | Opérationnelle avec limites | FormulaireChauffeur.tsx (ecriture sous RLS) + E2E defauts-bloquants | Figure 18.2 | MGU 18.F.2 | Pas de journal ni de motif de statut |
-| Suspendre, réactiver, archiver un chauffeur | Fiche chauffeur | Écriture drivers | Opérationnelle avec limites | ActionChauffeur.tsx (mise a jour sous RLS, sans motif) | Figure 18.3 | MGU 18.F.3 | - |
+| Suspendre, réactiver, archiver un chauffeur | Fiche chauffeur | Écriture drivers | Opérationnelle avec limites | ActionChauffeur.tsx (mise à jour sous RLS, sans motif) | Figure 18.3 | MGU 18.F.3 | - |
 | Habilitations (saisie, révocation motivée, types exigés) | Flotte > Habilitations chauffeurs | Écriture drivers, types exigés administrateur | Opérationnelle et testée | Drivers/HabilitationsView.tsx, v_habilitations_a_renouveler, garde_habilitations_voyage + pgTAP 34 + E2E habilitations | Figure 18.4 | MGU 18.F.4 | - |
 | Infractions et sanctions | Fiche chauffeur, Infractions | Écriture drivers ou trips, sanction approbation drivers | Opérationnelle et testée | enregistrer_infraction, decider_sanction, annuler_sanction, annuler_infraction + pgTAP 49 | Figure 18.5 | MGU 18.F.5 | Sanction en avertissement au dispatch, non bloquante |
 
@@ -265,7 +265,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Inventaire de cuve et décision (autre personne) | Réceptions, cuves et inventaires | Écriture fuel | Opérationnelle et testée | saisir_inventaire_carburant, decider_inventaire_carburant + pgTAP 25, 51 | Figure 20.6 | MGU 20.F.6 | - |
 | Valider ou rejeter un mouvement, annuler un mouvement valide | Réceptions, cuves et inventaires | Écriture fuel, autre personne | Opérationnelle et testée | decider_mouvement_carburant, annuler_mouvement_carburant + pgTAP 25, 52 | Figure 20.7 | MGU 20.F.7 | - |
 | Analyse carburant (litres par tonne et par heure) | Carburant > Analyse carburant | Lecture fuel | Opérationnelle avec limites | AnalyseCarburantView.tsx, consommation_carburant + pgTAP 17 | Figure 20.8 | MGU 20.D | - |
-| Anomalies carburant (seuil saisi a l'ecran) | Carburant > Anomalies | Lecture fuel | Opérationnelle avec limites | AnomaliesCarburantView.tsx, anomalies_carburant + pgTAP 16 | Figure 20.9 | MGU 20.D | - |
+| Anomalies carburant (seuil saisi à l'écran) | Carburant > Anomalies | Lecture fuel | Opérationnelle avec limites | AnomaliesCarburantView.tsx, anomalies_carburant + pgTAP 16 | Figure 20.9 | MGU 20.D | - |
 | Jauges connectées | Carburant > Jauges connectées | Lecture fuel | Visuelle seulement | CapteursCarburantView.tsx, iot_devices, iot_fuel_readings + pgTAP 16 | Figure 20.10 | MGU 33 | Aucun matériel installé : sans données |
 
 ### Maintenance
@@ -273,7 +273,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Déclarer, clôturer, corriger, annuler une immobilisation | Maintenance > Immobilisations | Écriture maintenance | Opérationnelle et testée | Maintenance/ImmobilisationsView.tsx, declarer_immobilisation, cloturer_immobilisation, corriger_immobilisation, annuler_immobilisation + pgTAP 12 + E2E immobilisations | Figure 21.1 | MGU 21.F.1 | - |
-| Interventions Neemba (demande, prise en charge, fin, remise validée par autre personne) | Maintenance > Interventions Neemba | Écriture maintenance | Opérationnelle et testée | InterventionsLoueurView.tsx, demander_intervention_loueur, prendre_en_charge_intervention, terminer_intervention, valider_remise_en_service + pgTAP 32 + E2E interventions-loueur | Figure 21.2 | MGU 21.F.2 | Délai contractuel saisi a la main |
+| Interventions Neemba (demande, prise en charge, fin, remise validée par autre personne) | Maintenance > Interventions Neemba | Écriture maintenance | Opérationnelle et testée | InterventionsLoueurView.tsx, demander_intervention_loueur, prendre_en_charge_intervention, terminer_intervention, valider_remise_en_service + pgTAP 32 + E2E interventions-loueur | Figure 21.2 | MGU 21.F.2 | Délai contractuel saisi à la main |
 | Ordres de travail (numéro serveur, pièces par mouvement de stock, annulation motivée) | Maintenance > Ordres de travail | Écriture maintenance | Opérationnelle avec limites | MaintenanceView.tsx (maintenance_orders sous RLS), annuler_ordre_travail, pieces_ordre_travail + pgTAP 44, 55 | Figure 21.3 | MGU 21.F.3 | Hors modèle de location : maintenance des engins loués chez Neemba |
 | Préventif interne | Maintenance > Préventif | Écriture maintenance | Opérationnelle avec limites | PreventiveMaintenanceView.tsx (maintenance_schedules sous RLS) + pgTAP 44 | Figure 21.4 | MGU 21.F.4 | Signale un engin loué |
 
@@ -282,9 +282,9 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Entrée en stock, montage, démontage, permutation, inspection, réparation, rechapage, réforme, annulation | Pneus | Écriture vehicles ou maintenance | Opérationnelle et testée | Pneus/PneusView.tsx, enregistrer_pneu, monter_pneu, demonter_pneu, permuter_pneu, inspecter_pneu, reparer_pneu, rechaper_pneu, reformer_pneu, annuler_operation_pneu + pgTAP 35, 50 + E2E pneus | Figure 22.1 | MGU 22.F.1 | - |
-| Pneus a surveiller et seuils | Pneus | Lecture vehicles, seuils administrateur | Opérationnelle et testée | v_pneus_a_surveiller, settings pneu_* + pgTAP 35 | Figure 22.2 | MGU 22.F.2 | Sans seuil aucune alerte |
+| Pneus à surveiller et seuils | Pneus | Lecture vehicles, seuils administrateur | Opérationnelle et testée | v_pneus_a_surveiller, settings pneu_* + pgTAP 35 | Figure 22.2 | MGU 22.F.2 | Sans seuil aucune alerte |
 | Performance par marque et modèle | Pneus, Performance | Lecture vehicles | Opérationnelle avec limites | v_pneus_performance + pgTAP 50 | Figure 22.3 | MGU 22.D | Seulement pneus réformés aux mesures complètes |
-| Cycle de vie complet (carcasse PN, episodes, contrôle des positions) D-091 | Pneus | - | Non disponible | Migration 20261121230000, pgTAP 72 : serveur fusionne, non deploye, sans ecran | - | MGU 35 | Écran au lot suivant |
+| Cycle de vie complet (carcasse PN, épisodes, contrôle des positions) D-091 | Pneus | - | Non disponible | Migration 20261121230000, pgTAP 72 : serveur fusionne, non deploye, sans ecran | - | MGU 35 | Écran au lot suivant |
 
 ### Stocks
 
@@ -301,7 +301,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 |---|---|---|---|---|---|---|---|
 | Bon de commande : rédiger, soumettre, approuver (autre personne), réceptionner, annuler, solder | Stocks & Achats > Achats | Écriture purchases, approbation purchases, réception écriture stock | Opérationnelle et testée | Purchases/PurchasesView.tsx, enregistrer_bon_commande, soumettre_bon_commande, decider_bon_commande, receptionner_bon_commande, annuler_reception, annuler_bon_commande, solder_bon_commande + pgTAP 36, 55 + E2E achats | Figure 24.1 | MGU 24.F.1 | - |
 | Réception de pneus depuis un bon | Achats, réception | Écriture stock et vehicles ou maintenance | Opérationnelle et testée | receptionner_bon_commande + pgTAP 50 | Figure 24.2 | MGU 24.F.2 | - |
-| Facture d'achat, rapprochement a trois voies, contrôle budgétaire | Achats | - | Non disponible | Catalogue module 16 ecart 1 | - | MGU 35 | - |
+| Facture d'achat, rapprochement à trois voies, contrôle budgétaire | Achats | - | Non disponible | Catalogue module 16 écart 1 | - | MGU 35 | - |
 
 ### Fournisseurs
 
@@ -316,7 +316,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Registre des biens, affectation, transfert, restitution, réparation, réforme, annulation | Stocks & Achats > Moyens généraux et patrimoine | Écriture stock (selon fiche module 18) | Opérationnelle avec limites | MoyensGeneraux/MoyensGenerauxView.tsx, enregistrer_bien, affecter_bien, transferer_bien, restituer_bien, reparer_bien, reformer_bien, annuler_operation_bien + pgTAP 43 + E2E moyens-generaux | Figure 26.1 | MGU 26.F.1 | Saisies par fenêtre du navigateur (window.prompt) |
-| Inventaire physique par site | Moyens généraux | Idem | Opérationnelle et testée | ouvrir_inventaire_biens, constater_inventaire_bien, cloturer_inventaire_biens + pgTAP 43 | Figure 26.2 | MGU 26.F.2 | Écarts signalés, jamais régularisés |
+| Inventaire physique par site | Moyens généraux | Écriture stock | Opérationnelle et testée | ouvrir_inventaire_biens, constater_inventaire_bien, cloturer_inventaire_biens + pgTAP 43 | Figure 26.2 | MGU 26.F.2 | Écarts signalés, jamais régularisés |
 
 ### Contrats
 
@@ -338,19 +338,19 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Réconciliation mensuelle (ouvrir, actualiser, décider, clôturer) | Contrats & Finance > Réconciliation mensuelle (#/reconciliation) | Écriture invoices | Opérationnelle et testée | Facturation/ReconciliationView.tsx, DetailReconciliation.tsx, ouvrir_reconciliation, actualiser_reconciliation, decider_ligne_reconciliation, garde_voyage_une_reconciliation + pgTAP 15, 61, 62, 70 + E2E facturation | Figure 28.1 | MGU 28.F.1 | - |
-| Générer une facture CBG depuis une réconciliation clôturée | Contrats & Finance > Facturation (#/invoices) | Écriture invoices | Opérationnelle et testée | FacturesView.tsx, generer_facture + pgTAP 15 + E2E facturation | Figure 28.2 | MGU 28.F.2 | Tarif a la tonne requis |
+| Générer une facture CBG depuis une réconciliation clôturée | Contrats & Finance > Facturation (#/invoices) | Écriture invoices | Opérationnelle et testée | FacturesView.tsx, generer_facture + pgTAP 15 + E2E facturation | Figure 28.2 | MGU 28.F.2 | Tarif à la tonne requis |
 | Soumettre, émettre, annuler une facture | Fiche facture | Écriture invoices | Opérationnelle et testée | avancer_facture, factures_journal + pgTAP 15 | Figure 28.3 | MGU 28.F.3 | - |
 | Signer ou renvoyer une facture | Fiche facture | Rôle directeur seulement | Réservée à un rôle | avancer_facture (signature director, signataire different du preparateur) + pgTAP 15, 24 | Figure 28.4 | MGU 28.F.4 | Session aal2 si mfa_exige |
 | Avoir (montant, motif, même circuit) | Fiche facture | Écriture invoices | Opérationnelle et testée | creer_avoir + pgTAP 15, 48 | Figure 28.5 | MGU 28.F.5 | - |
-| Facture imprimable A4 | Fiche facture | Lecture invoices | Opérationnelle et testée | FactureImprimable.tsx, fiche societe | Figure 28.6 | MGU 28.F.3 | Identité légale a saisir dans Paramètres > Général |
-| Recouvrement : créances, encaissement, relances niveaux 1 a 3 | Contrats & Finance > Recouvrement (#/recouvrement) | Écriture invoices | Opérationnelle et testée | RecouvrementView.tsx, DetailCreance.tsx, v_creances, enregistrer_encaissement, relancer + pgTAP 18 + E2E suivi-recouvrement | Figure 28.7 | MGU 28.F.6 | Pas d'annulation motivée d'un encaissement |
+| Facture imprimable A4 | Fiche facture | Lecture invoices | Opérationnelle et testée | FactureImprimable.tsx, fiche societe | Figure 28.6 | MGU 28.F.3 | Identité légale à saisir dans Paramètres > Général |
+| Recouvrement : créances, encaissement, relances niveaux 1 à 3 | Contrats & Finance > Recouvrement (#/recouvrement) | Écriture invoices | Opérationnelle et testée | RecouvrementView.tsx, DetailCreance.tsx, v_creances, enregistrer_encaissement, relancer + pgTAP 18 + E2E suivi-recouvrement | Figure 28.7 | MGU 28.F.6 | Pas d'annulation motivée d'un encaissement |
 
 ### Finance
 
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
 | Paiements fournisseurs (proposer, approuver, exécuter, annuler, contrôler) | Contrats & Finance > Paiements fournisseurs | Écriture invoices, approbation invoices | Opérationnelle et testée | Paiements/PaiementsView.tsx, proposer_paiement, decider_paiement, enregistrer_execution_paiement, annuler_paiement, controler_paiement + pgTAP 38 + E2E paiements | Figure 29.1 | MGU 29.F.1 | SIGTB n'execute aucun virement |
-| Budgets, suivi engagé et réalisé, dépenses a imputer | Contrats & Finance > Budgets et comptabilité | Écriture costs | Opérationnelle et testée | Finance/FinanceView.tsx, v_suivi_budgets, v_depenses_budgetaires + pgTAP 48, 63 + E2E contrats-finance | Figure 29.2 | MGU 29.F.2 | - |
+| Budgets, suivi engagé et réalisé, dépenses à imputer | Contrats & Finance > Budgets et comptabilité | Écriture costs | Opérationnelle et testée | Finance/FinanceView.tsx, v_suivi_budgets, v_depenses_budgetaires + pgTAP 48, 63 + E2E contrats-finance | Figure 29.2 | MGU 29.F.2 | - |
 | Référentiels comptables (natures, plan comptable, comptes de tiers) et export comptable CSV | Budgets et comptabilité | Administrateur ou écriture contracts | Opérationnelle avec limites | FinanceView.tsx, ecritures_gestion + pgTAP 48 | Figure 29.3 | MGU 29.F.3 | Pas de partie double |
 | Coûts directs (enregistrer, annuler motivé, répartition) | Contrats & Finance > Coûts | Écriture costs | Opérationnelle et testée | Costs/CostsView.tsx, enregistrer_cout, annuler_cout + pgTAP 41 + E2E rapports | Figure 29.4 | MGU 29.F.4 | Catégories de coût sans écran |
 
@@ -369,7 +369,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 |---|---|---|---|---|---|---|---|
 | Employés | RH & Sécurité > Employés | Écriture hr | Partielle | HR/EmployeesView.tsx, EmployeeModal.tsx (ecriture sous RLS) | Figure 31.1 | MGU 31.F.1 | Écran hérité, sans site ni journal |
 | Présences (saisie, remplacement motivé, annulation) | RH & Sécurité > Présences | Écriture hr | Opérationnelle avec limites | AttendanceView.tsx, enregistrer_presence, annuler_presence, v_presences + pgTAP 44 | Figure 31.2 | MGU 31.F.2 | Pas de taux de présence |
-| Paie (calcul, approbation, paiement) | RH & Sécurité > Paie | Écriture hr | Partielle | PayrollView.tsx (mise a jour directe des statuts), calculate_employee_payroll | Figure 31.3 | MGU 31.H | Héritée de Bolt, non reprise, ne pas utiliser pour une paie réelle |
+| Paie (calcul, approbation, paiement) | RH & Sécurité > Paie | Écriture hr | Partielle | PayrollView.tsx (mise à jour directe des statuts), calculate_employee_payroll | Figure 31.3 | MGU 31.H | Héritée de Bolt, non reprise, ne pas utiliser pour une paie réelle |
 
 ### Reporting
 
@@ -385,7 +385,7 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
-| Suivi GPS, intelligence flotte, historique des trajets | Exploitation > Suivi GPS, Intelligence flotte, Historique des trajets | Lecture gps_tracking | Visuelle seulement | Tracking/GPSTrackingView.tsx, FleetIntelligenceView.tsx, RouteHistoryView.tsx (iot_gps_readings, vehicle_tracking vides) | Figure 33.1 | MGU 33 | Aucun matériel GPS : écrans sans données (extension a déclencheur) |
+| Suivi GPS, intelligence flotte, historique des trajets | Exploitation > Suivi GPS, Intelligence flotte, Historique des trajets | Lecture gps_tracking | Visuelle seulement | Tracking/GPSTrackingView.tsx, FleetIntelligenceView.tsx, RouteHistoryView.tsx (iot_gps_readings, vehicle_tracking vides) | Figure 33.1 | MGU 33 | Aucun matériel GPS : écrans sans données (extension à déclencheur) |
 | Géorepérage (zones cercle ou polygone, désactivation) | Exploitation > Géorepérage | Écriture gps_tracking | Partielle | Geofencing/GeofencingView.tsx (geofence_zones sous RLS) | Figure 33.2 | MGU 33 | Aucune détection : PostGIS absent, moniteur non déployé |
 | Capteurs IoT | Reporting & Analyse > Capteurs IoT | Lecture iot | Visuelle seulement | IoT/IoTDashboardView.tsx | Figure 33.3 | MGU 33 | Aucun boîtier |
 | Environnement (ESG) | Reporting & Analyse > Environnement | Lecture esg | Visuelle seulement | ESG/ESGTrackingView.tsx (4 boutons sans action, catalogue module 22) | Figure 33.4 | MGU 33 | Maquette encore au menu |
@@ -407,10 +407,10 @@ Les rôles sont exprimés par droit de module (`trips`, `invoices`...) ; la corr
 
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
-| Portails Neemba, CBG, fournisseurs | - | - | Non disponible | Catalogue module 25 : 12 blocs manquants | - | MGU 35 | Extension a déclencheur |
+| Portails Neemba, CBG, fournisseurs | - | - | Non disponible | Catalogue module 25 : 12 blocs manquants | - | MGU 35 | Extension à déclencheur |
 
 ### Intelligence
 
 | Fonctionnalité | Page ou route | Rôles | Statut | Preuve | Capture | Procédure | Remarque |
 |---|---|---|---|---|---|---|---|
-| Prévisions, détection d'anomalies, OCR, mobile hors ligne, voix, signature électronique | - | - | Non disponible | CLAUDE.md section 9 (extensions a declencheur) | - | MGU 35 | - |
+| Prévisions, détection d'anomalies, OCR, mobile hors ligne, voix, signature électronique | - | - | Non disponible | CLAUDE.md section 9 (extensions à déclencheur) | - | MGU 35 | - |

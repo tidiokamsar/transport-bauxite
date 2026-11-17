@@ -13,7 +13,7 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Accès | Connexion Microsoft 365 | Page de connexion, bouton Microsoft | Figure 2.1 | MGU 2.H | aucun test nommé | Documentée comme désactivée |
 | Accès | Mot de passe oublié par courriel | Page de connexion, lien Mot de passe oublié | Figure 2.2 | MGU 2.F.4 | aucun test nommé | Non documentable (non opérationnelle) |
 | Accès | Changer son propre mot de passe | Sécurité du compte | Figure 2.4 | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
-| Accès | Double authentification TOTP (inscription, retrait, code a la connexion) | Sécurité du compte (#/securite-compte), menu profil | Figure 2.4 | MGU 2.F.3 | pgTAP 24 ; E2E double-authentification | Documentée, capture à venir |
+| Accès | Double authentification TOTP (inscription, retrait, code à la connexion) | Sécurité du compte (#/securite-compte), menu profil | Figure 2.4 | MGU 2.F.3 | pgTAP 24 ; E2E double-authentification | Documentée, capture à venir |
 | Accès | Exigence MFA pour opérations sensibles (mfa_exige) | Sécurité du compte | Figure 2.4 | MAD 13 | pgTAP 24 | Documentée comme désactivée |
 | Accès | Déconnexion | Barre supérieure, menu profil, Se déconnecter | Figure 2.5 | MGU 2.F.2 | E2E connexion | Documentée, capture à venir |
 | Accès | Langue de l'interface français ou anglais | Menu profil, Langue | Figure 2.5 | MGU 3.D | aucun test nommé | Documentée, capture à venir |
@@ -72,12 +72,12 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Voyages | Déclarer un incident depuis le voyage | Fiche voyage | Figure 12.8 | MGU 30.F.3 | pgTAP 37, 49 | Documentée, capture à venir |
 | Voyages | Rapports par axe (camion, chauffeur, site, shift) et export CSV | Voyages et Rotations, Rapports par axe | Figure 12.9 | MGU 12.F.7 | pgTAP 49 | Documentée, capture à venir |
 | Voyages | Événement correctif d'un voyage (corriger une étape saisie) | Fiche voyage | - | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
-| Kilométrage | Distances de référence site a site | Kilométrage | Figure 13.1 | MGU 13.F.1 | pgTAP 27 ; E2E kilometrage | Documentée, capture à venir |
+| Kilométrage | Distances de référence site à site | Kilométrage | Figure 13.1 | MGU 13.F.1 | pgTAP 27 ; E2E kilometrage | Documentée, capture à venir |
 | Kilométrage | Saisir et corriger un relevé de compteur (motif) | Kilométrage | Figure 13.2 | MGU 13.F.2 | pgTAP 27 | Documentée, capture à venir |
 | Kilométrage | Valider la distance d'un voyage (autre personne) | Kilométrage | Figure 13.3 | MGU 13.F.3 | pgTAP 27 | Documentée, capture à venir |
 | Fiches terrain | Préparer les fiches FR, FP, FC d'un shift | Fiches terrain (#/fiches) | Figure 14.1 | MGU 14.F.1 | pgTAP 14, 71 ; E2E fiches | Documentée, capture à venir |
 | Fiches terrain | Imprimer les fiches A4 (réimpression motivée) | Fiches terrain, fiche | Figure 14.2 | MGU 14.F.2 | pgTAP 71 | Documentée, capture à venir |
-| Fiches terrain | Remettre a l'agent et enregistrer le retour | Fiche terrain #/fiches/id | Figure 14.3 | MGU 14.F.3 | pgTAP 71 ; E2E operations-transport | Documentée, capture à venir |
+| Fiches terrain | Remettre à l'agent et enregistrer le retour | Fiche terrain #/fiches/id | Figure 14.3 | MGU 14.F.3 | pgTAP 71 ; E2E operations-transport | Documentée, capture à venir |
 | Fiches terrain | Saisir une fiche FR (rotations, ticket CBG en tonnes) | Fiches terrain, Saisir | Figure 14.4 | MGU 14.F.4 | pgTAP 14, 61, 71 ; E2E fiches | Documentée, capture à venir |
 | Fiches terrain | Saisir une fiche FP (horamètres, arrêts) | Fiches terrain, Saisir | Figure 14.5 | MGU 14.F.5 | pgTAP 14 | Documentée, capture à venir |
 | Fiches terrain | Saisir une fiche FC (pleins) | Fiches terrain, Saisir | Figure 14.6 | MGU 14.F.6 | pgTAP 14, 25 | Documentée, capture à venir |
@@ -116,23 +116,23 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Carburant | Inventaire de cuve et décision (autre personne) | Réceptions, cuves et inventaires | Figure 20.6 | MGU 20.F.6 | pgTAP 25, 51 | Documentée, capture à venir |
 | Carburant | Valider ou rejeter un mouvement, annuler un mouvement valide | Réceptions, cuves et inventaires | Figure 20.7 | MGU 20.F.7 | pgTAP 25, 52 | Documentée, capture à venir |
 | Carburant | Analyse carburant (litres par tonne et par heure) | Carburant > Analyse carburant | Figure 20.8 | MGU 20.D | pgTAP 17 | Documentée, capture à venir |
-| Carburant | Anomalies carburant (seuil saisi a l'ecran) | Carburant > Anomalies | Figure 20.9 | MGU 20.D | pgTAP 16 | Documentée, capture à venir |
+| Carburant | Anomalies carburant (seuil saisi à l'écran) | Carburant > Anomalies | Figure 20.9 | MGU 20.D | pgTAP 16 | Documentée, capture à venir |
 | Carburant | Jauges connectées | Carburant > Jauges connectées | Figure 20.10 | MGU 33 | pgTAP 16 | Documentée comme écran sans données |
 | Maintenance | Déclarer, clôturer, corriger, annuler une immobilisation | Maintenance > Immobilisations | Figure 21.1 | MGU 21.F.1 | pgTAP 12 ; E2E immobilisations | Documentée, capture à venir |
 | Maintenance | Interventions Neemba (demande, prise en charge, fin, remise validée par autre personne) | Maintenance > Interventions Neemba | Figure 21.2 | MGU 21.F.2 | pgTAP 32 ; E2E interventions-loueur | Documentée, capture à venir |
 | Maintenance | Ordres de travail (numéro serveur, pièces par mouvement de stock, annulation motivée) | Maintenance > Ordres de travail | Figure 21.3 | MGU 21.F.3 | pgTAP 44, 55 | Documentée, capture à venir |
 | Maintenance | Préventif interne | Maintenance > Préventif | Figure 21.4 | MGU 21.F.4 | pgTAP 44 | Documentée, capture à venir |
 | Pneus | Entrée en stock, montage, démontage, permutation, inspection, réparation, rechapage, réforme, annulation | Pneus | Figure 22.1 | MGU 22.F.1 | pgTAP 35, 50 ; E2E pneus | Documentée, capture à venir |
-| Pneus | Pneus a surveiller et seuils | Pneus | Figure 22.2 | MGU 22.F.2 | pgTAP 35 | Documentée, capture à venir |
+| Pneus | Pneus à surveiller et seuils | Pneus | Figure 22.2 | MGU 22.F.2 | pgTAP 35 | Documentée, capture à venir |
 | Pneus | Performance par marque et modèle | Pneus, Performance | Figure 22.3 | MGU 22.D | pgTAP 50 | Documentée, capture à venir |
-| Pneus | Cycle de vie complet (carcasse PN, episodes, contrôle des positions) D-091 | Pneus | - | MGU 35 | pgTAP 72 | Non documentable (non opérationnelle) |
+| Pneus | Cycle de vie complet (carcasse PN, épisodes, contrôle des positions) D-091 | Pneus | - | MGU 35 | pgTAP 72 | Non documentable (non opérationnelle) |
 | Stocks | Mouvements (entrée, sortie, transfert, retour), annulation motivée | Stocks & Achats > Stocks | Figure 23.1 | MGU 23.F.1 | pgTAP 28 ; E2E stocks-magasin | Documentée, capture à venir |
 | Stocks | Articles et dépôts | Stocks | Figure 23.2 | MGU 23.F.2 | aucun test nommé | Documentée, capture à venir |
 | Stocks | Inventaire d'article et de lot | Stocks | Figure 23.3 | MGU 23.F.3 | pgTAP 28, 50 | Documentée, capture à venir |
 | Stocks | Réservations, lots et séries, valorisation CMP | Stocks, panneaux | Figure 23.4 | MGU 23.F.4 | pgTAP 50 ; E2E stocks-avances | Documentée, capture à venir |
 | Achats | Bon de commande : rédiger, soumettre, approuver (autre personne), réceptionner, annuler, solder | Stocks & Achats > Achats | Figure 24.1 | MGU 24.F.1 | pgTAP 36, 55 ; E2E achats | Documentée, capture à venir |
 | Achats | Réception de pneus depuis un bon | Achats, réception | Figure 24.2 | MGU 24.F.2 | pgTAP 50 | Documentée, capture à venir |
-| Achats | Facture d'achat, rapprochement a trois voies, contrôle budgétaire | Achats | - | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
+| Achats | Facture d'achat, rapprochement à trois voies, contrôle budgétaire | Achats | - | MGU 35 | aucun test nommé | Non documentable (non opérationnelle) |
 | Fournisseurs | Répertoire, fiche, contacts, documents, catégories, suspension, réactivation | Stocks & Achats > Fournisseurs | Figure 25.1 | MGU 25.F.1 | pgTAP 42 ; E2E fournisseurs | Documentée, capture à venir |
 | Fournisseurs | Évaluation des fournisseurs (critères pondérés) | Fiche fournisseur | Figure 25.2 | MGU 25.F.2 | pgTAP 42 | Documentée, capture à venir |
 | Fournisseurs | Consultations, offres, sélection, bon issu de consultation | Fournisseurs, Consultations | Figure 25.3 | MGU 25.F.3 | pgTAP 42, 55 | Documentée, capture à venir |
@@ -154,9 +154,9 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Facturation | Signer ou renvoyer une facture | Fiche facture | Figure 28.4 | MGU 28.F.4 | pgTAP 15, 24 | Documentée, capture à venir |
 | Facturation | Avoir (montant, motif, même circuit) | Fiche facture | Figure 28.5 | MGU 28.F.5 | pgTAP 15, 48 | Documentée, capture à venir |
 | Facturation | Facture imprimable A4 | Fiche facture | Figure 28.6 | MGU 28.F.3 | aucun test nommé | Documentée, capture à venir |
-| Facturation | Recouvrement : créances, encaissement, relances niveaux 1 a 3 | Contrats & Finance > Recouvrement (#/recouvrement) | Figure 28.7 | MGU 28.F.6 | pgTAP 18 ; E2E suivi-recouvrement | Documentée, capture à venir |
+| Facturation | Recouvrement : créances, encaissement, relances niveaux 1 à 3 | Contrats & Finance > Recouvrement (#/recouvrement) | Figure 28.7 | MGU 28.F.6 | pgTAP 18 ; E2E suivi-recouvrement | Documentée, capture à venir |
 | Finance | Paiements fournisseurs (proposer, approuver, exécuter, annuler, contrôler) | Contrats & Finance > Paiements fournisseurs | Figure 29.1 | MGU 29.F.1 | pgTAP 38 ; E2E paiements | Documentée, capture à venir |
-| Finance | Budgets, suivi engagé et réalisé, dépenses a imputer | Contrats & Finance > Budgets et comptabilité | Figure 29.2 | MGU 29.F.2 | pgTAP 48, 63 ; E2E contrats-finance | Documentée, capture à venir |
+| Finance | Budgets, suivi engagé et réalisé, dépenses à imputer | Contrats & Finance > Budgets et comptabilité | Figure 29.2 | MGU 29.F.2 | pgTAP 48, 63 ; E2E contrats-finance | Documentée, capture à venir |
 | Finance | Référentiels comptables (natures, plan comptable, comptes de tiers) et export comptable CSV | Budgets et comptabilité | Figure 29.3 | MGU 29.F.3 | pgTAP 48 | Documentée, capture à venir |
 | Finance | Coûts directs (enregistrer, annuler motivé, répartition) | Contrats & Finance > Coûts | Figure 29.4 | MGU 29.F.4 | pgTAP 41 ; E2E rapports | Documentée, capture à venir |
 | HSE | Contrôle avant départ et points de contrôle | RH & Sécurité > Contrôles avant départ | Figure 30.1 | MGU 30.F.1 | pgTAP 37 ; E2E hse | Documentée, capture à venir |
@@ -197,3 +197,33 @@ Chaque fonctionnalité du catalogue est confrontée à sa page, à sa capture pr
 | Documentée comme écran sans données | 4 |
 
 Fonctionnalités sans test nommé : 18 (hors non disponibles). Elles sont documentées avec leur limite ; aucune n'est présentée comme testée.
+
+## 3. Écrans non documentés
+
+Écrans relevés dans `src/App.tsx` et `src/components` sans procédure dans le manuel général :
+
+| Écran | Fichier | Raison |
+|---|---|---|
+| Actions rapides (route `#/quick-actions`) | `QuickActions/QuickActionsPanel.tsx` | Route sans entrée de menu ni lien ; raccourcis de navigation seulement ; cité au catalogue (Partielle) |
+| Écran générique de maquette | `Placeholder/PlaceholderView.tsx`, `Placeholder/DemoBanner.tsx` | Aucune route ne l'ouvre dans `App.tsx` |
+| Alias `#/notifications` | `App.tsx` | Ouvre Mes validations (chapitre 5), pas d'écran propre |
+
+Tous les autres écrans ouverts par `App.tsx` ont un chapitre du manuel général (chapitres 2 à 34).
+
+## 4. Fonctionnalités non documentables parce que non opérationnelles
+
+- **Accès** : Mot de passe oublié par courriel (Non disponible). L'administrateur attribue un nouveau mot de passe
+- **Accès** : Changer son propre mot de passe (Non disponible). L'administrateur attribue un nouveau mot de passe
+- **Interface** : Fonctionnement hors ligne (Non disponible). Saisie à refaire sans connexion
+- **Dispatch** : Carte des positions, files d'attente, optimisation par distance (Non disponible). Aucun matériel GPS
+- **Voyages** : Événement correctif d'un voyage (corriger une étape saisie) (Non disponible). Annulation du voyage seulement
+- **Carburant** : Jauges connectées (Visuelle seulement). Aucun matériel installé : sans données
+- **Pneus** : Cycle de vie complet (carcasse PN, épisodes, contrôle des positions) D-091 (Non disponible). Écran au lot suivant
+- **Achats** : Facture d'achat, rapprochement à trois voies, contrôle budgétaire (Non disponible). Catalogue module 16 écart 1
+- **Suivi GPS** : Suivi GPS, intelligence flotte, historique des trajets (Visuelle seulement). Aucun matériel GPS : écrans sans données (extension à déclencheur)
+- **Suivi GPS** : Capteurs IoT (Visuelle seulement). Aucun boîtier
+- **Suivi GPS** : Environnement (ESG) (Visuelle seulement). Maquette encore au menu
+- **Portails** : Portails Neemba, CBG, fournisseurs (Non disponible). Extension à déclencheur
+- **Intelligence** : Prévisions, détection d'anomalies, OCR, mobile hors ligne, voix, signature électronique (Non disponible). CLAUDE.md section 9 (extensions à déclencheur)
+
+Elles figurent au chapitre 35 du manuel général sans description de fonctionnement. Les écrans « visuelle seulement » sont décrits uniquement pour dire qu'ils sont vides (chapitre 33).
