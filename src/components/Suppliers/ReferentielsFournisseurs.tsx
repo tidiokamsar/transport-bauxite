@@ -1,91 +1,179 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ListPlus, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
-import { CHAMP, type Categorie } from './fournisseurs';
+import { CHAMP_FENETRE } from '../ui/Fenetre';
+import { PageAction } from '../ui/PageAction';
+import { PageDetail, Relation } from '../ui/PageDetail';
+import { ChampPage } from '../ui/PageFormulaire';
+import { Puce, SansDonnees } from '../ui/Panneau';
+import { lire, type Lecture } from '../ui/lecture';
+import type { Categorie } from './fournisseurs';
+import type { Critere } from './donnees';
+import { ID_REFERENTIELS, MODULE_FOURNISSEURS, VUE_FOURNISSEURS, routeActionReferentiel, routeConsultations } from './routes';
 
-// Referentiels fournisseurs (D-059) : categories et grille d'evaluation
-// ponderee, tenues par l'administrateur (D-072). Aucune grille
-// n'est fournie par defaut : les criteres et leurs poids sont a definir.
+// Referentiels fournisseurs (D-059, D-090) : categories et grille
+// d'evaluation ponderee, tenues par l'administrateur (D-072, controle
+// serveur is_admin). Aucune grille n'est fournie par defaut. Aucune
+// suppression : une categorie ou un critere se desactive.
 
-interface Critere { id: string; libelle: string; description: string | null; poids: number; ordre: number; actif: boolean }
+const attente = <T,>(): Lecture<T> => ({ lignes: null, erreur: '' });
+const LIEN_LIGNE = 'rounded border border-stone-300 px-2 py-1 text-xs font-semibold';
+const ACTIONS = ['categorie', 'basculer-categorie', 'critere'] as const;
 
-export const ReferentielsFournisseurs = ({ categories, onChange }: { categories: Categorie[]; onChange: () => Promise<void> }) => {
+const lireReferentiels = () => Promise.all([
+  lire<Categorie>(supabase.from('categories_fournisseurs').select('id, libelle, actif').order('libelle'), 'catégories'),
+  lire<Critere>(supabase.from('criteres_evaluation_fournisseur').select('id, libelle, description, poids, ordre, actif').eq('grille', 'fournisseur').order('ordre'), 'grille d\'évaluation'),
+]);
+
+export const ReferentielsFournisseurs = () => {
   const { profile } = useAuth();
   const estAdmin = profile?.role === 'admin';
-  const [criteres, setCriteres] = useState<Critere[] | null>(null);
-  const [categorie, setCategorie] = useState('');
-  const [critere, setCritere] = useState<Record<string, string> | null>(null);
+  const [categories, setCategories] = useState<Lecture<Categorie>>(attente);
+  const [criteres, setCriteres] = useState<Lecture<Critere>>(attente);
+  useEffect(() => { lireReferentiels().then(([c, g]) => { setCategories(c); setCriteres(g); }); }, []);
+  const totalPoids = (criteres.lignes ?? []).filter((c) => c.actif).reduce((s, c) => s + c.poids, 0);
+
+  return (
+    <PageDetail
+      vue={VUE_FOURNISSEURS}
+      module={MODULE_FOURNISSEURS}
+      reference="Référentiels"
+      titre="Référentiels fournisseurs"
+      resume={<>Catégories et grille d'évaluation, tenues par l'administrateur · <a href={routeConsultations()} className="underline">consultations</a></>}
+      chargement={false}
+      actions={[
+        { id: 'categorie', libelle: 'Ajouter une catégorie', icone: <Plus className="h-4 w-4" />, visible: estAdmin, vers: routeActionReferentiel('categorie') },
+        { id: 'critere', libelle: 'Ajouter un critère', icone: <ListPlus className="h-4 w-4" />, visible: estAdmin, vers: routeActionReferentiel('critere') },
+      ]}
+      onglets={[
+        { id: 'categories', libelle: 'Catégories', compte: categories.lignes?.length ?? null, contenu: (
+          <Relation titre="Catégories de fournisseurs" lignes={categories.lignes} erreur={categories.erreur} cle={(c) => c.id} vide="Aucune catégorie"
+            colonnes={[
+              { libelle: 'Catégorie', valeur: (c) => c.libelle },
+              { libelle: 'État', valeur: (c) => <Puce teinte={c.actif ? 'vert' : 'gris'}>{c.actif ? 'Active' : 'Inactive'}</Puce> },
+              ...(estAdmin ? [{ libelle: 'Gestion', valeur: (c: Categorie) => (
+                <a href={routeActionReferentiel('basculer-categorie', { categorie: c.id })} aria-label={`${c.actif ? 'Désactiver' : 'Réactiver'} la catégorie ${c.libelle}`} className={LIEN_LIGNE}>
+                  {c.actif ? 'Désactiver' : 'Réactiver'}
+                </a>
+              ) }] : []),
+            ]} />
+        ) },
+        { id: 'grille', libelle: 'Grille d\'évaluation', compte: criteres.lignes?.length ?? null, contenu: (
+          <div className="space-y-3">
+            <p className="text-sm text-stone-600">Notes de 1 à 5 par critère ; note globale = moyenne pondérée par les poids, calculée par le serveur. Les évaluations passées gardent les libellés et poids de leur date.</p>
+            {criteres.lignes?.length === 0 && <SansDonnees message="Grille non définie" detail="Aucune évaluation possible tant que l'administrateur n'a pas défini de critère." />}
+            <Relation titre="Critères" lignes={criteres.lignes} erreur={criteres.erreur} cle={(c) => c.id} vide="Aucun critère"
+              colonnes={[
+                { libelle: 'Critère', valeur: (c) => <>{c.libelle}{c.description && <span className="block text-xs text-stone-500">{c.description}</span>}</> },
+                { libelle: 'Poids', valeur: (c) => <>{c.poids}{c.actif && totalPoids > 0 && <span className="text-xs text-stone-500"> ({Math.round((c.poids / totalPoids) * 100)} %)</span>}</> },
+                { libelle: 'Ordre', valeur: (c) => c.ordre },
+                { libelle: 'État', valeur: (c) => <Puce teinte={c.actif ? 'vert' : 'gris'}>{c.actif ? 'Actif' : 'Inactif'}</Puce> },
+                ...(estAdmin ? [{ libelle: 'Gestion', valeur: (c: Critere) => (
+                  <a href={routeActionReferentiel('critere', { critere: c.id })} aria-label={`Modifier le critère ${c.libelle}`} className={LIEN_LIGNE}>Modifier</a>
+                ) }] : []),
+              ]} />
+          </div>
+        ) },
+      ]}
+    />
+  );
+};
+
+export const ActionReferentiel = ({ action, requete }: { action: string; requete: Record<string, string> }) => {
+  const { profile } = useAuth();
+  const estAdmin = profile?.role === 'admin';
+  const [categories, setCategories] = useState<Categorie[]>([]);
+  const [criteres, setCriteres] = useState<Critere[]>([]);
   const [erreur, setErreur] = useState('');
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [chargement, setChargement] = useState(true);
+  const [libelle, setLibelle] = useState('');
+  const [critere, setCritere] = useState({ libelle: '', poids: '', description: '', ordre: '', actif: true });
 
-  const charger = useCallback(async () => {
-    const { data } = await supabase.from('criteres_evaluation_fournisseur').select('id, libelle, description, poids, ordre, actif').eq('grille', 'fournisseur').order('ordre');
-    setCriteres((data ?? []) as Critere[]);
-  }, []);
-  useEffect(() => { charger(); }, [charger]);
+  useEffect(() => {
+    lireReferentiels().then(([c, g]) => {
+      setCategories(c.lignes ?? []);
+      const lesCriteres = g.lignes ?? [];
+      setCriteres(lesCriteres);
+      const x = requete.critere ? lesCriteres.find((k) => k.id === requete.critere) : null;
+      setCritere(x ? { libelle: x.libelle, poids: String(x.poids), description: x.description ?? '', ordre: String(x.ordre), actif: x.actif }
+        : { libelle: '', poids: '', description: '', ordre: String(lesCriteres.length + 1), actif: true });
+      setErreur(c.erreur || g.erreur);
+      setChargement(false);
+    });
+  }, [requete.critere]);
 
-  const executer = async (fonction: string, args: Record<string, unknown>, succes: string) => {
-    setBusy(true); setErreur(''); setMessage('');
+  if (!(ACTIONS as readonly string[]).includes(action)) {
+    return <SansDonnees message="Action inconnue" detail={`« ${action} » n'est pas une action des référentiels fournisseurs.`} />;
+  }
+  const commun = {
+    vue: VUE_FOURNISSEURS, module: MODULE_FOURNISSEURS, reference: 'Référentiels', id: ID_REFERENTIELS, chargement, erreurChargement: erreur,
+    motif: 'aucun' as const,
+  };
+  const refus = estAdmin ? null : 'Référentiels fournisseurs : administrateur seulement.';
+  const executer = async (fonction: string, args: Record<string, unknown>) => {
     const { error } = await supabase.rpc(fonction, args);
-    setBusy(false);
-    if (error) { setErreur(error.message); return false; }
-    setMessage(succes);
-    await Promise.all([charger(), onChange()]);
-    return true;
+    return error ? error.message : null;
   };
 
-  const poids = critere?.poids?.trim() ?? '';
-  const enregistrerCritere = () => {
-    if (!critere) return;
-    executer('definir_critere_evaluation', {
-      p_id: critere.id || null, p_libelle: critere.libelle?.trim() || null, p_poids: Number(poids), p_description: critere.description?.trim() || null,
-      p_ordre: Number(critere.ordre || '0'), p_actif: critere.actif !== 'non',
-    }, 'Critère enregistré.').then((ok) => { if (ok) setCritere(null); });
-  };
-  const totalPoids = (criteres ?? []).filter((c) => c.actif).reduce((s, c) => s + c.poids, 0);
-
-  return <div className="grid gap-5 xl:grid-cols-2">
-    {(erreur || message) && <div className="xl:col-span-2">
-      {erreur && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreur}</p>}
-      {message && <p role="status" className="rounded-lg bg-green-50 p-3 text-sm text-green-800">{message}</p>}
-    </div>}
-    <Panneau titre="Catégories de fournisseurs">
-      {categories.length === 0 ? <SansDonnees message="Aucune catégorie" /> :
-        <ul className="divide-y divide-stone-100 text-sm">{categories.map((c) => <li key={c.id} className="flex items-center justify-between gap-2 py-2">
-          <span>{c.libelle} {!c.actif && <Puce teinte="gris">Inactive</Puce>}</span>
-          {estAdmin && <button onClick={() => executer('definir_categorie_fournisseur', { p_id: c.id, p_libelle: c.libelle, p_actif: !c.actif }, c.actif ? 'Catégorie désactivée.' : 'Catégorie réactivée.')}
-            className="rounded border border-stone-300 px-2 py-1 text-xs">{c.actif ? 'Désactiver' : 'Réactiver'}</button>}
-        </li>)}</ul>}
-      {estAdmin && <div className="mt-3 flex flex-wrap items-end gap-2">
-        <label className="text-sm">Nouvelle catégorie<input value={categorie} onChange={(e) => setCategorie(e.target.value)} className={CHAMP} /></label>
-        <button disabled={busy || !categorie.trim()} onClick={() => executer('definir_categorie_fournisseur', { p_libelle: categorie.trim() }, 'Catégorie ajoutée.').then((ok) => { if (ok) setCategorie(''); })}
-          className="rounded-lg bg-orange-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Ajouter la catégorie</button>
-      </div>}
-    </Panneau>
-
-    <Panneau titre="Grille d'évaluation">
-      <p className="mb-2 text-xs text-stone-500">Notes de 1 à 5 par critère ; note globale = moyenne pondérée par les poids, calculée par le serveur. Critères et poids définis par l'administrateur ; les évaluations passées gardent les libellés et poids de leur date.</p>
-      {criteres === null ? <p>Chargement…</p> : criteres.length === 0 ? <SansDonnees message="Grille non définie" detail="Aucune évaluation possible tant que l'administrateur n'a pas défini de critère." /> :
-        <table className="w-full text-sm"><thead><tr className="border-b text-left text-stone-500"><th className="py-2 pr-3">Critère</th><th className="py-2 pr-3">Poids</th><th className="py-2 pr-3">État</th><th /></tr></thead>
-          <tbody>{criteres.map((c) => <tr key={c.id} className="border-b border-stone-100">
-            <td className="py-2 pr-3">{c.libelle}{c.description && <span className="block text-xs text-stone-500">{c.description}</span>}</td>
-            <td className="py-2 pr-3">{c.poids}{c.actif && totalPoids > 0 && <span className="text-xs text-stone-500"> ({Math.round((c.poids / totalPoids) * 100)} %)</span>}</td>
-            <td className="py-2 pr-3"><Puce teinte={c.actif ? 'vert' : 'gris'}>{c.actif ? 'Actif' : 'Inactif'}</Puce></td>
-            <td className="py-2">{estAdmin && <button onClick={() => setCritere({ id: c.id, libelle: c.libelle, description: c.description ?? '', poids: String(c.poids), ordre: String(c.ordre), actif: c.actif ? 'oui' : 'non' })} className="rounded border border-stone-300 px-2 py-1 text-xs">Modifier</button>}</td>
-          </tr>)}</tbody></table>}
-      {estAdmin && !critere && <button onClick={() => setCritere({ actif: 'oui', ordre: String((criteres ?? []).length + 1) })} className="mt-3 rounded border border-stone-300 px-3 py-1 text-xs">Ajouter un critère</button>}
-      {critere && <div role="form" aria-label="Saisie critère" className="mt-3 grid gap-2 rounded-lg bg-stone-50 p-3 sm:grid-cols-2">
-        <label className="text-sm">Libellé *<input value={critere.libelle ?? ''} onChange={(e) => setCritere({ ...critere, libelle: e.target.value })} className={CHAMP} /></label>
-        <label className="text-sm">Poids * (entier positif)<input inputMode="numeric" value={critere.poids ?? ''} onChange={(e) => setCritere({ ...critere, poids: e.target.value })} className={CHAMP} /></label>
-        <label className="text-sm">Description<input value={critere.description ?? ''} onChange={(e) => setCritere({ ...critere, description: e.target.value })} className={CHAMP} /></label>
-        <label className="text-sm">Actif<select value={critere.actif ?? 'oui'} onChange={(e) => setCritere({ ...critere, actif: e.target.value })} className={CHAMP}><option value="oui">Oui</option><option value="non">Non</option></select></label>
-        <div className="flex gap-2 sm:col-span-2">
-          <button disabled={busy || !critere.libelle?.trim() || !/^[1-9]\d*$/.test(poids)} onClick={enregistrerCritere} className="rounded-lg bg-orange-700 px-3 py-1 text-xs font-bold text-white disabled:opacity-50">Enregistrer le critère</button>
-          <button onClick={() => setCritere(null)} className="rounded-lg border border-stone-300 px-3 py-1 text-xs">Annuler</button>
-        </div>
-      </div>}
-    </Panneau>
-  </div>;
+  if (action === 'basculer-categorie') {
+    const c = categories.find((k) => k.id === requete.categorie) ?? null;
+    return (
+      <PageAction
+        {...commun}
+        titre={c ? `${c.actif ? 'Désactiver' : 'Réactiver'} la catégorie ${c.libelle}` : 'Catégorie'}
+        description={c?.actif ? 'La catégorie n\'est plus proposée au classement ; les fournisseurs déjà classés la conservent.' : 'La catégorie est de nouveau proposée au classement.'}
+        libelleConfirmer={c?.actif ? 'Désactiver' : 'Réactiver'}
+        danger={c?.actif}
+        interdit={refus ?? (!chargement && !c ? 'Catégorie introuvable.' : null)}
+        messageSucces={c?.actif ? 'Catégorie désactivée.' : 'Catégorie réactivée.'}
+        onExecuter={() => executer('definir_categorie_fournisseur', { p_id: c?.id, p_libelle: c?.libelle, p_actif: !c?.actif })}
+      />
+    );
+  }
+  if (action === 'categorie') {
+    return (
+      <PageAction
+        {...commun}
+        titre="Ajouter une catégorie de fournisseurs"
+        libelleConfirmer="Ajouter la catégorie"
+        interdit={refus}
+        pret={Boolean(libelle.trim())}
+        messageSucces="Catégorie ajoutée."
+        onExecuter={() => executer('definir_categorie_fournisseur', { p_libelle: libelle.trim() })}
+      >
+        <ChampPage libelle="Libellé *"><input value={libelle} onChange={(e) => setLibelle(e.target.value)} className={CHAMP_FENETRE} /></ChampPage>
+      </PageAction>
+    );
+  }
+  const existant = requete.critere ? criteres.find((k) => k.id === requete.critere) ?? null : null;
+  const poidsValide = /^[1-9]\d*$/.test(critere.poids.trim());
+  const ordreValide = /^\d+$/.test(critere.ordre.trim() || '0');
+  return (
+    <PageAction
+      {...commun}
+      titre={existant ? `Modifier le critère ${existant.libelle}` : 'Ajouter un critère d\'évaluation'}
+      description="Le poids est un entier positif ; un critère inactif n'est plus noté, les évaluations passées gardent leurs poids."
+      libelleConfirmer="Enregistrer le critère"
+      interdit={refus ?? (requete.critere && !chargement && !existant ? 'Critère introuvable.' : null)}
+      pret={Boolean(critere.libelle.trim()) && poidsValide && ordreValide}
+      messageSucces="Critère enregistré."
+      onExecuter={() => executer('definir_critere_evaluation', {
+        p_id: existant?.id ?? null, p_libelle: critere.libelle.trim() || null, p_poids: Number(critere.poids.trim()),
+        p_description: critere.description.trim() || null, p_ordre: Number(critere.ordre.trim() || '0'), p_actif: critere.actif,
+      })}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <ChampPage libelle="Libellé *"><input value={critere.libelle} onChange={(e) => setCritere({ ...critere, libelle: e.target.value })} className={CHAMP_FENETRE} /></ChampPage>
+        <ChampPage libelle="Poids * (entier positif)" erreur={critere.poids && !poidsValide ? 'Entier positif attendu.' : null}>
+          <input inputMode="numeric" value={critere.poids} onChange={(e) => setCritere({ ...critere, poids: e.target.value })} className={CHAMP_FENETRE} />
+        </ChampPage>
+        <ChampPage libelle="Description"><input value={critere.description} onChange={(e) => setCritere({ ...critere, description: e.target.value })} className={CHAMP_FENETRE} /></ChampPage>
+        <ChampPage libelle="Ordre d'affichage" erreur={!ordreValide ? 'Entier attendu.' : null}>
+          <input inputMode="numeric" value={critere.ordre} onChange={(e) => setCritere({ ...critere, ordre: e.target.value })} className={CHAMP_FENETRE} />
+        </ChampPage>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={critere.actif} onChange={(e) => setCritere({ ...critere, actif: e.target.checked })} />Critère actif</label>
+      </div>
+    </PageAction>
+  );
 };

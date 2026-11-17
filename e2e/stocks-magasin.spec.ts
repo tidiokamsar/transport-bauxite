@@ -29,23 +29,43 @@ test.describe('Stocks magasin', () => {
     for (const fonction of ['mouvement_stock', 'annuler_mouvement_stock']) {
       await page.route(`**/rest/v1/rpc/${fonction}`, (route) => { appels.push({ fonction, corps: route.request().postDataJSON() }); return repondre(route, 'x'); });
     }
-    page.on('dialog', (d) => d.accept('Saisie sur le mauvais article'));
     await ouvrir(page);
     await expect(page.getByText('MAG-A 3 · ATL-A 1')).toBeVisible();
     await expect(page.getByText('Sous le seuil')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Sortie', exact: true }).click();
-    const f = page.getByRole('form', { name: 'Saisie stock' });
+    await page.getByRole('link', { name: 'Sortie', exact: true }).click();
+    const f = page.getByRole('form', { name: 'Sortie de stock' });
     await f.getByLabel('Article *').selectOption('a1');
     await f.getByLabel('Depuis *').selectOption('d1');
     await f.getByLabel('Quantité *').fill('2');
     await f.getByLabel('Pièce (bon, ordre de travail)').fill('OT-12');
-    await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    await f.getByRole('button', { name: 'Enregistrer', exact: true }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ fonction: 'mouvement_stock', corps: { p_article: 'a1', p_type: 'exit', p_quantite: 2, p_depot_source: 'd1', p_depot_destination: null, p_reference: 'OT-12' } });
 
-    await page.getByRole('button', { name: 'Annuler MVT-2026-000001' }).click();
+    // Annulation : fiche du mouvement, puis page d'action avec motif obligatoire.
+    await page.goto('/#/stock');
+    await page.getByRole('tab', { name: 'Mouvements' }).click();
+    await page.getByRole('button', { name: 'Fiche MVT-2026-000001' }).click();
+    await expect(page.getByRole('article', { name: 'Fiche MVT-2026-000001' })).toBeVisible();
+    await page.getByRole('link', { name: 'Annuler le mouvement' }).click();
+    const a = page.getByRole('form', { name: 'Annuler le mouvement MVT-2026-000001' });
+    await expect(a.getByRole('button', { name: 'Annuler le mouvement' })).toBeDisabled();
+    await a.getByLabel('Motif *').fill('Saisie sur le mauvais article');
+    await a.getByRole('button', { name: 'Annuler le mouvement' }).click();
     await expect.poll(() => appels.length).toBe(2);
     expect(appels[1]).toMatchObject({ fonction: 'annuler_mouvement_stock', corps: { p_id: 'm1', p_motif: 'Saisie sur le mauvais article' } });
+  });
+
+  test('fiche article : stock par depot, mouvements et historique', async ({ page }) => {
+    await simulerApi(page, jeu);
+    await page.setViewportSize({ width: 1600, height: 1200 });
+    await page.goto('/#/stock/article-a1?onglet=historique');
+    await expect(page.getByRole('article', { name: 'Fiche FLT-001' })).toBeVisible();
+    await expect(page.getByText('Entrée MVT-2026-000001')).toBeVisible();
+    await page.getByRole('tab', { name: /Stock et mouvements/ }).click();
+    await expect(page.getByRole('region', { name: 'Par dépôt' }).getByText('ATL-A')).toBeVisible();
+    await page.getByRole('tab', { name: 'Pièces jointes' }).click();
+    await expect(page.getByText('Pièces jointes non prises en charge pour un article du magasin')).toBeVisible();
   });
 });

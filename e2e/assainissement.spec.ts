@@ -23,15 +23,18 @@ test.describe('Assainissement des ecrans herites', () => {
     await simulerApi(page, { profiles: PROFIL, purchase_orders: [COMMANDE], suppliers: [{ id: 'f1', company_name: 'Fournisseur pieces' }] });
     const appels: Record<string, unknown>[] = [];
     await page.route('**/rest/v1/rpc/annuler_bon_commande', (route) => { appels.push(route.request().postDataJSON()); return repondre(route, 'ok'); });
-    page.on('dialog', (d) => d.accept('Commande en double'));
     await ouvrirAchats(page);
     await expect(page.getByText('BC-2026-00001')).toBeVisible();
     await page.getByRole('button', { name: 'Ouvrir BC-2026-00001' }).click();
-    await page.getByRole('button', { name: 'Annuler le bon' }).click();
+    await page.getByRole('link', { name: 'Annuler le bon' }).click();
+    const f = page.getByRole('form', { name: 'Annuler le bon' });
+    await f.getByLabel('Motif *').fill('Commande en double');
+    await f.getByRole('button', { name: 'Annuler le bon' }).click();
     await expect.poll(() => appels.length).toBe(1);
     expect(appels[0]).toMatchObject({ p_id: 'po1', p_motif: 'Commande en double' });
 
-    await page.getByRole('button', { name: 'Nouveau bon de commande' }).click();
+    await page.goto('/#/purchases');
+    await page.getByRole('link', { name: 'Nouveau bon de commande' }).click();
     await expect(page.getByText('Numéro : attribué à l\'enregistrement.', { exact: false })).toBeVisible();
   });
 

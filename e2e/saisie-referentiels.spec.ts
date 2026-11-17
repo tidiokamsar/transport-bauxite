@@ -279,11 +279,13 @@ test('consultation sans depot : le depot est demande pour preparer le bon', asyn
   await ouvrir(page);
   await page.getByRole('button', { name: 'Stocks & Achats', exact: true }).click();
   await page.getByRole('button', { name: 'Fournisseurs', exact: true }).click();
-  await page.getByRole('tab', { name: 'Consultations' }).click();
-  await page.getByRole('button', { name: 'Ouvrir CONS-2026-00002' }).click();
-  const preparer = page.getByRole('button', { name: 'Préparer le bon de commande' });
+  await page.getByRole('link', { name: 'Consultations' }).click();
+  await page.getByRole('link', { name: 'Fiche CONS-2026-00002' }).click();
+  await page.getByRole('link', { name: 'Préparer le bon de commande' }).click();
+  const f = page.getByRole('form', { name: 'Préparer le bon de commande' });
+  const preparer = f.getByRole('button', { name: 'Préparer le bon de commande' });
   await expect(preparer).toBeDisabled();
-  await page.getByLabel('Dépôt de livraison du bon').selectOption('w1');
+  await f.getByLabel('Dépôt de livraison du bon *').selectOption('w1');
   await preparer.click();
   await expect.poll(() => appels.length).toBe(1);
   expect(appels[0]).toEqual({ p_consultation: 'cs1', p_depot: 'w1' });
