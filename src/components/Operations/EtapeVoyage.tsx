@@ -6,7 +6,7 @@ import { PageAction } from '../ui/PageAction';
 import { ChampPage } from '../ui/PageFormulaire';
 import { lire, trouver } from '../ui/lecture';
 import { formatNombre } from '../Dashboard/indicateurs';
-import { AVEC_MOTIF, AVEC_PESEE, ETATS, actionsPossibles, estEtat, tonnageVoyage, type Etat } from '../Trips/cycle';
+import { AVEC_MOTIF, AVEC_PESEE, ETATS, LIVRES_SANS_TICKET, actionsPossibles, estEtat, tonnageVoyage, type Etat } from '../Trips/cycle';
 import { COLONNES_VOYAGE, type Voyage } from '../Trips/types';
 import { VUE_VOYAGES } from './DetailVoyage';
 
@@ -16,12 +16,9 @@ import { VUE_VOYAGES } from './DetailVoyage';
 // CBG saisi dans le meme geste (rattacher_ticket_cbg, D-078) ; les autres
 // etapes passent par avancer_voyage. Le serveur controle ordre et coherence.
 
-export const versLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+const versLocal = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 const nombre = (s: string) => Number(s.replace(',', '.'));
 const poidsValide = (s: string) => s.trim() !== '' && Number.isFinite(nombre(s)) && nombre(s) >= 0;
-
-/** Etats ou un ticket CBG absent se rattache avec motif (D-078). */
-export const LIVRES_SANS_TICKET: Etat[] = ['WEIGHED_IN', 'DELIVERED', 'ACCEPTED', 'DISPUTED', 'CLOSED'];
 
 const useVoyage = (id: string) => {
   const [voyage, setVoyage] = useState<Voyage | null>(null);

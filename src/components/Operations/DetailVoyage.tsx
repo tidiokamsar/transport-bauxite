@@ -6,11 +6,10 @@ import { Informations, OngletPieces, PageDetail, Relation, type ActionPage } fro
 import { Provenance, Puce, SansDonnees } from '../ui/Panneau';
 import { lire, trouver } from '../ui/lecture';
 import { routeAction, routeDetail, useRoute } from '../ui/routeur';
-import { ETATS, PHASES, actionsPossibles, estEtat, phaseDe } from '../Trips/cycle';
+import { ETATS, LIVRES_SANS_TICKET, PHASES, actionsPossibles, estEtat, phaseDe } from '../Trips/cycle';
 import { VoyageSuivant } from '../Trips/VoyageSuivant';
 import { ListePieces } from '../ui/PiecesJointes';
 import { formatNombre } from '../Dashboard/indicateurs';
-import { LIVRES_SANS_TICKET } from './EtapeVoyage';
 import { IncidentVoyage } from '../Trips/IncidentVoyage';
 import { COLONNES_VOYAGE, type Voyage } from '../Trips/types';
 import {
