@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Panneau, Puce, SansDonnees } from '../ui/Panneau';
 import { ETATS, PHASES, estEtat, phaseDe } from '../Trips/cycle';
 import { FicheVoyage } from '../Trips/FicheVoyage';
+import { routeDetail } from '../ui/routeur';
 import type { Voyage } from '../Trips/types';
 import { VUES_VOYAGES, dansVue, type VueVoyages } from './controle';
 import { FenetreSuspension } from './FenetreSuspension';
@@ -60,7 +61,7 @@ export const VoyagesParEtat = ({
                 const suspendu = suspendus.has(v.id);
                 return (
                   <tr key={v.id} className="cursor-pointer border-b border-stone-100 last:border-0 hover:bg-stone-50" onClick={() => setFiche(v)}>
-                    <td className="py-2 pr-3 font-semibold text-stone-900">{v.reference}</td>
+                    <td className="py-2 pr-3 font-semibold text-stone-900"><a href={routeDetail('trips', v.id)} className="hover:underline">{v.reference}</a></td>
                     <td className="py-2 pr-3">
                       <Puce teinte={PHASES[phaseDe(v.etat)].teinte}>{estEtat(v.etat) ? ETATS[v.etat].libelle : v.etat ?? '—'}</Puce>
                       {suspendu && <span className="ml-1"><Puce teinte="rouge">Suspendu</Puce></span>}

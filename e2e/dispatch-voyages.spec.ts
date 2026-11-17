@@ -135,6 +135,7 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     const incidents = await capturer(page, 'declarer_incident', 'i1');
     await ouvrir(page, 'Voyages & Rotations', 'Voyages & Rotations');
     await page.getByRole('row').filter({ hasText: 'VYG-001' }).click();
+    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
     const fiche = page.getByRole('dialog');
     const suivant = fiche.getByRole('region', { name: 'Voyage suivant' });
     await expect(suivant).toContainText('Recommandé : enchaîner VYG-005');
@@ -165,6 +166,7 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     const enchainements = await capturer(page, 'enchainer_voyage', 't9');
     await ouvrir(page, 'Voyages & Rotations', 'Voyages & Rotations');
     await page.getByRole('row').filter({ hasText: 'VYG-001' }).click();
+    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
     const suivant = page.getByRole('dialog').getByRole('region', { name: 'Voyage suivant' });
     await expect(suivant).toContainText('Recommandé : enchaîner un nouveau voyage sur le même trajet');
     await expect(suivant.getByRole('note')).toContainText('Alpha Test fait l\'objet d\'une sanction en vigueur (Retrait de la conduite, INF-2026-00007)');
@@ -185,6 +187,7 @@ test.describe('Dispatch, voyages et infractions (D-066)', () => {
     await page.route('**/rest/v1/sanctions_infraction*', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'panne simulee' }) }));
     await ouvrir(page, 'Voyages & Rotations', 'Voyages & Rotations');
     await page.getByRole('row').filter({ hasText: 'VYG-001' }).click();
+    await page.getByRole('button', { name: 'Étapes, pesée et ticket' }).click();
     const fiche = page.getByRole('dialog');
     await expect(fiche.getByRole('region', { name: 'Voyage suivant' }).getByRole('alert')).toContainText('Lecture impossible');
     await expect(fiche.getByRole('region', { name: 'Incidents du voyage' }).getByRole('alert')).toContainText('Incidents indisponibles');
