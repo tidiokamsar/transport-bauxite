@@ -134,7 +134,7 @@ cas, sur preuve d'une collecte terrain reelle (decision dediee a chaque fois).
 
 | Tranche | Contenu | Critere d'acceptation |
 |---|---|---|
-| T1 | Fusion de D-083 (pieces jointes) + provenance/idempotence clientId sur le cycle fiches | pgTAP : piece jointe a une ligne, resaisie idempotente ignorée |
+| T1 | Idempotence clientId sur le cycle fiches (`synchroniser_saisies_mobile`) — les pieces jointes D-083 sont deja fusionnees et deployees (correction de l'audit initial) | pgTAP 75 : premier envoi ok, rejeu non reexecute, refus metier a_arbitrer, liste blanche, lecture auteur seul (15 assertions) — FAIT |
 | T2 | Catalogue serveur versionne + ecran web de lecture | catalogue = source documentaire unique, 1 E2E |
 | T3 | Squelette mobile Expo : auth, mes fiches, saisie FR hors ligne, sync idempotente | parcours 1-10 du prompt (creation, hors ligne, redemarrage, sync, apparition web, validation, indicateurs, trace) |
 | T4 | Mobile FP + FC (pointages, distributions) puis cloture et checklist | meme parcours par type |
