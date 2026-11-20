@@ -29,8 +29,8 @@ INSERT INTO public.profiles (id, role, full_name) VALUES
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name;
 
 -- Un bulletin existant, cible de la tentative de modification.
-INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department)
-VALUES ('00000000-0000-4000-b000-0000000000e1', 'TEST-RLS-E1', 'Test', 'RLS', 'Chauffeur', 'Transport');
+INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department, hire_date)
+VALUES ('00000000-0000-4000-b000-0000000000e1', 'TEST-RLS-E1', 'Test', 'RLS', 'Chauffeur', 'Transport', current_date);
 
 INSERT INTO public.payroll (id, payroll_number, employee_id, payroll_period_start,
   payroll_period_end, payment_date, base_salary, gross_salary, net_salary)

@@ -29,8 +29,8 @@ INSERT INTO public.profiles (id, role, full_name, status) VALUES
   ('00000000-0000-4000-9000-000000000013', 'accountant', 'Inactif D-036', 'inactive')
 ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, status = EXCLUDED.status;
 
-INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department)
-VALUES ('00000000-0000-4000-9000-0000000000d1', 'TEST-D036-E1', 'Test', 'D036', 'Chauffeur', 'Transport');
+INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department, hire_date)
+VALUES ('00000000-0000-4000-9000-0000000000d1', 'TEST-D036-E1', 'Test', 'D036', 'Chauffeur', 'Transport', current_date);
 
 -- Etat de depart, avant toute attribution : la matrice du role s'applique.
 SELECT pg_temp.se_connecter('00000000-0000-4000-9000-000000000011');

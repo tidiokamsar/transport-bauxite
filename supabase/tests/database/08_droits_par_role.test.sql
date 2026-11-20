@@ -32,8 +32,8 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
 VALUES ('00000000-0000-4000-9000-0000000000a1', 'TEST-D021', 'Test', 40, 'tipper');
 INSERT INTO public.trips (id, reference, planned_date, vehicle_id)
 VALUES ('00000000-0000-4000-9000-0000000000b1', 'TEST-D021-T1', current_date, '00000000-0000-4000-9000-0000000000a1');
-INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department)
-VALUES ('00000000-0000-4000-9000-0000000000c1', 'TEST-D021-E1', 'Test', 'D021', 'Chauffeur', 'Transport');
+INSERT INTO public.employees (id, employee_number, first_name, last_name, position, department, hire_date)
+VALUES ('00000000-0000-4000-9000-0000000000c1', 'TEST-D021-E1', 'Test', 'D021', 'Chauffeur', 'Transport', current_date);
 
 -- Chauffeur : lit voyages et matrice, ne lit pas les employes, n'ecrit pas.
 SELECT pg_temp.se_connecter('00000000-0000-4000-9000-000000000001');

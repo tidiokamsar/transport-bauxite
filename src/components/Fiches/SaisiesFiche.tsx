@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { supabase } from '../../lib/supabase';
+import { saisirHorsLigne } from '../../lib/offline';
 import { useAuth } from '../../contexts/AuthContext';
 import { BOUTON_PRINCIPAL, BOUTON_SECONDAIRE, CHAMP_FENETRE } from '../ui/Fenetre';
 import { FilAriane } from '../ui/PageDetail';
@@ -21,6 +22,10 @@ import {
 
 const MODULE = 'Fiches terrain';
 
+/** Message affiche quand une saisie est en file : jamais un succes. */
+const messageFile = (clientId?: string) =>
+  `Enregistrement en attente de synchronisation, NON VALIDE (identifiant client ${clientId ?? 'inconnu'}). Ne quittez pas l'ecran avant la confirmation serveur.`;
+
 export interface FicheSaisie { id: string; numero: string; type: string; site_id: string; vehicle_id: string | null; stockage_id: string | null; agent: string | null; version: number; brouillon: Record<string, unknown> | null }
 
 /** Brouillon de la saisie : enregistre sans valider, version suivie (40001 si la fiche a change). */
@@ -32,8 +37,9 @@ export const BoutonBrouillon = ({ fiche, cle, valeurs }: { fiche: FicheSaisie; c
     <div className="sm:col-span-2">
       <button type="button" disabled={enCours} className={BOUTON_SECONDAIRE} onClick={async () => {
         setEnCours(true);
-        const { data, error } = await supabase.rpc('enregistrer_brouillon_fiche', { p_id: fiche.id, p_brouillon: { [cle]: valeurs }, p_version: version });
+        const { data, error, file, clientId } = await saisirHorsLigne('enregistrer_brouillon_fiche', { p_id: fiche.id, p_brouillon: { [cle]: valeurs }, p_version: version });
         setEnCours(false);
+        if (file) { setMessage({ ok: false, texte: messageFile(clientId) }); return; }
         if (error) { setMessage({ ok: false, texte: error.message }); return; }
         setVersion(Number(data));
         setMessage({ ok: true, texte: 'Brouillon enregistré (la fiche passe en saisie en cours).' });
@@ -67,13 +73,14 @@ export const SaisiePointagePage = ({ fiche }: { fiche: FicheSaisie }) => {
       description="Heures moteur (horamètre) et heures productives sont distinctes. Un pointage déjà saisi se corrige avec un motif, tracé au journal de la fiche."
       modifie={modifie} erreurs={Object.values(erreurs)} libelleSoumettre="Enregistrer le pointage"
       onSoumettre={async () => {
-        const { error } = await supabase.rpc('saisir_pointage_fiche', {
+        const { error, file, clientId } = await saisirHorsLigne('saisir_pointage_fiche', {
           p_fiche_id: fiche.id, p_vehicle_id: valeurs.vehicle_id, p_index_debut: nombreSaisi(valeurs.index_debut), p_index_fin: nombreSaisi(valeurs.index_fin),
           p_heures_productives: nombreSaisi(valeurs.heures_productives),
           p_periode_debut: valeurs.periode_debut ? new Date(valeurs.periode_debut).toISOString() : null,
           p_periode_fin: valeurs.periode_fin ? new Date(valeurs.periode_fin).toISOString() : null,
           p_operateur: valeurs.operateur.trim() || null, p_observations: valeurs.observations.trim() || null, p_motif_correction: valeurs.motif.trim() || null,
         });
+        if (file) return { erreur: messageFile(clientId) };
         if (error) return { erreur: error.message };
         poserAnnonce('Pointage enregistré.');
         return { vers: routeDetail(VUE_FICHES, fiche.id) };
@@ -124,7 +131,8 @@ export const SaisieCarburantPage = ({ fiche }: { fiche: FicheSaisie }) => {
         (['index_pompe_debut', 'index_pompe_fin', 'compteur_km', 'horametre'] as const).forEach((k) => { if (valeurs[k] !== '') ligne[k] = nombreSaisi(valeurs[k]); });
         if (valeurs.destinataire_nom.trim()) ligne.destinataire_nom = valeurs.destinataire_nom.trim();
         if (valeurs.observations.trim()) ligne.observations = valeurs.observations.trim();
-        const { error } = await supabase.rpc('saisir_ligne_carburant', { p_fiche_id: fiche.id, p_rang: Number(valeurs.rang), p_ligne: ligne, p_motif_correction: correction ? valeurs.motif.trim() : null });
+        const { error, file, clientId } = await saisirHorsLigne('saisir_ligne_carburant', { p_fiche_id: fiche.id, p_rang: Number(valeurs.rang), p_ligne: ligne, p_motif_correction: correction ? valeurs.motif.trim() : null });
+        if (file) return { erreur: messageFile(clientId) };
         if (error) return { erreur: error.message };
         poserAnnonce('Distribution enregistrée.');
         return { vers: routeDetail(VUE_FICHES, fiche.id) };

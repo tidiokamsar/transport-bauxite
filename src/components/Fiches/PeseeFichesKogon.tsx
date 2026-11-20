@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Save, Send, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { saisirHorsLigne } from '../../lib/offline';
 import { exportToCSV } from '../../lib/exports';
 import { Panneau, Puce, ReferentielVide, SansDonnees } from '../ui/Panneau';
 import { SANS_SITE } from '../ui/referentiels';
@@ -11,7 +12,8 @@ import { CHAMP, dateHeure, nombre, type ContextePesee } from './peseeContexte';
 // releve ce qu'il observe de la pesee CBG. Brouillon enregistre dans le
 // navigateur (cle par fiche), envoi explicite ; l'identifiant de saisie rend
 // le renvoi sans doublon. Correction = nouvelle fiche motivee qui remplace la
-// precedente (conservee). Pas de mode hors ligne complet (D-081).
+// precedente (conservee). Envoi hors ligne file (D-100) : l'identifiant client
+// est transmis au serveur, qui refuse le doublon ; aucun succes n'est simule.
 
 interface ReleveKogon {
   id: string; client_id: string; origine: 'fiche_terrain' | 'rotation'; site_id: string | null; trip_id: string | null; agent: string | null;
@@ -68,10 +70,15 @@ export const PeseeFichesKogon = ({ ctx }: { ctx: ContextePesee }) => {
     let donnees: Record<string, unknown>;
     try { donnees = donneesReleveKogon(x.champs, x.anomalie); } catch (e) { setErreur((e as Error).message); return; }
     setBusy(true);
-    const { data, error } = await supabase.rpc('saisir_releve_terrain_kogon', {
+    const { data, error, file } = await saisirHorsLigne('saisir_releve_terrain_kogon', {
       p_client_id: x.client_id, p_site_id: x.site_id, p_trip_id: x.trip_id || null, p_donnees: donnees,
     });
     setBusy(false);
+    if (file) {
+      enregistrerBrouillon(x); setBrouillons(lireBrouillons());
+      setMessage(`Relevé en file sous ${x.client_id} : NON VALIDÉ tant que le serveur ne l'a pas confirmé. Brouillon conservé.`);
+      return;
+    }
     if (error) { enregistrerBrouillon(x); setBrouillons(lireBrouillons()); setErreur(`${error.message} (brouillon conservé sur ce poste)`); return; }
     supprimerBrouillon(x.client_id); setBrouillons(lireBrouillons());
     setMessage((data as { deja_enregistre?: boolean } | null)?.deja_enregistre ? 'Fiche déjà reçue par le serveur : aucun doublon créé.' : 'Fiche terrain enregistrée.');

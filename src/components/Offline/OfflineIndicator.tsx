@@ -3,13 +3,13 @@ import { Wifi, WifiOff, RefreshCw, AlertCircle, CheckCircle, Clock } from 'lucid
 import { offlineManager, OfflineTransaction } from '../../lib/offline';
 
 export default function OfflineIndicator() {
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [connexion, setConnexion] = useState({ enLigne: navigator.onLine, fileActive: false });
   const [queue, setQueue] = useState<OfflineTransaction[]>([]);
   const [showDetails, setShowDetails] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
-    const unsubscribeConnection = offlineManager.onConnectionChange(setIsOnline);
+    const unsubscribeConnection = offlineManager.onConnectionChange(setConnexion);
     const unsubscribeSync = offlineManager.onSyncUpdate(setQueue);
 
     return () => {
@@ -19,6 +19,10 @@ export default function OfflineIndicator() {
   }, []);
 
   const status = offlineManager.getQueueStatus();
+  // Le voyant suit l'etat reel de la file : une operation en attente ou a
+  // arbitrer reste visiblee meme si le navigateur annonce "en ligne".
+  const fileActive = connexion.fileActive || status.fileActive;
+  const isOnline = connexion.enLigne && !fileActive;
 
   const handleManualSync = async () => {
     setSyncing(true);
@@ -42,20 +46,14 @@ export default function OfflineIndicator() {
     return `Il y a ${Math.floor(diffMins / 1440)} j`;
   };
 
-  const getOperationLabel = (op: string) => {
-    switch (op) {
-      case 'insert': return 'Ajout';
-      case 'update': return 'Modification';
-      case 'delete': return 'Suppression';
-      default: return op;
-    }
-  };
+  const getOperationLabel = (fonction: string) => fonction.replace(/_/g, ' ');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'synced': return <CheckCircle className="w-4 h-4 text-green-600" />;
       case 'syncing': return <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />;
       case 'failed': return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case 'a_arbitrer': return <AlertCircle className="w-4 h-4 text-red-600" />;
       case 'pending': return <Clock className="w-4 h-4 text-orange-600" />;
       default: return null;
     }
@@ -96,7 +94,7 @@ export default function OfflineIndicator() {
               <div className="flex items-center gap-2">
                 {isOnline ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
                 <span className="font-semibold">
-                  {isOnline ? 'Connexion active' : 'Mode hors ligne'}
+                  {fileActive ? 'Operations en attente de validation serveur' : (isOnline ? 'Connexion active' : 'Mode hors ligne')}
                 </span>
               </div>
               <button
@@ -106,9 +104,10 @@ export default function OfflineIndicator() {
                 ✕
               </button>
             </div>
-            {!isOnline && (
+            {fileActive && (
               <p className="text-sm opacity-90 mt-1">
-                Les modifications seront synchronisées automatiquement
+                Les operations filees ne sont pas validees tant que le serveur ne les a pas confirmees.
+                {status.aArbitrer > 0 && ' Les conflits requierent un arbitrage humain.'}
               </p>
             )}
           </div>
@@ -184,7 +183,7 @@ export default function OfflineIndicator() {
                         <div className="flex items-center gap-2 mb-1">
                           {getStatusIcon(transaction.status)}
                           <span className="font-medium text-sm text-gray-900">
-                            {getOperationLabel(transaction.operation)} - {transaction.table}
+                            {getOperationLabel(transaction.fonction)}
                           </span>
                         </div>
                         <p className="text-xs text-gray-600">
