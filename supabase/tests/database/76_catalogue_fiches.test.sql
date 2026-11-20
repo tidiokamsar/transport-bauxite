@@ -28,10 +28,10 @@ ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role, status = EXCLUDED.status;
 -- Structure et contenu initial.
 SELECT has_table('public', 'fiches_catalogue', 'table du catalogue');
 SELECT is((SELECT count(*)::int FROM public.fiches_catalogue), 21, '21 familles initialisees');
-SELECT is((SELECT count(*)::int FROM public.fiches_catalogue WHERE statut = 'deployee'), 3,
-  'trois fiches reellement deployees (FR, FP, FC) — aucune autre marquee terminee');
-SELECT ok((SELECT array_agg(code ORDER BY code) FROM public.v_fiches_catalogue_actives WHERE statut = 'deployee')
-  = ARRAY['FC','FP','FR'], 'versions actives : FR, FP, FC deployees');
+SELECT is((SELECT count(*)::int FROM public.fiches_catalogue WHERE statut = 'deployee'), 10,
+  'dix fiches deployees (FR, FP, FC + vague 1 : FIMM, FRET, FM, FSEC, FACC, FINC, FENV)');
+SELECT is((SELECT count(*)::int FROM public.v_fiches_catalogue_actives WHERE statut = 'deployee'), 10,
+  'dix versions actives deployees (FR, FP, FC + vague 1)');
 SELECT ok((SELECT count(*) = 21 FROM public.v_fiches_catalogue_actives), 'une version active par code');
 SELECT is((SELECT modules_consommateurs FROM public.fiches_catalogue WHERE code = 'FR' AND version = 1),
   ARRAY['trips','dispatch','planning','invoices','contracts'], 'rattachements de la fiche FR conserves');
