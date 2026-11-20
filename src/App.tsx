@@ -18,6 +18,7 @@ import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary';
 import { Embleme } from './components/Brand/Marque';
 import { EVENEMENT_ALLER_A } from './components/ui/navigation';
 import { lireRoute, naviguer, routeListe, useRoute } from './components/ui/routeur';
+import { CatalogueFichesView } from './components/Fiches/CatalogueFichesView';
 
 const lireRouteCourante = () => lireRoute(window.location.hash);
 
@@ -213,6 +214,8 @@ const MainApp = () => {
         return <PurchasesView />;
       case 'suppliers':
         return <SuppliersView />;
+      case 'catalogue-fiches':
+        return <CatalogueFichesView />;
       case 'fiches':
         return <FichesView />;
       case 'mon-poste':

@@ -40,6 +40,7 @@ export const MENU: MenuItem[] = [
   { id: 'trips', label: 'Voyages & Rotations', icon: Route },
   { id: 'kilometrage', label: 'Kilométrage', icon: Gauge },
   { id: 'fiches', label: 'Fiches terrain', icon: ClipboardList },
+  { id: 'catalogue-fiches', label: 'Catalogue des fiches', icon: FileStack },
   { id: 'tickets-cbg', label: 'Pesée CBG', icon: Scale },
   // Espace Operations transport (D-088) : regroupe la chaine sans retirer les
   // acces directs ci-dessus. Les entrees « op-* » sont des alias (ALIAS_MENU)

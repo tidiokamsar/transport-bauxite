@@ -89,12 +89,11 @@ inheremment terrain, l'ecran web reste pour le superviseur.
 | FRE/FST/FTR/FDEM sorties magasin | Registre magasin + circuit achat/reception (D-044, D-053) | Couvert sans fiche | objet web ; fiche de demande/delivery magasin a envisager |
 | FCS cloture de poste | Postes, passation, cloture validee (D-048) | Couvert sans fiche | objet web ; declinaison mobile : cloture superviseur |
 
-**Conclusion d'audit :** les quinze familles demandees existent comme objets
-metier deployes. Le trou n'est pas fonctionnel web : il est l'absence du
-point de collecte mobile et du catalogue unique. Creer des fiches papier pour
-des objets deja saisis au bureau serait de la double saisie, interdite par le
-prompt lui-meme. Les nouvelles fiches du cycle ne seront creees qu'au cas par
-cas, sur preuve d'une collecte terrain reelle (decision dediee a chaque fois).
+**Conclusion d'audit (rectifiee par D-104) :** les quinze familles existent comme objets
+metier deployes et deviennent toutes des fiches du cycle, point d'entree de la
+saisie (demande expresse du proprietaire). Les ecrans web existants gardent la
+supervision et la validation ; les fiches alimentent les memes fonctions serveur,
+sans double table ni double saisie.
 
 ## 4. Architecture cible
 
@@ -138,7 +137,7 @@ cas, sur preuve d'une collecte terrain reelle (decision dediee a chaque fois).
 | T2 | Catalogue serveur versionne + ecran web de lecture | catalogue = source documentaire unique, 1 E2E |
 | T3 | Squelette mobile Expo : auth, mes fiches, saisie FR hors ligne, sync idempotente | parcours 1-10 du prompt (creation, hors ligne, redemarrage, sync, apparition web, validation, indicateurs, trace) |
 | T4 | Mobile FP + FC (pointages, distributions) puis cloture et checklist | meme parcours par type |
-| T5 | Nouvelles fiches terrain justifiees (incident, releve CBG au depot, reception carburant) — une decision chacune | preuve de collecte terrain + matrice a jour |
+| T5 | Construction des 18 fiches manquantes par vagues autonomes (D-104), chacune rattachee a ses fonctions metier | cycle + fonctions + tests par vague, matrice a jour |
 
 Chaque tranche : typecheck/lint/build verts (0 erreur tsc atteint),
 migrations additives rejouees, rejeu des tests existants par le script de

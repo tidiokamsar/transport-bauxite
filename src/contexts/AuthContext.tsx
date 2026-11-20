@@ -217,6 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       'tickets-cbg': 'trips',
       'postes': 'trips',
       'fiches': 'trips',
+      'catalogue-fiches': 'dashboard',
       'planification': 'planning',
       'dispatch': 'trips',
       'operations': 'trips',
