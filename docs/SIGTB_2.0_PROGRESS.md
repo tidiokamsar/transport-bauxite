@@ -139,3 +139,16 @@ Le prompt operationnel le plus recent complete les exigences du CDC et sert de c
 - [Plan de transformation](SIGTB_PLAN_TRANSFORMATION.md)
 
 La decision D-037 remplace D-035 : CBG pese au depot et Kogon integre la piece CBG sans refaire la pesee. La migration D-035 candidate de la PR #45 doit etre adaptee avant fusion ou deploiement. Aucun constat de cet audit ne constitue une recette terrain ou une preuve nouvelle de production. La CI locale de la branche a passe 83 tests unitaires, 44 E2E, le build, 24 migrations et 302 assertions pgTAP; la baseline demeure a 37 erreurs TypeScript et 165 avertissements lint. Les checks GitHub de la PR se sont termines sans etapes executees.
+
+## 7. Transformation integree du 2026-11-19 (lots 0 a 9)
+
+Reference : audit de `origin/main` au commit `36777cc` et six decisions du proprietaire consignees en D-095 a D-100. Les statuts ci-dessous distinguent explicitement preparation, verification et deploiement (CDC 44).
+
+| Lot | Objet | Etat | Preuves | Reste a faire |
+|---|---|---|---|---|
+| 0 | Decisions, alignement du poste, rattrapage autorise | **Deployee** | D-095 a D-101 ; typecheck 0 erreur, lint 0 erreur / 48 avertissements, build OK ; production portee de `3bc7a4b` a `588ba98` apres sauvegarde, 72 fichiers pgTAP verts sur le serveur, release precedente conservee, journal VPS mis a jour | Rien pour ce lot |
+| 1 | Tare de reference versionnee, validee par l'administrateur, figee par rotation | **Prepare et verifie en transaction annulee, non deploye** | Migration `20261120000000_tare_reference.sql` ; scenario complet joue puis annule : proposition, validation admin, figage a 18,5 t, remplacement sans effet retroactif, journal de 5 lignes | Autorisation de deploiement, puis commandes de proposition/validation dans l'interface flotte |
+| 1 bis | File hors ligne existante corrigee et cablee | **Prepare, non deploye** | `src/lib/offline.ts` : plus d'identifiant fictif, liste blanche de fonctions, identifiant client, arbitrage des conflits, indicateur fonde sur la file ; cable sur `SaisiesFiche.tsx` et `PeseeFichesKogon.tsx` ; typecheck et build OK, lint 0 erreur / 43 avertissements | Autorisation de deploiement, verification navigateur hors ligne |
+| 2 a 9 | Continuite des chaines : donnees, indicateurs, finance, pilotage | **A faire** | Matrice `SIGTB_MODULE_COVERAGE_MATRIX.md` : 172 cases partielles, 62 manquantes | Voir le plan par lots livre au proprietaire ; une source de verite par domaine, aucune table dupliquee |
+
+Aucun deploiement des lots 1 et 1 bis n'est execute sans accord explicite du proprietaire, conformement a la regle etablie le 2026-11-16.

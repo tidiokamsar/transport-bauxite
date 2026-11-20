@@ -54,8 +54,8 @@ INSERT INTO public.drivers (id, license_number, license_category, license_expiry
 INSERT INTO public.trips (id, reference, planned_date, vehicle_id, driver_id, departure_site_id, arrival_site_id, etat) VALUES
   ('00000000-0000-4000-9d00-000000000031', 'TEST-D061-V', '2001-09-01', '00000000-0000-4000-9d00-0000000000b1',
    '00000000-0000-4000-9d00-0000000000e1', '00000000-0000-4000-9d00-0000000000a1', '00000000-0000-4000-9d00-0000000000a1', 'IN_TRANSIT');
-INSERT INTO public.employees (id, employee_number, first_name, last_name, "position", department) VALUES
-  ('00000000-0000-4000-9d00-0000000000f1', 'TEST-EMP-D061', 'Fatou', 'Test', 'Chauffeur', 'Operations');
+INSERT INTO public.employees (id, employee_number, first_name, last_name, "position", department, hire_date) VALUES
+  ('00000000-0000-4000-9d00-0000000000f1', 'TEST-EMP-D061', 'Fatou', 'Test', 'Chauffeur', 'Operations', current_date);
 INSERT INTO public.geofence_zones (id, name, zone_type, geometry_type, center_lat, center_lng, radius_meters, site_id) VALUES
   ('00000000-0000-4000-9d00-000000000041', 'TEST-D061 zone B', 'mine', 'circle', 10.5, -13.5, 500, '00000000-0000-4000-9d00-0000000000a2');
 INSERT INTO public.geofence_zones (id, name, zone_type, geometry_type, polygon_coordinates, site_id) VALUES
