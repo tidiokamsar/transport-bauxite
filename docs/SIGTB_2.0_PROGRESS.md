@@ -104,6 +104,11 @@ Colonne « LOT » : lot du CDC section 39 qui portera le travail.
 4. Le LOT 01 n'est pas termine tant que la Tranche 0 n'est pas deployee et
    verifiee et que la CI ne s'execute pas : c'est le premier bloqueur.
 
+## 4bis. Moteur documentaire (D-106)
+
+Plan : `docs/SIGTB_2.0_MOTEUR_DOCUMENTS.md`. Tranches T1 (modeles + generation) a T5 (mobile).
+Classification A/B/C des 21 familles du catalogue. Etat : T1 en construction.
+
 ## 5. Tableau de suivi par lot
 
 | LOT | Intitule | Statut | Dependances | Bloqueurs / risques | PR |
