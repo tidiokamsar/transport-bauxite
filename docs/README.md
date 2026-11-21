@@ -82,3 +82,4 @@ baselines de `.github/ci-baseline.env`.
 | [specs/ADR-035-pesee-double.md](specs/ADR-035-pesee-double.md) | Proposition de conservation des deux pesées Kogon / CBG et blocage de la facturation sur écart |
 | [specs/APPLICATION_MOBILE.md](specs/APPLICATION_MOBILE.md) | Specification de l'application mobile chauffeur (non developpee) |
 - `SIGTB_2.0_FICHES_MATRICE.md` : matrice fiches terrain / modules metiers, architecture mobile et plan T1-T5 (D-102).
+- `SIGTB_2.0_MOTEUR_DOCUMENTS.md` : moteur de fiches et documents officiels, classification A/B/C, circuits de signature, cachets, archivage (D-106).
