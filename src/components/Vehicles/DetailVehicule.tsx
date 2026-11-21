@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Ban, Edit2, FileSignature, RotateCcw, Archive } from 'lucide-react';
+import { Ban, Edit2, FileSignature, RotateCcw, Archive, Scale } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
@@ -7,9 +7,10 @@ import { formatNombre } from '../Dashboard/indicateurs';
 import { Historique } from '../ui/Historique';
 import { Informations, OngletPieces, PageDetail, Relation } from '../ui/PageDetail';
 import { Provenance, Puce, SansDonnees } from '../ui/Panneau';
+import { TareEngin } from './TareEngin';
 import { fusionnerHistoriques, type EvenementHistorique } from '../ui/evenements';
 import { lire, trouver, type Lecture } from '../ui/lecture';
-import { routeAction, routeModifier } from '../ui/routeur';
+import { routeAction, routeDetail, routeModifier } from '../ui/routeur';
 import type { Vehicle } from '../../types/vehicle';
 import {
   COLONNES_VEHICULE, TYPES_DOCUMENT, TYPES_VEHICULE, VUE_VEHICULES, actionsStatut, etatEcheance, libellePropriete, libelleStatut,
@@ -106,6 +107,7 @@ export const DetailVehicule = ({ id }: { id: string }) => {
       introuvable={vehicule.lignes !== null && !v}
       actions={[
         { id: 'modifier', libelle: 'Modifier', icone: <Edit2 className="h-4 w-4" />, visible: peutEcrire && !reforme, ton: 'principal', vers: routeModifier(VUE_VEHICULES, id) },
+        { id: 'tare', libelle: 'Tare de référence', icone: <Scale className="h-4 w-4" />, visible: peutEcrire && !reforme, vers: routeDetail(VUE_VEHICULES, id, 'tare') },
         { id: 'propriete', libelle: v?.propriete ? 'Modifier la propriété' : 'Renseigner la propriété', icone: <FileSignature className="h-4 w-4" />, visible: peutEcrire && !reforme, vers: routeAction(VUE_VEHICULES, id, 'propriete') },
         { id: 'suspendre', libelle: 'Suspendre', icone: <Ban className="h-4 w-4" />, visible: peutEcrire && permis.suspendre, vers: routeAction(VUE_VEHICULES, id, 'suspendre') },
         { id: 'remettre', libelle: 'Remettre en service', icone: <RotateCcw className="h-4 w-4" />, visible: peutEcrire && permis.remettre, vers: routeAction(VUE_VEHICULES, id, 'remettre-en-service') },
@@ -143,6 +145,7 @@ export const DetailVehicule = ({ id }: { id: string }) => {
             </section>
           </div>
         ) },
+        { id: 'tare', libelle: 'Tare de référence', contenu: <TareEngin vehicleId={id} peutEcrire={peutEcrire} /> },
         { id: 'relations', libelle: 'Relations', contenu: (
           <div className="grid gap-4 lg:grid-cols-2">
             <Relation titre="Derniers voyages" lignes={voyages.lignes} erreur={voyages.erreur} cle={(x) => x.id} vide="Aucun voyage"

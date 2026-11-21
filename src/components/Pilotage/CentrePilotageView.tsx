@@ -7,6 +7,7 @@ import { SANS_SITE } from '../ui/referentiels';
 import {
   comparerIndicateurs, FIABILITE, jourIso, lignesExport, lignesExportComparaison, PRUDENCE, type Indicateur,
 } from './pilotage';
+import { ChaineIntegree, TraceabiliteIndicateur } from './ChaineIntegree';
 
 // Centre de pilotage (D-057, D-068) : indicateurs de reference calcules par
 // le serveur, chacun avec sa source, sa periode, sa fiabilite et son heure de
@@ -39,6 +40,7 @@ export const CentrePilotageView = () => {
   const [reference, setReference] = useState<Indicateur[] | null>(null);
   const [erreur, setErreur] = useState('');
   const [erreurFiltres, setErreurFiltres] = useState('');
+  const [detail, setDetail] = useState<Indicateur | null>(null);
 
   const charger = useCallback(async () => {
     setErreur('');
@@ -132,7 +134,10 @@ export const CentrePilotageView = () => {
         <p className="mt-1 text-2xl font-black text-stone-900">{valeurTexte(i)}</p>
         {i.detail && <p className="text-xs text-orange-800">{i.detail}</p>}
         <p className="mt-1 text-xs text-stone-500">Source : {i.source}{i.nature === 'instantane' ? ' · valeur à l\'heure du calcul' : ''}</p>
+        <button onClick={() => setDetail(i)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2 py-1 text-xs font-semibold text-stone-700">Détail et traçabilité</button>
       </div>)}</div>
     </Panneau>)}
+    {detail && <TraceabiliteIndicateur code={detail.code} libelle={detail.libelle} debut={debut} fin={fin} site={site} onFermer={() => setDetail(null)} />}
+    <ChaineIntegree debut={debut} fin={fin} site={site} />
   </div>;
 };

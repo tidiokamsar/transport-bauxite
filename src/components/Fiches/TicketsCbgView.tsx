@@ -6,6 +6,7 @@ import { PeseeRelevesCbg } from './PeseeRelevesCbg';
 import { PeseeFichesKogon } from './PeseeFichesKogon';
 import { PeseeRapprochement } from './PeseeRapprochement';
 import { PeseeAnomalies } from './PeseeAnomalies';
+import { DossierPeseeVoyage } from './DossierPeseeVoyage';
 import type { ContextePesee, VoyageRef } from './peseeContexte';
 import { FilAriane } from '../ui/PageDetail';
 import { ListePieces } from '../ui/PiecesJointes';
@@ -21,12 +22,13 @@ import { naviguer, useRoute } from '../ui/routeur';
 // (#/tickets-cbg/releves, /fiches, /rapprochement?releve=, /anomalies) ; les
 // pieces d'un releve s'ouvrent en page (#/tickets-cbg/pieces?releve=).
 
-type Onglet = 'releves' | 'fiches' | 'rapprochement' | 'anomalies';
+type Onglet = 'releves' | 'fiches' | 'rapprochement' | 'anomalies' | 'dossier';
 const ONGLETS: [Onglet, string][] = [
   ['releves', 'A. Relevés officiels CBG'],
   ['fiches', 'B. Fiches terrain KOGON'],
   ['rapprochement', 'C. Rapprochement'],
   ['anomalies', 'D. Anomalies et validations'],
+  ['dossier', 'E. Dossier de pesée'],
 ];
 
 export const TicketsCbgView = () => {
@@ -90,6 +92,7 @@ export const TicketsCbgView = () => {
       {onglet === 'fiches' && <PeseeFichesKogon ctx={ctx} />}
       {onglet === 'rapprochement' && <PeseeRapprochement key={releveChoisi ?? ''} ctx={ctx} releveInitial={releveChoisi} />}
       {onglet === 'anomalies' && <PeseeAnomalies ctx={ctx} />}
+      {onglet === 'dossier' && <DossierPeseeVoyage voyages={ctx.voyages} />}
     </div>}
   </div>;
 };

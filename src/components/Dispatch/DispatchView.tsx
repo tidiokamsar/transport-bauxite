@@ -279,6 +279,17 @@ export const DispatchView = () => {
     shift: shifts.find((s) => s.id === v.shift_id)?.display_name ?? '—',
   });
 
+  // Acceptation directe de la recommandation telle quelle : aucune derogation
+  // n'est revendiquee ici (D-095). Si la tare de reference manque, le serveur
+  // refuse ; l'utilisateur est renvoye vers la decision motivee, ou la tare est
+  // enregistree, au lieu d'une derogation implicite ou d'une valeur inventee.
+  const messageAcceptation = (e: { code?: string; message: string }) => {
+    const m = messageErreur(e);
+    return m.includes('tare_validee')
+      ? `${m}. Tare de reference absente : enregistrer une tare validee ou utiliser « Refuser / Modifier » avec un motif de derogation journalise.`
+      : m;
+  };
+
   const accepter = async (ids: string[]) => {
     setEnCours(true);
     setErreur('');
@@ -294,9 +305,10 @@ export const DispatchView = () => {
         p_recommandation: instantane(r),
         p_motif: null,
         p_version_attendue: versions.get(id) ?? 0,
+        p_derogation_motif: null,
       });
       if (error) {
-        setErreur(`${referenceDe.get(id) ?? id} : ${messageErreur(error)}`);
+        setErreur(`${referenceDe.get(id) ?? id} : ${messageAcceptation(error)}`);
         break;
       }
     }

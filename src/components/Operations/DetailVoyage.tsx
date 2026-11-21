@@ -12,6 +12,7 @@ import { VoyageSuivant } from '../Trips/VoyageSuivant';
 import { ListePieces } from '../ui/PiecesJointes';
 import { formatNombre } from '../Dashboard/indicateurs';
 import { IncidentVoyage } from '../Trips/IncidentVoyage';
+import { DossierRotation } from '../Trips/DossierRotation';
 import { COLONNES_VOYAGE, type Voyage } from '../Trips/types';
 import {
   COLONNES_JOURNAL, FAMILLES, RESULTATS, SOURCES, STATUTS, avecContexte, contexteDepuisRequete, deFamille, estSuspendu,
@@ -192,6 +193,9 @@ export const DetailVoyage = ({ id }: { id: string }) => {
                 ]} />
               </div>
             ),
+          },
+          {
+            id: 'dossier', libelle: 'Dossier intégré', contenu: <DossierRotation tripId={id} />,
           },
           {
             id: 'affectations', libelle: 'Affectations', compte: journal ? affectations.length : null, contenu: (
