@@ -62,6 +62,11 @@ INSERT INTO public.vehicles (id, registration, brand_model, capacity_tonnes, veh
   ('00000000-0000-4000-a660-0000000000b6', 'TEST-D066-6', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000b7', 'TEST-D066-7', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a3'),
   ('00000000-0000-4000-a660-0000000000b8', 'TEST-D066-8', 'Test', 40, 'tipper', 'active', '00000000-0000-4000-a660-0000000000a1');
+-- Tare validee du camion utilise par l'affectation groupee (D-095) : sans
+-- reference figee, l'affectation est desormais refusee cote serveur.
+INSERT INTO public.tare_references (vehicle_id, tare_tonnes, statut, motif, valide_par, valide_le)
+VALUES ('00000000-0000-4000-a660-0000000000b1', 15, 'validee', 'Tare de test D-066',
+        '00000000-0000-4000-a660-000000000001', now());
 INSERT INTO public.drivers (id, name, license_number, license_category, license_expiry, hire_date, status, site_id) VALUES
   ('00000000-0000-4000-a660-0000000000c1', 'Chauffeur un D-066', 'D066-1', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
   ('00000000-0000-4000-a660-0000000000c2', 'Chauffeur deux D-066', 'D066-2', 'C', current_date + 100, current_date - 100, 'active', '00000000-0000-4000-a660-0000000000a1'),
@@ -128,7 +133,7 @@ SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 1
   'camion deja engage sur le voyage suivant : pas de second enchainement');
 
 SELECT lives_ok($$SELECT public.decider_affectation((SELECT id FROM vs WHERE n = 2), 'acceptee',
-  '00000000-0000-4000-a660-0000000000b2', '00000000-0000-4000-a660-0000000000c2', NULL)$$, 'deuxieme voyage affecte');
+  '00000000-0000-4000-a660-0000000000b2', '00000000-0000-4000-a660-0000000000c2', NULL, p_derogation_motif => 'Derogation tare : test')$$, 'deuxieme voyage affecte');
 SELECT lives_ok($$SELECT pg_temp.livrer_maintenant((SELECT id FROM vs WHERE n = 2))$$, 'le deuxieme voyage est livre');
 SELECT throws_ok($$SELECT public.enchainer_voyage((SELECT id FROM vs WHERE n = 2), NULL, (SELECT id FROM vs WHERE n = 1))$$,
   '22023', NULL, 'le voyage suivant designe doit etre prepare et sans camion');

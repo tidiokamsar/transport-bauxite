@@ -5,6 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSite } from '../../contexts/SiteContext';
 import { PageListe } from '../ui/PageListe';
 import { Provenance, Puce } from '../ui/Panneau';
+import { formatNombre } from '../Dashboard/indicateurs';
 import { routeNouveau, useRoute } from '../ui/routeur';
 import type { ColonneListe, FiltreListe } from '../ui/liste';
 import type { Vehicle } from '../../types/vehicle';
@@ -35,15 +36,20 @@ const ListeVehicules = () => {
   const { hasPermission } = useAuth();
   const { siteId, sites } = useSite();
   const [vehicules, setVehicules] = useState<Vehicle[] | null>(null);
+  const [tares, setTares] = useState<Map<string, number> | null>(null);
   const [erreur, setErreur] = useState('');
   const [heure, setHeure] = useState<Date | null>(null);
 
   const charger = useCallback(async () => {
     let q = supabase.from('v_vehicules').select(COLONNES_VEHICULE).order('registration');
     if (siteId) q = q.eq('site_id', siteId);
-    const { data, error } = await q;
-    setErreur(error ? `Registre indisponible : ${error.message}` : '');
-    setVehicules(error ? null : (data ?? []) as Vehicle[]);
+    const [r, t] = await Promise.all([
+      q,
+      supabase.from('tare_references').select('vehicle_id, tare_tonnes').eq('statut', 'validee'),
+    ]);
+    setErreur(r.error ? `Registre indisponible : ${r.error.message}` : '');
+    setVehicules(r.error ? null : (r.data ?? []) as Vehicle[]);
+    setTares(t.error ? null : new Map(((t.data ?? []) as { vehicle_id: string; tare_tonnes: number }[]).map((x) => [x.vehicle_id, Number(x.tare_tonnes)])));
     setHeure(new Date());
   }, [siteId]);
   useEffect(() => { charger(); }, [charger]);
@@ -60,30 +66,37 @@ const ListeVehicules = () => {
       rendu: (v) => (v.propriete === null ? <Puce teinte="gris">Non renseignée</Puce> : <>{libellePropriete(v.propriete)}
         {v.proprietaire && <span className="block text-xs text-stone-500">{v.proprietaire}{v.contrat_reference ? ` · ${v.contrat_reference}` : ''}</span>}</>) },
     { id: 'contrat', libelle: 'Contrat', valeur: (v) => v.contrat_reference, masquee: true },
+    { id: 'tare', libelle: 'Tare', valeur: (v) => tares?.get(v.id) ?? null,
+      rendu: (v) => (tares === null ? '—' : tares.has(v.id)
+        ? `${formatNombre(tares.get(v.id) as number)} t`
+        : <Puce teinte="orange">Sans tare</Puce>) },
     { id: 'statut', libelle: 'Statut', valeur: (v) => libelleStatut(v.statut_operationnel).libelle,
       rendu: (v) => { const s = libelleStatut(v.statut_operationnel); return <span title={v.statut_admin_motif ?? v.voyage_en_cours ?? undefined}><Puce teinte={s.teinte}>{s.libelle}</Puce></span>; } },
     { id: 'motif', libelle: 'Motif du statut', valeur: (v) => v.statut_admin_motif, masquee: true },
-  ], [nomSite]);
+  ], [nomSite, tares]);
 
   const filtres = useMemo<FiltreListe<Vehicle>[]>(() => [
     { id: 'statut', libelle: 'Statut', options: Object.entries(STATUTS_OPERATIONNELS).map(([k, v]) => ({ valeur: k, libelle: v.libelle })),
       correspond: (v, s) => v.statut_operationnel === s },
+    { id: 'tare', libelle: 'Tare', options: [{ valeur: 'validee', libelle: 'Validée' }, { valeur: 'absente', libelle: 'Sans tare' }],
+      correspond: (v, t) => (tares === null ? false : t === 'validee' ? tares.has(v.id) : !tares.has(v.id)) },
     { id: 'propriete', libelle: 'Propriété', options: [...Object.entries(PROPRIETES).map(([k, v]) => ({ valeur: k, libelle: v })), { valeur: 'non_renseignee', libelle: 'Non renseignée' }],
       correspond: (v, p) => (p === 'non_renseignee' ? v.propriete === null : v.propriete === p) },
     { id: 'type', libelle: 'Type', options: Object.entries(TYPES_VEHICULE).map(([k, v]) => ({ valeur: k, libelle: v })), correspond: (v, t) => v.vehicle_type === t },
-  ], []);
+  ], [tares]);
 
   const compte = (s: StatutOperationnel) => (vehicules ?? []).filter((v) => v.statut_operationnel === s).length;
   const synthese = (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-5" aria-label="Synthèse de la flotte">
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-6" aria-label="Synthèse de la flotte">
       {([
         ['Disponibles', compte('disponible')],
         ['En mission', compte('en_mission')],
         ['Immobilisés ou en maintenance', compte('immobilise') + compte('en_maintenance')],
         ['Suspendus', compte('suspendu')],
         ['Propriété non renseignée', (vehicules ?? []).filter((v) => v.propriete === null && v.statut_operationnel !== 'reforme').length],
-      ] as [string, number][]).map(([l, n]) => (
-        <div key={l} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-carte"><p className="text-sm text-stone-500">{l}</p><p className="text-2xl font-black text-stone-900">{vehicules ? n : '—'}</p></div>
+        ['Sans tare validée', tares === null ? null : (vehicules ?? []).filter((v) => v.statut_operationnel !== 'reforme' && !tares.has(v.id)).length],
+      ] as [string, number | null][]).map(([l, n]) => (
+        <div key={l} className="rounded-2xl border border-stone-200 bg-white p-4 shadow-carte"><p className="text-sm text-stone-500">{l}</p><p className={`text-2xl font-black ${n ? 'text-orange-800' : 'text-stone-900'}`}>{vehicules ? (n ?? '—') : '—'}</p></div>
       ))}
     </section>
   );

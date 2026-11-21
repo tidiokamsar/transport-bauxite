@@ -97,6 +97,12 @@ export const FormulaireVehicule = ({ id }: { id?: string }) => {
         {texte('insurance_expiry', 'Expiration assurance', { type: 'date' })}
         {texte('technical_inspection_expiry', 'Expiration visite technique', { type: 'date' })}
       </SectionFormulaire>
+      {id && (
+        <p className="rounded-lg bg-orange-50 p-3 text-sm text-orange-900">
+          La tare de référence ne se saisit pas dans ce formulaire : elle se propose, se valide (administrateur KOGON) et se retire dans la fiche, onglet « Tare de référence ».
+          <a href={routeDetail(VUE_VEHICULES, id, 'tare')} className="ml-1 font-semibold underline">Ouvrir la tare de référence</a>
+        </p>
+      )}
     </PageFormulaire>
   );
 };

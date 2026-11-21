@@ -9,6 +9,7 @@ import { fusionnerHistoriques, type EvenementHistorique } from '../ui/evenements
 import { identifiantSur, lire, trouver, type Lecture } from '../ui/lecture';
 import { routeAction, routeDetail } from '../ui/routeur';
 import { formatNombre } from '../Dashboard/indicateurs';
+import { DossierFinancier } from './DossierFinancier';
 import {
   ANOMALIES, JOURNAL_FACTURE, NIVEAUX_RELANCE, STATUTS_FACTURE, STATUTS_LIGNE, VUE_FACTURES, VUE_RECONCILIATION, VUE_RECOUVREMENT, actionFactureInterdite,
   libelleFacture, montant, statutLigne, type ActionFacture, type Facture,
@@ -138,6 +139,7 @@ export const DetailFacture = ({ id }: { id: string }) => {
               { libelle: 'Montant', valeur: (l) => montant(l.montant, f.devise) },
             ]} />
         ) },
+        { id: 'dossier', libelle: 'Dossier financier', contenu: <DossierFinancier factureId={id} /> },
         { id: 'relations', libelle: 'Relations', contenu: (
           <div className="grid gap-4 lg:grid-cols-2">
             <Relation titre="Contrat et réconciliation" cle={(x) => x.id} vide="Aucun rattachement visible"

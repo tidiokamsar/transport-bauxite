@@ -119,29 +119,29 @@ SELECT is((SELECT count(*)::integer FROM vs), 4, 'quatre voyages prepares');
 SELECT lives_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 1), 'acceptee',
   '00000000-0000-4000-a870-0000000000b1', '00000000-0000-4000-a870-0000000000c1', '00000000-0000-4000-a870-0000000000e1',
   jsonb_build_object('camion_id', '00000000-0000-4000-a870-0000000000b1', 'chauffeur_id', '00000000-0000-4000-a870-0000000000c1',
-                     'engin_id', '00000000-0000-4000-a870-0000000000e1', 'explications', '[]'::jsonb), NULL, 0)$$,
+                     'engin_id', '00000000-0000-4000-a870-0000000000e1', 'explications', '[]'::jsonb), NULL, 0, p_derogation_motif => 'Derogation tare : test')$$,
   'recommandation acceptee');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 1), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'concurrent', 0)$$,
+  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'concurrent', 0, p_derogation_motif => 'Derogation tare : test')$$,
   '40001', NULL, 'modification concurrente : version perimee refusee');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'acceptee',
   '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c2', NULL,
-  jsonb_build_object('camion_id', '00000000-0000-4000-a870-0000000000b4', 'chauffeur_id', '00000000-0000-4000-a870-0000000000c2'), NULL, 0)$$,
+  jsonb_build_object('camion_id', '00000000-0000-4000-a870-0000000000b4', 'chauffeur_id', '00000000-0000-4000-a870-0000000000c2'), NULL, 0, p_derogation_motif => 'Derogation tare : test')$$,
   '22023', NULL, 'choix different de la recommandation : decision modifiee exigee');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c3', NULL, '{}'::jsonb, 'test habilitation', 0)$$,
+  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c3', NULL, '{}'::jsonb, 'test habilitation', 0, p_derogation_motif => 'Derogation tare : test')$$,
   '22023', NULL, 'chauffeur non habilite refuse');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b3', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'test immobilisation', 0)$$,
+  '00000000-0000-4000-a870-0000000000b3', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'test immobilisation', 0, p_derogation_motif => 'Derogation tare : test')$$,
   '22023', 'Camion immobilise (panne) : affectation refusee', 'camion immobilise refuse');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c1', NULL, '{}'::jsonb, 'test doublon', 0)$$,
+  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c1', NULL, '{}'::jsonb, 'test doublon', 0, p_derogation_motif => 'Derogation tare : test')$$,
   '22023', NULL, 'chauffeur deja affecte a un autre camion refuse');
 SELECT lives_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'Camion le plus proche', 0)$$,
+  '00000000-0000-4000-a870-0000000000b2', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'Camion le plus proche', 0, p_derogation_motif => 'Derogation tare : test')$$,
   'affectation modifiee et motivee');
 SELECT lives_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 2), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b4', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'Changement de camion : crevaison', 1)$$,
+  '00000000-0000-4000-a870-0000000000b4', '00000000-0000-4000-a870-0000000000c2', NULL, '{}'::jsonb, 'Changement de camion : crevaison', 1, p_derogation_motif => 'Derogation tare : test')$$,
   'reaffectation : changement de camion');
 SELECT is((SELECT count(*)::integer FROM public.decisions_dispatch WHERE trip_id = (SELECT id FROM vs WHERE n = 2)), 2,
   'reaffectation : la decision precedente reste au journal');
@@ -151,7 +151,7 @@ SELECT is((SELECT avant->>'vehicle_id' FROM public.decisions_dispatch WHERE trip
 -- Voyage 1 engage : camion et chauffeur ne se partagent pas.
 SELECT lives_ok($$SELECT public.avancer_voyage((SELECT id FROM vs WHERE n = 1), 'AT_LOADING', now(), NULL, '{}'::jsonb)$$, 'voyage 1 au chargement');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 3), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b1', '00000000-0000-4000-a870-0000000000c4', NULL, '{}'::jsonb, 'test engagement', 0)$$,
+  '00000000-0000-4000-a870-0000000000b1', '00000000-0000-4000-a870-0000000000c4', NULL, '{}'::jsonb, 'test engagement', 0, p_derogation_motif => 'Derogation tare : test')$$,
   '22023', 'Camion engage sur un autre voyage avec un autre chauffeur', 'camion engage avec un autre chauffeur : refuse');
 
 -- 5. Suspension, reprise, incident
@@ -163,7 +163,7 @@ SELECT throws_ok($$SELECT public.avancer_voyage((SELECT id FROM vs WHERE n = 1),
 SELECT is((SELECT valeur FROM public.indicateurs_dispatch(current_date, '00000000-0000-4000-a870-0000000000a1', '00000000-0000-4000-a870-0000000000d1')
   WHERE code = 'voyages_suspendus'), 1::numeric, 'indicateur : un voyage suspendu');
 SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 1), 'modifiee',
-  '00000000-0000-4000-a870-0000000000b1', '00000000-0000-4000-a870-0000000000c1', NULL, '{}'::jsonb, 'x', 1)$$,
+  '00000000-0000-4000-a870-0000000000b1', '00000000-0000-4000-a870-0000000000c1', NULL, '{}'::jsonb, 'x', 1, p_derogation_motif => 'Derogation tare : test')$$,
   '40001', NULL, 'la suspension change la version du voyage');
 SELECT lives_ok($$SELECT public.reprendre_voyage((SELECT id FROM vs WHERE n = 1), 'Piste rouverte')$$, 'voyage repris');
 SELECT throws_ok($$SELECT public.reprendre_voyage((SELECT id FROM vs WHERE n = 1), 'Piste rouverte')$$, '22023', NULL, 'reprise sans suspension refusee');
@@ -206,7 +206,7 @@ SELECT throws_ok($$SELECT public.planifier_poste(current_date + 2, '00000000-000
   '42501', NULL, 'hors perimetre : planification refusee');
 SELECT throws_ok($$SELECT public.suspendre_voyage((SELECT id FROM vs WHERE n = 3), 'x')$$, 'P0002', NULL,
   'hors perimetre : voyage introuvable');
-SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 3), 'acceptee', NULL, NULL, NULL, '{}'::jsonb, NULL, 0)$$,
+SELECT throws_ok($$SELECT public.affecter_voyage((SELECT id FROM vs WHERE n = 3), 'acceptee', NULL, NULL, NULL, '{}'::jsonb, NULL, 0, p_derogation_motif => 'Derogation tare : test')$$,
   'P0002', NULL, 'hors perimetre : affectation refusee sans rien reveler');
 SELECT is((SELECT valeur FROM public.indicateurs_dispatch(current_date, '00000000-0000-4000-a870-0000000000a1', '00000000-0000-4000-a870-0000000000d1')
   WHERE code = 'voyages_crees'), 0::numeric, 'hors perimetre : indicateurs vides (RLS)');
@@ -216,7 +216,7 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-a870-000000000003');
 SELECT throws_ok($$SELECT public.planifier_poste(current_date + 3, '00000000-0000-4000-a870-0000000000d1', '00000000-0000-4000-a870-0000000000a1')$$,
   '42501', NULL, 'sans droit d''ecriture : refuse');
 RESET ROLE;
-SELECT ok(NOT has_function_privilege('anon', 'public.affecter_voyage(uuid, text, uuid, uuid, uuid, jsonb, text, integer)', 'EXECUTE')
+SELECT ok(NOT has_function_privilege('anon', 'public.affecter_voyage(uuid, text, uuid, uuid, uuid, jsonb, text, integer, text)', 'EXECUTE')
        AND NOT has_function_privilege('anon', 'public.confirmer_plan_shift(date, uuid, uuid, uuid, numeric, integer, text, integer)', 'EXECUTE')
        AND NOT has_function_privilege('anon', 'public.indicateurs_dispatch(date, uuid, uuid)', 'EXECUTE'),
   'anon : aucune fonction du centre de controle');

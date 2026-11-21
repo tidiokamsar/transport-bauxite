@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ErreurFenetre, Fenetre } from '../ui/Fenetre';
 import { supabase } from '../../lib/supabase';
 import { instantane, type Chauffeur, type Engin, type Recommandation } from './recommandation';
@@ -14,6 +14,15 @@ const CONFIANCE = { elevee: 'élevée', moyenne: 'moyenne', faible: 'faible' } a
 // de la recommandation (contraintes, capacite, duree, confiance).
 
 const CHAMP = 'w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20';
+
+type Controle = {
+  code: string;
+  libelle: string;
+  ok: boolean;
+  bloquant: boolean;
+  detail: string;
+  source: string;
+};
 
 export type ModeDecision = 'modifiee' | 'refusee' | 'reaffectation';
 
@@ -48,7 +57,34 @@ export const FenetreDecision = ({
   const [motif, setMotif] = useState(raison ?? '');
   const [erreur, setErreur] = useState('');
   const [enCours, setEnCours] = useState(false);
+  const [controles, setControles] = useState<Controle[]>([]);
+  const [controlesErreur, setControlesErreur] = useState('');
   const refus = mode === 'refusee';
+
+  useEffect(() => {
+    let actif = true;
+    if (refus || !camion || !chauffeur) {
+      setControles([]);
+      setControlesErreur('');
+      return () => { actif = false; };
+    }
+    supabase.rpc('controles_avant_affectation', {
+      p_trip: recommandation.voyageId,
+      p_vehicle: camion,
+      p_driver: chauffeur,
+      p_loader: engin || null,
+    }).then(({ data, error }) => {
+      if (!actif) return;
+      if (error) {
+        setControles([]);
+        setControlesErreur('Contrôles indisponibles : aucune décision ne doit être prise sur cette base.');
+        return;
+      }
+      setControles((data ?? []) as Controle[]);
+      setControlesErreur('');
+    });
+    return () => { actif = false; };
+  }, [refus, camion, chauffeur, engin, recommandation.voyageId]);
 
   const titre = refus ? 'Refuser la recommandation' : mode === 'reaffectation' ? 'Réaffecter le voyage' : 'Modifier l\'affectation';
 
@@ -66,6 +102,7 @@ export const FenetreDecision = ({
       p_recommandation: instantane(recommandation),
       p_motif: motif,
       p_version_attendue: version,
+      p_derogation_motif: motif,
     });
     setEnCours(false);
     if (error) setErreur(messageErreur(error));
@@ -107,6 +144,27 @@ export const FenetreDecision = ({
               </ul>
             </details>
           </div>
+          {!refus && (controlesErreur || controles.length > 0) && (
+            <div className="rounded-lg border border-stone-200 p-3">
+              <p className="mb-1 font-medium text-stone-700">Contrôles avant affectation</p>
+              {controlesErreur && <p className="text-xs text-red-700">{controlesErreur}</p>}
+              <ul className="space-y-0.5 text-xs">
+                {controles.map((c) => (
+                  <li key={c.code}>
+                    <span className={c.ok ? 'font-medium text-green-700' : c.bloquant ? 'font-medium text-red-700' : 'font-medium text-amber-700'}>
+                      {c.ok ? 'OK' : c.bloquant ? 'BLOQUANT' : 'À VÉRIFIER'}
+                    </span>
+                    {' '}{c.libelle} · {c.detail} · source : {c.source}
+                  </li>
+                ))}
+              </ul>
+              {controles.some((c) => c.code === 'tare_validee' && !c.ok) && (
+                <p className="mt-1 text-xs text-amber-800">
+                  Tare de référence absente : le motif saisi ci-dessous vaut dérogation journalisée. Aucune tare ne sera inventée.
+                </p>
+              )}
+            </div>
+          )}
           {!refus && <p className="text-xs text-stone-500">Un choix différent de la recommandation est enregistré comme « modifiée », avec le motif et les ressources remplacées.</p>}
           {!refus && (
             <>

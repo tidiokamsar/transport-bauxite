@@ -9,6 +9,7 @@ import { MODES_PAIEMENT, STATUTS_PAIEMENT, VUE_PAIEMENTS, montantPaiement, route
 import { DetailPaiement } from './DetailPaiement';
 import { ActionPaiementVue } from './ActionPaiement';
 import { FormulairePaiement } from './FormulairePaiement';
+import { SituationPaiements } from './SituationPaiements';
 
 // Paiements fournisseurs (D-055) au standard des pages (D-090) : SIGTB
 // n'execute aucun paiement. Il enregistre le bon a payer (plafonne au reste
@@ -65,6 +66,8 @@ const ListePaiements = () => {
   ], []);
 
   const synthese = (
+    <div className="space-y-4">
+    <SituationPaiements />
     <Panneau titre="Pièces payables">
       {erreurPieces ? <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{erreurPieces}</p>
         : pieces === null ? <p role="status" className="text-sm text-stone-500">Chargement…</p>
@@ -82,6 +85,7 @@ const ListePaiements = () => {
           )}
       <Provenance source="v_reste_a_payer (D-055) : base moins avoirs, déductions et part réclamée, moins engagé et payé" heure={heure} />
     </Panneau>
+    </div>
   );
 
   return (

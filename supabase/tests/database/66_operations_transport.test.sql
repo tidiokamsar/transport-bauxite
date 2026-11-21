@@ -67,9 +67,9 @@ SELECT pg_temp.se_connecter('00000000-0000-4000-a880-000000000001');
 SET LOCAL ROLE authenticated;
 CREATE TEMP TABLE v1 AS SELECT public.creer_voyage(current_date, '00000000-0000-4000-a880-0000000000a1', '00000000-0000-4000-a880-0000000000a2') AS id;
 SELECT lives_ok($$SELECT public.decider_affectation((SELECT id FROM v1), 'acceptee', '00000000-0000-4000-a880-0000000000b1',
-  '00000000-0000-4000-a880-0000000000c1', NULL)$$, 'affectation');
+  '00000000-0000-4000-a880-0000000000c1', NULL, p_derogation_motif => 'Derogation tare : test')$$, 'affectation');
 SELECT lives_ok($$SELECT public.decider_affectation((SELECT id FROM v1), 'modifiee', '00000000-0000-4000-a880-0000000000b2',
-  '00000000-0000-4000-a880-0000000000c1', NULL, '{}'::jsonb, 'Crevaison du premier camion')$$, 'reaffectation motivee');
+  '00000000-0000-4000-a880-0000000000c1', NULL, '{}'::jsonb, 'Crevaison du premier camion', p_derogation_motif => 'Derogation tare : test')$$, 'reaffectation motivee');
 SELECT lives_ok($$SELECT public.avancer_voyage((SELECT id FROM v1), 'AT_LOADING', now() + interval '1 second', NULL, '{}'::jsonb)$$, 'au chargement');
 SELECT lives_ok($$SELECT public.suspendre_voyage((SELECT id FROM v1), 'Pluie forte')$$, 'suspension');
 SELECT lives_ok($$SELECT public.reprendre_voyage((SELECT id FROM v1), 'Fin de la pluie')$$, 'reprise');
